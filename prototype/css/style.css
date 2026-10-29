@@ -283,6 +283,29 @@ textarea {
   white-space: nowrap;
 }
 
+.signout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: calc(100% - 16px);
+  height: 36px;
+  margin: 4px 8px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--navy-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.signout-btn:hover {
+  background: rgba(209, 52, 56, 0.16);
+  border-color: rgba(255, 138, 140, 0.45);
+  color: #fff;
+}
+
 .app.collapsed .brand-text,
 .app.collapsed .nav-label,
 .app.collapsed .nav-section,

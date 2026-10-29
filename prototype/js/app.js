@@ -68,7 +68,8 @@ function renderNav(s) {
   const who = isSupervisor(s) ? s.supervisor : getOfficer(s, s.currentOfficerId);
   render(
     el('sidebar-foot'),
-    html`<div class="sidebar-user">${avatar(who.name)}<div><strong>${who.name}</strong><span>${isSupervisor(s) ? 'Supervisor' : who.title}</span></div></div>`,
+    html`<div class="sidebar-user">${avatar(who.name)}<div><strong>${who.name}</strong><span>${isSupervisor(s) ? 'Supervisor' : who.title}</span></div></div>
+      <button class="signout-btn" data-action="sign-out" aria-label="Sign out" title="Sign out">${icon('logout', 16)}<span class="nav-label">Sign out</span></button>`,
   );
 }
 
@@ -80,8 +81,7 @@ function renderTopbar(s) {
   );
   render(
     el('topbar-actions'),
-    html`<button class="btn btn-subtle" data-action="sign-out" aria-label="Sign out" title="Sign out">${icon('arrow', 16)}<span class="hide-sm">Sign out</span></button>
-      <button class="icon-btn bell" data-action="alerts-open" aria-label="Alerts, ${unread} unread" aria-controls="alerts">${icon('bell', 18)}${unread ? html`<span class="bell-count" aria-hidden="true">${unread > 9 ? '9+' : unread}</span>` : ''}</button>
+    html`<button class="icon-btn bell" data-action="alerts-open" aria-label="Alerts, ${unread} unread" aria-controls="alerts">${icon('bell', 18)}${unread ? html`<span class="bell-count" aria-hidden="true">${unread > 9 ? '9+' : unread}</span>` : ''}</button>
       <button class="btn btn-ai" data-action="assistant-open">${icon('sparkles', 16)}<span class="hide-sm">Ask SyncAI</span></button>`,
   );
   render(

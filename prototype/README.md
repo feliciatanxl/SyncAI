@@ -22,7 +22,7 @@ Then open **<http://localhost:8765/site/login.html>** and sign in with a demo ac
 
 `serve.py` uses only the Python standard library. It binds to `127.0.0.1` and disables caching so edits appear on refresh. Alternatives: VS Code **Live Server** (open `prototype/site/login.html`), or `npx serve prototype`.
 
-The portal always requires sign-in. Opening `index.html` without signing in sends you to the login page. Each account sees only its own role's view; there is no role switcher. Use **Sign out** in the top bar to switch accounts. Ticking **Keep me signed in** keeps the sign-in after the tab closes; otherwise it lasts for the tab only.
+The portal always requires sign-in. Opening `index.html` without signing in sends you to the login page. Each account sees only its own role's view; there is no role switcher. Use **Sign out** (under your name at the bottom of the sidebar) to switch accounts. Ticking **Keep me signed in** keeps the sign-in after the tab closes; otherwise it lasts for the tab only.
 
 ## Public website
 
