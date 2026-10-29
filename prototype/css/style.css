@@ -173,6 +173,10 @@ textarea {
   overflow-x: hidden;
   z-index: 30;
 }
+/* Keeps a gap above the user divider when the sidebar is full and margin-top:auto collapses to 0. */
+.sidebar nav {
+  padding-bottom: 16px;
+}
 .brand {
   display: flex;
   align-items: center;
