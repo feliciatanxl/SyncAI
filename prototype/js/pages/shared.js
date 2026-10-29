@@ -7,6 +7,7 @@ import { assessRisk, plannedFinish } from '../planner.js';
 import { applyReassignment, rankCandidates, recommendReassignments } from '../simulation.js';
 import { getOfficer, getState, getTask, isOpen, isSupervisor, logActivity, nextId, officerName, update, visibleTasks } from '../state.js';
 import { NOW, workDay, fmtDue, fmtHours, dt } from '../time.js';
+import { settleTimer, startTimer } from '../timer.js';
 import { html, icon, openModal, closeModal, confirmDialog, toast, priorityBadge, riskBadge, sourceTag, avatar } from '../ui.js';
 
 // ---------- small pieces ----------
@@ -48,6 +49,19 @@ export function recCard(s, rec) {
   </article>`;
 }
 
+// ---------- task timer ----------
+
+const loggedTime = (h) => (h * 60 < 1 ? 'less than a minute' : fmtHours(h));
+
+/** Start / stop button for an officer's own open task; empty for everyone else. */
+export function timerButton(s, t, small = false) {
+  if (isSupervisor(s) || t.ownerId !== s.currentOfficerId || !isOpen(t)) return '';
+  const on = !!t.timerStart;
+  return small
+    ? html`<button class="icon-btn sm ${on ? 'timer-on' : ''}" data-action="${on ? 'timer-stop' : 'timer-start'}" data-id="${t.id}" aria-label="${on ? 'Stop' : 'Start'} timer for “${t.title}”" title="${on ? 'Stop timer' : 'Start timer'}">${icon(on ? 'stop' : 'play', 14)}</button>`
+    : html`<button class="btn ${on ? 'btn-danger' : ''}" data-action="${on ? 'timer-stop' : 'timer-start'}" data-id="${t.id}">${icon(on ? 'stop' : 'play', 16)}${on ? 'Stop timer' : 'Start timer'}</button>`;
+}
+
 // ---------- task detail ----------
 
 export function openTaskDetail(id) {
@@ -59,6 +73,8 @@ export function openTaskDetail(id) {
   const fin = isOpen(t) ? plannedFinish(s, t) : null;
   const deps = t.dependsOn.map((d) => getTask(s, d)).filter(Boolean);
   const canEdit = isSupervisor(s) || t.ownerId === s.currentOfficerId;
+  const project = s.projects.find((p) => p.id === t.projectId);
+  const checklist = t.checklist || []; // tasks created by older flows may have none
 
   openModal(
     html`<header class="modal-head">
@@ -79,8 +95,26 @@ export function openTaskDetail(id) {
             <div class="meta"><span>${icon('pin', 14)}${t.location || 'No location'}</span></div>
             <div class="meta"><span>${icon('chart', 14)}Effort ${fmtHours(t.effort)}${t.spent ? ` · ${fmtHours(t.spent)} spent` : ''}${t.actual ? ` · actual ${fmtHours(t.actual)}` : ''}</span></div>
             ${deps.length ? html`<div class="meta"><span>${icon('link', 14)}Depends on: ${deps.map((d) => d.title).join(', ')}</span></div>` : ''}
+            ${project ? html`<div class="meta"><span>${icon('folder', 14)}Project: <a href="#/projects/${project.id}" data-action="modal-close-go" data-href="#/projects/${project.id}">${project.name}</a></span></div>` : ''}
           </div>
         </div>
+        ${checklist.length || canEdit
+          ? html`<section>
+              <h3>Checklist ${checklist.length ? html`<span class="muted small">${checklist.filter((c) => c.done).length}/${checklist.length} done</span>` : ''}</h3>
+              <ul class="checklist">${checklist.map(
+                (c, i) => html`<li><label class="check"><input type="checkbox" data-action="checklist-toggle" data-id="${t.id}" data-i="${i}" ${c.done ? 'checked' : ''} ${canEdit ? '' : 'disabled'} /> <span class="${c.done ? 'is-done' : ''}">${c.text}</span></label>
+                  ${canEdit ? html`<button class="icon-btn sm" data-action="checklist-remove" data-id="${t.id}" data-i="${i}" aria-label="Remove “${c.text}”">${icon('x', 14)}</button>` : ''}</li>`,
+              )}</ul>
+              ${canEdit
+                ? html`<form class="row mt-sm" data-submit="checklist-add" novalidate>
+                    <input type="hidden" name="id" value="${t.id}" />
+                    <label class="sr-only" for="cl-new">New checklist item</label>
+                    <input class="input" id="cl-new" name="text" maxlength="120" placeholder="Add a checklist item" style="flex:1" />
+                    <button class="btn btn-sm" type="submit">${icon('plus', 14)}Add</button>
+                  </form>`
+                : ''}
+            </section>`
+          : ''}
         ${isOpen(t)
           ? html`<section>
               <h3 class="row">${icon('sparkles', 16)} AI priority score: ${sc.score} · ${sc.band.label}</h3>
@@ -95,6 +129,7 @@ export function openTaskDetail(id) {
       <footer class="modal-foot">
         ${canEdit ? html`<button class="btn btn-subtle" data-action="task-delete" data-id="${t.id}">${icon('trash', 16)}Delete</button>` : ''}
         <span class="spacer"></span>
+        ${timerButton(s, t)}
         ${canEdit ? html`<button class="btn" data-action="task-toggle" data-id="${t.id}">${icon('check', 16)}${isOpen(t) ? 'Mark complete' : 'Reopen'}</button>` : ''}
         ${canEdit ? html`<button class="btn btn-primary" data-action="task-edit" data-id="${t.id}">${icon('pencil', 16)}Edit</button>` : ''}
       </footer>`,
@@ -107,6 +142,13 @@ export function openTaskDetail(id) {
 function ownerOptions(s, selected) {
   if (!isSupervisor(s)) return html`<option value="${s.currentOfficerId}">${officerName(s, s.currentOfficerId)}</option>`;
   return s.officers.map((o) => html`<option value="${o.id}" ${o.id === selected ? 'selected' : ''}>${o.name}</option>`);
+}
+
+/** Officers can file work only under projects they own or already have tasks in (plus the task's current project). */
+function projectChoicesFor(s, currentId) {
+  if (isSupervisor(s)) return s.projects;
+  const me = s.currentOfficerId;
+  return s.projects.filter((p) => p.id === currentId || p.ownerId === me || s.tasks.some((x) => x.projectId === p.id && x.ownerId === me));
 }
 
 export function openTaskForm(existing = null, prefill = {}) {
@@ -130,6 +172,7 @@ export function openTaskForm(existing = null, prefill = {}) {
         ...prefill,
       };
   const depChoices = visibleTasks(s).filter((x) => isOpen(x) && x.id !== t.id);
+  const projectChoices = projectChoicesFor(s, t.projectId);
 
   openModal(
     html`<form data-submit="task-save" novalidate>
@@ -161,6 +204,10 @@ export function openTaskForm(existing = null, prefill = {}) {
           <div class="field">
             <label for="f-status">Status</label>
             <select class="select" id="f-status" name="status">${STATUSES.map((x) => html`<option value="${x.id}" ${x.id === t.status ? 'selected' : ''}>${x.label}</option>`)}</select>
+          </div>
+          <div class="field">
+            <label for="f-project">Project</label>
+            <select class="select" id="f-project" name="projectId"><option value="">No project</option>${projectChoices.map((p) => html`<option value="${p.id}" ${p.id === t.projectId ? 'selected' : ''}>${p.name}</option>`)}</select>
           </div>
           <div class="field" data-field="due">
             <label for="f-due">Deadline <span class="req" aria-hidden="true">*</span></label>
@@ -269,8 +316,9 @@ function saveTask(form) {
     safety: fd.get('safety') === 'on',
     impact: fd.get('impactHigh') === 'on' ? 'high' : 'medium',
     dependsOn: deps,
+    projectId: String(fd.get('projectId') || '') || null,
   };
-  if (!CATEGORIES.includes(fields.category) || !PRIORITIES.includes(fields.priority) || !getOfficer(s, fields.ownerId)) {
+  if (!CATEGORIES.includes(fields.category) || !PRIORITIES.includes(fields.priority) || !getOfficer(s, fields.ownerId) || (fields.projectId && !projectChoicesFor(s, getTask(s, id)?.projectId).some((p) => p.id === fields.projectId))) {
     toast('Some fields have invalid values.', 'error');
     return;
   }
@@ -279,6 +327,7 @@ function saveTask(form) {
     if (id) {
       const t = getTask(st, id);
       const wasOpen = isOpen(t);
+      if (fields.status === 'done') settleTimer(t, Date.now());
       Object.assign(t, fields);
       if (wasOpen && !isOpen(t)) t.completedAt = NOW;
       if (!isOpen(t) && !t.actual) t.actual = t.effort;
@@ -287,7 +336,7 @@ function saveTask(form) {
       }
       logActivity(st, `Updated task “${title}”.`);
     } else {
-      st.tasks.push({ id: nextId(st, 't'), spent: 0, source: 'SyncAI', createdAt: NOW, completedAt: fields.status === 'done' ? NOW : null, actual: fields.status === 'done' ? fields.effort : null, ...fields });
+      st.tasks.push({ id: nextId(st, 't'), spent: 0, source: 'SyncAI', checklist: [], createdAt: NOW, completedAt: fields.status === 'done' ? NOW : null, actual: fields.status === 'done' ? fields.effort : null, ...fields });
       logActivity(st, `Created task “${title}” for ${officerName(st, fields.ownerId)}.`);
     }
   });
@@ -338,6 +387,49 @@ function findRec(id) {
 export const sharedActions = {
   'task-new': () => openTaskForm(),
   'task-view': (el) => openTaskDetail(el.dataset.id),
+  'checklist-toggle': (el) => {
+    const { id, i } = el.dataset;
+    update((st) => {
+      const item = getTask(st, id)?.checklist?.[Number(i)];
+      if (item) item.done = !item.done;
+    });
+    openTaskDetail(id);
+    document.querySelector(`[data-action="checklist-toggle"][data-i="${i}"]`)?.focus();
+  },
+  'timer-start': (el) => {
+    const id = el.dataset.id;
+    let title = '';
+    update((st) => {
+      const t = startTimer(st, id, Date.now());
+      title = t?.title || '';
+      if (t) logActivity(st, `Started a timer on “${title}”.`);
+    });
+    toast(`Timer started: ${title}`, 'info');
+    if (el.closest('.modal')) openTaskDetail(id);
+  },
+  'timer-stop': (el) => {
+    const id = el.dataset.id;
+    let h = 0;
+    let title = '';
+    update((st) => {
+      const t = getTask(st, id);
+      title = t?.title || '';
+      h = settleTimer(t, Date.now());
+      if (t) logActivity(st, `Logged ${loggedTime(h)} on “${title}”.`);
+    });
+    toast(`Logged ${loggedTime(h)} on ${title}`);
+    if (el.closest('.modal')) openTaskDetail(id);
+  },
+  'checklist-remove': (el) => {
+    const { id, i } = el.dataset;
+    update((st) => getTask(st, id)?.checklist?.splice(Number(i), 1));
+    openTaskDetail(id);
+    document.getElementById('cl-new')?.focus();
+  },
+  'modal-close-go': (el) => {
+    closeModal();
+    location.hash = el.dataset.href;
+  },
   'task-edit': (el) => {
     const t = getTask(getState(), el.dataset.id);
     if (t) openTaskForm(t);
@@ -351,6 +443,7 @@ export const sharedActions = {
       if (!t) return;
       title = t.title;
       if (isOpen(t)) {
+        settleTimer(t, Date.now());
         t.status = 'done';
         t.completedAt = NOW;
         t.actual = t.actual || Math.max(t.effort, t.spent || 0);
@@ -419,6 +512,17 @@ export const sharedActions = {
 
 export const sharedSubmits = {
   'task-save': saveTask,
+  'checklist-add': (form) => {
+    const id = String(new FormData(form).get('id'));
+    const text = String(new FormData(form).get('text') || '').trim().slice(0, 120);
+    if (!text) return toast('Type a checklist item first.', 'error');
+    update((st) => {
+      const t = getTask(st, id);
+      if (t) (t.checklist ||= []).push({ text, done: false });
+    });
+    openTaskDetail(id);
+    document.getElementById('cl-new')?.focus();
+  },
   'reassign-save': (form) => {
     const fd = new FormData(form);
     const taskId = String(fd.get('taskId'));

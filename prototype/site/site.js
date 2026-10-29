@@ -6,6 +6,7 @@ const DEMO_PASSWORD = 'SyncAI-demo1';
 const DEMO_ACCOUNTS = {
   'officer@syncai.demo': 'officer',
   'supervisor@syncai.demo': 'supervisor',
+  'hq@syncai.demo': 'hq',
 };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PW_RULES = {
@@ -60,7 +61,7 @@ const handlers = {
       return;
     }
     showNotice(form, 'ok', 'Signed in. Opening your workspace…');
-    location.href = '../index.html#/dashboard';
+    location.href = '../index.html';
   },
 
   forgot(form) {
