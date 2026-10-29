@@ -1167,6 +1167,107 @@ textarea {
   min-width: 130px;
 }
 
+/* ---------- Filter tabs, pager, show more ---------- */
+
+.filter-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 18px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.filter-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: var(--text-2);
+  font-weight: 600;
+  font-size: 13.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.filter-tabs button:hover {
+  color: var(--text);
+}
+.filter-tabs button[aria-pressed='true'] {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}
+.tab-count {
+  min-width: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 12px;
+  text-align: center;
+}
+.filter-tabs button[aria-pressed='true'] .tab-count {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.filter-tabs.in-card {
+  padding: 8px 18px 0;
+}
+
+.list-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 18px;
+}
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.pager-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-weight: 600;
+  cursor: pointer;
+}
+.pager-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+.pager-btn[aria-current='page'] {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.pager-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.narrow {
+  max-width: 760px;
+}
+.show-more {
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+}
+.show-more .btn {
+  color: var(--brand);
+}
+
+.task-table .cell-task {
+  min-width: 240px;
+}
+
 /* ---------- Kanban ---------- */
 
 .kanban {
@@ -2247,6 +2348,48 @@ textarea {
   }
   .table .hide-sm {
     display: none;
+  }
+  /* Task rows become cards: tick, title and actions on top, priority / score / due underneath. */
+  .task-table thead {
+    display: none;
+  }
+  .task-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .task-table td {
+    padding: 0;
+    border: 0;
+  }
+  .task-table .cell-task {
+    flex: 1 1 calc(100% - 128px);
+    min-width: 0;
+  }
+  .task-table .cell-act {
+    order: 1;
+  }
+  .task-table .cell-meta {
+    order: 2;
+  }
+  .task-table .cell-first {
+    margin-left: 36px;
+  }
+  .task-table .cell-owner {
+    order: 3;
+    flex-basis: 100%;
+    padding-left: 36px;
+    font-size: 13px;
+    color: var(--text-2);
+  }
+  .filter-tabs {
+    padding: 6px 8px 0;
+  }
+  .list-foot {
+    justify-content: center;
   }
   .rec-actions,
   .rec .why {

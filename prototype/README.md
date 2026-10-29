@@ -84,6 +84,7 @@ Add `?selftest` to any site URL to run the form-validation self-checks in the br
 - **Explainable:** every score, estimate, risk and recommendation shows the reasons behind it.
 - **Human approval:** plans, reassignments and simulations change nothing until a person accepts them. Every approval is logged.
 - **Role-based and privacy-aware:** officers see only their own work. Absences show as MC or leave only, never medical details.
+- **Easy to scan on any screen:** status filter tabs with live counts and numbered pages on the task list; **Show all / Show less** on long lists (schedule, reminders, risk alerts, reassignments, activity log); Settings split into tabs. On phones, task rows become cards and nothing scrolls sideways.
 - **Accessible:** skip link, keyboard navigation, focus trapping in dialogs, labelled controls, `aria-live` updates, and statuses that never rely on colour alone.
 
 ## Demo scenarios
@@ -209,5 +210,5 @@ prototype/
 - **Travel estimate:** the field visit optimiser uses block numbers as a proxy for distance, not real maps or routes.
 - **Greedy scheduler:** fast and explainable, but not mathematically optimal. A production version could use a constraint solver.
 - **Demand-based capacity:** utilisation counts work *due* in a period, so later days look lighter until more work is known.
-- **Desktop-first:** works on mobile, but the week calendar scrolls horizontally on small screens.
+- **Small screens:** every page fits a 375px phone without sideways scrolling, except the week calendar and heatmap, which scroll inside their own card.
 - Tested in current Chromium-based browsers (Edge and Chrome).

@@ -4,7 +4,7 @@
 import { loadState, getState, subscribe, update, storage, isSupervisor, getOfficer, openTasksFor, isOpen } from './state.js';
 import { assessRisk } from './planner.js';
 import { TODAY, NOW, fmtDay, fmtTime } from './time.js';
-import { html, icon, render, avatar, closeModal, trapFocus, toast } from './ui.js';
+import { html, icon, render, avatar, closeModal, trapFocus, toast, expanded } from './ui.js';
 import { ctx } from './ctx.js';
 import { sharedActions, sharedSubmits } from './pages/shared.js';
 import { assistantActions, assistantSubmits, openAssistant, closeAssistant, refreshAssistant } from './pages/assistant.js';
@@ -175,6 +175,12 @@ const globalActions = {
     applyCollapse();
   },
   go: (target) => ctx.navigate(target.dataset.page),
+  'show-more': (target) => {
+    const key = target.dataset.key;
+    if (!expanded.delete(key)) expanded.add(key);
+    renderAll();
+    document.querySelector(`[data-action="show-more"][data-key="${CSS.escape(key)}"]`)?.focus();
+  },
   role: (target) => {
     const role = target.dataset.role;
     if (signedInRole || getState().role === role) return;

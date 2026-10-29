@@ -3,7 +3,7 @@ import { effortAccuracy, scoreTask, explainScore } from '../ai.js';
 import { analyseOfficer, assessRisk, meetingConflicts, teamAnalysis } from '../planner.js';
 import { isOpen, isSupervisor, officerName, openTasksFor, visibleTasks, getOfficer, absenceLabel } from '../state.js';
 import { TODAY, NOW, horizonDays, workDay, datePart, fmtDay, fmtDue, fmtHours, fmtTime } from '../time.js';
-import { html, icon, pct, riskBadge, emptyState } from '../ui.js';
+import { html, icon, pct, riskBadge, emptyState, limitTo, showMore } from '../ui.js';
 import { ctx } from '../ctx.js';
 import { visibleRecs } from './shared.js';
 
@@ -88,7 +88,8 @@ function riskAlerts(s) {
     .filter(({ r }) => (view.riskFilter === 'all' ? r.level !== 'low' : r.level === view.riskFilter))
     .sort((a, b) => (a.r.level === b.r.level ? a.t.due.localeCompare(b.t.due) : a.r.level === 'high' ? -1 : 1));
   if (!rows.length) return emptyState('check', 'No deadlines at this risk level', 'SyncAI re-checks risks whenever tasks, meetings or availability change.');
-  return html`<ul class="list">${rows.map(
+  const key = `ins-risk-${view.riskFilter}`;
+  return html`<ul class="list">${limitTo(key, rows, 5).map(
     ({ t, r }) => html`<li class="list-item" style="align-items:flex-start">
       <span class="stat-icon ${r.level === 'high' ? 'danger' : 'warning'}">${icon('alert', 14)}</span>
       <div class="grow">
@@ -102,7 +103,7 @@ function riskAlerts(s) {
         </div>
       </div>
     </li>`,
-  )}</ul>`;
+  )}</ul>${showMore(key, rows.length, 5, 'alerts')}`;
 }
 
 function accuracyChart(s) {

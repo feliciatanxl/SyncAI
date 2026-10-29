@@ -1,7 +1,11 @@
 import { INTEGRATIONS } from '../data.js';
+import { ctx } from '../ctx.js';
 import { isSupervisor, logActivity, resetState, update, storage } from '../state.js';
 import { fmtDay, fmtTime, toMin } from '../time.js';
-import { html, icon, toast, confirmDialog } from '../ui.js';
+import { html, icon, toast, confirmDialog, filterTabs, limitTo, showMore } from '../ui.js';
+
+const view = { tab: 'integrations' };
+const TABS = [['integrations', 'Integrations'], ['preferences', 'Preferences'], ['privacy', 'Responsible AI'], ['data', 'Data & activity']];
 
 function workingHoursForm(s) {
   const st = s.settings;
@@ -27,8 +31,12 @@ function renderPage(s) {
 
     <p class="notice notice-info">${icon('info', 16)}<span class="grow"><strong>Prototype notice:</strong> no real Microsoft sign-in, Graph calls or Azure OpenAI requests are made. Every connection below is simulated or planned, and all data is fictional and stored only in this browser.</span></p>
 
-    <div class="grid grid-main mt">
-      <div class="stack">
+    <div class="mt">${filterTabs('settings-tab', 'Settings sections', TABS, view.tab)}</div>
+    <div class="mt">${SECTIONS[view.tab](s)}</div>`;
+}
+
+const SECTIONS = {
+  integrations: (s) => html`
         <section class="card" aria-labelledby="int-h">
           <div class="card-head"><h2 id="int-h">Microsoft 365 integrations</h2><span class="muted small">Core &amp; MVP first, then Phase 2, then stretch goals</span></div>
           <div class="card-body grid grid-2" style="gap:12px">
@@ -48,16 +56,14 @@ function renderPage(s) {
               </div>`;
             })}
           </div>
-        </section>
-
-        <section class="card" aria-labelledby="wh-h">
+        </section>`,
+  preferences: (s) => html`
+        <section class="card narrow" aria-labelledby="wh-h">
           <div class="card-head"><h2 id="wh-h">Planning preferences</h2></div>
           <div class="card-body">${workingHoursForm(s)}</div>
-        </section>
-      </div>
-
-      <div class="stack">
-        <section class="card" aria-labelledby="pr-h">
+        </section>`,
+  privacy: () => html`
+        <section class="card narrow" aria-labelledby="pr-h">
           <div class="card-head"><h2 id="pr-h">${icon('shield', 16)} Responsible AI & privacy</h2></div>
           <div class="card-body small">
             <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px">
@@ -68,8 +74,8 @@ function renderPage(s) {
               <li><strong>Deterministic:</strong> the prototype uses rule-based logic, not random or generated output.</li>
             </ul>
           </div>
-        </section>
-
+        </section>`,
+  data: (s) => html`<div class="stack narrow">
         <section class="card" aria-labelledby="dd-h">
           <div class="card-head"><h2 id="dd-h">Demo data</h2></div>
           <div class="card-body stack" style="gap:10px">
@@ -81,12 +87,12 @@ function renderPage(s) {
         <section class="card" aria-labelledby="al-h">
           <div class="card-head"><h2 id="al-h">Approval & activity log</h2></div>
           <div class="card-body flush">
-            <ul class="activity">${s.activity.slice(0, 12).map((x) => html`<li><time>${fmtDay(x.at.slice(0, 10))} ${fmtTime(x.at.slice(11, 16))}</time><span><strong>${x.actor}</strong> · ${x.text}</span></li>`)}</ul>
+            <ul class="activity">${limitTo('settings-activity', s.activity, 8).map((x) => html`<li><time>${fmtDay(x.at.slice(0, 10))} ${fmtTime(x.at.slice(11, 16))}</time><span><strong>${x.actor}</strong> · ${x.text}</span></li>`)}</ul>
+            ${showMore('settings-activity', s.activity.length, 8, 'entries')}
           </div>
         </section>
-      </div>
-    </div>`;
-}
+      </div>`,
+};
 
 function saveSettings(form) {
   const fd = new FormData(form);
@@ -126,6 +132,11 @@ export default {
   roles: ['officer', 'supervisor'],
   render: renderPage,
   actions: {
+    'settings-tab': (el) => {
+      view.tab = el.dataset.value;
+      ctx.rerender();
+      document.querySelector(`[data-action="settings-tab"][data-value="${el.dataset.value}"]`)?.focus();
+    },
     'reset-demo': async () => {
       const ok = await confirmDialog({ title: 'Reset demo data?', body: 'All tasks, plans, appointments and approvals return to the original sample data.', confirmLabel: 'Reset data', danger: true });
       if (!ok) return;

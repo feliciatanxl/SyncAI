@@ -3,7 +3,7 @@ import { assessRisk, teamAnalysis } from '../planner.js';
 import { getState, getTask, isOpen, openTasksFor, remainingHours, logActivity, officerName, update, absenceLabel } from '../state.js';
 import { applyReassignment, rankCandidates } from '../simulation.js';
 import { NOW, fmtDay, fmtDue, fmtHours } from '../time.js';
-import { html, icon, avatar, capacityBadge, meter, pct, riskBadge, priorityBadge, emptyState, toast, confirmDialog } from '../ui.js';
+import { html, icon, avatar, capacityBadge, meter, pct, riskBadge, priorityBadge, emptyState, toast, confirmDialog, limitTo, showMore } from '../ui.js';
 import { ctx } from '../ctx.js';
 import { openReassignDialog, recCard, visibleRecs } from './shared.js';
 
@@ -84,7 +84,7 @@ function officerDetail(s, a) {
         <h3>Open tasks</h3>
         <ul class="list mt-sm" style="border:1px solid var(--border);border-radius:8px">
           ${open.length
-            ? open.map((t) => {
+            ? limitTo(`team-open-${a.officer.id}`, open, 5).map((t) => {
                 const r = assessRisk(s, t);
                 return html`<li class="list-item" style="padding:8px 12px"><div class="grow">
                   <button class="task-title title" data-action="task-view" data-id="${t.id}">${t.title}</button>
@@ -93,6 +93,7 @@ function officerDetail(s, a) {
               })
             : html`<li class="list-item">No open tasks.</li>`}
         </ul>
+        ${showMore(`team-open-${a.officer.id}`, open.length, 5, 'open tasks')}
       </div>
     </div>
   </section>`;
@@ -131,7 +132,7 @@ function renderPage(s) {
         <div class="card-head"><h2 id="rc-h"><span class="ai-label">${icon('sparkles', 16)}Reassignment recommendations</span></h2>
           ${recs.length > 1 ? html`<button class="btn btn-sm" data-action="rec-accept-all">Accept all</button>` : ''}</div>
         <div class="card-body">
-          ${recs.length ? recs.map((r) => recCard(s, r)) : emptyState('check', 'No reassignments needed', 'SyncAI will suggest moves when an officer is overloaded or unavailable.')}
+          ${recs.length ? html`${limitTo('team-recs', recs, 3).map((r) => recCard(s, r))}${showMore('team-recs', recs.length, 3, 'recommendations')}` : emptyState('check', 'No reassignments needed', 'SyncAI will suggest moves when an officer is overloaded or unavailable.')}
         </div>
       </section>
     </div>

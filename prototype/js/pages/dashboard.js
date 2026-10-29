@@ -2,7 +2,7 @@ import { explainScore, scoreTask } from '../ai.js';
 import { analyseOfficer, assessRisk, meetingConflicts, schedule, smartReminders, teamAnalysis } from '../planner.js';
 import { getOfficer, getTask, isOpen, isSupervisor, openTasksFor, officerName, update, absenceLabel } from '../state.js';
 import { TODAY, NOW, datePart, fmtDue, fmtHours, fmtTime, fmtLongDay, relDay, timePart, toMin } from '../time.js';
-import { html, icon, avatar, priorityBadge, riskBadge, capacityBadge, meter, pct, emptyState, sourceTag, toast } from '../ui.js';
+import { html, icon, avatar, priorityBadge, riskBadge, capacityBadge, meter, pct, emptyState, sourceTag, toast, limitTo, showMore } from '../ui.js';
 import { ctx } from '../ctx.js';
 import { recCard, scorePill, visibleRecs } from './shared.js';
 
@@ -36,13 +36,15 @@ function agenda(s, officerId) {
     ...blocks.filter((b) => b.date === TODAY).map((b) => ({ kind: 'task', start: b.start, end: b.end, b })),
     ...schedule(s, officerId).caps[0].meetings.map((m) => ({ kind: 'meeting', start: m.start, end: m.end, m })),
     { kind: 'lunch', start: s.settings.lunchStart, end: s.settings.lunchEnd },
-  ].sort((a, b) => a.start.localeCompare(b.start));
+  ]
+    .filter((it) => it.kind !== 'task' || getTask(s, it.b.taskId))
+    .sort((a, b) => a.start.localeCompare(b.start));
   const conflicts = new Set(meetingConflicts(s, officerId, TODAY).flat().map((m) => m.id));
 
   return html`
     ${plan ? '' : html`<p class="notice notice-info small" style="margin:0 18px 8px">${icon('sparkles', 14)}<span>Task blocks below are SyncAI suggestions. Generate and accept a plan to confirm them.</span></p>`}
     <ul class="timeline">
-      ${items.map((it) => {
+      ${limitTo('dash-agenda', items, 5).map((it) => {
         if (it.kind === 'lunch') return html`<li><time>${it.start}</time><div class="slot lunch"><strong>Lunch break</strong></div></li>`;
         if (it.kind === 'meeting')
           return html`<li><time>${it.start}</time><div class="slot meeting">
@@ -50,13 +52,13 @@ function agenda(s, officerId) {
             <div class="meta"><span>${fmtTime(it.start)}–${fmtTime(it.end)}</span><span>${it.m.location}</span>${sourceTag('Outlook')}${conflicts.has(it.m.id) ? html`<span class="badge badge-danger">${icon('alert', 12)}Clash</span>` : ''}</div>
           </div></li>`;
         const t = getTask(s, it.b.taskId);
-        if (!t) return '';
         return html`<li><time>${it.start}</time><button class="slot task" style="text-align:left;width:100%;border-top:0;border-right:0;border-bottom:0;cursor:pointer" data-action="task-view" data-id="${t.id}">
           <strong>${t.title}${it.b.parts > 1 ? ` (part ${it.b.part}/${it.b.parts})` : ''}</strong>
           <div class="meta"><span>${fmtTime(it.start)}–${fmtTime(it.end)}</span>${priorityBadge(t.priority)}<span class="badge ${plan?.status === 'accepted' ? 'badge-success' : 'badge-ai'}">${plan?.status === 'accepted' ? 'Accepted' : plan ? 'Draft' : 'Suggested'}</span></div>
         </button></li>`;
       })}
-    </ul>`;
+    </ul>
+    ${showMore('dash-agenda', items.length, 5, 'schedule items')}`;
 }
 
 function remindersCard(s, me) {
@@ -66,7 +68,7 @@ function remindersCard(s, me) {
   return html`<section class="card" aria-labelledby="rem-h">
     <div class="card-head"><h2 id="rem-h"><span class="ai-label">${icon('bell', 16)}Smart reminders</span></h2><span class="muted small">Based on importance and prep time</span></div>
     <div class="card-body flush"><ul class="list">
-      ${list.map((r) => {
+      ${limitTo('dash-reminders', list, 3).map((r) => {
         const t = getTask(s, r.taskId);
         const on = set.has(r.key);
         return html`<li class="list-item" style="align-items:flex-start">
@@ -78,7 +80,7 @@ function remindersCard(s, me) {
           <button class="btn btn-sm ${on ? 'btn-subtle' : ''}" data-action="reminder-toggle" data-key="${r.key}" aria-pressed="${on}">${on ? 'Set ✓' : 'Remind me'}</button>
         </li>`;
       })}
-    </ul></div>
+    </ul>${showMore('dash-reminders', list.length, 3, 'reminders')}</div>
   </section>`;
 }
 
