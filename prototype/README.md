@@ -13,21 +13,16 @@ You need any static web server, because ES modules do not load from `file://`.
 python prototype/serve.py
 ```
 
-Then open **<http://localhost:8765>**.
+Then open **<http://localhost:8765/site/login.html>** and sign in with a demo account (password `SyncAI-demo1`):
 
-`serve.py` uses only the Python standard library. It binds to `127.0.0.1` and disables caching so edits appear on refresh. Alternatives: VS Code **Live Server**, or `npx serve prototype`.
-
-Demo links:
-
-| Link | Opens |
+| Email | Opens |
 | --- | --- |
-| `http://localhost:8765/?role=officer#/dashboard` | Officer view (Aisyah Rahman) |
-| `http://localhost:8765/?role=supervisor#/dashboard` | Supervisor view (Jennifer Ong) |
-| `http://localhost:8765/?role=supervisor#/simulator` | What-If Simulator |
+| `officer@syncai.demo` | Officer view (Aisyah Rahman) |
+| `supervisor@syncai.demo` | Supervisor view (Jennifer Ong) |
 
-Signing in through the website (`site/login.html`) locks the portal to that account's role: officers see only the officer view and supervisors only the supervisor view. The role toggle is replaced by **Sign out**, and `?role=` links cannot override it. Ticking **Keep me signed in** keeps the sign-in after the tab closes; otherwise it lasts for the tab only.
+`serve.py` uses only the Python standard library. It binds to `127.0.0.1` and disables caching so edits appear on refresh. Alternatives: VS Code **Live Server** (open `prototype/site/login.html`), or `npx serve prototype`.
 
-Opened directly without signing in, the portal keeps the **Officer / Supervisor** demo toggle in the top bar so the demo links above still work.
+The portal always requires sign-in. Opening `index.html` without signing in sends you to the login page. Each account sees only its own role's view; there is no role switcher. Use **Sign out** in the top bar to switch accounts. Ticking **Keep me signed in** keeps the sign-in after the tab closes; otherwise it lasts for the tab only.
 
 ## Public website
 
@@ -36,16 +31,9 @@ Opened directly without signing in, the portal keeps the **Officer / Supervisor*
 | Page | What it does |
 | --- | --- |
 | `site/index.html` | Landing page. "Request a demo" validates the form and shows a thank-you; nothing is sent. |
-| `site/login.html` | Email and password sign-in, a mock **Sign in with Microsoft** button, and one-click demo accounts. A correct sign-in opens the portal locked to that role. |
+| `site/login.html` | Email and password sign-in, a mock **Sign in with Microsoft** button, and one-click demo accounts. A correct sign-in opens the portal in that account's role. |
 | `site/forgot-password.html` | Asks for an email and always gives the same reply, so it never reveals whether an account exists. Shows a prototype link to the reset page. |
 | `site/reset-password.html` | New password with live rule checks (12+ characters, mixed case, number, symbol) and a confirm field. |
-
-Demo accounts (password `SyncAI-demo1`):
-
-| Email | Opens |
-| --- | --- |
-| `officer@syncai.demo` | Officer view |
-| `supervisor@syncai.demo` | Supervisor view |
 
 Add `?selftest` to any site URL to run the form-validation self-checks in the browser console.
 
@@ -111,7 +99,7 @@ Use **Settings → Reset demo data** before a demo. Dates are generated relative
 
 ### 4. Team overload and reassignment (Supervisor, ~2 min)
 
-1. Switch to **Supervisor**. The Team Briefing shows Marcus is overloaded and Ravi is on MC.
+1. **Sign out** and sign in as `supervisor@syncai.demo`. The Team Briefing shows Marcus is overloaded and Ravi is on MC.
 2. Open **Team Workload** to see the heatmap and the reassignment recommendations. Each one explains why the task is at risk and why the receiving officer fits: skills, free time before the deadline, zone, and a check that the move won't make their other work late.
 3. **Accept**, **Modify** (choose another officer) or **Dismiss**.
 
@@ -202,7 +190,7 @@ prototype/
 
 ## Known limitations
 
-- **Mock sign-in:** the website's login checks a demo password in the browser and stores only the role in `sessionStorage` / `localStorage` (key `syncai.session`). It is not real access control: anyone can open the portal directly or edit that value. Production would use Entra ID role claims.
+- **Mock sign-in:** the website's login checks a demo password in the browser and stores only the role in `sessionStorage` / `localStorage` (key `syncai.session`). The portal refuses to open without it, but this is not real access control: anyone can set that value in the browser's developer tools. Production would use Entra ID role claims.
 - **Simulated only:** no Microsoft Entra ID sign-in, Microsoft Graph, Teams notifications or Azure OpenAI. "Accept plan" and notifications are mock.
 - **Fixed demo clock:** "now" is 08:30 on the current working day. Data is re-seeded automatically on a new day, which discards earlier changes.
 - **Single browser:** state lives in `localStorage` per browser and is not shared between users or devices.

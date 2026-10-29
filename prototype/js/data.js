@@ -82,7 +82,7 @@ export const WEEKLY_TREND = {
  * simulated in the prototype; the phase reflects the product roadmap.
  */
 export const INTEGRATIONS = [
-  { id: 'entra', name: 'Microsoft Entra ID + MSAL', icon: 'shield', phase: 'Core', data: 'Sign-in, identity and Officer / Supervisor role claims.', ai: ['Role-based views', 'Access control'], demo: 'Website sign-in locks the role; role switcher when not signed in' },
+  { id: 'entra', name: 'Microsoft Entra ID + MSAL', icon: 'shield', phase: 'Core', data: 'Sign-in, identity and Officer / Supervisor role claims.', ai: ['Role-based views', 'Access control'], demo: 'Website sign-in decides the role; the portal requires sign-in' },
   { id: 'outlook', name: 'Outlook Calendar (Microsoft Graph)', icon: 'calendar', phase: 'Core · MVP', data: "Reads officers' meetings and free/busy time; writes approved plan blocks.", ai: ['Dynamic time-blocking', 'Conflict detection', 'Emergency rescheduling', 'Realistic daily plans'], demo: 'Mock meetings in the Smart Planner' },
   { id: 'todo', name: 'Microsoft To Do (Microsoft Graph)', icon: 'check-square', phase: 'Core · MVP', data: 'Imports tasks with descriptions, deadlines and status; can sync updates back.', ai: ['Task categorisation', 'Priority scoring', 'Effort estimation', 'Daily task selection'], demo: 'Tasks tagged “To Do”' },
   { id: 'openai', name: 'Azure OpenAI', icon: 'sparkles', phase: 'Core', data: 'Natural-language task extraction, explanations and summaries.', ai: ['Natural-language tasks', 'Meeting-to-task extraction', 'Briefings', 'Ask SyncAI'], demo: 'Deterministic local rules stand in for the model' },
