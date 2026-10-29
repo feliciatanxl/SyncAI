@@ -25,6 +25,18 @@ const NAV = [
   { section: 'System', ids: ['settings'] },
 ];
 
+// Set by site/login.html. When present, the portal is locked to the signed-in role.
+const SESSION_KEY = 'syncai.session';
+function readSession() {
+  try {
+    const role = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
+    return role === 'officer' || role === 'supervisor' ? role : null;
+  } catch {
+    return null;
+  }
+}
+const signedInRole = readSession();
+
 let current = dashboard;
 const el = (id) => document.getElementById(id);
 const allowed = (page, s) => page.roles.includes(s.role);
@@ -68,10 +80,12 @@ function renderTopbar(s) {
   );
   render(
     el('topbar-actions'),
-    html`<div class="segmented" role="group" aria-label="Demo role">
-        <button data-action="role" data-role="officer" aria-pressed="${s.role === 'officer'}">${icon('user', 14)}<span class="hide-sm">Officer</span></button>
-        <button data-action="role" data-role="supervisor" aria-pressed="${s.role === 'supervisor'}">${icon('users', 14)}<span class="hide-sm">Supervisor</span></button>
-      </div>
+    html`${signedInRole
+        ? html`<button class="btn btn-subtle" data-action="sign-out" aria-label="Sign out" title="Sign out">${icon('arrow', 16)}<span class="hide-sm">Sign out</span></button>`
+        : html`<div class="segmented" role="group" aria-label="Demo role">
+            <button data-action="role" data-role="officer" aria-pressed="${s.role === 'officer'}">${icon('user', 14)}<span class="hide-sm">Officer</span></button>
+            <button data-action="role" data-role="supervisor" aria-pressed="${s.role === 'supervisor'}">${icon('users', 14)}<span class="hide-sm">Supervisor</span></button>
+          </div>`}
       <button class="icon-btn bell" data-action="alerts-open" aria-label="Alerts, ${unread} unread" aria-controls="alerts">${icon('bell', 18)}${unread ? html`<span class="bell-count" aria-hidden="true">${unread > 9 ? '9+' : unread}</span>` : ''}</button>
       <button class="btn btn-ai" data-action="assistant-open">${icon('sparkles', 16)}<span class="hide-sm">Ask SyncAI</span></button>`,
   );
@@ -85,7 +99,7 @@ function restricted() {
   return html`<section class="card restricted">${html`<div class="empty">
     <div class="empty-icon">${icon('lock', 28)}</div>
     <h3>Supervisor access only</h3>
-    <p>${current.title} shows other officers' workload, so it is limited to supervisors. Switch to the Supervisor role in the top bar to explore it in this demo.</p>
+    <p>${current.title} shows other officers' workload, so it is limited to supervisors. ${signedInRole ? 'Sign out and sign in with a supervisor account to view it.' : 'Switch to the Supervisor role in the top bar to explore it in this demo.'}</p>
     <a class="btn btn-primary" href="#/dashboard">Back to dashboard</a>
   </div>`}</section>`;
 }
@@ -163,13 +177,25 @@ const globalActions = {
   go: (target) => ctx.navigate(target.dataset.page),
   role: (target) => {
     const role = target.dataset.role;
-    if (getState().role === role) return;
+    if (signedInRole || getState().role === role) return;
     update((s) => (s.role = role));
     toast(role === 'supervisor' ? 'Viewing as Jennifer Ong (Supervisor)' : 'Viewing as Aisyah Rahman (Officer)', 'info');
   },
+  'sign-out': () => {
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_KEY);
+    } catch {
+      /* ignore */
+    }
+    location.href = 'site/login.html';
+  },
   'reset-demo-hard': () => {
     try {
+      // Keep a remembered sign-in; only the demo data is reset.
+      const session = localStorage.getItem(SESSION_KEY);
       localStorage.clear();
+      if (session) localStorage.setItem(SESSION_KEY, session);
     } catch {
       /* ignore */
     }
@@ -239,8 +265,8 @@ ctx.navigate = (id) => {
 ctx.openAssistant = openAssistant;
 
 loadState();
-// Demo links: ?role=supervisor or ?role=officer opens the app in that role.
-const roleParam = new URLSearchParams(location.search).get('role');
+// Demo links: ?role=supervisor or ?role=officer opens the app in that role, unless signed in.
+const roleParam = signedInRole || new URLSearchParams(location.search).get('role');
 if ((roleParam === 'supervisor' || roleParam === 'officer') && getState().role !== roleParam) update((s) => (s.role = roleParam));
 applyCollapse();
 subscribe(renderAll);

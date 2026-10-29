@@ -25,7 +25,9 @@ Demo links:
 | `http://localhost:8765/?role=supervisor#/dashboard` | Supervisor view (Jennifer Ong) |
 | `http://localhost:8765/?role=supervisor#/simulator` | What-If Simulator |
 
-Switch roles at any time with the **Officer / Supervisor** toggle in the top bar.
+Signing in through the website (`site/login.html`) locks the portal to that account's role: officers see only the officer view and supervisors only the supervisor view. The role toggle is replaced by **Sign out**, and `?role=` links cannot override it. Ticking **Keep me signed in** keeps the sign-in after the tab closes; otherwise it lasts for the tab only.
+
+Opened directly without signing in, the portal keeps the **Officer / Supervisor** demo toggle in the top bar so the demo links above still work.
 
 ## Public website
 
@@ -34,7 +36,7 @@ Switch roles at any time with the **Officer / Supervisor** toggle in the top bar
 | Page | What it does |
 | --- | --- |
 | `site/index.html` | Landing page. "Request a demo" validates the form and shows a thank-you; nothing is sent. |
-| `site/login.html` | Email and password sign-in, a mock **Sign in with Microsoft** button, and one-click demo accounts. A correct sign-in opens the portal in that role. |
+| `site/login.html` | Email and password sign-in, a mock **Sign in with Microsoft** button, and one-click demo accounts. A correct sign-in opens the portal locked to that role. |
 | `site/forgot-password.html` | Asks for an email and always gives the same reply, so it never reveals whether an account exists. Shows a prototype link to the reset page. |
 | `site/reset-password.html` | New password with live rule checks (12+ characters, mixed case, number, symbol) and a confirm field. |
 
@@ -199,7 +201,7 @@ prototype/
 
 ## Known limitations
 
-- **Mock sign-in:** the website's login checks a demo password in the browser and creates no session. The portal itself is still open to anyone who visits it directly. Production would use Entra ID.
+- **Mock sign-in:** the website's login checks a demo password in the browser and stores only the role in `sessionStorage` / `localStorage` (key `syncai.session`). It is not real access control: anyone can open the portal directly or edit that value. Production would use Entra ID role claims.
 - **Simulated only:** no Microsoft Entra ID sign-in, Microsoft Graph, Teams notifications or Azure OpenAI. "Accept plan" and notifications are mock.
 - **Fixed demo clock:** "now" is 08:30 on the current working day. Data is re-seeded automatically on a new day, which discards earlier changes.
 - **Single browser:** state lives in `localStorage` per browser and is not shared between users or devices.
