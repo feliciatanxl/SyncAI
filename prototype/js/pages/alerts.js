@@ -6,12 +6,17 @@ import { getState, getTask, isOpen, isSupervisor, openTasksFor, update, absenceL
 import { TODAY, NOW, fmtHours, fmtTime, timePart, toMin } from '../time.js';
 import { html, icon, render } from '../ui.js';
 import { visibleRecs } from './shared.js';
+import { rankedProjects } from './projects.js';
 
 const TONE_ICON = { danger: 'alert', warning: 'clock', info: 'bell' };
 
 export function computeAlerts(s) {
   const out = [];
   const add = (key, tone, title, body, href) => out.push({ key, tone, title, body, href });
+  // Projects at risk, for supervisors and for officers on the project; officers never see reasons naming others.
+  rankedProjects(s)
+    .filter(({ h }) => h.level === 'risk')
+    .forEach(({ p, h }) => add(`proj:${p.id}:${TODAY}`, 'warning', `Project at risk: ${p.name}`, h.reasons.find((r) => isSupervisor(s) || !r.personal)?.text || '', `#/projects/${p.id}`));
 
   if (isSupervisor(s)) {
     const team = teamAnalysis(s);

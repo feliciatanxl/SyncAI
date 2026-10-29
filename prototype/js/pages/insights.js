@@ -210,8 +210,8 @@ function correctiveActions(s) {
 }
 
 const QUESTIONS = {
-  officer: ['What should I work on first?', 'Can I finish everything today?', 'Plan tomorrow, prioritise inspections', 'Which deadlines are at risk?', 'When am I free today?'],
-  supervisor: ['Who is overloaded?', 'Who has spare capacity?', 'What happens if Ravi is on MC?', 'Which deadlines are at risk?'],
+  officer: ['What should I work on first?', 'Can I finish everything today?', 'Plan tomorrow, prioritise inspections', 'Which deadlines are at risk?', 'How are my projects doing?', 'When am I free today?'],
+  supervisor: ['Who is overloaded?', 'Who has spare capacity?', 'What happens if Ravi is on MC?', 'Which deadlines are at risk?', 'Which projects are at risk?'],
 };
 
 function renderPage(s) {

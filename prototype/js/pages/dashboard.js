@@ -5,6 +5,7 @@ import { TODAY, NOW, datePart, fmtDue, fmtHours, fmtTime, fmtLongDay, relDay, ti
 import { html, icon, avatar, priorityBadge, riskBadge, capacityBadge, meter, pct, emptyState, sourceTag, toast, limitTo, showMore } from '../ui.js';
 import { ctx } from '../ctx.js';
 import { recCard, scorePill, visibleRecs } from './shared.js';
+import { healthBadge, progressBar, rankedProjects } from './projects.js';
 
 const greeting = () => {
   const h = toMin(NOW.slice(11, 16)) / 60;
@@ -184,6 +185,7 @@ function officerView(s) {
           <div class="card-body flush">${a.today.unavailable ? emptyState('calendar', 'Unavailable today', 'No schedule is planned while you are away.') : agenda(s, me)}</div>
         </section>
         ${remindersCard(s, me)}
+        ${projectsCard(s, 'My projects')}
         <section class="card" aria-labelledby="dl-h">
           <div class="card-head"><h2 id="dl-h">Upcoming deadlines</h2></div>
           <div class="card-body flush">
@@ -203,6 +205,20 @@ function officerView(s) {
         </section>
       </div>
     </div>`;
+}
+
+function projectsCard(s, title) {
+  const list = rankedProjects(s).filter((x) => x.h.level !== 'done');
+  if (!list.length) return '';
+  return html`<section class="card" aria-labelledby="pj-h">
+    <div class="card-head"><h2 id="pj-h">${title}</h2><a class="btn btn-subtle btn-sm" href="#/projects">All projects</a></div>
+    <div class="card-body flush"><ul class="list">${list.slice(0, 4).map(
+      ({ p, h }) => html`<li class="list-item"><div class="grow">
+        <div class="row wrap" style="justify-content:space-between"><a class="title" href="#/projects/${p.id}">${p.name}</a>${healthBadge(h.level)}</div>
+        <div class="row small" style="gap:10px"><div style="flex:1">${progressBar(h.progress, p.color)}</div><span class="muted" style="white-space:nowrap">${pct(h.progress)} done</span></div>
+      </div></li>`,
+    )}</ul></div>
+  </section>`;
 }
 
 function supervisorView(s) {
@@ -284,6 +300,7 @@ function supervisorView(s) {
               : emptyState('check', 'All deadlines on track', 'SyncAI found no high-risk deadlines.')}
           </div>
         </section>
+        ${projectsCard(s, 'Projects')}
         <section class="card" aria-labelledby="act-h">
           <div class="card-head"><h2 id="act-h">Recent activity</h2></div>
           <div class="card-body flush">

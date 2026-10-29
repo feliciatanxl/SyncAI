@@ -1,11 +1,14 @@
 // SyncAI prototype shell: routing, navigation, sign-in gate and event
 // delegation. Pages are plain modules that return escaped HTML.
 
-import { loadState, getState, subscribe, update, storage, isSupervisor, getOfficer, openTasksFor, isOpen } from './state.js';
+import { loadState, getState, subscribe, update, storage, isSupervisor, isHQ, getOfficer, openTasksFor, isOpen } from './state.js';
+import { COUNCILS } from './data.js';
 import { assessRisk } from './planner.js';
 import { TODAY, NOW, fmtDay, fmtTime } from './time.js';
 import { html, icon, render, avatar, closeModal, trapFocus, toast, expanded } from './ui.js';
 import { ctx } from './ctx.js';
+import { openSearch } from './search.js';
+import { fmtClock, runningTimer } from './timer.js';
 import { sharedActions, sharedSubmits } from './pages/shared.js';
 import { assistantActions, assistantSubmits, openAssistant, closeAssistant, refreshAssistant } from './pages/assistant.js';
 import { alertActions, closeAlerts, refreshAlerts, unreadCount } from './pages/alerts.js';
@@ -17,13 +20,18 @@ import insights from './pages/insights.js';
 import simulator from './pages/simulator.js';
 import settings from './pages/settings.js';
 import projects from './pages/projects.js';
+import hub from './pages/hub.js';
+import sources from './pages/sources.js';
 
-const PAGES = [dashboard, tasks, projects, planner, team, insights, simulator, settings];
+const PAGES = [hub, dashboard, tasks, projects, planner, team, insights, simulator, sources, settings];
+// Bottom tab bar on phones: the four most-used pages for each role, plus Menu.
+const TABS = { officer: ['dashboard', 'tasks', 'projects', 'planner'], supervisor: ['dashboard', 'tasks', 'projects', 'team'], hq: ['hub', 'sources'] };
+const TAB_LABEL = { dashboard: 'Home', tasks: 'Tasks', projects: 'Projects', planner: 'Planner', team: 'Team', hub: 'Overview', sources: 'Sources' };
 const NAV = [
-  { section: 'Workspace', ids: ['dashboard', 'tasks', 'projects', 'planner'] },
+  { section: 'Workspace', ids: ['hub', 'dashboard', 'tasks', 'projects', 'planner'] },
   { section: 'Team', ids: ['team', 'simulator'] },
   { section: 'Intelligence', ids: ['insights'] },
-  { section: 'System', ids: ['settings'] },
+  { section: 'System', ids: ['sources', 'settings'] },
 ];
 
 // Set by site/login.html. The portal always runs as the signed-in role; without one it sends you to sign in.
@@ -31,7 +39,7 @@ const SESSION_KEY = 'syncai.session';
 function readSession() {
   try {
     const role = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
-    return role === 'officer' || role === 'supervisor' ? role : null;
+    return ['officer', 'supervisor', 'hq'].includes(role) ? role : null;
   } catch {
     return null;
   }
@@ -68,24 +76,43 @@ function renderNav(s) {
         })}`;
     }),
   );
-  const who = isSupervisor(s) ? s.supervisor : getOfficer(s, s.currentOfficerId);
+  render(
+    el('tabbar'),
+    html`${TABS[s.role].map((id) => {
+      const p = PAGES.find((x) => x.id === id);
+      return html`<a href="#/${id}" ${p === current ? html`aria-current="page"` : ''}>${icon(p.icon, 20)}<span>${TAB_LABEL[id]}</span></a>`;
+    })}<button data-action="nav-open" aria-controls="sidebar">${icon('menu', 20)}<span>Menu</span></button>`,
+  );
+  const who = isHQ(s) ? s.hq : isSupervisor(s) ? s.supervisor : getOfficer(s, s.currentOfficerId);
   render(
     el('sidebar-foot'),
-    html`<div class="sidebar-user">${avatar(who.name)}<div><strong>${who.name}</strong><span>${isSupervisor(s) ? 'Supervisor' : who.title}</span></div></div>
+    html`<div class="sidebar-user">${avatar(who.name)}<div><strong>${who.name}</strong><span>${isHQ(s) ? 'EMS HQ' : isSupervisor(s) ? 'Supervisor' : who.title}</span></div></div>
       <button class="signout-btn" data-action="sign-out" aria-label="Sign out" title="Sign out">${icon('logout', 16)}<span class="nav-label">Sign out</span></button>`,
   );
 }
 
 function renderTopbar(s) {
-  const unread = unreadCount(s);
+  const unread = isHQ(s) ? 0 : unreadCount(s);
   render(
     el('topbar-title'),
-    html`<strong>${heading(current, s)}</strong><span>Demo clock · ${fmtDay(TODAY)}, ${fmtTime(NOW.slice(11, 16))}</span>`,
+    html`<strong>${heading(current, s)}</strong><span>${isHQ(s) ? 'All Town Councils' : COUNCILS.find((c) => c.id === s.council).name} · Demo clock · ${fmtDay(TODAY)}, ${fmtTime(NOW.slice(11, 16))}</span>`,
   );
+  const timer = isSupervisor(s) || isHQ(s) ? null : runningTimer(s, s.currentOfficerId);
+  // HQ sees roll-ups only, so it has no personal alerts or assistant.
   render(
     el('topbar-actions'),
-    html`<button class="icon-btn bell" data-action="alerts-open" aria-label="Alerts, ${unread} unread" aria-controls="alerts">${icon('bell', 18)}${unread ? html`<span class="bell-count" aria-hidden="true">${unread > 9 ? '9+' : unread}</span>` : ''}</button>
-      <button class="btn btn-ai" data-action="assistant-open">${icon('sparkles', 16)}<span class="hide-sm">Ask SyncAI</span></button>`,
+    html`${timer
+      ? html`<span class="timer-chip" role="status">
+          <span class="timer-dot" aria-hidden="true"></span>
+          <button class="timer-title hide-sm" data-action="task-view" data-id="${timer.id}" title="${timer.title}">${timer.title}</button>
+          <span class="timer-clock" data-timer-start="${timer.timerStart}" aria-label="Timer running">${fmtClock(Date.now() - timer.timerStart)}</span>
+          <button class="icon-btn sm" data-action="timer-stop" data-id="${timer.id}" aria-label="Stop timer for “${timer.title}”" title="Stop timer">${icon('stop', 14)}</button>
+        </span>`
+      : ''}<button class="icon-btn" data-action="search-open" aria-label="Search (Ctrl+K)" title="Search (Ctrl+K)">${icon('search', 18)}</button>
+    ${isHQ(s)
+      ? ''
+      : html`<button class="icon-btn bell" data-action="alerts-open" aria-label="Alerts, ${unread} unread" aria-controls="alerts">${icon('bell', 18)}${unread ? html`<span class="bell-count" aria-hidden="true">${unread > 9 ? '9+' : unread}</span>` : ''}</button>
+      <button class="btn btn-ai" data-action="assistant-open">${icon('sparkles', 16)}<span class="hide-sm">Ask SyncAI</span></button>`}`,
   );
   render(
     el('demo-banner'),
@@ -93,12 +120,18 @@ function renderTopbar(s) {
   );
 }
 
-function restricted() {
+const ROLE_NAME = { officer: 'Officer', supervisor: 'Supervisor', hq: 'EMS HQ' };
+
+function restricted(s) {
+  const hq = isHQ(s);
+  const who = current.roles.map((r) => ROLE_NAME[r]).join(' and ');
   return html`<section class="card restricted">${html`<div class="empty">
     <div class="empty-icon">${icon('lock', 28)}</div>
-    <h3>Supervisor access only</h3>
-    <p>${current.title} shows other officers' workload, so it is limited to supervisors. Sign out and sign in with a supervisor account to view it.</p>
-    <a class="btn btn-primary" href="#/dashboard">Back to dashboard</a>
+    <h3>${hq ? 'Not available for HQ accounts' : `${who} access only`}</h3>
+    <p>${hq
+      ? `${current.title} shows individual officers' work. EMS HQ sees council roll-ups only.`
+      : `${current.title} is limited to ${who} accounts. Sign out and sign in with one of those accounts to view it.`}</p>
+    <a class="btn btn-primary" href="#/">${hq ? 'Back to HQ overview' : 'Back to dashboard'}</a>
   </div>`}</section>`;
 }
 
@@ -106,7 +139,7 @@ function renderPage(s) {
   const page = el('page');
   try {
     if (!allowed(current, s)) {
-      render(page, restricted());
+      render(page, restricted(s));
       return;
     }
     render(page, current.render(s));
@@ -134,10 +167,10 @@ function renderAll() {
 
 function route() {
   // '#/projects/p1' → page 'projects', param 'p1'.
-  const [id = 'dashboard', param = null] = location.hash.replace(/^#\/?/, '').split('/').map((x) => x || undefined);
+  const [id = isHQ(getState()) ? 'hub' : 'dashboard', param = null] = location.hash.replace(/^#\/?/, '').split('/').map((x) => x || undefined);
   const next = PAGES.find((p) => p.id === id);
   if (!next) {
-    location.replace('#/dashboard');
+    location.replace('#/');
     return;
   }
   const changed = next !== current || param !== ctx.param;
@@ -175,6 +208,7 @@ const globalActions = {
     applyCollapse();
   },
   go: (target) => ctx.navigate(target.dataset.page),
+  'search-open': () => openSearchDialog(),
   'show-more': (target) => {
     const key = target.dataset.key;
     if (!expanded.delete(key)) expanded.add(key);
@@ -246,7 +280,17 @@ document.addEventListener('submit', (e) => {
   fn?.(form, e);
 });
 
+function openSearchDialog() {
+  const s = getState();
+  openSearch(s, PAGES.filter((p) => allowed(p, s)).map((p) => ({ id: p.id, label: pageTitle(p, s), icon: p.icon })));
+}
+
 document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    openSearchDialog();
+    return;
+  }
   trapFocus(e);
   if (e.key !== 'Escape') return;
   if (!el('modal-root').hidden) closeModal();
@@ -258,6 +302,10 @@ document.addEventListener('keydown', (e) => {
 // ---------- boot ----------
 
 ctx.rerender = renderAll;
+// Tick running timer clocks without re-rendering the page.
+setInterval(() => {
+  document.querySelectorAll('[data-timer-start]').forEach((c) => (c.textContent = fmtClock(Date.now() - Number(c.dataset.timerStart))));
+}, 1000);
 ctx.navigate = (id) => {
   if (location.hash === `#/${id}`) route();
   else location.hash = `#/${id}`;

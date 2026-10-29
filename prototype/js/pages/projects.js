@@ -5,7 +5,7 @@ import { PROJECT_TEMPLATES, STATUSES } from '../data.js';
 import { analyseOfficer, assessRisk } from '../planner.js';
 import { getOfficer, getState, isOpen, isOverdue, isSupervisor, logActivity, nextId, officerName, update, visibleTasks } from '../state.js';
 import { TODAY, NOW, workDay, dt, fmtDay, fmtDue, isoDate, parseDate } from '../time.js';
-import { html, icon, avatar, priorityBadge, riskBadge, emptyState, filterTabs, openModal, closeModal, toast, pct } from '../ui.js';
+import { html, icon, avatar, priorityBadge, riskBadge, emptyState, filterTabs, openModal, closeModal, confirmDialog, toast, pct } from '../ui.js';
 import { openTaskForm, recCard, visibleRecs } from './shared.js';
 import { mountKanban, setStatus } from './tasks.js';
 import { ctx } from '../ctx.js';
@@ -63,14 +63,21 @@ export function projectHealth(s, p) {
 }
 
 /** Officers see projects they own or have tasks in; supervisors see all. */
-function visibleProjects(s) {
+export function visibleProjects(s) {
   if (isSupervisor(s)) return s.projects;
   const me = s.currentOfficerId;
   return s.projects.filter((p) => p.ownerId === me || projectTasks(s, p).some((t) => t.ownerId === me));
 }
 
-const healthBadge = (level) => html`<span class="badge badge-${HEALTH[level].tone}">${HEALTH[level].label}</span>`;
-const progressBar = (value, color) =>
+/** Visible projects with their health, worst first, then by deadline. */
+export function rankedProjects(s) {
+  return visibleProjects(s)
+    .map((p) => ({ p, h: projectHealth(s, p) }))
+    .sort((a, b) => HEALTH[b.h.level].rank - HEALTH[a.h.level].rank || a.p.due.localeCompare(b.p.due));
+}
+
+export const healthBadge = (level) => html`<span class="badge badge-${HEALTH[level].tone}">${HEALTH[level].label}</span>`;
+export const progressBar = (value, color) =>
   html`<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(value * 100)}" aria-label="Progress"><span style="width:${value * 100}%;background:${color}"></span></div>`;
 
 function dueChip(iso, open = true) {
@@ -92,10 +99,9 @@ function avatarStack(s, ids) {
 
 function listPage(s) {
   const sup = isSupervisor(s);
-  const all = visibleProjects(s).map((p) => ({ p, h: projectHealth(s, p) }));
+  const all = rankedProjects(s);
   const tabs = [['all', 'All'], ['risk', 'At risk'], ['attention', 'Needs attention'], ['on-track', 'On track'], ['done', 'Complete']];
   const shown = view.filter === 'all' ? all : all.filter((x) => x.h.level === view.filter);
-  shown.sort((a, b) => HEALTH[b.h.level].rank - HEALTH[a.h.level].rank || a.p.due.localeCompare(b.p.due));
 
   return html`
     <div class="page-head">
@@ -143,7 +149,10 @@ function detailPage(s, p) {
     <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/projects">Projects</a><span aria-hidden="true">›</span><span aria-current="page">${p.name}</span></nav>
     <div class="page-head">
       <div><h1 class="row"><span class="color-dot" style="background:${p.color}" aria-hidden="true"></span>${p.name}</h1><p>${p.description}</p></div>
-      ${canAdd ? html`<div class="actions"><button class="btn btn-primary" data-action="proj-add-task" data-status="todo">${icon('plus', 16)}Add task</button></div>` : ''}
+      <div class="actions">
+        ${sup ? html`<button class="btn btn-subtle" data-action="proj-delete">${icon('trash', 16)}Delete</button><button class="btn" data-action="proj-edit">${icon('pencil', 16)}Edit project</button>` : ''}
+        ${canAdd ? html`<button class="btn btn-primary" data-action="proj-add-task" data-status="todo">${icon('plus', 16)}Add task</button>` : ''}
+      </div>
     </div>
 
     <div class="grid grid-4">
@@ -256,28 +265,31 @@ function timelineView(s, p, tasks) {
 
 // ---------- new project ----------
 
-function openProjectForm() {
+function openProjectForm(p = null) {
   const s = getState();
   openModal(
     html`<form data-submit="proj-save" novalidate>
-      <header class="modal-head"><h2 id="modal-title">${icon('folder', 18)} New project</h2>
+      <input type="hidden" name="id" value="${p?.id || ''}" />
+      <header class="modal-head"><h2 id="modal-title">${icon('folder', 18)} ${p ? 'Edit project' : 'New project'}</h2>
         <button type="button" class="icon-btn" data-action="modal-close" aria-label="Close">${icon('x')}</button></header>
       <div class="modal-body"><div class="form-grid">
         <div class="field full" data-field="name"><label for="pj-name">Project name <span class="req" aria-hidden="true">*</span></label>
-          <input class="input" id="pj-name" name="name" maxlength="80" required autofocus aria-describedby="e-name" /><span class="error-text" id="e-name" aria-live="polite"></span></div>
-        <div class="field"><label for="pj-template">Start from template</label>
-          <select class="select" id="pj-template" name="template">${Object.entries(PROJECT_TEMPLATES).map(([k, t]) => html`<option value="${k}">${t.label}${t.tasks.length ? ` (${t.tasks.length} tasks)` : ''}</option>`)}</select></div>
+          <input class="input" id="pj-name" name="name" maxlength="80" value="${p?.name || ''}" required autofocus aria-describedby="e-name" /><span class="error-text" id="e-name" aria-live="polite"></span></div>
+        ${p
+          ? ''
+          : html`<div class="field"><label for="pj-template">Start from template</label>
+          <select class="select" id="pj-template" name="template">${Object.entries(PROJECT_TEMPLATES).map(([k, t]) => html`<option value="${k}">${t.label}${t.tasks.length ? ` (${t.tasks.length} tasks)` : ''}</option>`)}</select></div>`}
         <div class="field"><label for="pj-owner">Project owner</label>
-          <select class="select" id="pj-owner" name="ownerId">${s.officers.map((o) => html`<option value="${o.id}">${o.name}</option>`)}</select></div>
+          <select class="select" id="pj-owner" name="ownerId">${s.officers.map((o) => html`<option value="${o.id}" ${o.id === p?.ownerId ? 'selected' : ''}>${o.name}</option>`)}</select></div>
         <div class="field" data-field="start"><label for="pj-start">Start date</label>
-          <input class="input" type="date" id="pj-start" name="start" value="${TODAY}" required aria-describedby="e-start" /><span class="error-text" id="e-start" aria-live="polite"></span></div>
+          <input class="input" type="date" id="pj-start" name="start" value="${p?.start || TODAY}" required aria-describedby="e-start" /><span class="error-text" id="e-start" aria-live="polite"></span></div>
         <div class="field" data-field="due"><label for="pj-due">Deadline</label>
-          <input class="input" type="date" id="pj-due" name="due" value="${workDay(10)}" required aria-describedby="e-due" /><span class="error-text" id="e-due" aria-live="polite"></span></div>
+          <input class="input" type="date" id="pj-due" name="due" value="${p?.due || workDay(10)}" required aria-describedby="e-due" /><span class="error-text" id="e-due" aria-live="polite"></span></div>
         <div class="field full"><label for="pj-desc">Description</label>
-          <textarea class="textarea" id="pj-desc" name="description" maxlength="300"></textarea></div>
-        <p class="full muted small">Template tasks are spread across the project dates and assigned to the project owner. You can reassign or edit them afterwards.</p>
+          <textarea class="textarea" id="pj-desc" name="description" maxlength="300">${p?.description || ''}</textarea></div>
+        ${p ? '' : html`<p class="full muted small">Template tasks are spread across the project dates and assigned to the project owner. You can reassign or edit them afterwards.</p>`}
       </div></div>
-      <footer class="modal-foot"><button type="button" class="btn" data-action="modal-close">Cancel</button><button type="submit" class="btn btn-primary">Create project</button></footer>
+      <footer class="modal-foot"><button type="button" class="btn" data-action="modal-close">Cancel</button><button type="submit" class="btn btn-primary">${p ? 'Save changes' : 'Create project'}</button></footer>
     </form>`,
     { wide: true },
   );
@@ -289,7 +301,8 @@ function saveProject(form) {
   const name = String(fd.get('name') || '').trim();
   const start = String(fd.get('start') || '');
   const due = String(fd.get('due') || '');
-  const template = PROJECT_TEMPLATES[String(fd.get('template'))];
+  const editId = String(fd.get('id') || '');
+  const template = editId ? PROJECT_TEMPLATES.blank : PROJECT_TEMPLATES[String(fd.get('template'))];
   const ownerId = String(fd.get('ownerId'));
   const isDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v);
   const errors = {
@@ -304,16 +317,27 @@ function saveProject(form) {
   if (Object.values(errors).some(Boolean)) return form.querySelector('.invalid input')?.focus();
   if (!template || !getOfficer(s, ownerId) || !isSupervisor(s)) return toast('Some fields have invalid values.', 'error');
 
+  const description = String(fd.get('description') || '').trim();
+  if (editId) {
+    update((st) => {
+      const p = st.projects.find((x) => x.id === editId);
+      Object.assign(p, { name, ownerId, start, due, description: description || p.description });
+      logActivity(st, `Updated project “${name}”.`);
+    });
+    closeModal();
+    return toast('Project updated');
+  }
+
   let id;
   update((st) => {
     id = nextId(st, 'p');
     const span = daysBetween(start, due);
-    st.projects.push({ id, name, ownerId, start, due, color: COLORS[st.projects.length % COLORS.length], description: String(fd.get('description') || '').trim() || `${template.label} project.`, milestones: [{ name: 'Project deadline', date: due }] });
+    st.projects.push({ id, name, ownerId, start, due, color: COLORS[st.projects.length % COLORS.length], description: description || `${template.label} project.`, milestones: [{ name: 'Project deadline', date: due }] });
     for (const [title, category, effort, share] of template.tasks) {
       st.tasks.push({
         id: nextId(st, 't'), ownerId, title, description: `From the ${template.label} template.`, category, priority: 'Medium',
         due: dt(addDays(start, Math.round(span * share)), '17:00'), effort, spent: 0, status: 'todo', location: '', dependsOn: [], source: 'SyncAI',
-        safety: category === 'Inspection', impact: 'medium', createdAt: NOW, completedAt: null, actual: null, projectId: id, checklist: [],
+        safety: false, impact: 'medium', createdAt: NOW, completedAt: null, actual: null, projectId: id, checklist: [],
       });
     }
     logActivity(st, `Created project “${name}” with ${template.tasks.length} task(s) for ${officerName(st, ownerId)}.`);
@@ -354,6 +378,20 @@ export default {
       document.querySelector(`[data-action="proj-view"][data-value="${el.dataset.value}"]`)?.focus();
     },
     'proj-new': () => openProjectForm(),
+    'proj-edit': () => openProjectForm(currentProject(getState())),
+    'proj-delete': async () => {
+      const p = currentProject(getState());
+      const n = projectTasks(getState(), p).length;
+      const ok = await confirmDialog({ title: `Delete “${p.name}”?`, body: `The project is removed. Its ${n} task(s) are kept and stay with their owners, but no longer belong to a project.`, confirmLabel: 'Delete project', danger: true });
+      if (!ok) return;
+      update((st) => {
+        st.tasks.forEach((t) => t.projectId === p.id && (t.projectId = null));
+        st.projects = st.projects.filter((x) => x.id !== p.id);
+        logActivity(st, `Deleted project “${p.name}”; ${n} task(s) kept.`);
+      });
+      toast('Project deleted');
+      ctx.navigate('projects');
+    },
     'proj-add-task': (el) => {
       const s = getState();
       openTaskForm(null, { projectId: ctx.param, status: el.dataset.status || 'todo', ownerId: isSupervisor(s) ? currentProject(s)?.ownerId : s.currentOfficerId });

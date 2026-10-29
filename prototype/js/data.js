@@ -3,7 +3,7 @@
 
 import { TODAY, workDay, horizonDays, dt } from './time.js';
 
-export const DATA_VERSION = 6;
+export const DATA_VERSION = 7;
 
 export const CATEGORIES = [
   'Inspection',
@@ -239,6 +239,20 @@ function tasks() {
   return list;
 }
 
+/**
+ * Fictional Town Councils for the HQ overview (12g). The demo team belongs to
+ * 'nv', whose figures are computed live; the others are sample roll-ups.
+ */
+export const COUNCILS = [
+  { id: 'nv', name: 'Northvale Town Council', short: 'Northvale', live: true },
+  { id: 'eb', name: 'Eastbrook Town Council', short: 'Eastbrook', officers: 9, openTasks: 54, overdue: 2, highRisk: 4, utilisation: 0.78, feedbackRate: 0.95,
+    projects: [{ name: 'Blk 118 lift replacement', level: 'on-track', progress: 0.55 }, { name: 'Covered linkway extension', level: 'attention', progress: 0.3 }, { name: 'Hawker centre repainting', level: 'done', progress: 1 }] },
+  { id: 'wr', name: 'Westridge Town Council', short: 'Westridge', officers: 7, openTasks: 61, overdue: 9, highRisk: 11, utilisation: 1.04, feedbackRate: 0.81,
+    projects: [{ name: 'Multi-storey car park waterproofing', level: 'risk', progress: 0.2 }, { name: 'Fitness corner upgrade', level: 'risk', progress: 0.45 }, { name: 'Festive lighting', level: 'on-track', progress: 0.1 }] },
+  { id: 'sh', name: 'Southhaven Town Council', short: 'Southhaven', officers: 8, openTasks: 39, overdue: 0, highRisk: 1, utilisation: 0.66, feedbackRate: 0.97,
+    projects: [{ name: 'Drainage improvement — Zone B', level: 'on-track', progress: 0.7 }, { name: 'Playground replacement', level: 'on-track', progress: 0.4 }] },
+];
+
 /** Fictional projects (12h Project Tracker). Tasks join a project through task.projectId. */
 function projects() {
   return [
@@ -295,6 +309,8 @@ export function createSeedState() {
     role: 'officer',
     currentOfficerId: 'o1',
     supervisor: { id: 's1', name: 'Jennifer Ong', title: 'Estate Manager' },
+    hq: { id: 'h1', name: 'Lim Wei Ling', title: 'EMS HQ · Estate Operations' },
+    council: 'nv',
     settings: {
       workStart: '08:30',
       workEnd: '17:30',

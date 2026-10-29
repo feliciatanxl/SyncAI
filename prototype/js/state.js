@@ -91,6 +91,7 @@ export function logActivity(s, text, actor) {
 // ----- selectors -----
 
 export const isSupervisor = (s) => s.role === 'supervisor';
+export const isHQ = (s) => s.role === 'hq';
 
 export function actorName(s) {
   return isSupervisor(s) ? s.supervisor.name : getOfficer(s, s.currentOfficerId).name;

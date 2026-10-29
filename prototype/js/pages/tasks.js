@@ -3,11 +3,12 @@ import { extractActionItems, parseNaturalTask, scoreTask } from '../ai.js';
 import { assessRisk } from '../planner.js';
 import { getOfficer, getState, getTask, isOpen, isOverdue, isSupervisor, logActivity, nextId, officerName, update, visibleTasks } from '../state.js';
 import { NOW, fmtDue, fmtHours } from '../time.js';
-import { html, icon, render, priorityBadge, riskBadge, sourceTag, emptyState, avatar, toast, openModal, closeModal, filterTabs, pager } from '../ui.js';
-import { openTaskForm, scorePill } from './shared.js';
+import { html, icon, render, priorityBadge, riskBadge, sourceTag, emptyState, avatar, toast, openModal, closeModal, filterTabs, pager, limitTo, showMore } from '../ui.js';
+import { openTaskForm, scorePill, timerButton } from './shared.js';
+import { settleTimer } from '../timer.js';
 import { ctx } from '../ctx.js';
 
-const view = { q: '', status: 'open', priority: 'all', category: 'all', owner: 'all', sort: 'score', page: 1, nl: null, nlText: '' };
+const view = { q: '', status: 'open', priority: 'all', category: 'all', owner: 'all', sort: 'score', group: 'none', page: 1, nl: null, nlText: '' };
 const PER_PAGE = 10;
 const PRIORITY_RANK = { Critical: 0, High: 1, Medium: 2, Low: 3 };
 
@@ -92,6 +93,7 @@ function listView(s, rows) {
           <td class="hide-sm">${fmtHours(t.effort)}</td>
           <td class="hide-sm">${riskBadge(risk.level)}</td>
           <td class="cell-act"><div class="cell-actions">
+            ${timerButton(s, t, true)}
             <button class="icon-btn sm" data-action="task-edit" data-id="${t.id}" aria-label="Edit “${t.title}”">${icon('pencil', 15)}</button>
             <button class="icon-btn sm" data-action="task-delete" data-id="${t.id}" aria-label="Delete “${t.title}”">${icon('trash', 15)}</button>
           </div></td>
@@ -132,6 +134,51 @@ function results(s) {
   return html`${tabs}${resultList(s, filtered(s, base))}`;
 }
 
+const GROUP_SIZE = 5;
+
+/**
+ * Split rows ({ t }) into labelled groups, in a fixed order (status, priority and
+ * category follow their lists; owner and project are alphabetical, "No project" last).
+ */
+export function groupTasks(s, rows, by) {
+  const keyOf = {
+    status: (t) => t.status,
+    priority: (t) => t.priority,
+    category: (t) => t.category,
+    owner: (t) => t.ownerId,
+    project: (t) => t.projectId || '',
+  }[by];
+  const labelOf = {
+    status: (k) => STATUSES.find((x) => x.id === k).label,
+    priority: (k) => k,
+    category: (k) => k,
+    owner: (k) => officerName(s, k),
+    project: (k) => s.projects.find((p) => p.id === k)?.name || 'No project',
+  }[by];
+  const order = { status: STATUSES.map((x) => x.id), priority: PRIORITIES, category: CATEGORIES }[by];
+  const groups = new Map();
+  for (const r of rows) {
+    const k = keyOf(r.t);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  }
+  return [...groups]
+    .map(([key, items]) => ({ key, label: labelOf(key), rows: items }))
+    .sort((a, b) => (order ? order.indexOf(a.key) - order.indexOf(b.key) : (a.key === '') - (b.key === '') || a.label.localeCompare(b.label)));
+}
+
+function groupedList(s, rows) {
+  return html`<p class="sr-only" aria-live="polite">${rows.length} tasks in groups</p>
+    ${groupTasks(s, rows, view.group).map(({ key, label, rows: items }) => {
+      const id = `grp-${view.group}-${key || 'none'}`;
+      return html`<section class="task-group" aria-label="${label}">
+        <h3 class="group-head">${label} <span class="tab-count">${items.length}</span></h3>
+        ${listView(s, limitTo(id, items, GROUP_SIZE))}
+        ${showMore(id, items.length, GROUP_SIZE, 'tasks')}
+      </section>`;
+    })}`;
+}
+
 function resultList(s, rows) {
   if (!rows.length) {
     const any = visibleTasks(s).length;
@@ -143,6 +190,7 @@ function resultList(s, rows) {
     );
   }
   if (s.prefs.taskView === 'kanban') return html`<p class="sr-only" aria-live="polite">${rows.length} tasks shown</p>${kanbanView(s, rows)}`;
+  if (view.group !== 'none') return groupedList(s, rows);
   const pages = Math.ceil(rows.length / PER_PAGE);
   view.page = Math.min(view.page, pages);
   const from = (view.page - 1) * PER_PAGE;
@@ -209,6 +257,7 @@ function renderPage(s) {
         ${select('category', 'Category', view.category, [['all', 'All categories'], ...CATEGORIES.map((c) => [c, c])])}
         ${sup ? select('owner', 'Owner', view.owner, [['all', 'All officers'], ...s.officers.map((o) => [o.id, o.name])]) : ''}
         ${select('sort', 'Sort by', view.sort, [['score', 'Sort: AI score'], ['due', 'Sort: Deadline'], ['priority', 'Sort: Priority'], ['effort', 'Sort: Effort'], ['title', 'Sort: Title']])}
+        ${mode === 'kanban' ? '' : select('group', 'Group by', view.group, [['none', 'Group: none'], ['status', 'Group: status'], ['priority', 'Group: priority'], ['category', 'Group: category'], ['project', 'Group: project'], ...(sup ? [['owner', 'Group: owner']] : [])])}
         <span class="spacer"></span>
         <div class="segmented" role="group" aria-label="View">
           <button data-action="task-mode" data-mode="list" aria-pressed="${mode === 'list'}">${icon('list', 15)}List</button>
@@ -258,6 +307,7 @@ export function setStatus(id, status) {
   if (!t || t.status === status || !STATUSES.some((x) => x.id === status)) return;
   update((st) => {
     const x = getTask(st, id);
+    if (status === 'done') settleTimer(x, Date.now());
     x.status = status;
     if (status === 'done') {
       x.completedAt = NOW;
