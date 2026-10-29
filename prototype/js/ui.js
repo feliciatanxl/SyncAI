@@ -82,6 +82,7 @@ const ICONS = {
   trend: '<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
   folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
   lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   wand: '<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3M5 6v4M19 14v4M10 2v2M7 8H3M21 16h-4M11 3H9"/>',
   grip: '<circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/>',
@@ -142,6 +143,40 @@ export function emptyState(iconName, title, body, action = '') {
     <p>${body}</p>
     ${action}
   </div>`;
+}
+
+// ----- show more, filter tabs, pager -----
+
+// Lists the user has expanded with "Show more", by key. Kept for the session so re-renders don't collapse them.
+export const expanded = new Set();
+export const limitTo = (key, items, n) => (expanded.has(key) ? items : items.slice(0, n));
+
+/** "Show all (12)" / "Show less" toggle for a list cut by limitTo. Handled by the global `show-more` action. */
+export function showMore(key, total, n, noun = 'items') {
+  if (total <= n) return '';
+  const open = expanded.has(key);
+  return html`<div class="show-more"><button class="btn btn-subtle btn-sm" data-action="show-more" data-key="${key}" aria-expanded="${open}">
+    ${open ? 'Show less' : `Show all ${total} ${noun}`}</button></div>`;
+}
+
+/** Row of filter tabs with counts. Each tab is a toggle button with data-value; `action` handles the click. */
+export function filterTabs(action, label, tabs, active) {
+  return html`<div class="filter-tabs" role="group" aria-label="${label}">
+    ${tabs.map(([value, text, count]) => html`<button data-action="${action}" data-value="${value}" aria-pressed="${value === active}">
+      ${text}${count == null ? '' : html`<span class="tab-count">${count}</span>`}</button>`)}
+  </div>`;
+}
+
+/** Numbered pages with previous / next. `page` is 1-based; clicks send data-page to `action`. */
+export function pager(action, page, pages, label = 'Pages') {
+  if (pages <= 1) return '';
+  const btn = (p, text, aria, disabled = false) =>
+    html`<button class="pager-btn" data-action="${action}" data-page="${p}" aria-label="${aria}" ${p === page && !disabled ? html`aria-current="page"` : ''} ${disabled ? 'disabled' : ''}>${text}</button>`;
+  return html`<nav class="pager" aria-label="${label}">
+    ${btn(page - 1, '‹', 'Previous page', page === 1)}
+    ${Array.from({ length: pages }, (_, i) => btn(i + 1, String(i + 1), `Page ${i + 1}`))}
+    ${btn(page + 1, '›', 'Next page', page === pages)}
+  </nav>`;
 }
 
 // ----- toasts -----

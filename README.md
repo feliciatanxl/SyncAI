@@ -33,7 +33,7 @@ python prototype/serve.py
 | --- | --- |
 | <http://localhost:8765/site/> | Public website |
 | <http://localhost:8765/site/login.html> | Sign in (demo accounts are shown on the page) |
-| <http://localhost:8765/> | Portal directly, skipping sign-in |
+| <http://localhost:8765/> | Portal (sends you to sign in first if you are not signed in) |
 
 ## Target Microsoft stack
 

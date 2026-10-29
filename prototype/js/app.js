@@ -1,10 +1,10 @@
-// SyncAI prototype shell: routing, navigation, role switching and event
+// SyncAI prototype shell: routing, navigation, sign-in gate and event
 // delegation. Pages are plain modules that return escaped HTML.
 
 import { loadState, getState, subscribe, update, storage, isSupervisor, getOfficer, openTasksFor, isOpen } from './state.js';
 import { assessRisk } from './planner.js';
 import { TODAY, NOW, fmtDay, fmtTime } from './time.js';
-import { html, icon, render, avatar, closeModal, trapFocus, toast } from './ui.js';
+import { html, icon, render, avatar, closeModal, trapFocus, toast, expanded } from './ui.js';
 import { ctx } from './ctx.js';
 import { sharedActions, sharedSubmits } from './pages/shared.js';
 import { assistantActions, assistantSubmits, openAssistant, closeAssistant, refreshAssistant } from './pages/assistant.js';
@@ -24,6 +24,18 @@ const NAV = [
   { section: 'Intelligence', ids: ['insights'] },
   { section: 'System', ids: ['settings'] },
 ];
+
+// Set by site/login.html. The portal always runs as the signed-in role; without one it sends you to sign in.
+const SESSION_KEY = 'syncai.session';
+function readSession() {
+  try {
+    const role = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
+    return role === 'officer' || role === 'supervisor' ? role : null;
+  } catch {
+    return null;
+  }
+}
+const signedInRole = readSession();
 
 let current = dashboard;
 const el = (id) => document.getElementById(id);
@@ -56,7 +68,8 @@ function renderNav(s) {
   const who = isSupervisor(s) ? s.supervisor : getOfficer(s, s.currentOfficerId);
   render(
     el('sidebar-foot'),
-    html`<div class="sidebar-user">${avatar(who.name)}<div><strong>${who.name}</strong><span>${isSupervisor(s) ? 'Supervisor' : who.title}</span></div></div>`,
+    html`<div class="sidebar-user">${avatar(who.name)}<div><strong>${who.name}</strong><span>${isSupervisor(s) ? 'Supervisor' : who.title}</span></div></div>
+      <button class="signout-btn" data-action="sign-out" aria-label="Sign out" title="Sign out">${icon('logout', 16)}<span class="nav-label">Sign out</span></button>`,
   );
 }
 
@@ -68,11 +81,7 @@ function renderTopbar(s) {
   );
   render(
     el('topbar-actions'),
-    html`<div class="segmented" role="group" aria-label="Demo role">
-        <button data-action="role" data-role="officer" aria-pressed="${s.role === 'officer'}">${icon('user', 14)}<span class="hide-sm">Officer</span></button>
-        <button data-action="role" data-role="supervisor" aria-pressed="${s.role === 'supervisor'}">${icon('users', 14)}<span class="hide-sm">Supervisor</span></button>
-      </div>
-      <button class="icon-btn bell" data-action="alerts-open" aria-label="Alerts, ${unread} unread" aria-controls="alerts">${icon('bell', 18)}${unread ? html`<span class="bell-count" aria-hidden="true">${unread > 9 ? '9+' : unread}</span>` : ''}</button>
+    html`<button class="icon-btn bell" data-action="alerts-open" aria-label="Alerts, ${unread} unread" aria-controls="alerts">${icon('bell', 18)}${unread ? html`<span class="bell-count" aria-hidden="true">${unread > 9 ? '9+' : unread}</span>` : ''}</button>
       <button class="btn btn-ai" data-action="assistant-open">${icon('sparkles', 16)}<span class="hide-sm">Ask SyncAI</span></button>`,
   );
   render(
@@ -85,7 +94,7 @@ function restricted() {
   return html`<section class="card restricted">${html`<div class="empty">
     <div class="empty-icon">${icon('lock', 28)}</div>
     <h3>Supervisor access only</h3>
-    <p>${current.title} shows other officers' workload, so it is limited to supervisors. Switch to the Supervisor role in the top bar to explore it in this demo.</p>
+    <p>${current.title} shows other officers' workload, so it is limited to supervisors. Sign out and sign in with a supervisor account to view it.</p>
     <a class="btn btn-primary" href="#/dashboard">Back to dashboard</a>
   </div>`}</section>`;
 }
@@ -161,15 +170,27 @@ const globalActions = {
     applyCollapse();
   },
   go: (target) => ctx.navigate(target.dataset.page),
-  role: (target) => {
-    const role = target.dataset.role;
-    if (getState().role === role) return;
-    update((s) => (s.role = role));
-    toast(role === 'supervisor' ? 'Viewing as Jennifer Ong (Supervisor)' : 'Viewing as Aisyah Rahman (Officer)', 'info');
+  'show-more': (target) => {
+    const key = target.dataset.key;
+    if (!expanded.delete(key)) expanded.add(key);
+    renderAll();
+    document.querySelector(`[data-action="show-more"][data-key="${CSS.escape(key)}"]`)?.focus();
+  },
+  'sign-out': () => {
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_KEY);
+    } catch {
+      /* ignore */
+    }
+    location.href = 'site/login.html';
   },
   'reset-demo-hard': () => {
     try {
+      // Keep a remembered sign-in; only the demo data is reset.
+      const session = localStorage.getItem(SESSION_KEY);
       localStorage.clear();
+      if (session) localStorage.setItem(SESSION_KEY, session);
     } catch {
       /* ignore */
     }
@@ -238,12 +259,14 @@ ctx.navigate = (id) => {
 };
 ctx.openAssistant = openAssistant;
 
-loadState();
-// Demo links: ?role=supervisor or ?role=officer opens the app in that role.
-const roleParam = new URLSearchParams(location.search).get('role');
-if ((roleParam === 'supervisor' || roleParam === 'officer') && getState().role !== roleParam) update((s) => (s.role = roleParam));
-applyCollapse();
-subscribe(renderAll);
-window.addEventListener('hashchange', route);
-route();
-if (storage.notice) toast(storage.notice, 'info');
+if (!signedInRole) {
+  location.replace('site/login.html');
+} else {
+  loadState();
+  if (getState().role !== signedInRole) update((s) => (s.role = signedInRole));
+  applyCollapse();
+  subscribe(renderAll);
+  window.addEventListener('hashchange', route);
+  route();
+  if (storage.notice) toast(storage.notice, 'info');
+}

@@ -50,8 +50,17 @@ const handlers = {
       showNotice(form, 'err', 'That email and password combination is not recognised. Use one of the demo accounts below.');
       return;
     }
+    // The portal reads this key and locks to the role. "Keep me signed in" survives closing the tab.
+    try {
+      sessionStorage.removeItem('syncai.session');
+      localStorage.removeItem('syncai.session');
+      (form.remember.checked ? localStorage : sessionStorage).setItem('syncai.session', role);
+    } catch {
+      showNotice(form, 'err', 'Your browser is blocking storage, so SyncAI cannot keep you signed in. Allow site data and try again.');
+      return;
+    }
     showNotice(form, 'ok', 'Signed in. Opening your workspace…');
-    location.href = `../index.html?role=${role}#/dashboard`;
+    location.href = '../index.html#/dashboard';
   },
 
   forgot(form) {

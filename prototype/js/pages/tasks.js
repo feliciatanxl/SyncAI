@@ -3,11 +3,12 @@ import { extractActionItems, parseNaturalTask, scoreTask } from '../ai.js';
 import { assessRisk } from '../planner.js';
 import { getOfficer, getState, getTask, isOpen, isOverdue, isSupervisor, logActivity, nextId, officerName, update, visibleTasks } from '../state.js';
 import { NOW, fmtDue, fmtHours } from '../time.js';
-import { html, icon, render, priorityBadge, riskBadge, sourceTag, emptyState, avatar, toast, openModal, closeModal } from '../ui.js';
+import { html, icon, render, priorityBadge, riskBadge, sourceTag, emptyState, avatar, toast, openModal, closeModal, filterTabs, pager } from '../ui.js';
 import { openTaskForm, scorePill } from './shared.js';
 import { ctx } from '../ctx.js';
 
-const view = { q: '', status: 'open', priority: 'all', category: 'all', owner: 'all', sort: 'score', nl: null, nlText: '' };
+const view = { q: '', status: 'open', priority: 'all', category: 'all', owner: 'all', sort: 'score', page: 1, nl: null, nlText: '' };
+const PER_PAGE = 10;
 const PRIORITY_RANK = { Critical: 0, High: 1, Medium: 2, Low: 3 };
 
 const EXAMPLES = [
@@ -16,19 +17,30 @@ const EXAMPLES = [
   'Prepare monthly defect summary by Friday, low priority',
 ];
 
-function filtered(s) {
+// Status tabs: [value, label, test]. Counts respect the search and the other filters.
+const STATUS_TABS = [
+  ['open', 'Open', (s, t) => isOpen(t)],
+  ['risk', 'At risk', (s, t) => isOpen(t) && assessRisk(s, t).level === 'high'],
+  ['overdue', 'Overdue', (s, t) => isOpen(t) && isOverdue(t)],
+  ['in_progress', 'In progress', (s, t) => t.status === 'in_progress'],
+  ['done', 'Done', (s, t) => !isOpen(t)],
+  ['all', 'All', () => true],
+];
+
+function matching(s) {
   const q = view.q.trim().toLowerCase();
-  const rows = visibleTasks(s)
-    .filter((t) => {
-      if (view.status === 'open' && !isOpen(t)) return false;
-      if (view.status !== 'open' && view.status !== 'all' && t.status !== view.status) return false;
+  return visibleTasks(s).filter((t) => {
       if (view.priority !== 'all' && t.priority !== view.priority) return false;
       if (view.category !== 'all' && t.category !== view.category) return false;
       if (view.owner !== 'all' && t.ownerId !== view.owner) return false;
       if (q && !`${t.title} ${t.location} ${t.category} ${t.description} ${officerName(s, t.ownerId)}`.toLowerCase().includes(q)) return false;
       return true;
-    })
-    .map((t) => ({ t, score: scoreTask(s, t).score }));
+    });
+}
+
+function filtered(s, base = matching(s)) {
+  const test = STATUS_TABS.find((x) => x[0] === view.status)[2];
+  const rows = base.filter((t) => test(s, t)).map((t) => ({ t, score: scoreTask(s, t).score }));
 
   const cmp = {
     score: (a, b) => b.score - a.score,
@@ -42,7 +54,7 @@ function filtered(s) {
 
 function listView(s, rows) {
   const sup = isSupervisor(s);
-  return html`<div class="table-wrap"><table class="table">
+  return html`<div class="table-wrap"><table class="table task-table">
     <caption class="sr-only">Tasks, sorted by ${view.sort}</caption>
     <thead><tr>
       <th style="width:36px"><span class="sr-only">Complete</span></th>
@@ -61,7 +73,7 @@ function listView(s, rows) {
         const done = !isOpen(t);
         return html`<tr class="${done ? 'done' : ''}">
           <td><button class="complete-btn ${done ? 'is-done' : ''}" data-action="task-toggle" data-id="${t.id}" aria-label="${done ? 'Reopen' : 'Complete'} “${t.title}”" aria-pressed="${done}">${icon('check', 12)}</button></td>
-          <td style="min-width:240px">
+          <td class="cell-task">
             <button class="task-title" data-action="task-view" data-id="${t.id}">${t.title}</button>
             <div class="meta">
               <span>${t.category}</span>
@@ -73,13 +85,13 @@ function listView(s, rows) {
               ${t.status === 'review' ? html`<span class="badge badge-neutral" style="padding:0 6px">In review</span>` : ''}
             </div>
           </td>
-          ${sup ? html`<td class="hide-sm"><span class="row">${avatar(officerName(s, t.ownerId), 'sm')}${officerName(s, t.ownerId)}</span></td>` : ''}
-          <td>${priorityBadge(t.priority)}</td>
-          <td>${done ? '—' : scorePill(s, t)}</td>
-          <td style="white-space:nowrap" class="${isOverdue(t) ? 'delta-bad' : ''}">${fmtDue(t.due)}${isOverdue(t) ? html`<div class="small">Overdue</div>` : ''}</td>
+          ${sup ? html`<td class="cell-owner"><span class="row">${avatar(officerName(s, t.ownerId), 'sm')}${officerName(s, t.ownerId)}</span></td>` : ''}
+          <td class="cell-meta cell-first">${priorityBadge(t.priority)}</td>
+          <td class="cell-meta">${done ? '—' : scorePill(s, t)}</td>
+          <td class="cell-meta ${isOverdue(t) ? 'delta-bad' : ''}" style="white-space:nowrap">${fmtDue(t.due)}${isOverdue(t) ? html`<div class="small">Overdue</div>` : ''}</td>
           <td class="hide-sm">${fmtHours(t.effort)}</td>
           <td class="hide-sm">${riskBadge(risk.level)}</td>
-          <td><div class="cell-actions">
+          <td class="cell-act"><div class="cell-actions">
             <button class="icon-btn sm" data-action="task-edit" data-id="${t.id}" aria-label="Edit “${t.title}”">${icon('pencil', 15)}</button>
             <button class="icon-btn sm" data-action="task-delete" data-id="${t.id}" aria-label="Delete “${t.title}”">${icon('trash', 15)}</button>
           </div></td>
@@ -115,7 +127,12 @@ function kanbanView(s, rows) {
 }
 
 function results(s) {
-  const rows = filtered(s);
+  const base = matching(s);
+  const tabs = filterTabs('task-tab', 'Task status', STATUS_TABS.map(([v, l, test]) => [v, l, base.filter((t) => test(s, t)).length]), view.status);
+  return html`${tabs}${resultList(s, filtered(s, base))}`;
+}
+
+function resultList(s, rows) {
   if (!rows.length) {
     const any = visibleTasks(s).length;
     return emptyState(
@@ -125,7 +142,14 @@ function results(s) {
       any ? html`<button class="btn" data-action="task-clear-filters">Clear filters</button>` : html`<button class="btn btn-primary" data-action="task-new">${icon('plus', 16)}New task</button>`,
     );
   }
-  return html`<p class="sr-only" aria-live="polite">${rows.length} tasks shown</p>${s.prefs.taskView === 'kanban' ? kanbanView(s, rows) : listView(s, rows)}`;
+  if (s.prefs.taskView === 'kanban') return html`<p class="sr-only" aria-live="polite">${rows.length} tasks shown</p>${kanbanView(s, rows)}`;
+  const pages = Math.ceil(rows.length / PER_PAGE);
+  view.page = Math.min(view.page, pages);
+  const from = (view.page - 1) * PER_PAGE;
+  const shown = rows.slice(from, from + PER_PAGE);
+  return html`<p class="sr-only" aria-live="polite">${rows.length} tasks, showing ${from + 1} to ${from + shown.length}</p>
+    ${listView(s, shown)}
+    <div class="list-foot"><span class="muted small">Showing ${from + 1}–${from + shown.length} of ${rows.length}</span>${pager('task-page', view.page, pages, 'Task pages')}</div>`;
 }
 
 function nlPreview(s) {
@@ -181,7 +205,6 @@ function renderPage(s) {
     <section class="card mt" aria-label="Task list">
       <div class="toolbar">
         <div class="search-box">${icon('search', 16)}<label class="sr-only" for="task-q">Search tasks</label><input class="input" id="task-q" type="search" placeholder="Search tasks, blocks, officers…" value="${view.q}" data-input="task-search" /></div>
-        ${select('status', 'Status', view.status, [['open', 'Open tasks'], ['all', 'All statuses'], ...STATUSES.map((x) => [x.id, x.label])])}
         ${select('priority', 'Priority', view.priority, [['all', 'All priorities'], ...PRIORITIES.map((p) => [p, p])])}
         ${select('category', 'Category', view.category, [['all', 'All categories'], ...CATEGORIES.map((c) => [c, c])])}
         ${sup ? select('owner', 'Owner', view.owner, [['all', 'All officers'], ...s.officers.map((o) => [o.id, o.name])]) : ''}
@@ -336,8 +359,20 @@ export default {
   actions: {
     'task-mode': (el) => update((st) => (st.prefs.taskView = el.dataset.mode)),
     'task-clear-filters': () => {
-      Object.assign(view, { q: '', status: 'open', priority: 'all', category: 'all', owner: 'all' });
+      Object.assign(view, { q: '', status: 'open', priority: 'all', category: 'all', owner: 'all', page: 1 });
       ctx.rerender();
+    },
+    'task-tab': (el) => {
+      Object.assign(view, { status: el.dataset.value, page: 1 });
+      refreshResults();
+      document.querySelector(`[data-action="task-tab"][data-value="${el.dataset.value}"]`)?.focus();
+    },
+    'task-page': (el) => {
+      view.page = Number(el.dataset.page);
+      refreshResults();
+      const box = document.getElementById('task-results');
+      box?.closest('.card')?.scrollIntoView({ block: 'start' });
+      box?.querySelector('.pager [aria-current="page"]')?.focus({ preventScroll: true });
     },
     'minutes-open': () => openModal(minutesInput(minutes?.text || ''), { wide: true }),
     'minutes-sample': () => {
@@ -399,6 +434,7 @@ export default {
   changes: {
     'task-filter': (el) => {
       view[el.name] = el.value;
+      view.page = 1;
       refreshResults();
     },
     'task-status': (el) => setStatus(el.dataset.id, el.value),
@@ -421,6 +457,7 @@ export default {
   inputs: {
     'task-search': (el) => {
       view.q = el.value;
+      view.page = 1;
       refreshResults();
     },
   },

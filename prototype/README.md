@@ -13,19 +13,16 @@ You need any static web server, because ES modules do not load from `file://`.
 python prototype/serve.py
 ```
 
-Then open **<http://localhost:8765>**.
+Then open **<http://localhost:8765/site/login.html>** and sign in with a demo account (password `SyncAI-demo1`):
 
-`serve.py` uses only the Python standard library. It binds to `127.0.0.1` and disables caching so edits appear on refresh. Alternatives: VS Code **Live Server**, or `npx serve prototype`.
-
-Demo links:
-
-| Link | Opens |
+| Email | Opens |
 | --- | --- |
-| `http://localhost:8765/?role=officer#/dashboard` | Officer view (Aisyah Rahman) |
-| `http://localhost:8765/?role=supervisor#/dashboard` | Supervisor view (Jennifer Ong) |
-| `http://localhost:8765/?role=supervisor#/simulator` | What-If Simulator |
+| `officer@syncai.demo` | Officer view (Aisyah Rahman) |
+| `supervisor@syncai.demo` | Supervisor view (Jennifer Ong) |
 
-Switch roles at any time with the **Officer / Supervisor** toggle in the top bar.
+`serve.py` uses only the Python standard library. It binds to `127.0.0.1` and disables caching so edits appear on refresh. Alternatives: VS Code **Live Server** (open `prototype/site/login.html`), or `npx serve prototype`.
+
+The portal always requires sign-in. Opening `index.html` without signing in sends you to the login page. Each account sees only its own role's view; there is no role switcher. Use **Sign out** (under your name at the bottom of the sidebar) to switch accounts. Ticking **Keep me signed in** keeps the sign-in after the tab closes; otherwise it lasts for the tab only.
 
 ## Public website
 
@@ -34,16 +31,9 @@ Switch roles at any time with the **Officer / Supervisor** toggle in the top bar
 | Page | What it does |
 | --- | --- |
 | `site/index.html` | Landing page. "Request a demo" validates the form and shows a thank-you; nothing is sent. |
-| `site/login.html` | Email and password sign-in, a mock **Sign in with Microsoft** button, and one-click demo accounts. A correct sign-in opens the portal in that role. |
+| `site/login.html` | Email and password sign-in, a mock **Sign in with Microsoft** button, and one-click demo accounts. A correct sign-in opens the portal in that account's role. |
 | `site/forgot-password.html` | Asks for an email and always gives the same reply, so it never reveals whether an account exists. Shows a prototype link to the reset page. |
 | `site/reset-password.html` | New password with live rule checks (12+ characters, mixed case, number, symbol) and a confirm field. |
-
-Demo accounts (password `SyncAI-demo1`):
-
-| Email | Opens |
-| --- | --- |
-| `officer@syncai.demo` | Officer view |
-| `supervisor@syncai.demo` | Supervisor view |
 
 Add `?selftest` to any site URL to run the form-validation self-checks in the browser console.
 
@@ -82,6 +72,7 @@ Add `?selftest` to any site URL to run the form-validation self-checks in the br
 - **Explainable:** every score, estimate, risk and recommendation shows the reasons behind it.
 - **Human approval:** plans, reassignments and simulations change nothing until a person accepts them. Every approval is logged.
 - **Role-based and privacy-aware:** officers see only their own work. Absences show as MC or leave only, never medical details.
+- **Easy to scan on any screen:** status filter tabs with live counts and numbered pages on the task list; **Show all / Show less** on long lists (schedule, reminders, risk alerts, reassignments, activity log); Settings split into tabs. On phones, task rows become cards and nothing scrolls sideways.
 - **Accessible:** skip link, keyboard navigation, focus trapping in dialogs, labelled controls, `aria-live` updates, and statuses that never rely on colour alone.
 
 ## Demo scenarios
@@ -108,7 +99,7 @@ Use **Settings → Reset demo data** before a demo. Dates are generated relative
 
 ### 4. Team overload and reassignment (Supervisor, ~2 min)
 
-1. Switch to **Supervisor**. The Team Briefing shows Marcus is overloaded and Ravi is on MC.
+1. **Sign out** and sign in as `supervisor@syncai.demo`. The Team Briefing shows Marcus is overloaded and Ravi is on MC.
 2. Open **Team Workload** to see the heatmap and the reassignment recommendations. Each one explains why the task is at risk and why the receiving officer fits: skills, free time before the deadline, zone, and a check that the move won't make their other work late.
 3. **Accept**, **Modify** (choose another officer) or **Dismiss**.
 
@@ -199,7 +190,7 @@ prototype/
 
 ## Known limitations
 
-- **Mock sign-in:** the website's login checks a demo password in the browser and creates no session. The portal itself is still open to anyone who visits it directly. Production would use Entra ID.
+- **Mock sign-in:** the website's login checks a demo password in the browser and stores only the role in `sessionStorage` / `localStorage` (key `syncai.session`). The portal refuses to open without it, but this is not real access control: anyone can set that value in the browser's developer tools. Production would use Entra ID role claims.
 - **Simulated only:** no Microsoft Entra ID sign-in, Microsoft Graph, Teams notifications or Azure OpenAI. "Accept plan" and notifications are mock.
 - **Fixed demo clock:** "now" is 08:30 on the current working day. Data is re-seeded automatically on a new day, which discards earlier changes.
 - **Single browser:** state lives in `localStorage` per browser and is not shared between users or devices.
@@ -207,5 +198,5 @@ prototype/
 - **Travel estimate:** the field visit optimiser uses block numbers as a proxy for distance, not real maps or routes.
 - **Greedy scheduler:** fast and explainable, but not mathematically optimal. A production version could use a constraint solver.
 - **Demand-based capacity:** utilisation counts work *due* in a period, so later days look lighter until more work is known.
-- **Desktop-first:** works on mobile, but the week calendar scrolls horizontally on small screens.
+- **Small screens:** every page fits a 375px phone without sideways scrolling, except the week calendar and heatmap, which scroll inside their own card.
 - Tested in current Chromium-based browsers (Edge and Chrome).
