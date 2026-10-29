@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="SyncAI is an AI-powered Smart Work Planner that helps Town Council officers and supervisors plan their day, protect deadlines and balance team workload." />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+    <title>SyncAI — Your Work. Your Time. In Sync.</title>
+    <link rel="icon" href="../assets/logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="site.css" />
+    <script type="module" src="site.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+
+    <header class="site-header">
+      <div class="wrap">
+        <a class="logo" href="index.html"><img src="../assets/logo.svg" alt="" width="32" height="32" />SyncAI</a>
+        <nav class="site-nav" aria-label="Main">
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="#roles">For teams</a>
+          <a href="#platform">Platform</a>
+          <a href="#trust">Responsible AI</a>
+          <a href="#plans">Plans</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+        <div class="header-actions">
+          <a class="btn btn-subtle btn-lg" href="login.html">Sign in</a>
+          <a class="btn btn-primary btn-lg" href="#demo">Request a demo</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero">
+        <div class="wrap">
+          <div>
+            <span class="eyebrow">AI Smart Work Planner for Town Councils</span>
+            <h1>Your Work. Your Time. <span class="grad">In Sync.</span></h1>
+            <p class="lead">
+              SyncAI turns a pile of inspections, resident cases and meetings into a realistic daily plan. Officers know what to do first. Supervisors see who is overloaded before deadlines slip.
+            </p>
+            <div class="hero-cta">
+              <a class="btn btn-primary btn-lg" href="#demo">Request a demo</a>
+              <a class="btn btn-lg" href="login.html">Try the live prototype</a>
+            </div>
+            <p class="hero-note">Built on Microsoft 365. Every AI suggestion is explained and needs a person's approval.</p>
+          </div>
+
+          <div class="mock" role="img" aria-label="Preview of the SyncAI dashboard: an AI daily briefing, three ranked tasks and a workload meter at 78 percent.">
+            <div class="mock-bar"><span></span><span></span><span></span></div>
+            <div class="mock-body" aria-hidden="true">
+              <div class="mock-brief"><strong>AI Daily Briefing</strong><br />Today's work fits. Start with the Blk 208 lift inspection: it is safety-critical and due at 2pm.</div>
+              <div class="mock-row"><div class="t">Lift inspection, Blk 208<small>Safety · due today 2:00pm</small></div><span class="mock-score hi">92 Do now</span></div>
+              <div class="mock-row"><div class="t">Ceiling seepage site check, Blk 214<small>Unblocks resident call</small></div><span class="mock-score md">64 Do next</span></div>
+              <div class="mock-row"><div class="t">Monthly estate report<small>Due Friday</small></div><span class="mock-score lo">38 Plan</span></div>
+              <div>
+                <div class="row-between" style="font-size: 13px"><span>Today's workload</span><strong>78% of free time</strong></div>
+                <div class="meter"><i></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section alt" aria-labelledby="problem-h">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">The problem</span>
+            <h2 id="problem-h">Estate work never arrives in a neat queue</h2>
+            <p class="lead">Town Council officers juggle safety inspections, resident feedback, contractor follow-ups and back-to-back meetings. Plans live in people's heads, so problems surface only when a deadline is already missed.</p>
+          </div>
+          <div class="grid-3">
+            <div class="tile"><h3>"What should I do first?"</h3><p>Priorities shift through the day and urgent cases keep arriving. Officers lose time deciding instead of doing.</p></div>
+            <div class="tile"><h3>"Can I finish all this today?"</h3><p>Calendars show meetings, not work. Nobody can see whether the remaining tasks actually fit in the free time left.</p></div>
+            <div class="tile"><h3>"Who can take over?"</h3><p>When an officer is on MC or a lift breaks down, supervisors rebalance work by phone and spreadsheet.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="features" aria-labelledby="features-h">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Features</span>
+            <h2 id="features-h">AI that works inside the workday, not beside it</h2>
+          </div>
+          <div class="grid-3">
+            <div class="tile">
+              <span class="ico ai"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5z" /></svg></span>
+              <h3>Explainable priority scores</h3>
+              <p>Every task gets a 0–100 score from priority, deadline, safety, resident impact and dependencies, with the reasons listed.</p>
+            </div>
+            <div class="tile">
+              <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg></span>
+              <h3>Smart Planner</h3>
+              <p>Time-blocks tasks around Outlook meetings, lunch and travel. Flags clashes and unrealistic plans, and suggests alternatives.</p>
+            </div>
+            <div class="tile">
+              <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 9v4M12 17h.01" /><path d="M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /></svg></span>
+              <h3>Emergency rescheduling</h3>
+              <p>An urgent case arrives? SyncAI fits it in, protects safety-critical work and shows exactly what moved.</p>
+            </div>
+            <div class="tile">
+              <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8" /></svg></span>
+              <h3>Team workload heatmap</h3>
+              <p>See who is overloaded, who has spare capacity and who is falling behind, with skill-aware reassignment suggestions.</p>
+            </div>
+            <div class="tile">
+              <span class="ico ai"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" /></svg></span>
+              <h3>What-If Simulator</h3>
+              <p>Test an MC, a lift breakdown or two absences before they happen. Compare "no action" with SyncAI's plan, then apply.</p>
+            </div>
+            <div class="tile">
+              <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg></span>
+              <h3>Ask SyncAI</h3>
+              <p>Plain-English questions like "Can I finish everything today?" Turn meeting minutes into tasks in one click.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section alt" id="how" aria-labelledby="how-h">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">How it works</span>
+            <h2 id="how-h">From inbox chaos to an approved plan in three steps</h2>
+          </div>
+          <div class="grid-3 steps">
+            <div class="tile"><h3>Connect</h3><p>Sign in with your Microsoft account. SyncAI reads your Outlook calendar, Planner tasks and Teams messages.</p></div>
+            <div class="tile"><h3>Plan</h3><p>SyncAI scores your tasks, estimates effort from past work and drafts a schedule that fits your real free time.</p></div>
+            <div class="tile"><h3>Approve</h3><p>Review the draft, move anything you like, then accept. Nothing changes until you or your supervisor say so.</p></div>
+          </div>
+          <div class="pill-row" aria-label="Integrations">
+            <span>Microsoft Entra ID</span><span>Outlook Calendar</span><span>Microsoft Planner</span><span>Microsoft Teams</span><span>Azure OpenAI</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="roles" aria-labelledby="roles-h">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">For teams</span>
+            <h2 id="roles-h">One planner, two views</h2>
+          </div>
+          <div class="grid-2">
+            <div class="tile">
+              <h3>For officers</h3>
+              <ul class="ticks">
+                <li>An AI daily briefing that says where to start and why</li>
+                <li>Start-by warnings and smart reminders before deadlines slip</li>
+                <li>Natural-language task entry: "Urgent lift fault Blk 214, 2pm"</li>
+                <li>Only your own work is visible to you</li>
+              </ul>
+            </div>
+            <div class="tile">
+              <h3>For supervisors</h3>
+              <ul class="ticks">
+                <li>Team briefing with capacity, at-risk deadlines and approvals</li>
+                <li>Reassignment suggestions that check skills, zone and free time</li>
+                <li>What-If simulations for MC, leave and urgent incidents</li>
+                <li>Absences show as MC or leave only, never medical details</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section alt" id="trust" aria-labelledby="trust-h">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Responsible AI</span>
+            <h2 id="trust-h">AI that shows its working</h2>
+          </div>
+          <div class="grid-3">
+            <div class="tile"><h3>Explainable</h3><p>Every score, estimate, risk and recommendation lists the reasons behind it. No black boxes.</p></div>
+            <div class="tile"><h3>Human in control</h3><p>Plans, reassignments and simulations change nothing until a person approves them. Every approval is logged.</p></div>
+            <div class="tile"><h3>Private by design</h3><p>Role-based access, data kept in your Microsoft 365 tenant, and designed for keyboard and screen-reader users.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="platform" aria-labelledby="platform-h">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Platform</span>
+            <h2 id="platform-h">One Town Council Operations Hub, built in modules</h2>
+            <p class="lead">IEMS, TCMS, Dynamics 365 and SharePoint each hold part of the picture. SyncAI brings them into one Microsoft-based hub with a shared data layer and role-based views for Town Councils and EMS HQ. Start with one module and add more as you need them.</p>
+          </div>
+          <div class="grid-3">
+            <div class="tile"><span class="badge badge-success">Available</span><h3 style="margin-top: 12px">Smart Work Planner</h3><p>Prioritises each officer's tasks by deadline and effort and suggests a realistic daily or weekly plan.</p></div>
+            <div class="tile"><span class="badge badge-info">Next</span><h3 style="margin-top: 12px">Project Tracker</h3><p>Create projects, break them into tasks, assign owners and deadlines, and see overall progress in one place.</p></div>
+            <div class="tile"><span class="badge badge-neutral">Roadmap</span><h3 style="margin-top: 12px">More EMS modules</h3><p>Lift spot-checks, performance early warning and resident compliments can plug into the same hub and data layer.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section alt" id="plans" aria-labelledby="plans-h">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Plans</span>
+            <h2 id="plans-h">Start small, roll out when it proves itself</h2>
+          </div>
+          <div class="grid-3">
+            <div class="tile plan">
+              <h3>Pilot</h3>
+              <p class="price">Free for 8 weeks</p>
+              <ul class="ticks"><li>One team, up to 15 officers</li><li>Officer and supervisor views</li><li>Outlook calendar sync</li></ul>
+              <a class="btn btn-lg" href="#demo">Start a pilot</a>
+            </div>
+            <div class="tile plan featured">
+              <h3>Town Council</h3>
+              <p class="price">Per officer, per month</p>
+              <ul class="ticks"><li>All teams and estates</li><li>What-If Simulator and reassignment</li><li>Teams alerts and Planner sync</li></ul>
+              <a class="btn btn-primary btn-lg" href="#demo">Talk to us</a>
+            </div>
+            <div class="tile plan">
+              <h3>Managing agent</h3>
+              <p class="price">Custom</p>
+              <ul class="ticks"><li>Multiple Town Councils</li><li>Cross-council reporting</li><li>Dedicated onboarding</li></ul>
+              <a class="btn btn-lg" href="#demo">Contact sales</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section faq" id="faq" aria-labelledby="faq-h">
+        <div class="wrap">
+          <div class="section-head"><span class="eyebrow">FAQ</span><h2 id="faq-h">Questions we hear a lot</h2></div>
+          <details><summary>Does SyncAI replace our existing tools?</summary><p>No. It sits on top of Microsoft 365. Tasks, meetings and alerts stay in Outlook, Planner and Teams; SyncAI adds the planning and the AI.</p></details>
+          <details><summary>Can the AI move my work without asking?</summary><p>Never. SyncAI drafts plans and suggestions. Only the officer or supervisor can accept them, and every approval is logged.</p></details>
+          <details><summary>Who can see my tasks?</summary><p>You and your supervisor. Officers never see other officers' workload, and absences show only as MC or leave.</p></details>
+          <details><summary>How long does setup take?</summary><p>A pilot team can start in a day: sign in with Microsoft, connect the calendar, and SyncAI builds the first plan from existing tasks.</p></details>
+        </div>
+      </section>
+
+      <section class="section cta-band" id="demo" aria-labelledby="demo-h">
+        <div class="wrap">
+          <div>
+            <span class="eyebrow" style="color: #9fd3ff">Get started</span>
+            <h2 id="demo-h">See SyncAI with your own team's work</h2>
+            <p class="lead">Book a 30-minute walkthrough. We'll show the officer and supervisor views and run a What-If simulation on a typical week.</p>
+            <p class="lead">Or <a href="login.html" style="color: #9fd3ff">sign in to the prototype</a> with a demo account now.</p>
+          </div>
+          <form data-form="demo" aria-labelledby="demo-h">
+            <div class="notice" data-status tabindex="-1" role="status" hidden></div>
+            <div class="field"><label for="d-name">Name <span class="req" aria-hidden="true">*</span></label><input class="input" id="d-name" name="name" autocomplete="name" required /><span class="error-text" aria-live="polite"></span></div>
+            <div class="field"><label for="d-email">Work email <span class="req" aria-hidden="true">*</span></label><input class="input" id="d-email" name="email" type="email" autocomplete="email" required /><span class="error-text" aria-live="polite"></span></div>
+            <div class="field"><label for="d-org">Organisation <span class="req" aria-hidden="true">*</span></label><input class="input" id="d-org" name="org" autocomplete="organization" required /><span class="error-text" aria-live="polite"></span></div>
+            <div class="field"><label for="d-size">Team size</label><select class="select" id="d-size" name="size"><option>1–15 officers</option><option>16–50 officers</option><option>51+ officers</option></select></div>
+            <button class="btn btn-primary btn-lg" type="submit">Request a demo</button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <span>© 2026 SyncAI · Student prototype for EM Services challenges 12g–12i. Fictional data.</span>
+        <span><a href="login.html">Sign in</a> · <a href="../index.html">Open portal</a></span>
+      </div>
+    </footer>
+  </body>
+</html>
