@@ -19,61 +19,77 @@ SyncAI is a Microsoft-based **Town Council Operations Hub** (EMS statement 12g).
 
 ```mermaid
 flowchart LR
-  subgraph Users
-    O[Property / estate officers]
-    S[Supervisors / estate managers]
-    H[EMS HQ]
+  subgraph Users["Users"]
+    O["Property and estate officers"]
+    S["Supervisors and estate managers"]
+    H["EMS HQ"]
   end
-  subgraph M365[Microsoft 365]
-    OL[Outlook calendar]
-    PL[Planner / To Do]
-    TM[Teams]
-    SP[SharePoint / OneDrive]
+  subgraph M365["Microsoft 365"]
+    OL["Outlook calendar"]
+    PL["Planner and To Do"]
+    TM["Teams"]
+    SP["SharePoint and OneDrive"]
   end
-  subgraph LOB[EMS line-of-business systems]
-    IEMS["IEMS ⚠️<br/>feedback cases, defects"]
-    TCMS["TCMS ⚠️<br/>council admin, finance"]
-    D365["Dynamics 365<br/>contracts, work orders, invoices"]
+  subgraph LOB["EMS line-of-business systems"]
+    IEMS["IEMS: feedback cases, defects (to confirm)"]
+    TCMS["TCMS: council admin, finance (to confirm)"]
+    D365["Dynamics 365: contracts, work orders, invoices"]
   end
-  HUB(["SyncAI Operations Hub"])
-  O & S & H -->|Entra ID SSO| HUB
-  HUB <-->|Microsoft Graph| OL & PL & TM & SP
-  IEMS & TCMS & D365 -->|connectors| HUB
-  HUB -->|alerts, approvals| TM
+  HUB["SyncAI Operations Hub"]
+  O -->|"Entra ID SSO"| HUB
+  S -->|"Entra ID SSO"| HUB
+  H -->|"Entra ID SSO"| HUB
+  HUB -->|"Microsoft Graph"| OL
+  HUB -->|"Microsoft Graph"| PL
+  HUB -->|"Microsoft Graph"| SP
+  IEMS -->|"connector"| HUB
+  TCMS -->|"connector"| HUB
+  D365 -->|"connector"| HUB
+  HUB -->|"alerts, approvals"| TM
 ```
 
 ## 3. Logical architecture
 
 ```mermaid
 flowchart TB
-  subgraph Client["Client: React + Fluent UI 2 (web, PWA, Teams tab)"]
-    SHELL[App shell: sign-in, navigation, council switcher]
-    MOD1[Smart Work Planner · 12i]
-    MOD2[Project Tracker · 12h]
-    MOD3[HQ overview]
-    MODN[Future modules: 12a–12f]
+  subgraph Client["Client: React and Fluent UI 2 (web, PWA, Teams tab)"]
+    SHELL["App shell: sign-in, navigation, council switcher"]
+    MOD1["Smart Work Planner (12i)"]
+    MOD2["Project Tracker (12h)"]
+    MOD3["HQ overview (12g)"]
+    MODN["Future modules: 12a to 12f"]
   end
-  subgraph API["API: Azure Functions (Node.js / TypeScript)"]
-    AUTH[Token validation + role checks]
-    RULES[Rules engine: scoring, scheduling, risk, project health]
-    AI[AI service: Azure OpenAI with prompt templates]
-    NOTIFY[Notifications: Teams activity feed, adaptive cards]
+  subgraph API["API: Azure Functions (Node.js, TypeScript)"]
+    AUTH["Token validation and role checks"]
+    RULES["Rules engine: scoring, scheduling, risk, project health"]
+    AIS["AI service: Azure OpenAI with prompt templates"]
+    NOTIFY["Notifications: Teams activity feed, adaptive cards"]
   end
   subgraph Data["Shared data layer"]
-    DV[(Dataverse)]
-    BLOB[(Blob storage: uploads, exports)]
+    DV["Dataverse"]
+    BLOB["Blob storage: uploads, exports"]
   end
   subgraph Ingest["Ingestion"]
-    PA[Power Automate flows / Dataverse connectors]
-    GRAPH[Microsoft Graph sync]
+    PA["Power Automate flows and Dataverse connectors"]
+    GRAPH["Microsoft Graph sync"]
   end
-  SHELL --> MOD1 & MOD2 & MOD3 & MODN
-  MOD1 & MOD2 & MOD3 & MODN -->|HTTPS + Entra token| AUTH
-  AUTH --> RULES & AI & NOTIFY
-  RULES & AI --> DV
+  TEAMS["Microsoft Teams"]
+  SHELL --> MOD1
+  SHELL --> MOD2
+  SHELL --> MOD3
+  SHELL --> MODN
+  MOD1 -->|"HTTPS + Entra token"| AUTH
+  MOD2 --> AUTH
+  MOD3 --> AUTH
+  MODN --> AUTH
+  AUTH --> RULES
+  AUTH --> AIS
+  AUTH --> NOTIFY
+  RULES --> DV
+  AIS --> DV
   PA --> DV
   GRAPH --> DV
-  NOTIFY --> TEAMS[Microsoft Teams]
+  NOTIFY --> TEAMS
 ```
 
 **Why these choices**
@@ -97,7 +113,7 @@ erDiagram
   OFFICER ||--o{ MEETING : attends
   TASK }o--o| SOURCE_RECORD : "comes from"
   PROJECT ||--o{ MILESTONE : has
-  COUNCIL ||--o{ CASE : receives
+  COUNCIL ||--o{ FEEDBACK_CASE : receives
   CONTRACTOR ||--o{ WORK_ORDER : performs
   WORK_ORDER }o--o| TASK : "tracked as"
 ```
@@ -109,7 +125,7 @@ erDiagram
 | Project, milestone, checklist | SyncAI (Dataverse) | New data owned by the hub |
 | Meeting, free/busy | Outlook via Graph | Read only; approved plan blocks are written back as calendar events |
 | Absence | HR / Outlook out-of-office | Stored as "MC" or "leave" only, never medical details |
-| Case, defect | IEMS ⚠️ | Feeds performance tracking (12d) and compliments (12c) later |
+| Feedback case, defect | IEMS ⚠️ | Feeds performance tracking (12d) and compliments (12c) later |
 | Contractor, work order, invoice | Dynamics 365 | Feeds contractor tasks and lift defects (12b) later |
 | Document, minutes | SharePoint | Read on demand with the user's permission |
 
