@@ -3,7 +3,7 @@
 
 import { TODAY, workDay, horizonDays, dt } from './time.js';
 
-export const DATA_VERSION = 5;
+export const DATA_VERSION = 6;
 
 export const CATEGORIES = [
   'Inspection',
@@ -147,6 +147,8 @@ function tasks() {
       createdAt: extra.createdAt || dt(workDay(-2), '09:00'),
       completedAt: extra.completedAt || null,
       actual: extra.actual || null,
+      projectId: extra.projectId || null,
+      checklist: extra.checklist || [],
     });
 
   // Aisyah Rahman (o1) — the demo officer
@@ -217,6 +219,72 @@ function tasks() {
   D('h13', 'o5', 'Bin centre washing audit', 'Cleaning', 1, 1.1, 2);
   D('h14', 'o2', 'Litter hotspot check — Blk 308', 'Cleaning', 0.75, 0.8, 3);
   D('h15', 'o5', 'Tree risk assessment — Blk 403', 'Horticulture', 1.5, 1.6, 4);
+
+  // Project work: completed milestones and tasks due after the planning week
+  const P = (id, ownerId, title, category, est, daysAgo, projectId) =>
+    T(id, ownerId, title, category, 'Medium', workDay(-daysAgo), '17:00', est, {
+      status: 'done', actual: est, projectId, completedAt: dt(workDay(-daysAgo), '15:00'), createdAt: dt(workDay(-daysAgo - 3), '09:00'),
+    });
+  P('p101', 'o2', 'Approve repainting colour scheme with RC', 'Contractor', 1.5, 12, 'p1');
+  P('p102', 'o3', 'Issue repainting notice to residents', 'Admin', 1, 9, 'p1');
+  P('p103', 'o2', 'Scaffolding safety check — Blk 312', 'Inspection', 1.5, 6, 'p1');
+  T('p104', 'o2', 'Joint final inspection — repainting Blk 312', 'Inspection', 'High', workDay(9), '17:00', 2, { location: 'Blk 312', projectId: 'p1', createdAt: dt(workDay(-12), '09:00') });
+  P('p201', 'o4', 'Lift vendor Q3 performance review', 'Contractor', 2, 8, 'p2');
+  P('p301', 'o5', 'Confirm festive lighting contractor quote', 'Contractor', 1, 4, 'p3');
+  P('p303', 'o5', 'Book void deck for year-end event', 'Admin', 1.5, 2, 'p3');
+  P('p501', 'o4', 'Bin centre floor resurfacing — Blk 306', 'Maintenance', 2, 14, 'p5');
+  P('p502', 'o2', 'Final inspection — Blk 306 bin centre upgrade', 'Inspection', 1.5, 11, 'p5');
+  T('p302', 'o5', 'Install festive lighting — Blk 401 to 405', 'Maintenance', 'Medium', workDay(8), '17:00', 3, { location: 'Blk 401–405', projectId: 'p3', createdAt: dt(workDay(-4), '09:00') });
+  P('p401', 'o6', 'Collect Zone C contractor timesheets', 'Admin', 1, 3, 'p4');
+  return list;
+}
+
+/** Fictional projects (12h Project Tracker). Tasks join a project through task.projectId. */
+function projects() {
+  return [
+    { id: 'p1', name: 'Blk 312 repainting works', ownerId: 'o2', color: '#0f6cbd', start: workDay(-15), due: workDay(10),
+      description: 'Cyclical repainting of Blk 312 with RC approval, resident notices and a joint final inspection.',
+      milestones: [{ name: 'Colour scheme approved', date: workDay(-12) }, { name: 'Works complete', date: workDay(6) }, { name: 'Handover', date: workDay(10) }] },
+    { id: 'p2', name: 'Zone A lift reliability programme', ownerId: 'o1', color: '#b10e1c', start: workDay(-10), due: workDay(5),
+      description: 'Inspect every lift in Zone A, clear outstanding faults and review the lift vendor after repeated breakdowns.',
+      milestones: [{ name: 'Vendor review', date: workDay(-8) }, { name: 'All lifts inspected', date: workDay(4) }] },
+    { id: 'p3', name: 'Year-end festive estate preparation', ownerId: 'o5', color: '#0e7a0d', start: workDay(-3), due: workDay(12),
+      description: 'Festive lighting, cleaning schedule and community event permits for the year-end period.',
+      milestones: [{ name: 'Lighting installed', date: workDay(8) }, { name: 'Event day', date: workDay(12) }] },
+    { id: 'p4', name: 'Zone C monthly estate report', ownerId: 'o6', color: '#8a4b00', start: workDay(-5), due: workDay(3),
+      description: 'Compile the Zone C monthly report: feedback cases, contractor invoices and outstanding issues.',
+      milestones: [{ name: 'Report submitted', date: workDay(3) }] },
+    { id: 'p5', name: 'Blk 306 bin centre upgrade', ownerId: 'o4', color: '#00788a', start: workDay(-20), due: workDay(-10),
+      description: 'Resurface the bin centre floor and improve drainage after repeated pest feedback.',
+      milestones: [{ name: 'Works complete', date: workDay(-12) }] },
+  ];
+}
+
+// Existing tasks that belong to a project, and starter checklists.
+const PROJECT_TASKS = {
+  p1: ['t203', 't206'],
+  p2: ['t101', 't109', 't110', 't401', 't402'],
+  p3: ['t502', 't304'],
+  p4: ['t601', 't602', 't603', 't604'],
+};
+const CHECKLISTS = {
+  t203: [['Check surface preparation on 4 floors', true], ['Photograph defects', true], ['Confirm paint batch numbers', false], ['Sign contractor site log', false]],
+  t101: [['Lift A: brakes and door sensors', false], ['Lift B: brakes and door sensors', false], ['Record findings in IEMS', false]],
+  t603: [['Feedback case summary', true], ['Contractor invoice totals', false], ['Outstanding issues list', false]],
+  p104: [['Defects list from contractor', false], ['RC member attendance', false], ['Handover form signed', false]],
+};
+
+/** Starter tasks for "New project from template": [title, category, effort, share of the timeline]. */
+export const PROJECT_TEMPLATES = {
+  blank: { label: 'Blank project', tasks: [] },
+  lift: { label: 'Lift replacement', tasks: [['Notify residents of lift downtime', 'Admin', 1, 0.1], ['Site survey with lift contractor', 'Inspection', 2, 0.25], ['Review installation method statement', 'Contractor', 1.5, 0.4], ['Weekly progress inspection', 'Inspection', 1.5, 0.7], ['Lift testing and handover', 'Inspection', 2, 1]] },
+  repaint: { label: 'Repainting works', tasks: [['Approve colour scheme with RC', 'Contractor', 1.5, 0.1], ['Issue works notice to residents', 'Admin', 1, 0.2], ['Scaffolding safety check', 'Inspection', 1.5, 0.35], ['Mid-works quality inspection', 'Inspection', 1.5, 0.6], ['Joint final inspection', 'Inspection', 2, 1]] },
+  festive: { label: 'Festive event', tasks: [['Apply for event permits', 'Admin', 1.5, 0.15], ['Confirm decoration contractor', 'Contractor', 1, 0.3], ['Plan extra cleaning rounds', 'Cleaning', 1, 0.5], ['Install decorations', 'Maintenance', 3, 0.8], ['Post-event clean-up check', 'Cleaning', 1, 1]] },
+};
+
+function linkProjects(list) {
+  for (const [projectId, ids] of Object.entries(PROJECT_TASKS)) ids.forEach((id) => (list.find((t) => t.id === id).projectId = projectId));
+  for (const [id, items] of Object.entries(CHECKLISTS)) list.find((t) => t.id === id).checklist = items.map(([text, done]) => ({ text, done }));
   return list;
 }
 
@@ -237,7 +305,8 @@ export function createSeedState() {
     },
     officers: officers(),
     meetings: meetings(),
-    tasks: tasks(),
+    tasks: linkProjects(tasks()),
+    projects: projects(),
     plans: {},
     activity: [
       { at: dt(workDay(-1), '17:42'), actor: 'SyncAI', text: 'Synced 4 tasks from Microsoft To Do and Planner (simulated).' },

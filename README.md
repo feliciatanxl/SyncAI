@@ -9,7 +9,7 @@ SyncAI is a Microsoft-based Town Council Operations Hub for EM Services (EMS), b
 | Statement | What EMS asked for | How SyncAI answers it | Status |
 | --- | --- | --- | --- |
 | **12g** Town Council Operations Hub | One Microsoft-based hub over IEMS, TCMS, D365 and SharePoint, with a shared data layer, built-in intelligence, role-based sharing across Town Councils and EMS HQ, and mobile-first design. Deliver the architecture plus a working slice. | SyncAI is the hub. The Smart Work Planner is the working slice, with officer and supervisor roles and Microsoft 365 integration points mapped out. | Architecture and slice in progress |
-| **12h** Project Tracker | Create projects and break them into tasks, assign owners and deadlines, and monitor task status and overall progress. | Second module. Reuses the planner's tasks, owners, deadlines, statuses and dependencies, grouped under projects. | Next |
+| **12h** Project Tracker | Create projects and break them into tasks, assign owners and deadlines, and monitor task status and overall progress. | Second module. Projects group the planner's tasks, with Board, List and Timeline views, progress, milestones, checklists, templates and an explainable AI project health check. | Prototype built |
 | **12i** Smart Work Planner | Organise officers' tasks and schedules, prioritise by deadline and effort, and suggest a realistic daily or weekly plan. | First module. Explainable priority scores, effort estimates, AI time-blocking around Outlook meetings, team workload and What-If simulation. | Interactive prototype built |
 
 The brief notes that 12h and 12i "pair naturally and could become modules of the Operations Hub (12g)", which is the structure we follow.

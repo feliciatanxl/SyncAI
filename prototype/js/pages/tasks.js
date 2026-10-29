@@ -227,7 +227,7 @@ function refreshResults() {
   }
 }
 
-function mountKanban(root) {
+export function mountKanban(root) {
   let dragId = null;
   root.querySelectorAll('.kanban-card').forEach((card) => {
     card.addEventListener('dragstart', (e) => {
@@ -253,7 +253,7 @@ function mountKanban(root) {
   });
 }
 
-function setStatus(id, status) {
+export function setStatus(id, status) {
   const t = getTask(getState(), id);
   if (!t || t.status === status || !STATUSES.some((x) => x.id === status)) return;
   update((st) => {

@@ -59,6 +59,7 @@ export function openTaskDetail(id) {
   const fin = isOpen(t) ? plannedFinish(s, t) : null;
   const deps = t.dependsOn.map((d) => getTask(s, d)).filter(Boolean);
   const canEdit = isSupervisor(s) || t.ownerId === s.currentOfficerId;
+  const project = s.projects.find((p) => p.id === t.projectId);
 
   openModal(
     html`<header class="modal-head">
@@ -79,8 +80,17 @@ export function openTaskDetail(id) {
             <div class="meta"><span>${icon('pin', 14)}${t.location || 'No location'}</span></div>
             <div class="meta"><span>${icon('chart', 14)}Effort ${fmtHours(t.effort)}${t.spent ? ` · ${fmtHours(t.spent)} spent` : ''}${t.actual ? ` · actual ${fmtHours(t.actual)}` : ''}</span></div>
             ${deps.length ? html`<div class="meta"><span>${icon('link', 14)}Depends on: ${deps.map((d) => d.title).join(', ')}</span></div>` : ''}
+            ${project ? html`<div class="meta"><span>${icon('folder', 14)}Project: <a href="#/projects/${project.id}" data-action="modal-close-go" data-href="#/projects/${project.id}">${project.name}</a></span></div>` : ''}
           </div>
         </div>
+        ${t.checklist?.length
+          ? html`<section>
+              <h3>Checklist <span class="muted small">${t.checklist.filter((c) => c.done).length}/${t.checklist.length} done</span></h3>
+              <ul class="checklist">${t.checklist.map(
+                (c, i) => html`<li><label class="check"><input type="checkbox" data-action="checklist-toggle" data-id="${t.id}" data-i="${i}" ${c.done ? 'checked' : ''} ${canEdit ? '' : 'disabled'} /> <span class="${c.done ? 'is-done' : ''}">${c.text}</span></label></li>`,
+              )}</ul>
+            </section>`
+          : ''}
         ${isOpen(t)
           ? html`<section>
               <h3 class="row">${icon('sparkles', 16)} AI priority score: ${sc.score} · ${sc.band.label}</h3>
@@ -161,6 +171,10 @@ export function openTaskForm(existing = null, prefill = {}) {
           <div class="field">
             <label for="f-status">Status</label>
             <select class="select" id="f-status" name="status">${STATUSES.map((x) => html`<option value="${x.id}" ${x.id === t.status ? 'selected' : ''}>${x.label}</option>`)}</select>
+          </div>
+          <div class="field">
+            <label for="f-project">Project</label>
+            <select class="select" id="f-project" name="projectId"><option value="">No project</option>${s.projects.map((p) => html`<option value="${p.id}" ${p.id === t.projectId ? 'selected' : ''}>${p.name}</option>`)}</select>
           </div>
           <div class="field" data-field="due">
             <label for="f-due">Deadline <span class="req" aria-hidden="true">*</span></label>
@@ -269,8 +283,9 @@ function saveTask(form) {
     safety: fd.get('safety') === 'on',
     impact: fd.get('impactHigh') === 'on' ? 'high' : 'medium',
     dependsOn: deps,
+    projectId: String(fd.get('projectId') || '') || null,
   };
-  if (!CATEGORIES.includes(fields.category) || !PRIORITIES.includes(fields.priority) || !getOfficer(s, fields.ownerId)) {
+  if (!CATEGORIES.includes(fields.category) || !PRIORITIES.includes(fields.priority) || !getOfficer(s, fields.ownerId) || (fields.projectId && !s.projects.some((p) => p.id === fields.projectId))) {
     toast('Some fields have invalid values.', 'error');
     return;
   }
@@ -287,7 +302,7 @@ function saveTask(form) {
       }
       logActivity(st, `Updated task “${title}”.`);
     } else {
-      st.tasks.push({ id: nextId(st, 't'), spent: 0, source: 'SyncAI', createdAt: NOW, completedAt: fields.status === 'done' ? NOW : null, actual: fields.status === 'done' ? fields.effort : null, ...fields });
+      st.tasks.push({ id: nextId(st, 't'), spent: 0, source: 'SyncAI', checklist: [], createdAt: NOW, completedAt: fields.status === 'done' ? NOW : null, actual: fields.status === 'done' ? fields.effort : null, ...fields });
       logActivity(st, `Created task “${title}” for ${officerName(st, fields.ownerId)}.`);
     }
   });
@@ -338,6 +353,19 @@ function findRec(id) {
 export const sharedActions = {
   'task-new': () => openTaskForm(),
   'task-view': (el) => openTaskDetail(el.dataset.id),
+  'checklist-toggle': (el) => {
+    const { id, i } = el.dataset;
+    update((st) => {
+      const item = getTask(st, id)?.checklist[Number(i)];
+      if (item) item.done = !item.done;
+    });
+    openTaskDetail(id);
+    document.querySelector(`[data-action="checklist-toggle"][data-i="${i}"]`)?.focus();
+  },
+  'modal-close-go': (el) => {
+    closeModal();
+    location.hash = el.dataset.href;
+  },
   'task-edit': (el) => {
     const t = getTask(getState(), el.dataset.id);
     if (t) openTaskForm(t);

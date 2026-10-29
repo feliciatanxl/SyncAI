@@ -16,10 +16,11 @@ import team from './pages/team.js';
 import insights from './pages/insights.js';
 import simulator from './pages/simulator.js';
 import settings from './pages/settings.js';
+import projects from './pages/projects.js';
 
-const PAGES = [dashboard, tasks, planner, team, insights, simulator, settings];
+const PAGES = [dashboard, tasks, projects, planner, team, insights, simulator, settings];
 const NAV = [
-  { section: 'Workspace', ids: ['dashboard', 'tasks', 'planner'] },
+  { section: 'Workspace', ids: ['dashboard', 'tasks', 'projects', 'planner'] },
   { section: 'Team', ids: ['team', 'simulator'] },
   { section: 'Intelligence', ids: ['insights'] },
   { section: 'System', ids: ['settings'] },
@@ -41,6 +42,8 @@ let current = dashboard;
 const el = (id) => document.getElementById(id);
 const allowed = (page, s) => page.roles.includes(s.role);
 const pageTitle = (page, s) => (page.titleFor ? page.titleFor(s) : page.title);
+// Top bar and tab title can be more specific than the menu label, e.g. a project's name.
+const heading = (page, s) => page.headingFor?.(s) || pageTitle(page, s);
 
 function navCounts(s) {
   const mine = isSupervisor(s) ? s.tasks.filter(isOpen) : openTasksFor(s, s.currentOfficerId);
@@ -77,7 +80,7 @@ function renderTopbar(s) {
   const unread = unreadCount(s);
   render(
     el('topbar-title'),
-    html`<strong>${pageTitle(current, s)}</strong><span>Demo clock · ${fmtDay(TODAY)}, ${fmtTime(NOW.slice(11, 16))}</span>`,
+    html`<strong>${heading(current, s)}</strong><span>Demo clock · ${fmtDay(TODAY)}, ${fmtTime(NOW.slice(11, 16))}</span>`,
   );
   render(
     el('topbar-actions'),
@@ -121,7 +124,7 @@ function renderPage(s) {
 
 function renderAll() {
   const s = getState();
-  document.title = `${pageTitle(current, s)} · SyncAI`;
+  document.title = `${heading(current, s)} · SyncAI`;
   renderNav(s);
   renderTopbar(s);
   renderPage(s);
@@ -130,14 +133,16 @@ function renderAll() {
 }
 
 function route() {
-  const id = location.hash.replace(/^#\/?/, '') || 'dashboard';
+  // '#/projects/p1' → page 'projects', param 'p1'.
+  const [id = 'dashboard', param = null] = location.hash.replace(/^#\/?/, '').split('/').map((x) => x || undefined);
   const next = PAGES.find((p) => p.id === id);
   if (!next) {
     location.replace('#/dashboard');
     return;
   }
-  const changed = next !== current;
+  const changed = next !== current || param !== ctx.param;
   current = next;
+  ctx.param = param;
   closeNav();
   renderAll();
   if (changed) {

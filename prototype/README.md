@@ -35,7 +35,7 @@ The portal always requires sign-in. Opening `index.html` without signing in send
 | `site/forgot-password.html` | Asks for an email and always gives the same reply, so it never reveals whether an account exists. Shows a prototype link to the reset page. |
 | `site/reset-password.html` | New password with live rule checks (12+ characters, mixed case, number, symbol) and a confirm field. |
 
-Add `?selftest` to any site URL to run the form-validation self-checks in the browser console.
+Add `?selftest` to any site URL to run the form-validation self-checks in the browser console, or to the portal URL (for example `index.html?selftest#/projects`) to check the project health rules.
 
 ## Features
 
@@ -43,6 +43,7 @@ Add `?selftest` to any site URL to run the form-validation self-checks in the br
 | --- | --- | --- | --- |
 | **Dashboard** | ✅ | ✅ | Officer: AI Daily Briefing, workload vs free time, top priorities, today's schedule, **smart reminders**. Supervisor: AI Team Briefing, capacity, at-risk deadlines, approvals. |
 | **My Tasks / Team Tasks** | ✅ | ✅ | List and Kanban (drag-and-drop or keyboard select), add/edit/delete/complete, search, filters, sorting, dependencies, natural-language task entry, explainable AI score, **meeting-minutes-to-tasks generator**. |
+| **Projects** (12h) | ✅ | ✅ | Project cards with progress, due date, team and **AI project health** (On track, Needs attention, At risk, Complete), with filter tabs. Each project has **Board** (Trello-style cards, drag and drop, quick add), **List** and **Timeline** (Gantt bars, milestones, today line) views, checklists on tasks, and reassignment suggestions for supervisors. Supervisors create projects from templates (Lift replacement, Repainting works, Festive event). Officers see only projects they are part of, and only their own tasks. |
 | **Smart Planner** | ✅ | ✅ | Day and week calendar, mock Outlook meetings, AI time-blocking, generate → review → accept or discard. **Natural-language work planner**, **manual editing** (move, resize, add or remove blocks), a **schedule check** that flags unrealistic plans, **alternative schedules** including a field-visit optimiser, and **emergency rescheduling**. |
 | **Team Workload** | 🔒 | ✅ | Capacity stats, daily and **weekly** heatmap, **why officers are falling behind**, officer breakdown, skill- and availability-aware reassignment recommendations. |
 | **AI Insights** | ✅ | ✅ | Daily and weekly briefings, **overload forecast**, deadline-risk alerts (including **start-by** warnings), estimated vs actual effort, workload trend, **AI weekly reflection**, corrective actions. |
@@ -129,11 +130,18 @@ Use **Settings → Reset demo data** before a demo. Dates are generated relative
 2. **Extract action items**: SyncAI finds each action, its owner, deadline, priority and effort, with reasons.
 3. Officers import their own items. Supervisors choose an owner for each item and import all of them.
 
-### 9. Alerts and reminders
+### 9. Projects (Supervisor, ~2 min)
+
+1. Open **Projects**. Three projects are at risk, one is on track and one is complete. Use the tabs to filter.
+2. Open **Blk 312 repainting works**. **AI project health** explains the risk: tasks at high risk, behind schedule for the time used, and Marcus overloaded. It suggests reassignments you can accept.
+3. On the **Board**, drag a card to another column or change its status. Click a card to tick off its checklist. Switch to **Timeline** to see bars, milestones and today's line.
+4. Click **New project**, choose the **Lift replacement** template and create it. Five tasks are spread across the project dates.
+
+### 10. Alerts and reminders
 
 Open the **bell** to see the alerts that would go to Microsoft Teams. On the Dashboard, **Smart reminders** suggest when to be reminded based on each task's latest start time and preparation needs.
 
-### 10. Ask SyncAI
+### 11. Ask SyncAI
 
 Open **Ask SyncAI** and try *"Can I finish everything today?"*, *"When am I free today?"*, *"Who is overloaded?"* or *"What happens if Ravi is on MC?"*. As an officer, team questions are politely refused.
 
@@ -150,6 +158,7 @@ All logic is deterministic. The same data always gives the same result.
 | Alternative schedules | `planner.js` `compareStrategies` | Balanced, Deadline-first, and Fewer site trips (groups visits by block area). Compared on tasks planned, late tasks, travel minutes and trips. |
 | Natural-language planner | `ai.js` `parseDayPlanRequest` | Finds the day and the work to prioritise; matching tasks are placed first on that day when their deadlines allow. |
 | Emergency rescheduling | `planner.js` `emergencyReschedule` | Keeps realistic blocks for Critical and same-day safety work, inserts the urgent task, re-plans everything else, and lists what moved or became late. |
+| Project health | `pages/projects.js` `projectHealth` | Progress is effort-weighted (hours of done tasks ÷ all task hours) and compared with the share of project time used. At risk: past deadline with open work, any overdue task, two or more high-risk tasks, or more than 25 points behind. Needs attention: one high-risk task, 10–25 points behind, or an owner who is overloaded or away. Reasons naming other officers are shown to supervisors only. |
 | Meeting-to-task | `ai.js` `extractActionItems` | Finds lines marked “Action:” or phrased “⟨name⟩ to ⟨verb⟩…”, identifies the officer, then reuses natural-language task parsing. |
 | Effort estimate | `ai.js` `estimateEffort` | Category baseline × wording cues (multiple sites ×1.5, calls ×0.6, reports ×1.25) × the team's historical actual/estimate ratio for that category. |
 | Natural-language parsing | `ai.js` `parseNaturalTask` | Keyword and regex extraction for priority, category, block number, date, time, duration, owner and safety. |
@@ -178,7 +187,7 @@ prototype/
     ├── simulation.js   Reassignment recommendations and What-If simulations
     ├── ui.js           Safe HTML templating, icons, dialogs, toasts
     ├── ctx.js          Late-bound hooks (rerender, navigate)
-    └── pages/          dashboard, tasks, planner, team, insights, simulator, settings, assistant, alerts, shared
+    └── pages/          dashboard, tasks, projects, planner, team, insights, simulator, settings, assistant, alerts, shared
 ```
 
 ## Security notes

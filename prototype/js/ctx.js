@@ -7,6 +7,8 @@ export const ctx = {
     location.hash = `#/${id}`;
   },
   openAssistant: () => {},
+  /** Route parameter after the page id, e.g. 'p1' in '#/projects/p1'. */
+  param: null,
   /** One-shot request for the next page, e.g. 'generate-plan'. */
   pending: null,
 };
