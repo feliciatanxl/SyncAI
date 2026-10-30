@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Every HTTP status code, grouped by class, with a plain-English summary of what each one means." />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+    <title>HTTP status codes · SyncAI</title>
+    <link rel="icon" href="../assets/logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" href="site.css" />
+    <script type="module" src="status.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+
+    <header class="site-header">
+      <div class="wrap">
+        <a class="logo" href="index.html"><img src="../assets/logo.svg" alt="" width="32" height="32" />SyncAI</a>
+        <nav class="site-nav" aria-label="Main">
+          <a href="index.html">Home</a>
+          <a href="status.html">Status codes</a>
+        </nav>
+        <div class="header-actions">
+          <a class="btn btn-subtle btn-lg" href="login.html">Sign in</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- Single code view: status.html?code=404 -->
+      <section class="status-hero" data-view="code" hidden>
+        <div class="wrap">
+          <span class="status-num" data-num></span>
+          <div>
+            <span class="badge" data-class></span>
+            <h1 data-name></h1>
+            <p class="lead" data-summary></p>
+            <p class="status-blurb" data-blurb></p>
+            <div class="hero-cta">
+              <a class="btn btn-primary btn-lg" href="index.html">Go to homepage</a>
+              <a class="btn btn-lg" href="status.html">See all status codes</a>
+            </div>
+            <nav class="status-pager" aria-label="Nearby codes">
+              <a data-prev hidden></a>
+              <a data-next hidden></a>
+            </nav>
+          </div>
+        </div>
+      </section>
+
+      <!-- Full reference: status.html -->
+      <div data-view="list" hidden>
+        <section class="hero status-intro">
+          <div class="wrap">
+            <div>
+              <span class="eyebrow">Reference</span>
+              <h1>HTTP status codes</h1>
+              <p class="lead">Every response a server sends starts with a three-digit status code. The first digit tells you the class. Pick a code to open its own page.</p>
+              <div class="status-tools">
+                <label class="sr-only" for="status-filter">Filter codes</label>
+                <input class="input" id="status-filter" type="search" placeholder="Filter by number or name, e.g. 404 or timeout" autocomplete="off" />
+                <nav class="status-jump" aria-label="Jump to class" data-jump></nav>
+              </div>
+            </div>
+          </div>
+        </section>
+        <div class="wrap" data-groups></div>
+        <p class="wrap status-empty" data-empty hidden>No status codes match that filter.</p>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <span>© 2026 SyncAI · Summaries based on the <a href="https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml">IANA status code registry</a>.</span>
+        <span><a href="index.html">Home</a> · <a href="status.html">All status codes</a></span>
+      </div>
+    </footer>
+  </body>
+</html>
