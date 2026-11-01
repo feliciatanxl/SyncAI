@@ -5,7 +5,7 @@ import { loadState, getState, subscribe, update, storage, isSupervisor, isHQ, ge
 import { COUNCILS } from './data.js';
 import { assessRisk } from './planner.js';
 import { TODAY, NOW, fmtDay, fmtTime } from './time.js';
-import { html, icon, render, avatar, closeModal, trapFocus, toast, expanded } from './ui.js';
+import { html, icon, render, avatar, closeModal, trapFocus, toast, expanded, selectTab } from './ui.js';
 import { ctx } from './ctx.js';
 import { openSearch } from './search.js';
 import { fmtClock, runningTimer } from './timer.js';
@@ -208,6 +208,12 @@ const globalActions = {
     applyCollapse();
   },
   go: (target) => ctx.navigate(target.dataset.page),
+  'section-tab': (target) => selectTab(target),
+  'scroll-top': () => {
+    const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+    el('page').focus({ preventScroll: true });
+  },
   'search-open': () => openSearchDialog(),
   'show-more': (target) => {
     const key = target.dataset.key;
@@ -292,6 +298,16 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   trapFocus(e);
+  // Arrow keys, Home and End move between section tabs (roving tabindex).
+  const tab = e.target.closest?.('[role="tab"][data-action="section-tab"]');
+  if (tab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+    const all = [...tab.closest('[role="tablist"]').querySelectorAll('[role="tab"]')];
+    const i = all.indexOf(tab);
+    const next = { ArrowLeft: all[(i - 1 + all.length) % all.length], ArrowRight: all[(i + 1) % all.length], Home: all[0], End: all.at(-1) }[e.key];
+    e.preventDefault();
+    selectTab(next, true);
+    return;
+  }
   if (e.key !== 'Escape') return;
   if (!el('modal-root').hidden) closeModal();
   else if (closeAlerts()) return;
@@ -302,6 +318,14 @@ document.addEventListener('keydown', (e) => {
 // ---------- boot ----------
 
 ctx.rerender = renderAll;
+// Scroll-to-top button: shown once the user has scrolled past the first screen of content.
+window.addEventListener(
+  'scroll',
+  () => {
+    el('to-top').hidden = window.scrollY < 400;
+  },
+  { passive: true },
+);
 // Tick running timer clocks without re-rendering the page.
 setInterval(() => {
   document.querySelectorAll('[data-timer-start]').forEach((c) => (c.textContent = fmtClock(Date.now() - Number(c.dataset.timerStart))));

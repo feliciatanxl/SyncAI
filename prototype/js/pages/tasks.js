@@ -2,14 +2,14 @@ import { CATEGORIES, PRIORITIES, STATUSES, sampleMinutes } from '../data.js';
 import { extractActionItems, parseNaturalTask, scoreTask } from '../ai.js';
 import { assessRisk } from '../planner.js';
 import { getOfficer, getState, getTask, isOpen, isOverdue, isSupervisor, logActivity, nextId, officerName, update, visibleTasks } from '../state.js';
-import { NOW, fmtDue, fmtHours } from '../time.js';
+import { NOW, TODAY, fmtDue, fmtHours } from '../time.js';
 import { html, icon, render, priorityBadge, riskBadge, sourceTag, emptyState, avatar, toast, openModal, closeModal, filterTabs, pager, limitTo, showMore } from '../ui.js';
 import { openTaskForm, scorePill, timerButton } from './shared.js';
 import { settleTimer } from '../timer.js';
 import { ctx } from '../ctx.js';
 
-const view = { q: '', status: 'open', priority: 'all', category: 'all', owner: 'all', sort: 'score', group: 'none', page: 1, nl: null, nlText: '' };
-const PER_PAGE = 10;
+const view = { q: '', status: 'open', priority: 'all', category: 'all', owner: 'all', sort: 'score', group: 'none', page: 1, per: '10', nl: null, nlText: '' };
+const PER_PAGE_OPTIONS = ['10', '25', '50', 'all'];
 const PRIORITY_RANK = { Critical: 0, High: 1, Medium: 2, Low: 3 };
 
 const EXAMPLES = [
@@ -21,8 +21,10 @@ const EXAMPLES = [
 // Status tabs: [value, label, test]. Counts respect the search and the other filters.
 const STATUS_TABS = [
   ['open', 'Open', (s, t) => isOpen(t)],
-  ['risk', 'At risk', (s, t) => isOpen(t) && assessRisk(s, t).level === 'high'],
+  ['today', 'Today', (s, t) => isOpen(t) && t.due.slice(0, 10) === TODAY],
+  ['upcoming', 'Upcoming', (s, t) => isOpen(t) && t.due.slice(0, 10) > TODAY],
   ['overdue', 'Overdue', (s, t) => isOpen(t) && isOverdue(t)],
+  ['risk', 'At risk', (s, t) => isOpen(t) && assessRisk(s, t).level === 'high'],
   ['in_progress', 'In progress', (s, t) => t.status === 'in_progress'],
   ['done', 'Done', (s, t) => !isOpen(t)],
   ['all', 'All', () => true],
@@ -131,7 +133,11 @@ function kanbanView(s, rows) {
 function results(s) {
   const base = matching(s);
   const tabs = filterTabs('task-tab', 'Task status', STATUS_TABS.map(([v, l, test]) => [v, l, base.filter((t) => test(s, t)).length]), view.status);
-  return html`${tabs}${resultList(s, filtered(s, base))}`;
+  const rows = filtered(s, base);
+  const narrowed = view.q.trim() || view.priority !== 'all' || view.category !== 'all' || view.owner !== 'all';
+  return html`${tabs}
+    ${narrowed ? html`<div class="filter-summary"><span class="muted small">${rows.length} matching ${rows.length === 1 ? 'task' : 'tasks'}</span><button class="btn btn-subtle btn-sm" data-action="task-clear-filters">${icon('x', 14)}Clear filters</button></div>` : ''}
+    ${resultList(s, rows)}`;
 }
 
 const GROUP_SIZE = 5;
@@ -191,13 +197,15 @@ function resultList(s, rows) {
   }
   if (s.prefs.taskView === 'kanban') return html`<p class="sr-only" aria-live="polite">${rows.length} tasks shown</p>${kanbanView(s, rows)}`;
   if (view.group !== 'none') return groupedList(s, rows);
-  const pages = Math.ceil(rows.length / PER_PAGE);
+  const per = view.per === 'all' ? rows.length : Number(view.per);
+  const pages = Math.ceil(rows.length / per);
   view.page = Math.min(view.page, pages);
-  const from = (view.page - 1) * PER_PAGE;
-  const shown = rows.slice(from, from + PER_PAGE);
+  const from = (view.page - 1) * per;
+  const shown = rows.slice(from, from + per);
   return html`<p class="sr-only" aria-live="polite">${rows.length} tasks, showing ${from + 1} to ${from + shown.length}</p>
     ${listView(s, shown)}
-    <div class="list-foot"><span class="muted small">Showing ${from + 1}–${from + shown.length} of ${rows.length}</span>${pager('task-page', view.page, pages, 'Task pages')}</div>`;
+    <div class="list-foot"><span class="muted small">Showing ${from + 1}–${from + shown.length} of ${rows.length}</span>
+      <div class="row wrap">${select('per', 'Rows per page', view.per, PER_PAGE_OPTIONS.map((v) => [v, v === 'all' ? 'Show all' : `${v} per page`]))}${pager('task-page', view.page, pages, 'Task pages')}</div></div>`;
 }
 
 function nlPreview(s) {
@@ -409,7 +417,7 @@ export default {
   actions: {
     'task-mode': (el) => update((st) => (st.prefs.taskView = el.dataset.mode)),
     'task-clear-filters': () => {
-      Object.assign(view, { q: '', status: 'open', priority: 'all', category: 'all', owner: 'all', page: 1 });
+      Object.assign(view, { q: '', status: 'open', priority: 'all', category: 'all', owner: 'all', sort: 'score', group: 'none', page: 1 });
       ctx.rerender();
     },
     'task-tab': (el) => {

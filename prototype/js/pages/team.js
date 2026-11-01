@@ -1,9 +1,9 @@
-import { CATEGORIES } from '../data.js';
+import { CATEGORIES, PRIORITIES } from '../data.js';
 import { assessRisk, teamAnalysis } from '../planner.js';
 import { getState, getTask, isOpen, openTasksFor, remainingHours, logActivity, officerName, update, absenceLabel } from '../state.js';
 import { applyReassignment, rankCandidates } from '../simulation.js';
-import { NOW, fmtDay, fmtDue, fmtHours } from '../time.js';
-import { html, icon, avatar, capacityBadge, meter, pct, riskBadge, priorityBadge, emptyState, toast, confirmDialog, limitTo, showMore } from '../ui.js';
+import { NOW, datePart, fmtDay, fmtDue, fmtHours } from '../time.js';
+import { html, icon, avatar, capacityBadge, meter, pct, riskBadge, priorityBadge, emptyState, toast, confirmDialog, limitTo, showMore, sectionTabs } from '../ui.js';
 import { ctx } from '../ctx.js';
 import { openReassignDialog, recCard, visibleRecs } from './shared.js';
 
@@ -115,15 +115,18 @@ function renderPage(s) {
       <div class="actions"><a class="btn btn-ai" href="#/simulator">${icon('flask', 16)}What-if simulator</a></div>
     </div>
 
-    <div class="grid grid-4">
+    <div class="grid grid-4 page-section">
       <div class="card stat"><div class="stat-label"><span class="stat-icon">${icon('clock', 16)}</span>Available capacity</div><div class="stat-value">${fmtHours(cap)}</div><div class="stat-foot">${avail.length} officers available today</div></div>
       <div class="card stat"><div class="stat-label"><span class="stat-icon ai">${icon('chart', 16)}</span>Demand this week</div><div class="stat-value">${fmtHours(demand)}</div><div class="stat-foot">Meetings + task work due</div></div>
       <div class="card stat"><div class="stat-label"><span class="stat-icon ${todayUtil > 0.85 ? 'warning' : 'success'}">${icon('trend', 16)}</span>Team utilisation today</div><div class="stat-value">${pct(todayUtil)}</div>${meter(todayUtil, { label: 'Team utilisation today' })}</div>
       <div class="card stat"><div class="stat-label"><span class="stat-icon ${recs.length ? 'warning' : 'success'}">${icon('users', 16)}</span>Suggested reassignments</div><div class="stat-value">${recs.length}</div><div class="stat-foot">Awaiting your approval</div></div>
     </div>
 
-    <div class="grid grid-main mt">
-      <section class="card" aria-labelledby="hm-h">
+    <div class="page-section">
+    ${sectionTabs('team', 'Team workload views', [
+      ['overview', 'Overview', html`
+    <div class="grid grid-main">
+      <section class="card heat-card" aria-labelledby="hm-h">
         <div class="card-head"><h2 id="hm-h">Workload heatmap <span class="sub">meetings + work due ÷ working time</span></h2></div>
         <div class="card-body">${heatmap(team)}</div>
       </section>
@@ -137,15 +140,17 @@ function renderPage(s) {
       </section>
     </div>
 
-    <section class="card mt" aria-labelledby="ot-h">
+      `, recs.length || null],
+      ['capacity', 'Officer capacity', html`
+    <section class="card" aria-labelledby="ot-h">
       <div class="card-head"><h2 id="ot-h">Officers</h2><span class="muted small">Select an officer for a task breakdown</span></div>
       <div class="card-body flush table-wrap">
         <table class="table">
-          <thead><tr><th>Officer</th><th>Status</th><th>Today</th><th class="hide-sm">This week</th><th class="hide-sm">Open</th><th>At risk</th><th>Falling behind?</th><th class="hide-sm">Skills</th></tr></thead>
+          <thead><tr><th class="th-officer">Officer</th><th>Status</th><th>Today</th><th class="hide-sm">This week</th><th class="hide-sm">Open</th><th>At risk</th><th>Falling behind?</th><th class="hide-sm">Skills</th></tr></thead>
           <tbody>
             ${team.map(
               (a) => html`<tr>
-                <td><button class="task-title row" data-action="team-select" data-id="${a.officer.id}" aria-expanded="${view.selected === a.officer.id}">${avatar(a.officer.name, 'sm')}${a.officer.name}</button><div class="meta">${a.officer.title} · ${a.officer.zone}</div></td>
+                <td><div class="officer-cell">${avatar(a.officer.name)}<div><button class="task-title" data-action="team-select" data-id="${a.officer.id}" aria-expanded="${view.selected === a.officer.id}">${a.officer.name}</button><div class="meta">${a.officer.title} · ${a.officer.zone}</div></div></div></td>
                 <td>${capacityBadge(a.status)}</td>
                 <td style="min-width:140px">${a.today.unavailable ? html`<span class="muted">${absenceLabel(a.today.kind, true)}</span>` : html`<div class="row">${meter(a.today.util, { label: `${a.officer.name} today` })}<span class="small">${pct(a.today.util)}</span></div>`}</td>
                 <td class="hide-sm">${pct(a.weekUtil)}</td>
@@ -163,7 +168,57 @@ function renderPage(s) {
       </div>
     </section>
 
-    ${selected ? officerDetail(s, selected) : ''}`;
+    ${selected ? officerDetail(s, selected) : ''}`],
+      ['distribution', 'Task distribution', distribution(s, team)],
+      ['absence', 'Absence management', absences(s, team), team.filter((a) => a.perDay.some((p) => p.unavailable)).length || null],
+    ])}
+    </div>`;
+}
+
+/** Where open work sits, by officer and priority. Counts are workload, not performance. */
+function distribution(s, team) {
+  const rows = team.map((a) => {
+    const open = openTasksFor(s, a.officer.id);
+    return { a, counts: PRIORITIES.map((p) => open.filter((t) => t.priority === p).length), hours: open.reduce((n, t) => n + remainingHours(t), 0) };
+  });
+  const max = Math.max(...rows.map((r) => r.a.openCount), 1);
+  return html`<section class="card" aria-labelledby="td-h">
+    <div class="card-head"><h2 id="td-h">Task distribution <span class="sub">open tasks by officer and priority</span></h2>
+      <div class="row wrap small" aria-hidden="true">${PRIORITIES.map((p) => html`<span class="row"><i class="dist-key dist-${p.toLowerCase()}"></i>${p}</span>`)}</div></div>
+    <div class="card-body">
+      <p class="notice notice-info">${icon('info', 16)}<span class="grow">A higher task count shows where work is sitting, not how well someone is performing. Task size, complexity and zone differ between officers.</span></p>
+      <div class="dist mt">
+        ${rows.map(({ a, counts, hours }) => html`<div class="dist-row">
+          <span class="row">${avatar(a.officer.name, 'sm')}<span><strong>${a.officer.name}</strong><span class="meta">${a.officer.zone}</span></span></span>
+          <div class="dist-bar" role="img" aria-label="${a.officer.name}: ${PRIORITIES.map((p, i) => `${counts[i]} ${p}`).join(', ')}" style="width:${(a.openCount / max) * 100}%">
+            ${PRIORITIES.map((p, i) => (counts[i] ? html`<span class="dist-${p.toLowerCase()}" style="flex:${counts[i]}">${counts[i]}</span>` : ''))}
+          </div>
+          <span class="small"><strong>${a.openCount}</strong> open · ${fmtHours(hours)} left · ${a.status.id === 'away' ? 'away today' : `${fmtHours(a.freeHours)} free this week`}</span>
+        </div>`)}
+      </div>
+    </div>
+  </section>`;
+}
+
+/** Absences in the planning horizon and the work due while each officer is away. Type only, never medical details. */
+function absences(s, team) {
+  const away = team.filter((a) => a.perDay.some((p) => p.unavailable));
+  if (!away.length) return html`<section class="card">${emptyState('check', 'Full team available', 'No absences are recorded for this week.')}</section>`;
+  return html`<section class="card" aria-labelledby="ab-h">
+    <div class="card-head"><h2 id="ab-h">Absences this week <span class="sub">only the absence type is shown, never medical details</span></h2></div>
+    <div class="card-body flush"><ul class="list">
+      ${away.map((a) => {
+        const days = a.perDay.filter((p) => p.unavailable);
+        const dates = new Set(days.map((p) => p.date));
+        const due = openTasksFor(s, a.officer.id).filter((t) => dates.has(datePart(t.due)) || (dates.has(a.perDay[0].date) && t.due < NOW));
+        return html`<li class="list-item" style="align-items:flex-start">${avatar(a.officer.name, 'sm')}<div class="grow">
+          <strong>${a.officer.name}</strong>
+          <div class="meta">${days.map((p) => html`<span>${fmtDay(p.date)} · ${absenceLabel(p.kind, true)}</span>`)}</div>
+          <p class="small mt-sm">${due.length ? html`<span class="delta-bad">${due.length} task${due.length > 1 ? 's' : ''} due while away:</span> ${due.map((t) => t.title).join(' · ')}` : html`<span class="muted">No tasks due while away.</span>`}</p>
+        </div><button class="btn btn-sm" data-action="team-preview-absence" data-id="${a.officer.id}">${icon('flask', 14)}Preview impact</button></li>`;
+      })}
+    </ul></div>
+  </section>`;
 }
 
 export default {

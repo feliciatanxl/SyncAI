@@ -352,7 +352,8 @@ h3 {
 }
 
 .site-footer {
-  padding: 32px 0;
+  /* Extra room at the bottom so the scroll-to-top button never covers the footer links. */
+  padding: 32px 0 88px;
   font-size: 14px;
   color: var(--text-2);
   border-top: 1px solid var(--border);
@@ -655,6 +656,16 @@ main > [data-view='list'] {
     gap: 8px;
   }
 }
+/* Scroll-to-top button (styled in ../css/style.css). The site has no bottom tab bar, so keep it low on phones. */
+@media (max-width: 760px) {
+  .to-top {
+    bottom: 16px;
+  }
+}
+main:focus-visible {
+  box-shadow: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .status-card {
     transition: none;

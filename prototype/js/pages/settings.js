@@ -1,10 +1,8 @@
 import { INTEGRATIONS } from '../data.js';
-import { ctx } from '../ctx.js';
 import { isSupervisor, logActivity, resetState, update, storage } from '../state.js';
 import { fmtDay, fmtTime, toMin } from '../time.js';
-import { html, icon, toast, confirmDialog, filterTabs, limitTo, showMore } from '../ui.js';
+import { html, icon, toast, confirmDialog, sectionTabs, limitTo, showMore } from '../ui.js';
 
-const view = { tab: 'integrations' };
 const TABS = [['integrations', 'Integrations'], ['preferences', 'Preferences'], ['privacy', 'Responsible AI'], ['data', 'Data & activity']];
 
 function workingHoursForm(s) {
@@ -31,8 +29,7 @@ function renderPage(s) {
 
     <p class="notice notice-info">${icon('info', 16)}<span class="grow"><strong>Prototype notice:</strong> no real Microsoft sign-in, Graph calls or Azure OpenAI requests are made. Every connection below is simulated or planned, and all data is fictional and stored only in this browser.</span></p>
 
-    <div class="mt">${filterTabs('settings-tab', 'Settings sections', TABS, view.tab)}</div>
-    <div class="mt">${SECTIONS[view.tab](s)}</div>`;
+    <div class="mt">${sectionTabs('settings', 'Settings sections', TABS.map(([id, label]) => [id, label, SECTIONS[id](s)]))}</div>`;
 }
 
 const SECTIONS = {
@@ -132,11 +129,6 @@ export default {
   roles: ['officer', 'supervisor'],
   render: renderPage,
   actions: {
-    'settings-tab': (el) => {
-      view.tab = el.dataset.value;
-      ctx.rerender();
-      document.querySelector(`[data-action="settings-tab"][data-value="${el.dataset.value}"]`)?.focus();
-    },
     'reset-demo': async () => {
       const ok = await confirmDialog({ title: 'Reset demo data?', body: 'All tasks, plans, appointments and approvals return to the original sample data.', confirmLabel: 'Reset data', danger: true });
       if (!ok) return;

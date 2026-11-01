@@ -14,24 +14,32 @@ const view = {
   baseRev: null,
   accepted: new Set(),
   loading: false,
+  preset: null,
 };
 
+const step = (n) => html`<span class="step-num" aria-hidden="true">${n}</span>`;
+
 const PRESETS = {
-  mc: { label: 'Officer on MC', icon: 'user', form: { absent: ['o4'], absenceType: 'mc', absenceDays: 2, incident: '', extraOn: false } },
-  incident: { label: 'Urgent lift breakdown', icon: 'zap', form: { absent: [], incident: 'lift', incidentAssignee: 'auto', extraOn: false } },
-  extra: { label: 'Extra high-priority assignment', icon: 'plus', form: { absent: [], incident: '', extraOn: true, extra: { ...DEFAULT_EXTRA, assignee: 'o1' } } },
-  multi: { label: 'Two officers unavailable', icon: 'users', form: { absent: ['o2', 'o4'], absenceType: 'leave', absenceDays: 1, incident: '', extraOn: false } },
+  mc: { label: 'Officer on MC', desc: 'One officer is unavailable for 2 working days.', icon: 'user', form: { absent: ['o4'], absenceType: 'mc', absenceDays: 2, incident: '', extraOn: false } },
+  incident: { label: 'Urgent lift breakdown', desc: 'A lift fault needs urgent attention today.', icon: 'zap', form: { absent: [], incident: 'lift', incidentAssignee: 'auto', extraOn: false } },
+  extra: { label: 'Extra high-priority assignment', desc: 'A new 4-hour task due tomorrow lands on one officer.', icon: 'plus', form: { absent: [], incident: '', extraOn: true, extra: { ...DEFAULT_EXTRA, assignee: 'o1' } } },
+  multi: { label: 'Two officers unavailable', desc: 'Two officers are on leave for a day.', icon: 'users', form: { absent: ['o2', 'o4'], absenceType: 'leave', absenceDays: 1, incident: '', extraOn: false } },
 };
+
+function scenarioPicker() {
+  return html`<div class="scenario-grid" role="group" aria-label="Quick scenarios">
+    ${Object.entries(PRESETS).map(
+      ([k, p]) => html`<button type="button" class="scenario-card" data-action="sim-preset" data-preset="${k}" aria-pressed="${view.preset === k}">
+        <span class="stat-icon ai">${icon(p.icon, 16)}</span><span><strong>${p.label}</strong><span class="meta">${p.desc}</span></span>
+      </button>`,
+    )}
+  </div>`;
+}
 
 function scenarioForm(s) {
   const f = view.form;
   const officerOpts = (sel, withAuto = true) => html`${withAuto ? html`<option value="auto" ${sel === 'auto' ? 'selected' : ''}>Let SyncAI choose best fit</option>` : ''}${s.officers.map((o) => html`<option value="${o.id}" ${sel === o.id ? 'selected' : ''}>${o.name}</option>`)}`;
   return html`<form id="sim-form" data-submit="sim-run" data-change="sim-field" novalidate class="stack">
-    <div>
-      <span class="label small" style="font-weight:600">Quick scenarios</span>
-      <div class="row wrap mt-sm">${Object.entries(PRESETS).map(([k, p]) => html`<button type="button" class="chip" data-action="sim-preset" data-preset="${k}">${icon(p.icon, 14)}${p.label}</button>`)}</div>
-    </div>
-
     <fieldset class="field" style="border:0;padding:0;margin:0">
       <legend class="label" style="font-weight:600;font-size:12.5px;margin-bottom:6px">${icon('user', 14)} Unavailable officers</legend>
       <div class="dep-list" style="max-height:none">
@@ -124,7 +132,7 @@ function results(s) {
 
   return html`<div class="stack">
     <section class="card ai-card" aria-labelledby="sr-h">
-      <div class="card-head"><h2 id="sr-h"><span class="ai-label">${icon('sparkles', 16)}Simulation result</span></h2><span class="badge badge-warning">Preview — not applied</span></div>
+      <div class="card-head"><h2 id="sr-h">${step(3)}<span class="ai-label">${icon('sparkles', 16)}Impact: before and after</span></h2><span class="badge badge-warning">Preview — not applied</span></div>
       <div class="card-body">
         <ul class="reasons">${r.notes.map((n) => html`<li><span>${n}</span></li>`)}</ul>
         <p class="ai-headline">${newRisks.length
@@ -155,7 +163,7 @@ function results(s) {
     </section>
 
     <section class="card" aria-labelledby="rr-h">
-      <div class="card-head"><h2 id="rr-h">Tasks requiring reassignment <span class="sub">untick any you don't want to apply</span></h2></div>
+      <div class="card-head"><h2 id="rr-h">${step(4)}Recommended reassignments <span class="sub">untick any you don't want to apply</span></h2></div>
       <div class="card-body">
         ${r.recs.length
           ? r.recs.map((rec) => {
@@ -177,7 +185,7 @@ function results(s) {
     ${stillRisky(r)}
 
     <section class="card" aria-labelledby="mv-h">
-      <div class="card-head"><h2 id="mv-h">Schedule changes <span class="sub">${r.moved.length} task${r.moved.length === 1 ? '' : 's'} move</span></h2></div>
+      <div class="card-head"><h2 id="mv-h">${step(5)}Affected schedule <span class="sub">${r.moved.length} task${r.moved.length === 1 ? '' : 's'} move</span></h2></div>
       <div class="card-body flush table-wrap">
         ${r.moved.length
           ? html`<table class="table"><thead><tr><th>Task</th><th>Owner</th><th>Planned start</th><th class="hide-sm">Deadline</th></tr></thead><tbody>
@@ -195,6 +203,7 @@ function results(s) {
     </section>
 
     <section class="card" aria-labelledby="ap-h">
+      <div class="card-head"><h2 id="ap-h">${step(6)}Apply or discard</h2></div>
       <div class="card-body stack">
         ${stale ? html`<p class="notice notice-warning">${icon('alert', 16)}<span class="grow">The live data changed after this simulation ran. Re-run it before applying.</span></p>` : ''}
         <p class="notice notice-info">${icon('shield', 16)}<span class="grow">Applying updates availability, adds new tasks and reassigns the ${view.accepted.size} selected task${view.accepted.size === 1 ? '' : 's'}. Officers would be notified in Teams and their calendars would only change after they accept new plans (simulated).</span></p>
@@ -235,10 +244,16 @@ function renderPage(s) {
       <span class="badge badge-neutral">${icon('lock', 12)}Baseline protected until you apply</span>
     </div>
     <div class="grid grid-sim">
-      <section class="card" aria-labelledby="sc-h">
-        <div class="card-head"><h2 id="sc-h">Scenario</h2></div>
-        <div class="card-body">${scenarioForm(s)}</div>
-      </section>
+      <div class="stack">
+        <section class="card" aria-labelledby="sp-h">
+          <div class="card-head"><h2 id="sp-h">${step(1)}Choose a scenario</h2></div>
+          <div class="card-body">${scenarioPicker()}</div>
+        </section>
+        <section class="card" aria-labelledby="sc-h">
+          <div class="card-head"><h2 id="sc-h">${step(2)}Configure the scenario</h2><span class="muted small">Combine changes, then run</span></div>
+          <div class="card-body">${scenarioForm(s)}</div>
+        </section>
+      </div>
       <div id="sim-results">${results(s)}</div>
     </div>`;
 }
@@ -308,12 +323,14 @@ export default {
     'sim-preset': (el) => {
       const p = PRESETS[el.dataset.preset];
       view.form = { ...view.form, absenceType: 'mc', absenceDays: 1, incidentAssignee: 'auto', extra: { ...DEFAULT_EXTRA }, ...structuredClone(p.form) };
+      view.preset = el.dataset.preset;
       ctx.rerender();
       run();
     },
     'sim-reset': () => {
       view.form = { absent: [], absenceType: 'mc', absenceDays: 1, incident: '', incidentAssignee: 'auto', extraOn: false, extra: { ...DEFAULT_EXTRA } };
       view.result = null;
+      view.preset = null;
       ctx.rerender();
     },
     'sim-discard': () => {
@@ -344,6 +361,9 @@ export default {
       if (el.dataset.change === 'sim-rec') return;
       const form = document.getElementById('sim-form');
       const toggled = readForm(form);
+      // A hand-edited scenario no longer matches the preset card.
+      view.preset = null;
+      document.querySelectorAll('[data-action="sim-preset"]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
       const incWho = form.querySelector('[name="incidentAssignee"]');
       if (incWho) incWho.disabled = !view.form.incident;
       if (toggled) ctx.rerender();

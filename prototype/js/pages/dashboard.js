@@ -1,11 +1,11 @@
 import { explainScore, scoreTask } from '../ai.js';
 import { analyseOfficer, assessRisk, meetingConflicts, schedule, smartReminders, teamAnalysis } from '../planner.js';
 import { getOfficer, getTask, isOpen, isSupervisor, openTasksFor, officerName, update, absenceLabel } from '../state.js';
-import { TODAY, NOW, datePart, fmtDue, fmtHours, fmtTime, fmtLongDay, relDay, timePart, toMin } from '../time.js';
+import { TODAY, NOW, datePart, fmtDay, fmtDue, fmtHours, fmtTime, fmtLongDay, relDay, timePart, toMin } from '../time.js';
 import { html, icon, avatar, priorityBadge, riskBadge, capacityBadge, meter, pct, emptyState, sourceTag, toast, limitTo, showMore } from '../ui.js';
 import { ctx } from '../ctx.js';
 import { recCard, scorePill, visibleRecs } from './shared.js';
-import { healthBadge, progressBar, rankedProjects } from './projects.js';
+import { healthBadge, rankedProjects } from './projects.js';
 
 const greeting = () => {
   const h = toMin(NOW.slice(11, 16)) / 60;
@@ -132,7 +132,6 @@ function officerView(s) {
     </div>
 
     <div class="grid grid-main mt">
-      <div class="stack">
         <section class="card ai-card" aria-labelledby="brief-h">
           <div class="card-head"><h2 id="brief-h"><span class="ai-label">${icon('sparkles', 16)}Your AI Daily Briefing</span></h2><span class="badge badge-ai">Explainable</span></div>
           <div class="card-body">
@@ -155,7 +154,13 @@ function officerView(s) {
               : ''}
           </div>
         </section>
+        <section class="card" aria-labelledby="sched-h">
+          <div class="card-head"><h2 id="sched-h">Today's schedule</h2><a class="btn btn-subtle btn-sm" href="#/planner">Open planner</a></div>
+          <div class="card-body flush">${a.today.unavailable ? emptyState('calendar', 'Unavailable today', 'No schedule is planned while you are away.') : agenda(s, me)}</div>
+        </section>
+    </div>
 
+    <div class="grid dash-lists mt">
         <section class="card" aria-labelledby="prio-h">
           <div class="card-head"><h2 id="prio-h">Top priorities <span class="sub">ranked by SyncAI score</span></h2><a class="btn btn-subtle btn-sm" href="#/tasks">View all</a></div>
           <div class="card-body flush">
@@ -177,15 +182,6 @@ function officerView(s) {
               : emptyState('check-square', 'No open tasks', 'Add a task or describe one in plain language on My Tasks.')}
           </div>
         </section>
-      </div>
-
-      <div class="stack">
-        <section class="card" aria-labelledby="sched-h">
-          <div class="card-head"><h2 id="sched-h">Today's schedule</h2><a class="btn btn-subtle btn-sm" href="#/planner">Open planner</a></div>
-          <div class="card-body flush">${a.today.unavailable ? emptyState('calendar', 'Unavailable today', 'No schedule is planned while you are away.') : agenda(s, me)}</div>
-        </section>
-        ${remindersCard(s, me)}
-        ${projectsCard(s, 'My projects')}
         <section class="card" aria-labelledby="dl-h">
           <div class="card-head"><h2 id="dl-h">Upcoming deadlines</h2></div>
           <div class="card-body flush">
@@ -203,21 +199,32 @@ function officerView(s) {
             </ul>
           </div>
         </section>
-      </div>
-    </div>`;
+      ${remindersCard(s, me)}
+    </div>
+
+    <div class="mt">${projectsCard(s, 'My projects')}</div>`;
 }
 
 function projectsCard(s, title) {
   const list = rankedProjects(s).filter((x) => x.h.level !== 'done');
   if (!list.length) return '';
+  const sup = isSupervisor(s);
   return html`<section class="card" aria-labelledby="pj-h">
-    <div class="card-head"><h2 id="pj-h">${title}</h2><a class="btn btn-subtle btn-sm" href="#/projects">All projects</a></div>
-    <div class="card-body flush"><ul class="list">${list.slice(0, 4).map(
-      ({ p, h }) => html`<li class="list-item"><div class="grow">
-        <div class="row wrap" style="justify-content:space-between"><a class="title" href="#/projects/${p.id}">${p.name}</a>${healthBadge(h.level)}</div>
-        <div class="row small" style="gap:10px"><div style="flex:1">${progressBar(h.progress, p.color)}</div><span class="muted" style="white-space:nowrap">${pct(h.progress)} done</span></div>
-      </div></li>`,
-    )}</ul></div>
+    <div class="card-head"><h2 id="pj-h">${title} <span class="tab-count">${list.length}</span></h2><a class="btn btn-subtle btn-sm" href="#/projects">All projects</a></div>
+    <div class="card-body proj-list">${list.slice(0, 4).map(({ p, h }) => {
+      const done = h.tasks.length - h.open.length;
+      // Officers only see reasons that don't name other officers.
+      const reason = h.reasons.find((r) => sup || !r.personal);
+      return html`<a class="proj-item" href="#/projects/${p.id}" style="--proj:${p.color}">
+        <span class="proj-top"><strong class="proj-name">${p.name}</strong>${healthBadge(h.level)}</span>
+        <span class="meta"><span>${icon('calendar', 12)}Due ${fmtDay(p.due)}</span><span>${icon('check-square', 12)}${done} of ${h.tasks.length} tasks done</span></span>
+        <span class="proj-bar" role="img" aria-label="${pct(h.progress)} of the work done, ${pct(h.expected)} of the time used">
+          <span class="proj-fill" style="width:${Math.min(h.progress, 1) * 100}%"></span><i style="left:${Math.min(h.expected, 1) * 100}%" aria-hidden="true"></i>
+        </span>
+        <span class="proj-stats small"><span><strong>${pct(h.progress)}</strong> done</span><span class="muted">${pct(h.expected)} of time used</span></span>
+        ${reason && h.level !== 'on-track' ? html`<span class="proj-why small">${icon('info', 12)}${reason.text}</span>` : ''}
+      </a>`;
+    })}</div>
   </section>`;
 }
 
@@ -257,7 +264,6 @@ function supervisorView(s) {
     </div>
 
     <div class="grid grid-main mt">
-      <div class="stack">
         <section class="card ai-card" aria-labelledby="tb-h">
           <div class="card-head"><h2 id="tb-h"><span class="ai-label">${icon('sparkles', 16)}AI Team Briefing</span></h2><span class="badge badge-ai">Needs your approval</span></div>
           <div class="card-body">
@@ -266,26 +272,6 @@ function supervisorView(s) {
             ${recs.length > 3 ? html`<a class="btn btn-subtle btn-sm mt-sm" href="#/team">View all ${recs.length} suggestions</a>` : ''}
           </div>
         </section>
-
-        <section class="card" aria-labelledby="cap-h">
-          <div class="card-head"><h2 id="cap-h">Team capacity today</h2><a class="btn btn-subtle btn-sm" href="#/team">Details</a></div>
-          <div class="card-body flush">
-            <ul class="list">
-              ${team.map(
-                (a) => html`<li class="list-item">
-                  ${avatar(a.officer.name)}
-                  <div class="grow"><strong class="title">${a.officer.name}</strong><div class="meta"><span>${a.officer.title}</span><span>${a.openCount} open</span>${a.atRisk.length ? html`<span class="delta-bad">${a.atRisk.length} at risk</span>` : ''}</div></div>
-                  <div style="width:160px" class="hide-sm">${a.today.unavailable ? html`<span class="muted small">Away</span>` : meter(a.today.util, { label: `${a.officer.name} today` })}</div>
-                  <span class="small hide-sm" style="width:42px;text-align:right">${a.today.unavailable ? '' : pct(a.today.util)}</span>
-                  ${capacityBadge(a.status)}
-                </li>`,
-              )}
-            </ul>
-          </div>
-        </section>
-      </div>
-
-      <div class="stack">
         <section class="card" aria-labelledby="risk-h">
           <div class="card-head"><h2 id="risk-h">Deadlines at risk</h2><a class="btn btn-subtle btn-sm" href="#/insights">AI Insights</a></div>
           <div class="card-body flush">
@@ -300,15 +286,32 @@ function supervisorView(s) {
               : emptyState('check', 'All deadlines on track', 'SyncAI found no high-risk deadlines.')}
           </div>
         </section>
-        ${projectsCard(s, 'Projects')}
-        <section class="card" aria-labelledby="act-h">
+    </div>
+
+        <section class="card mt" aria-labelledby="cap-h">
+          <div class="card-head"><h2 id="cap-h">Team capacity today</h2><a class="btn btn-subtle btn-sm" href="#/team">Details</a></div>
+          <div class="card-body flush">
+            <ul class="list cap-list">
+              ${team.map(
+                (a) => html`<li class="list-item">
+                  ${avatar(a.officer.name)}
+                  <div class="grow"><strong class="title">${a.officer.name}</strong><div class="meta"><span>${a.officer.title}</span><span>${a.openCount} open</span>${a.atRisk.length ? html`<span class="delta-bad">${a.atRisk.length} at risk</span>` : ''}</div></div>
+                  <div class="cap-meter hide-sm">${a.today.unavailable ? html`<span class="muted small">Away</span>` : meter(a.today.util, { label: `${a.officer.name} today` })}</div>
+                  <span class="small hide-sm" style="width:42px;text-align:right">${a.today.unavailable ? '' : pct(a.today.util)}</span>
+                  ${capacityBadge(a.status)}
+                </li>`,
+              )}
+            </ul>
+          </div>
+        </section>
+
+    <div class="mt">${projectsCard(s, 'Projects')}</div>
+        <section class="card mt" aria-labelledby="act-h">
           <div class="card-head"><h2 id="act-h">Recent activity</h2></div>
           <div class="card-body flush">
             <ul class="activity">${s.activity.slice(0, 5).map((x) => html`<li><time>${fmtTime(x.at.slice(11, 16))}</time><span><strong>${x.actor}</strong> · ${x.text}</span></li>`)}</ul>
           </div>
-        </section>
-      </div>
-    </div>`;
+        </section>`;
 }
 
 export default {

@@ -47,6 +47,9 @@
   --sidebar-w: 248px;
   --sidebar-w-collapsed: 68px;
   --topbar-h: 60px;
+  --page-pad: 32px;
+  --gap: 20px;
+  --card-pad: 20px;
   --font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
   --font-display: 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --mono: 'Cascadia Code', Consolas, ui-monospace, monospace;
@@ -89,7 +92,8 @@ h4 {
   font-weight: 600;
 }
 h1 {
-  font-size: 24px;
+  font-size: 26px;
+  letter-spacing: -0.01em;
 }
 h2 {
   font-size: 18px;
@@ -384,8 +388,10 @@ textarea {
   box-shadow: none;
 }
 .page {
-  padding: 24px;
-  max-width: 1440px;
+  padding: var(--page-pad);
+  /* Room under the last content so the floating scroll-to-top button never covers it. */
+  padding-bottom: calc(var(--page-pad) + 64px);
+  max-width: 1600px;
   width: 100%;
   margin: 0 auto;
   outline: none;
@@ -617,12 +623,13 @@ textarea {
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   flex-wrap: wrap;
 }
 .page-head p {
   color: var(--text-2);
-  margin-top: 4px;
+  margin-top: 6px;
+  max-width: 72ch;
 }
 .page-head .actions {
   display: flex;
@@ -642,7 +649,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 18px 0;
+  padding: var(--card-pad) var(--card-pad) 0;
   flex-wrap: wrap;
 }
 .card-head h2 {
@@ -657,7 +664,7 @@ textarea {
   font-weight: 400;
 }
 .card-body {
-  padding: 16px 18px 18px;
+  padding: 16px var(--card-pad) var(--card-pad);
 }
 .card-body.flush {
   padding: 8px 0 4px;
@@ -665,7 +672,7 @@ textarea {
 
 .grid {
   display: grid;
-  gap: 16px;
+  gap: var(--gap);
 }
 .grid-4 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -686,7 +693,7 @@ textarea {
 .stack {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--gap);
 }
 .row {
   display: flex;
@@ -713,7 +720,7 @@ textarea {
 }
 
 .stat {
-  padding: 16px 18px;
+  padding: 16px var(--card-pad);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1065,7 +1072,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 18px;
+  padding: 10px var(--card-pad);
   border-top: 1px solid var(--border);
 }
 .list-item:first-child {
@@ -1186,7 +1193,7 @@ textarea {
   gap: 8px;
   flex-wrap: wrap;
   align-items: center;
-  padding: 14px 18px;
+  padding: 14px var(--card-pad);
   border-bottom: 1px solid var(--border);
 }
 .toolbar .select {
@@ -1199,7 +1206,7 @@ textarea {
 .filter-tabs {
   display: flex;
   gap: 4px;
-  padding: 10px 18px 0;
+  padding: 10px var(--card-pad) 0;
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
   scrollbar-width: thin;
@@ -1240,7 +1247,7 @@ textarea {
   color: var(--brand);
 }
 .filter-tabs.in-card {
-  padding: 8px 18px 0;
+  padding: 8px var(--card-pad) 0;
 }
 
 .list-foot {
@@ -1249,33 +1256,54 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 18px;
+  padding: 12px var(--card-pad);
 }
+.list-foot .select {
+  width: auto;
+  height: 34px;
+  min-height: 0;
+}
+/* Page numbers read as one joined control, styled like the rows-per-page dropdown beside them. */
 .pager {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  display: inline-flex;
+  max-width: 100%;
+  overflow-x: auto;
 }
 .pager-btn {
-  min-width: 36px;
-  height: 36px;
-  padding: 0 8px;
+  position: relative;
+  min-width: 34px;
+  height: 34px;
+  margin-left: -1px;
+  padding: 0 10px;
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
+  border-bottom-color: #8a8f98;
+  border-radius: 0;
   background: var(--surface);
-  font-weight: 600;
   cursor: pointer;
+}
+.pager-btn:first-child {
+  margin-left: 0;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.pager-btn:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .pager-btn:hover:not(:disabled) {
   background: var(--surface-3);
 }
 .pager-btn[aria-current='page'] {
+  z-index: 1;
   background: var(--brand);
   border-color: var(--brand);
   color: #fff;
+  font-weight: 600;
+}
+.pager-btn:focus-visible {
+  z-index: 2;
 }
 .pager-btn:disabled {
-  opacity: 0.4;
+  color: var(--text-3);
+  background: var(--surface-2);
   cursor: not-allowed;
 }
 .narrow {
@@ -1727,7 +1755,7 @@ textarea {
   display: grid;
   grid-template-columns: 64px 1fr;
   gap: 12px;
-  padding: 8px 18px;
+  padding: 8px var(--card-pad);
   align-items: start;
 }
 .timeline time {
@@ -1947,7 +1975,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 18px;
+  padding: 12px var(--card-pad);
   border-radius: var(--radius);
   flex-wrap: wrap;
 }
@@ -1970,6 +1998,22 @@ textarea {
   width: 100%;
   border-collapse: separate;
   border-spacing: 4px;
+}
+/* When the card beside it is taller, the heatmap rows grow to fill the card instead of leaving a blank area. */
+.heat-card {
+  display: flex;
+  flex-direction: column;
+}
+.heat-card > .card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.heat-card .table-wrap {
+  flex: 1;
+}
+.heat-card .heatmap {
+  height: 100%;
 }
 .heatmap th {
   font-size: 12px;
@@ -2370,9 +2414,16 @@ textarea {
   gap: 12px;
   padding: 18px 20px 6px;
 }
+/* Forms wrap head, body and foot, so they pass the column layout on; only the body scrolls and the buttons stay in view. */
+.modal > form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 .modal-body {
   padding: 12px 20px;
   overflow-y: auto;
+  min-height: 0;
 }
 .modal-foot {
   display: flex;
@@ -2457,7 +2508,7 @@ textarea {
 
 .empty {
   text-align: center;
-  padding: 36px 18px;
+  padding: 36px var(--card-pad);
   color: var(--text-2);
 }
 .empty-icon {
@@ -2546,7 +2597,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 16px 18px;
+  padding: 16px var(--card-pad);
 }
 .integration-head {
   display: flex;
@@ -2618,7 +2669,7 @@ textarea {
 .activity li {
   display: flex;
   gap: 10px;
-  padding: 10px 18px;
+  padding: 10px var(--card-pad);
   border-top: 1px solid var(--border);
   font-size: 13px;
 }
@@ -2640,7 +2691,399 @@ textarea {
   display: none;
 }
 
+/* ---------- Section tabs ---------- */
+
+.section-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--gap);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.section-tabs [role='tab'] {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: var(--text-2);
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.section-tabs [role='tab']:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+.section-tabs [role='tab'][aria-selected='true'] {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}
+.section-tabs [role='tab'][aria-selected='true'] .tab-count {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.tab-panel:focus-visible {
+  box-shadow: var(--focus);
+  border-radius: var(--radius);
+}
+.page-section + .page-section {
+  margin-top: var(--gap);
+}
+
+.filter-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px var(--card-pad);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Numbered step headings (What-If Simulator) */
+.step-num {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.scenario-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+.scenario-card:hover {
+  border-color: var(--brand);
+}
+.scenario-card[aria-pressed='true'] {
+  border-color: var(--brand);
+  background: var(--brand-softer);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+.scenario-card .meta {
+  display: block;
+  margin-top: 2px;
+}
+
+/* Structured recommendation: detected / why / affected / action */
+.insight-rec {
+  display: grid;
+  gap: 6px;
+  padding: 16px var(--card-pad);
+  border-bottom: 1px solid var(--border);
+}
+.insight-rec .grow {
+  flex: 1;
+  min-width: 0;
+}
+.insight-rec:last-child {
+  border-bottom: 0;
+}
+.insight-rec dl {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 13.5px;
+}
+.insight-rec dt {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.insight-rec dd {
+  margin: 0;
+}
+
+/* Task distribution (Team Workload) */
+.dist {
+  display: grid;
+  gap: 14px;
+}
+.dist-row {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 260px;
+  align-items: center;
+  gap: 16px;
+}
+.dist-bar {
+  display: flex;
+  min-width: 24px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.dist-bar span {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.dist-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.dist-critical {
+  background: var(--danger);
+  color: #fff;
+}
+.dist-high {
+  background: var(--warning-mark);
+  color: #1f2328;
+}
+.dist-medium {
+  background: var(--brand);
+  color: #fff;
+}
+.dist-low {
+  background: var(--border-strong);
+  color: #1f2328;
+}
+
+.cal-agenda {
+  display: none;
+}
+.agenda-day {
+  padding: 12px var(--card-pad);
+  border-top: 1px solid var(--border);
+}
+.agenda-day .list {
+  margin-top: 8px;
+}
+.agenda-item {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 2px 10px;
+  padding: 8px 0 8px 10px;
+  border-left: 3px solid var(--border-strong);
+}
+.agenda-item + .agenda-item {
+  margin-top: 6px;
+}
+.agenda-item small {
+  grid-column: 2;
+}
+.agenda-item.meeting {
+  border-left-color: var(--brand);
+}
+.agenda-item.task {
+  border-left-color: var(--ai);
+}
+.agenda-item.conflict {
+  border-left-color: var(--danger);
+}
+.agenda-item.conflict small {
+  color: var(--danger);
+}
+.agenda-item.task.accepted {
+  border-left-color: var(--success);
+}
+.agenda-time {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* The planner's AI panel can be collapsed on wide screens only; phones always show it below the calendar. */
+@media (min-width: 761px) {
+  .panel-collapsed {
+    display: none;
+  }
+}
+
+/* Officer dashboard: rows instead of two tall columns, so side-by-side cards share a height and no gap opens under the shorter column. */
+.dash-lists {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 1600px) {
+  .dash-lists {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dash-lists > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 1200px) {
+  .dash-lists {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Dashboard project rows: colour accent, health, progress against time used. */
+.proj-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 10px;
+  padding-top: 12px;
+}
+.proj-item {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px 12px 16px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--proj, var(--brand));
+  border-radius: var(--radius);
+  color: inherit;
+  text-decoration: none;
+}
+.proj-item:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  border-left-color: var(--proj, var(--brand));
+}
+.proj-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.proj-name {
+  min-width: 0;
+}
+.proj-item:hover .proj-name {
+  color: var(--brand);
+}
+.proj-bar {
+  position: relative;
+  display: block;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+.proj-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--proj, var(--brand));
+}
+/* Marker: how much of the project's time has passed. Progress left of it means behind. */
+.proj-bar i {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--text);
+}
+.proj-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.proj-why {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--text-2);
+}
+.proj-why .icon {
+  margin-top: 3px;
+}
+
+/* Supervisor dashboard: team capacity flows into columns instead of one long list. */
+.cap-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr));
+}
+.cap-meter {
+  width: 110px;
+  flex-shrink: 0;
+}
+.cap-list .meta {
+  row-gap: 0;
+}
+
+/* Team Workload officer column: avatar beside a name / role block, header lined up with the names. */
+.officer-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.officer-cell .meta {
+  margin-top: 2px;
+}
+.table th.th-officer {
+  padding-left: 54px; /* cell padding 12 + avatar 32 + gap 10 */
+}
+
+/* Floating scroll-to-top button */
+.to-top {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 15;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--brand);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.to-top:hover {
+  background: var(--brand-soft);
+}
+.to-top:focus-visible {
+  border-radius: 50%;
+}
+
 /* ---------- Responsive ---------- */
+
+@media (min-width: 1800px) {
+  :root {
+    --page-pad: 40px;
+    --gap: 24px;
+  }
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --page-pad: 24px;
+    --gap: 16px;
+    --card-pad: 18px;
+  }
+  .flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .flow-arrow {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+  .dist-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+}
 
 @media (max-width: 1200px) {
   .grid-4 {
@@ -2669,6 +3112,26 @@ textarea {
 }
 
 @media (max-width: 760px) {
+  :root {
+    --page-pad: 16px;
+    --card-pad: 16px;
+  }
+  .to-top {
+    right: 16px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+  .insight-rec dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .has-agenda .cal {
+    display: none;
+  }
+  .has-agenda .cal-agenda {
+    display: block;
+  }
+  .insight-rec dd + dt {
+    margin-top: 6px;
+  }
   .app,
   .app.collapsed {
     grid-template-columns: minmax(0, 1fr);
@@ -2709,9 +3172,6 @@ textarea {
   }
   .hide-sm {
     display: none !important;
-  }
-  .page {
-    padding: 16px;
   }
   .demo-banner {
     padding: 6px 16px;
@@ -2771,13 +3231,6 @@ textarea {
   .project-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-  .flow {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .flow-arrow {
-    justify-self: center;
-    transform: rotate(90deg);
-  }
   .tabbar {
     position: fixed;
     left: 0;
@@ -2812,7 +3265,7 @@ textarea {
     color: var(--brand);
   }
   .page {
-    padding-bottom: 88px;
+    padding-bottom: calc(136px + env(safe-area-inset-bottom));
   }
   .toasts {
     bottom: 76px;

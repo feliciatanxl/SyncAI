@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="../css/style.css" />
     <link rel="stylesheet" href="site.css" />
     <script type="module" src="status.js"></script>
+    <script type="module" src="to-top.js"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to main content</a>
@@ -27,7 +28,7 @@
       </div>
     </header>
 
-    <main id="main">
+    <main id="main" tabindex="-1">
       <!-- Single code view: status.html?code=404 -->
       <section class="status-hero" data-view="code" hidden>
         <div class="wrap">
@@ -76,5 +77,8 @@
         <span><a href="index.html">Home</a> · <a href="status.html">All status codes</a></span>
       </div>
     </footer>
+    <button class="to-top" id="to-top" type="button" aria-label="Scroll to top" title="Back to top" hidden>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6" /></svg>
+    </button>
   </body>
 </html>

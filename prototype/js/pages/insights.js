@@ -3,7 +3,7 @@ import { effortAccuracy, scoreTask, explainScore } from '../ai.js';
 import { analyseOfficer, assessRisk, meetingConflicts, teamAnalysis } from '../planner.js';
 import { isOpen, isSupervisor, officerName, openTasksFor, visibleTasks, getOfficer, absenceLabel } from '../state.js';
 import { TODAY, NOW, horizonDays, workDay, datePart, fmtDay, fmtDue, fmtHours, fmtTime } from '../time.js';
-import { html, icon, pct, riskBadge, emptyState, limitTo, showMore } from '../ui.js';
+import { html, icon, pct, riskBadge, emptyState, limitTo, showMore, sectionTabs } from '../ui.js';
 import { ctx } from '../ctx.js';
 import { visibleRecs } from './shared.js';
 
@@ -181,32 +181,98 @@ function weeklyReflection(s) {
   </section>`;
 }
 
+// Each action says what was detected, why it matters, what it affects and what to do.
 function correctiveActions(s) {
   const out = [];
+  const titles = (tasks) => tasks.map((t) => t.title).join(' · ');
   effortAccuracy(s)
     .filter((r) => r.ratio > 1.15)
-    .forEach((r) => out.push({ icon: 'clock', text: `${r.category} tasks run ${Math.round((r.ratio - 1) * 100)}% over estimate. SyncAI now adds this margin to new ${r.category.toLowerCase()} estimates; consider updating SOP time standards.` }));
+    .forEach((r) => {
+      const open = visibleTasks(s).filter((t) => isOpen(t) && t.category === r.category);
+      out.push({
+        icon: 'clock',
+        title: `${r.category} tasks run ${Math.round((r.ratio - 1) * 100)}% over estimate`,
+        why: 'Underestimates make a plan look achievable when it is not, so deadlines slip late in the day.',
+        affects: open.length ? `${open.length} open ${r.category.toLowerCase()} task${open.length > 1 ? 's' : ''}` : `New ${r.category.toLowerCase()} tasks`,
+        action: `SyncAI now adds this margin to new ${r.category.toLowerCase()} estimates. Consider updating the SOP time standards.`,
+      });
+    });
   if (isSupervisor(s)) {
     const recs = visibleRecs(s);
-    if (recs.length) out.push({ icon: 'users', text: `Approve ${recs.length} suggested reassignment(s) to clear high-risk deadlines.`, href: '#/team', cta: 'Review' });
+    if (recs.length)
+      out.push({
+        icon: 'users',
+        title: `${recs.length} at-risk task${recs.length > 1 ? 's' : ''} could move to an officer with time`,
+        why: 'Their current owners cannot finish them before the deadline.',
+        affects: titles(recs.map((r) => s.tasks.find((t) => t.id === r.taskId)).filter(Boolean)),
+        action: 'Review and approve the suggested reassignments.',
+        href: '#/team',
+        cta: 'Review',
+      });
     s.officers.forEach((o) => {
       horizonDays()
         .slice(1)
         .forEach((d) => {
           if (!o.availability?.[d]) return;
           const due = openTasksFor(s, o.id).filter((t) => datePart(t.due) === d);
-          if (due.length) out.push({ icon: 'calendar', text: `${o.name} is away on ${fmtDay(d)} with ${due.length} task(s) due that day — bring forward or reassign.`, href: '#/simulator', cta: 'Simulate' });
+          if (due.length)
+            out.push({
+              icon: 'calendar',
+              title: `${o.name} is away on ${fmtDay(d)} with ${due.length} task${due.length > 1 ? 's' : ''} due that day`,
+              why: 'No one is scheduled to finish this work on the day it is due.',
+              affects: titles(due),
+              action: 'Bring the work forward or reassign it. Preview the impact first.',
+              href: '#/simulator',
+              cta: 'Simulate',
+            });
         });
     });
     const t = WEEKLY_TREND;
-    if (t.created.slice(-3).every((c, i) => c > t.completed.slice(-3)[i])) out.push({ icon: 'trend', text: 'Intake has exceeded completions for three weeks. Review contractor support or defer low-priority admin.' });
+    if (t.created.slice(-3).every((c, i) => c > t.completed.slice(-3)[i]))
+      out.push({
+        icon: 'trend',
+        title: 'Intake has exceeded completions for three weeks',
+        why: 'The backlog grows each week, which raises deadline risk for the weeks ahead.',
+        affects: 'The whole team backlog (sample history)',
+        action: 'Review contractor support or defer low-priority admin work.',
+      });
   } else {
     const me = getOfficer(s, s.currentOfficerId);
     const conflicts = horizonDays().flatMap((d) => meetingConflicts(s, me.id, d));
-    if (conflicts.length) out.push({ icon: 'calendar', text: `Resolve ${conflicts.length} meeting clash(es) in Outlook so SyncAI can use that time.`, href: '#/planner', cta: 'Planner' });
-    if (!s.plans[me.id]) out.push({ icon: 'sparkles', text: 'Generate and accept a plan so your time is protected in Outlook.', href: '#/planner', cta: 'Plan' });
+    if (conflicts.length)
+      out.push({
+        icon: 'calendar',
+        title: `${conflicts.length} meeting clash${conflicts.length > 1 ? 'es' : ''} this week`,
+        why: 'Overlapping meetings hide how much time you really have for task work.',
+        affects: 'Your calendar and any plan built on it',
+        action: 'Resolve the clashes in Outlook so SyncAI can use that time.',
+        href: '#/planner',
+        cta: 'Planner',
+      });
+    if (!s.plans[me.id]) {
+      const open = openTasksFor(s, me.id);
+      out.push({
+        icon: 'sparkles',
+        title: 'No plan for today yet',
+        why: 'Without blocked time, meetings and interruptions can fill the day before task work starts.',
+        affects: `${open.length} open task${open.length === 1 ? '' : 's'}`,
+        action: 'Generate a plan, review it and accept it so your time is protected in Outlook.',
+        href: '#/planner',
+        cta: 'Plan',
+      });
+    }
   }
   return out;
+}
+
+function actionList(actions) {
+  if (!actions.length) return emptyState('check', 'Nothing to correct', 'Workload and estimates look healthy.');
+  return actions.map(
+    (a) => html`<article class="insight-rec">
+      <div class="row"><span class="stat-icon ai">${icon(a.icon, 14)}</span><strong class="grow">${a.title}</strong>${a.href ? html`<a class="btn btn-sm" href="${a.href}">${a.cta}</a>` : ''}</div>
+      <dl><dt>Why it matters</dt><dd>${a.why}</dd><dt>Affects</dt><dd>${a.affects}</dd><dt>Recommended</dt><dd>${a.action}</dd></dl>
+    </article>`,
+  );
 }
 
 const QUESTIONS = {
@@ -218,6 +284,7 @@ function renderPage(s) {
   const sup = isSupervisor(s);
   const brief = sup ? supervisorBriefing(s) : officerBriefing(s);
   const actions = correctiveActions(s);
+  const highRisk = visibleTasks(s).filter((t) => isOpen(t) && assessRisk(s, t).level === 'high').length;
   return html`
     <div class="page-head">
       <div><h1>AI Insights</h1><p>${sup ? 'Operational briefings, risks and trends across the team.' : 'Your briefings, deadline risks and effort patterns.'}</p></div>
@@ -227,40 +294,36 @@ function renderPage(s) {
       </div>
     </div>
 
-    <div class="grid grid-main">
-      <div class="stack">
-        <section class="card ai-card" aria-labelledby="ib-h">
-          <div class="card-head"><h2 id="ib-h"><span class="ai-label">${icon('sparkles', 16)}${view.period === 'daily' ? 'Daily' : 'Weekly'} operational briefing</span></h2><span class="badge badge-ai">Generated locally · deterministic</span></div>
-          <div class="card-body"><p class="ai-headline">${brief.headline}</p>${bullets(brief.items)}</div>
-        </section>
-
-        <section class="card" aria-labelledby="ra-h">
-          <div class="card-head"><h2 id="ra-h">Deadline risk alerts</h2>
-            <div class="segmented" role="group" aria-label="Risk level">
-              ${[['high', 'High'], ['medium', 'Medium'], ['all', 'All']].map(([v, l]) => html`<button data-action="ins-risk" data-level="${v}" aria-pressed="${view.riskFilter === v}">${l}</button>`)}
-            </div>
+    ${sectionTabs('insights', 'Insight views', [
+      ['overview', 'Overview', html`<div class="grid grid-main">
+        <div class="stack">
+          <section class="card ai-card" aria-labelledby="ib-h">
+            <div class="card-head"><h2 id="ib-h"><span class="ai-label">${icon('sparkles', 16)}${view.period === 'daily' ? 'Daily' : 'Weekly'} operational briefing</span></h2><span class="badge badge-ai">Generated locally · deterministic</span></div>
+            <div class="card-body"><p class="ai-headline">${brief.headline}</p>${bullets(brief.items)}</div>
+          </section>
+          ${view.period === 'weekly' ? weeklyReflection(s) : ''}
+        </div>
+        <section class="card ai-card" aria-labelledby="ask-h">
+          <div class="card-head"><h2 id="ask-h"><span class="ai-label">${icon('message', 16)}Ask SyncAI</span></h2></div>
+          <div class="card-body">
+            <p class="muted small">The assistant answers supported questions from local prototype data with fixed rules. It is not connected to Azure OpenAI.</p>
+            <div class="row wrap mt-sm">${QUESTIONS[sup ? 'supervisor' : 'officer'].map((q) => html`<button class="chip" data-action="ask" data-q="${q}">${q}</button>`)}</div>
           </div>
-          <div class="card-body flush">${riskAlerts(s)}</div>
         </section>
-
-        ${view.period === 'weekly' ? weeklyReflection(s) : ''}
-
+      </div>`],
+      ['risks', 'Deadline risks', html`<section class="card" aria-labelledby="ra-h">
+        <div class="card-head"><h2 id="ra-h">Deadline risk alerts</h2>
+          <div class="segmented" role="group" aria-label="Risk level">
+            ${[['high', 'High'], ['medium', 'Medium'], ['all', 'All']].map(([v, l]) => html`<button data-action="ins-risk" data-level="${v}" aria-pressed="${view.riskFilter === v}">${l}</button>`)}
+          </div>
+        </div>
+        <div class="card-body flush">${riskAlerts(s)}</div>
+      </section>`, highRisk || null],
+      ['trends', 'Workload trends', html`<div class="grid grid-2">
         <section class="card" aria-labelledby="ea-h">
           <div class="card-head"><h2 id="ea-h">Estimated vs actual effort <span class="sub">completed tasks, by category</span></h2></div>
           <div class="card-body">${accuracyChart(s)}</div>
         </section>
-      </div>
-
-      <div class="stack">
-        <section class="card" aria-labelledby="ca-h">
-          <div class="card-head"><h2 id="ca-h">Suggested corrective actions</h2></div>
-          <div class="card-body flush">
-            ${actions.length
-              ? html`<ul class="list">${actions.map((a) => html`<li class="list-item" style="align-items:flex-start"><span class="stat-icon ai">${icon(a.icon, 14)}</span><span class="grow">${a.text}</span>${a.href ? html`<a class="btn btn-sm" href="${a.href}">${a.cta}</a>` : ''}</li>`)}</ul>`
-              : emptyState('check', 'Nothing to correct', 'Workload and estimates look healthy.')}
-          </div>
-        </section>
-
         ${sup
           ? html`<section class="card" aria-labelledby="tr-h">
               <div class="card-head"><h2 id="tr-h">Workload trend <span class="sub">sample history, last 6 weeks</span></h2></div>
@@ -270,16 +333,12 @@ function renderPage(s) {
               <div class="card-head"><h2 id="tr-h">Team-level trends</h2></div>
               <div class="card-body">${emptyState('lock', 'Visible to supervisors', 'Team utilisation and other officers’ workloads are restricted to supervisors.')}</div>
             </section>`}
-
-        <section class="card ai-card" aria-labelledby="ask-h">
-          <div class="card-head"><h2 id="ask-h"><span class="ai-label">${icon('message', 16)}Ask SyncAI</span></h2></div>
-          <div class="card-body">
-            <p class="muted small">The assistant answers supported questions using local prototype data only.</p>
-            <div class="row wrap mt-sm">${QUESTIONS[sup ? 'supervisor' : 'officer'].map((q) => html`<button class="chip" data-action="ask" data-q="${q}">${q}</button>`)}</div>
-          </div>
-        </section>
-      </div>
-    </div>`;
+      </div>`],
+      ['recs', 'Recommendations', html`<section class="card" aria-labelledby="ca-h">
+        <div class="card-head"><h2 id="ca-h"><span class="ai-label">${icon('sparkles', 16)}Suggested corrective actions</span></h2><span class="muted small">Nothing changes until you act on one.</span></div>
+        <div class="card-body flush">${actionList(actions)}</div>
+      </section>`, actions.length || null],
+    ])}`;
 }
 
 export default {

@@ -111,3 +111,16 @@ test('group-by keeps every task once, in a fixed order', async () => {
   assert.deepEqual(groupTasks(s, rows, 'priority').map((g) => g.key), ['Critical', 'High', 'Medium', 'Low']);
   assert.equal(groupTasks(s, rows, 'project').at(-1).label, 'No project', '"No project" comes last');
 });
+
+test('section tabs: one selected tab, wired to its panel, remembered per tab set', async () => {
+  const { sectionTabs, activeTabs, html } = await import('../js/ui.js');
+  const items = [['a', 'First', html`<p>A</p>`], ['b', 'Second', html`<p>B</p>`, 3]];
+  const out = String(sectionTabs('t', 'Views', items));
+  assert.equal(out.match(/aria-selected="true"/g).length, 1);
+  assert.match(out, /id="tab-t-a" aria-controls="panel-t-a" aria-selected="true" tabindex="0"/);
+  assert.match(out, /id="panel-t-b" aria-labelledby="tab-t-b" tabindex="0" hidden/);
+  activeTabs.set('t', 'b');
+  assert.match(String(sectionTabs('t', 'Views', items)), /id="tab-t-b" aria-controls="panel-t-b" aria-selected="true"/);
+  activeTabs.set('t', 'gone');
+  assert.match(String(sectionTabs('t', 'Views', items)), /id="tab-t-a" aria-controls="panel-t-a" aria-selected="true"/, 'unknown tab falls back to the first');
+});
