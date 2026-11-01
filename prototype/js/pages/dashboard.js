@@ -132,7 +132,6 @@ function officerView(s) {
     </div>
 
     <div class="grid grid-main mt">
-      <div class="stack">
         <section class="card ai-card" aria-labelledby="brief-h">
           <div class="card-head"><h2 id="brief-h"><span class="ai-label">${icon('sparkles', 16)}Your AI Daily Briefing</span></h2><span class="badge badge-ai">Explainable</span></div>
           <div class="card-body">
@@ -155,7 +154,16 @@ function officerView(s) {
               : ''}
           </div>
         </section>
+      <div class="stack">
+        <section class="card" aria-labelledby="sched-h">
+          <div class="card-head"><h2 id="sched-h">Today's schedule</h2><a class="btn btn-subtle btn-sm" href="#/planner">Open planner</a></div>
+          <div class="card-body flush">${a.today.unavailable ? emptyState('calendar', 'Unavailable today', 'No schedule is planned while you are away.') : agenda(s, me)}</div>
+        </section>
+        ${projectsCard(s, 'My projects')}
+      </div>
+    </div>
 
+    <div class="grid dash-lists mt">
         <section class="card" aria-labelledby="prio-h">
           <div class="card-head"><h2 id="prio-h">Top priorities <span class="sub">ranked by SyncAI score</span></h2><a class="btn btn-subtle btn-sm" href="#/tasks">View all</a></div>
           <div class="card-body flush">
@@ -177,15 +185,6 @@ function officerView(s) {
               : emptyState('check-square', 'No open tasks', 'Add a task or describe one in plain language on My Tasks.')}
           </div>
         </section>
-      </div>
-
-      <div class="stack">
-        <section class="card" aria-labelledby="sched-h">
-          <div class="card-head"><h2 id="sched-h">Today's schedule</h2><a class="btn btn-subtle btn-sm" href="#/planner">Open planner</a></div>
-          <div class="card-body flush">${a.today.unavailable ? emptyState('calendar', 'Unavailable today', 'No schedule is planned while you are away.') : agenda(s, me)}</div>
-        </section>
-        ${remindersCard(s, me)}
-        ${projectsCard(s, 'My projects')}
         <section class="card" aria-labelledby="dl-h">
           <div class="card-head"><h2 id="dl-h">Upcoming deadlines</h2></div>
           <div class="card-body flush">
@@ -203,7 +202,7 @@ function officerView(s) {
             </ul>
           </div>
         </section>
-      </div>
+      ${remindersCard(s, me)}
     </div>`;
 }
 

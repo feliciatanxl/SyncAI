@@ -2870,6 +2870,28 @@ textarea {
   }
 }
 
+/* Officer dashboard: rows instead of two tall columns, so side-by-side cards share a height and no gap opens under the shorter column. */
+.dash-lists {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+/* In any two-column grid, the last card of a column stretches so both columns end on the same line. */
+.grid > .stack > .card:last-child {
+  flex-grow: 1;
+}
+@media (max-width: 1600px) {
+  .dash-lists {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dash-lists > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 1200px) {
+  .dash-lists {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Floating scroll-to-top button */
 .to-top {
   position: fixed;
