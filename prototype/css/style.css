@@ -2881,10 +2881,6 @@ textarea {
 .dash-lists {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
-/* In any two-column grid, the last card of a column stretches so both columns end on the same line. */
-.grid > .stack > .card:last-child {
-  flex-grow: 1;
-}
 @media (max-width: 1600px) {
   .dash-lists {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2902,6 +2898,7 @@ textarea {
 /* Dashboard project rows: colour accent, health, progress against time used. */
 .proj-list {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   gap: 10px;
   padding-top: 12px;
 }
@@ -2969,6 +2966,32 @@ textarea {
 }
 .proj-why .icon {
   margin-top: 3px;
+}
+
+/* Supervisor dashboard: team capacity flows into columns instead of one long list. */
+.cap-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr));
+}
+.cap-meter {
+  width: 110px;
+  flex-shrink: 0;
+}
+.cap-list .meta {
+  row-gap: 0;
+}
+
+/* Team Workload officer column: avatar beside a name / role block, header lined up with the names. */
+.officer-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.officer-cell .meta {
+  margin-top: 2px;
+}
+.table th.th-officer {
+  padding-left: 54px; /* cell padding 12 + avatar 32 + gap 10 */
 }
 
 /* Floating scroll-to-top button */

@@ -146,11 +146,11 @@ function renderPage(s) {
       <div class="card-head"><h2 id="ot-h">Officers</h2><span class="muted small">Select an officer for a task breakdown</span></div>
       <div class="card-body flush table-wrap">
         <table class="table">
-          <thead><tr><th>Officer</th><th>Status</th><th>Today</th><th class="hide-sm">This week</th><th class="hide-sm">Open</th><th>At risk</th><th>Falling behind?</th><th class="hide-sm">Skills</th></tr></thead>
+          <thead><tr><th class="th-officer">Officer</th><th>Status</th><th>Today</th><th class="hide-sm">This week</th><th class="hide-sm">Open</th><th>At risk</th><th>Falling behind?</th><th class="hide-sm">Skills</th></tr></thead>
           <tbody>
             ${team.map(
               (a) => html`<tr>
-                <td><button class="task-title row" data-action="team-select" data-id="${a.officer.id}" aria-expanded="${view.selected === a.officer.id}">${avatar(a.officer.name, 'sm')}${a.officer.name}</button><div class="meta">${a.officer.title} · ${a.officer.zone}</div></td>
+                <td><div class="officer-cell">${avatar(a.officer.name)}<div><button class="task-title" data-action="team-select" data-id="${a.officer.id}" aria-expanded="${view.selected === a.officer.id}">${a.officer.name}</button><div class="meta">${a.officer.title} · ${a.officer.zone}</div></div></div></td>
                 <td>${capacityBadge(a.status)}</td>
                 <td style="min-width:140px">${a.today.unavailable ? html`<span class="muted">${absenceLabel(a.today.kind, true)}</span>` : html`<div class="row">${meter(a.today.util, { label: `${a.officer.name} today` })}<span class="small">${pct(a.today.util)}</span></div>`}</td>
                 <td class="hide-sm">${pct(a.weekUtil)}</td>
