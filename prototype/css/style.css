@@ -2899,6 +2899,78 @@ textarea {
   }
 }
 
+/* Dashboard project rows: colour accent, health, progress against time used. */
+.proj-list {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+.proj-item {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px 12px 16px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--proj, var(--brand));
+  border-radius: var(--radius);
+  color: inherit;
+  text-decoration: none;
+}
+.proj-item:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  border-left-color: var(--proj, var(--brand));
+}
+.proj-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.proj-name {
+  min-width: 0;
+}
+.proj-item:hover .proj-name {
+  color: var(--brand);
+}
+.proj-bar {
+  position: relative;
+  display: block;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+.proj-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--proj, var(--brand));
+}
+/* Marker: how much of the project's time has passed. Progress left of it means behind. */
+.proj-bar i {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--text);
+}
+.proj-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.proj-why {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--text-2);
+}
+.proj-why .icon {
+  margin-top: 3px;
+}
+
 /* Floating scroll-to-top button */
 .to-top {
   position: fixed;

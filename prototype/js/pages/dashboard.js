@@ -1,11 +1,11 @@
 import { explainScore, scoreTask } from '../ai.js';
 import { analyseOfficer, assessRisk, meetingConflicts, schedule, smartReminders, teamAnalysis } from '../planner.js';
 import { getOfficer, getTask, isOpen, isSupervisor, openTasksFor, officerName, update, absenceLabel } from '../state.js';
-import { TODAY, NOW, datePart, fmtDue, fmtHours, fmtTime, fmtLongDay, relDay, timePart, toMin } from '../time.js';
+import { TODAY, NOW, datePart, fmtDay, fmtDue, fmtHours, fmtTime, fmtLongDay, relDay, timePart, toMin } from '../time.js';
 import { html, icon, avatar, priorityBadge, riskBadge, capacityBadge, meter, pct, emptyState, sourceTag, toast, limitTo, showMore } from '../ui.js';
 import { ctx } from '../ctx.js';
 import { recCard, scorePill, visibleRecs } from './shared.js';
-import { healthBadge, progressBar, rankedProjects } from './projects.js';
+import { healthBadge, rankedProjects } from './projects.js';
 
 const greeting = () => {
   const h = toMin(NOW.slice(11, 16)) / 60;
@@ -209,14 +209,23 @@ function officerView(s) {
 function projectsCard(s, title) {
   const list = rankedProjects(s).filter((x) => x.h.level !== 'done');
   if (!list.length) return '';
+  const sup = isSupervisor(s);
   return html`<section class="card" aria-labelledby="pj-h">
-    <div class="card-head"><h2 id="pj-h">${title}</h2><a class="btn btn-subtle btn-sm" href="#/projects">All projects</a></div>
-    <div class="card-body flush"><ul class="list">${list.slice(0, 4).map(
-      ({ p, h }) => html`<li class="list-item"><div class="grow">
-        <div class="row wrap" style="justify-content:space-between"><a class="title" href="#/projects/${p.id}">${p.name}</a>${healthBadge(h.level)}</div>
-        <div class="row small" style="gap:10px"><div style="flex:1">${progressBar(h.progress, p.color)}</div><span class="muted" style="white-space:nowrap">${pct(h.progress)} done</span></div>
-      </div></li>`,
-    )}</ul></div>
+    <div class="card-head"><h2 id="pj-h">${title} <span class="tab-count">${list.length}</span></h2><a class="btn btn-subtle btn-sm" href="#/projects">All projects</a></div>
+    <div class="card-body proj-list">${list.slice(0, 4).map(({ p, h }) => {
+      const done = h.tasks.length - h.open.length;
+      // Officers only see reasons that don't name other officers.
+      const reason = h.reasons.find((r) => sup || !r.personal);
+      return html`<a class="proj-item" href="#/projects/${p.id}" style="--proj:${p.color}">
+        <span class="proj-top"><strong class="proj-name">${p.name}</strong>${healthBadge(h.level)}</span>
+        <span class="meta"><span>${icon('calendar', 12)}Due ${fmtDay(p.due)}</span><span>${icon('check-square', 12)}${done} of ${h.tasks.length} tasks done</span></span>
+        <span class="proj-bar" role="img" aria-label="${pct(h.progress)} of the work done, ${pct(h.expected)} of the time used">
+          <span class="proj-fill" style="width:${Math.min(h.progress, 1) * 100}%"></span><i style="left:${Math.min(h.expected, 1) * 100}%" aria-hidden="true"></i>
+        </span>
+        <span class="proj-stats small"><span><strong>${pct(h.progress)}</strong> done</span><span class="muted">${pct(h.expected)} of time used</span></span>
+        ${reason && h.level !== 'on-track' ? html`<span class="proj-why small">${icon('info', 12)}${reason.text}</span>` : ''}
+      </a>`;
+    })}</div>
   </section>`;
 }
 
