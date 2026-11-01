@@ -389,6 +389,8 @@ textarea {
 }
 .page {
   padding: var(--page-pad);
+  /* Room under the last content so the floating scroll-to-top button never covers it. */
+  padding-bottom: calc(var(--page-pad) + 64px);
   max-width: 1600px;
   width: 100%;
   margin: 0 auto;
@@ -1256,31 +1258,52 @@ textarea {
   gap: 10px;
   padding: 12px var(--card-pad);
 }
+.list-foot .select {
+  width: auto;
+  height: 34px;
+  min-height: 0;
+}
+/* Page numbers read as one joined control, styled like the rows-per-page dropdown beside them. */
 .pager {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  display: inline-flex;
+  max-width: 100%;
+  overflow-x: auto;
 }
 .pager-btn {
-  min-width: 36px;
-  height: 36px;
-  padding: 0 8px;
+  position: relative;
+  min-width: 34px;
+  height: 34px;
+  margin-left: -1px;
+  padding: 0 10px;
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
+  border-bottom-color: #8a8f98;
+  border-radius: 0;
   background: var(--surface);
-  font-weight: 600;
   cursor: pointer;
+}
+.pager-btn:first-child {
+  margin-left: 0;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.pager-btn:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .pager-btn:hover:not(:disabled) {
   background: var(--surface-3);
 }
 .pager-btn[aria-current='page'] {
+  z-index: 1;
   background: var(--brand);
   border-color: var(--brand);
   color: #fff;
+  font-weight: 600;
+}
+.pager-btn:focus-visible {
+  z-index: 2;
 }
 .pager-btn:disabled {
-  opacity: 0.4;
+  color: var(--text-3);
+  background: var(--surface-2);
   cursor: not-allowed;
 }
 .narrow {
@@ -1975,6 +1998,22 @@ textarea {
   width: 100%;
   border-collapse: separate;
   border-spacing: 4px;
+}
+/* When the card beside it is taller, the heatmap rows grow to fill the card instead of leaving a blank area. */
+.heat-card {
+  display: flex;
+  flex-direction: column;
+}
+.heat-card > .card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.heat-card .table-wrap {
+  flex: 1;
+}
+.heat-card .heatmap {
+  height: 100%;
 }
 .heatmap th {
   font-size: 12px;
@@ -3226,7 +3265,7 @@ textarea {
     color: var(--brand);
   }
   .page {
-    padding-bottom: 88px;
+    padding-bottom: calc(136px + env(safe-area-inset-bottom));
   }
   .toasts {
     bottom: 76px;

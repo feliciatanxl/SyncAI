@@ -126,7 +126,7 @@ function renderPage(s) {
     ${sectionTabs('team', 'Team workload views', [
       ['overview', 'Overview', html`
     <div class="grid grid-main">
-      <section class="card" aria-labelledby="hm-h">
+      <section class="card heat-card" aria-labelledby="hm-h">
         <div class="card-head"><h2 id="hm-h">Workload heatmap <span class="sub">meetings + work due ÷ working time</span></h2></div>
         <div class="card-body">${heatmap(team)}</div>
       </section>

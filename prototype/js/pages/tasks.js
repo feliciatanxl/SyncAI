@@ -205,7 +205,7 @@ function resultList(s, rows) {
   return html`<p class="sr-only" aria-live="polite">${rows.length} tasks, showing ${from + 1} to ${from + shown.length}</p>
     ${listView(s, shown)}
     <div class="list-foot"><span class="muted small">Showing ${from + 1}–${from + shown.length} of ${rows.length}</span>
-      <div class="row">${select('per', 'Rows per page', view.per, PER_PAGE_OPTIONS.map((v) => [v, v === 'all' ? 'Show all' : `${v} per page`]))}${pager('task-page', view.page, pages, 'Task pages')}</div></div>`;
+      <div class="row wrap">${select('per', 'Rows per page', view.per, PER_PAGE_OPTIONS.map((v) => [v, v === 'all' ? 'Show all' : `${v} per page`]))}${pager('task-page', view.page, pages, 'Task pages')}</div></div>`;
 }
 
 function nlPreview(s) {
