@@ -16,7 +16,7 @@ import { TODAY, NOW, horizonDays, workDay, parseDate, dt, fmtDay, fmtDue, fmtTim
 import { html, icon, render, openModal, closeModal, toast, confirmDialog, priorityBadge } from '../ui.js';
 import { ctx } from '../ctx.js';
 
-const view = { officerId: null, mode: 'day', dayIdx: 0, loading: false, emergency: null };
+const view = { officerId: null, mode: 'day', dayIdx: 0, loading: false, emergency: null, panel: true };
 const HOUR_PX = 64;
 const weekdayName = (iso) => parseDate(iso).toLocaleDateString('en-SG', { weekday: 'long' });
 
@@ -140,6 +140,35 @@ function scheduleCheck(s, oid) {
   </section>`;
 }
 
+// Phones get a plain agenda for the week view: five calendar columns are too narrow to read.
+function agenda(s, oid, days) {
+  const plan = s.plans[oid];
+  const officer = getOfficer(s, oid);
+  return html`<div class="cal-agenda">
+    ${days.map((d) => {
+      const cap = dayCapacity(s, oid, d);
+      const clash = new Set(meetingConflicts(s, oid, d).flat().map((m) => m.id));
+      const items = [
+        ...cap.meetings.map((m) => ({ start: m.start, end: m.end, title: m.title, kind: `meeting ${clash.has(m.id) ? 'conflict' : ''}`, note: clash.has(m.id) ? '⚠ Clashes with another meeting' : 'Outlook meeting' })),
+        ...(plan?.blocks || [])
+          .filter((b) => b.date === d && getTask(s, b.taskId))
+          .map((b) => ({ start: b.start, end: b.end, title: getTask(s, b.taskId).title, kind: `task ${plan.status}`, note: plan.status === 'accepted' ? 'Accepted block' : 'Draft block', block: b.id })),
+      ].sort((a, b) => a.start.localeCompare(b.start));
+      return html`<section class="agenda-day" aria-label="${fmtDay(d)}">
+        <h3>${d === TODAY ? 'Today · ' : ''}${fmtDay(d)}</h3>
+        ${cap.unavailable
+          ? html`<p class="muted small">${absenceLabel(officer.availability[d], isSupervisor(s))}</p>`
+          : items.length
+            ? html`<ul class="list">${items.map(
+                (i) => html`<li class="agenda-item ${i.kind}"><span class="agenda-time">${fmtTime(i.start)}–${fmtTime(i.end)}</span>
+                  ${i.block ? html`<button class="task-title" data-action="block-edit" data-block="${i.block}">${i.title}</button>` : html`<strong>${i.title}</strong>`}<small class="muted">${i.note}</small></li>`,
+              )}</ul>`
+            : html`<p class="muted small">Nothing scheduled.</p>`}
+      </section>`;
+    })}
+  </div>`;
+}
+
 function sidePanel(s, oid, days) {
   const plan = s.plans[oid];
   const caps = days.map((d) => dayCapacity(s, oid, d));
@@ -247,7 +276,7 @@ function renderPage(s) {
     <div id="plan-bar">${planBar(s, oid)}</div>
     ${nlPlanner()}
 
-    <div class="grid grid-main mt">
+    <div class="grid ${view.panel ? 'grid-main' : ''} mt">
       <section class="card" aria-labelledby="cal-h">
         <div class="card-head">
           <h2 id="cal-h">${view.mode === 'day' ? fmtLongDay(shown[0]) : `${fmtDay(days[0])} – ${fmtDay(days[days.length - 1])}`}</h2>
@@ -261,14 +290,15 @@ function renderPage(s) {
               <button data-action="cal-mode" data-mode="day" aria-pressed="${view.mode === 'day'}">Day</button>
               <button data-action="cal-mode" data-mode="week" aria-pressed="${view.mode === 'week'}">Week</button>
             </div>
+            <button class="btn btn-sm btn-subtle hide-sm" data-action="plan-panel" aria-expanded="${view.panel}">${icon(view.panel ? 'chevron-right' : 'chevron-left', 14)}${view.panel ? 'Hide' : 'Show'} AI panel</button>
           </div>
         </div>
         <div class="card-body" style="padding-bottom:10px">
           <div class="legend"><span><i class="l-meeting"></i>Outlook meeting</span><span><i class="l-draft"></i>Draft AI block</span><span><i class="l-accepted"></i>Accepted block</span><span><i class="l-conflict"></i>Conflict / problem</span><span><i class="l-lunch"></i>Lunch</span><span>✎ Edited by hand</span></div>
         </div>
-        <div id="cal-wrap">${calendar(s, oid, shown)}</div>
+        <div id="cal-wrap" class="${view.mode === 'week' ? 'has-agenda' : ''}">${calendar(s, oid, shown)}${view.mode === 'week' && !view.loading ? agenda(s, oid, shown) : ''}</div>
       </section>
-      ${sidePanel(s, oid, shown)}
+      <div class="${view.panel ? '' : 'panel-collapsed'}">${sidePanel(s, oid, shown)}</div>
     </div>`;
 }
 
@@ -662,6 +692,11 @@ export default {
       view.emergency = null;
       closeModal();
       toast(late.length ? `Schedule updated. Your supervisor was asked in Teams to help with ${late.length} at-risk task${late.length > 1 ? 's' : ''} (simulated).` : 'Schedule updated around the urgent task.', late.length ? 'info' : 'success');
+    },
+    'plan-panel': () => {
+      view.panel = !view.panel;
+      ctx.rerender();
+      document.querySelector('[data-action="plan-panel"]')?.focus();
     },
     'cal-mode': (el) => {
       view.mode = el.dataset.mode;

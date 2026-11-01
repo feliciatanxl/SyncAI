@@ -169,6 +169,36 @@ export function filterTabs(action, label, tabs, active) {
   </div>`;
 }
 
+// Active section tab per tab set, by key. Kept for the session so re-renders keep the open tab.
+export const activeTabs = new Map();
+
+/**
+ * Accessible section tabs (WAI-ARIA tabs pattern). `items` is [[id, label, content, count?]].
+ * All panels are rendered; inactive ones are hidden, so switching keeps their state.
+ * Clicks and arrow keys are handled globally by the `section-tab` action in app.js.
+ */
+export function sectionTabs(key, label, items) {
+  const active = items.some(([id]) => id === activeTabs.get(key)) ? activeTabs.get(key) : items[0][0];
+  return html`<div class="section-tabs" role="tablist" aria-label="${label}">
+      ${items.map(([id, text, , count]) => html`<button role="tab" type="button" id="tab-${key}-${id}" aria-controls="panel-${key}-${id}" aria-selected="${id === active}" tabindex="${id === active ? 0 : -1}" data-action="section-tab" data-tabs="${key}" data-tab="${id}">
+        ${text}${count == null ? '' : html`<span class="tab-count">${count}</span>`}</button>`)}
+    </div>
+    ${items.map(([id, , content]) => html`<div role="tabpanel" class="tab-panel" id="panel-${key}-${id}" aria-labelledby="tab-${key}-${id}" tabindex="0" ${id === active ? '' : 'hidden'}>${content}</div>`)}`;
+}
+
+/** Show the chosen tab and its panel without re-rendering the page. */
+export function selectTab(tab, focus = false) {
+  const { tabs: key, tab: id } = tab.dataset;
+  activeTabs.set(key, id);
+  tab.closest('[role="tablist"]').querySelectorAll('[role="tab"]').forEach((t) => {
+    const on = t === tab;
+    t.setAttribute('aria-selected', String(on));
+    t.tabIndex = on ? 0 : -1;
+    document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+  });
+  if (focus) tab.focus();
+}
+
 /** Numbered pages with previous / next. `page` is 1-based; clicks send data-page to `action`. */
 export function pager(action, page, pages, label = 'Pages') {
   if (pages <= 1) return '';
