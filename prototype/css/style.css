@@ -2375,9 +2375,16 @@ textarea {
   gap: 12px;
   padding: 18px 20px 6px;
 }
+/* Forms wrap head, body and foot, so they pass the column layout on; only the body scrolls and the buttons stay in view. */
+.modal > form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 .modal-body {
   padding: 12px 20px;
   overflow-y: auto;
+  min-height: 0;
 }
 .modal-foot {
   display: flex;
