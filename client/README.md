@@ -1,16 +1,23 @@
-# React + Vite
+# SyncAI client
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The React frontend for SyncAI, the Smart Work Planner for EMS problem statement 12i. It will hold the officer and supervisor dashboards and talk to the Node.js + Express API in `../server` over HTTPS. See [docs/architecture.md](../docs/architecture.md) for the proposed design.
 
-Currently, two official plugins are available:
+Built with React and Vite. It is currently the Vite starter; screens will be rebuilt from the interactive prototype in [`../prototype`](../prototype/), reusing its layouts, data model and rules rather than copying its code wholesale.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Run it
 
-## React Compiler
+Requires Node.js 20 or later.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+npm run dev
+```
 
-## Expanding the Oxlint configuration
+The dev server runs at <http://localhost:5173>.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Start the dev server with hot reload |
+| `npm run build` | Production build into `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `npm run lint` | Lint with Oxlint |
