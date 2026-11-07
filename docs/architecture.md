@@ -155,7 +155,7 @@ sequenceDiagram
 | Client said | What it means for SyncAI |
 | --- | --- |
 | Property Officers should act first on genuine safety concerns. A resident who is particularly vocal is not, by itself, a reason for higher priority | Safety is the largest flag. Repeat complaints show in the score breakdown at 0 points |
-| Statutory and compliance deadlines, including funding-approval dates, must be met | Statutory flag on tasks; emergency re-planning keeps statutory work due today in place |
+| Statutory and compliance deadlines must be met, such as project funding-approval dates and compliance dates under the Town Council Act | Statutory flag on tasks; emergency re-planning keeps statutory work due today in place |
 | Service needs and potential long-term consequences matter | "High service impact" covers residents and operations. Long-term consequences are named in the priority logic and should get their own scoring factor in the build |
 | EMS will guide teams on prioritisation rules; there is no agreed formula | Our weights are a proposal to validate with EMS |
 | The Operations Command Centre already sees where officers are and what they are working on | SyncAI adds forward-looking planning on top of that visibility. Access is not confirmed; the prototype uses simulated availability |
@@ -165,7 +165,7 @@ sequenceDiagram
 | Microsoft is the baseline: every Town Council has Power Automate and Copilot; more depends on each council. EMS will handle licences | Power Automate approvals and Teams alerts are in the proposed stack; licensing is not treated as a blocker |
 | Feedback data is real time; admin and analysis extracts are pulled monthly or bi-monthly | Scheduling uses live task data; workload trends can use periodic extracts |
 | When repairs overrun the SLA, whether the SLA is realistic is a manager decision. EMS wants to know how long each category of case really takes | Re-plans need approval; estimated-vs-actual effort by category on **AI Insights** gives managers the evidence |
-| 12i covers business-as-usual daily tasks; 12h covers one-off initiatives | SyncAI stays on daily work. Project tracking is out of scope |
+| 12i works at the operations level: officers' business-as-usual, day-to-day tasks. 12h works at the management level and tracks one-off initiatives | SyncAI stays on daily work for officers and their supervisors. Project tracking is out of scope |
 | Each problem statement has a dedicated account owner; teams are encouraged to propose approaches and get feedback | Validate priority rules and demo scenarios with our account owner |
 | Contractor communication over calls and WhatsApp should become trackable for audits | Noted for a later phase |
 
