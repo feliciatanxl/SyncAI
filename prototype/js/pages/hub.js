@@ -11,6 +11,28 @@ import { ctx } from '../ctx.js';
 const view = { council: 'all' };
 // shortcut: the feedback response rate has no source in the demo data, so Northvale uses a fixed sample value; replace with IEMS case data.
 const NORTHVALE_FEEDBACK_RATE = 0.92;
+// shortcut: sample history for the management view the client asked for; replace with closed projects from the data layer.
+// [category, projects closed in 12 months, delivered on time, share of officer hours spent in the first half]
+const PROJECT_CATEGORIES = [
+  ['Lift upgrading', 14, 11, 0.68],
+  ['Repainting works', 22, 19, 0.41],
+  ['Festive and community events', 18, 17, 0.74],
+  ['Drainage and bin centre upgrades', 9, 5, 0.33],
+];
+
+function categoryTable() {
+  return html`<div class="table-wrap"><table class="table">
+    <caption class="sr-only">Success rate and manpower profile by project category</caption>
+    <thead><tr><th>Category</th><th>Closed (12 mo)</th><th>On time</th><th title="When most officer hours are spent">Manpower needed</th></tr></thead>
+    <tbody>${PROJECT_CATEGORIES.map(([name, n, ok, early]) => html`<tr>
+      <td><strong>${name}</strong></td>
+      <td>${n}</td>
+      <td class="${ok / n < 0.7 ? 'delta-bad' : ''}" style="min-width:120px">${pct(ok / n)}${meter(ok / n, { label: `${name} on-time rate` })}</td>
+      <td>${early >= 0.6 ? `Up front (${pct(early)} in first half)` : early <= 0.4 ? `Towards the end (${pct(1 - early)} in second half)` : 'Even across the project'}</td>
+    </tr>`)}</tbody>
+  </table></div>`;
+}
+
 const STATUS = {
   support: { label: 'Needs support', tone: 'danger', rank: 2 },
   watch: { label: 'Watch', tone: 'warning', rank: 1 },
@@ -161,7 +183,12 @@ function renderPage(s) {
       : html`<section class="card mt" aria-labelledby="cc-h">
           <div class="card-head"><h2 id="cc-h">Compare Town Councils</h2><span class="muted small">Select View to open a council</span></div>
           <div class="card-body flush">${comparison(all)}</div>
-        </section>`}`;
+        </section>`}
+
+    <section class="card mt" aria-labelledby="pc-h">
+      <div class="card-head"><h2 id="pc-h">${icon('chart', 16)} Project categories: success rate and manpower</h2><span class="muted small">Sample figures · basis for budget requests</span></div>
+      <div class="card-body flush">${categoryTable()}</div>
+    </section>`;
 }
 
 export default {

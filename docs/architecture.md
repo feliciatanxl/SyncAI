@@ -219,7 +219,14 @@ The prototype in [`prototype/`](../prototype/) is a browser-only working slice w
 | Service impact matters | "High resident impact" is now **High service impact** (residents or operations) |
 | The Operations Command Centre already sees where officers are and what they are working on | Listed on **Data sources** as a source to confirm; the prototype uses simulated availability |
 | EMS has an analysis of how long Property Officers spend on tasks | Listed on **Data sources** as the replacement for SyncAI's assumed effort baselines |
-| EMS prefers Microsoft tools | **Power Automate approvals** added to the Phase 2 integrations |
+| Microsoft is the baseline: every Town Council has Power Automate and Copilot; more depends on each council. Licences are handled by EMS | **Power Automate approvals** added to the Phase 2 integrations; licensing removed as a blocker |
+| Each Property Officer manages 2,500–2,700 units; most time goes on talking to residents and on admin (matching contractor claims to site work and the term contract) | Admin and resident-feedback effort feeds the overload and "falling behind" checks; the time study will show where to automate |
+| Feedback data is real time; admin and analysis extracts are monthly or bi-monthly | **Data sources** schedules updated (IEMS real time, TCMS monthly) |
+| When repairs overrun the SLA, whether the SLA is realistic is a **manager** decision, not an officer one | Re-plans still need approval; the estimated-vs-actual effort by category on **AI Insights** gives managers the evidence |
+| Management wants the success rate of each project category and whether it needs manpower up front or later, to justify budgets | New **Project categories** table on the EMS HQ overview (sample figures) |
+| 12i covers business-as-usual daily tasks; 12h covers one-off initiatives | Matches the existing split between Smart Work Planner and Project Tracker |
+
+Communication with contractors over calls and WhatsApp should become trackable for audits; that is noted for a later phase.
 
 The weights are our own proposal. The client did not give a formula, so they should be validated with EMS before the build.
 
