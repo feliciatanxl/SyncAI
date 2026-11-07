@@ -82,7 +82,7 @@ export function openTaskDetail(id) {
         <button class="icon-btn" data-action="modal-close" aria-label="Close">${icon('x')}</button>
       </header>
       <div class="modal-body stack">
-        <div class="row wrap">${priorityBadge(t.priority)} ${riskBadge(risk.level)} ${sourceTag(t.source)} ${t.safety ? html`<span class="badge badge-danger">${icon('shield', 12)}Safety</span>` : ''}
+        <div class="row wrap">${priorityBadge(t.priority)} ${riskBadge(risk.level)} ${sourceTag(t.source)} ${t.safety ? html`<span class="badge badge-danger">${icon('shield', 12)}Safety</span>` : ''} ${t.statutory ? html`<span class="badge badge-warning">${icon('calendar', 12)}Statutory deadline</span>` : ''}
           <span class="badge badge-neutral">${t.category}</span></div>
         ${t.description ? html`<p>${t.description}</p>` : ''}
         <div class="grid grid-2">
@@ -230,7 +230,8 @@ export function openTaskForm(existing = null, prefill = {}) {
           <div class="field">
             <span class="label">Flags</span>
             <label class="check"><input type="checkbox" name="safety" ${t.safety ? 'checked' : ''} /> Safety-related</label>
-            <label class="check"><input type="checkbox" name="impactHigh" ${t.impact === 'high' ? 'checked' : ''} /> High resident impact</label>
+            <label class="check"><input type="checkbox" name="statutory" ${t.statutory ? 'checked' : ''} /> Statutory or compliance deadline</label>
+            <label class="check"><input type="checkbox" name="impactHigh" ${t.impact === 'high' ? 'checked' : ''} /> High service impact</label>
           </div>
           <div class="field full" data-field="deps">
             <span class="label" id="deps-label">Depends on</span>
@@ -314,6 +315,7 @@ function saveTask(form) {
     effort: Math.round(effort * 4) / 4,
     location: String(fd.get('location') || '').trim(),
     safety: fd.get('safety') === 'on',
+    statutory: fd.get('statutory') === 'on',
     impact: fd.get('impactHigh') === 'on' ? 'high' : 'medium',
     dependsOn: deps,
     projectId: String(fd.get('projectId') || '') || null,
