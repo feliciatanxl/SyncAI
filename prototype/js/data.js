@@ -3,7 +3,7 @@
 
 import { TODAY, workDay, horizonDays, dt } from './time.js';
 
-export const DATA_VERSION = 7;
+export const DATA_VERSION = 8;
 
 export const CATEGORIES = [
   'Inspection',
@@ -87,6 +87,7 @@ export const INTEGRATIONS = [
   { id: 'todo', name: 'Microsoft To Do (Microsoft Graph)', icon: 'check-square', phase: 'Core · MVP', data: 'Imports tasks with descriptions, deadlines and status; can sync updates back.', ai: ['Task categorisation', 'Priority scoring', 'Effort estimation', 'Daily task selection'], demo: 'Tasks tagged “To Do”' },
   { id: 'openai', name: 'Azure OpenAI', icon: 'sparkles', phase: 'Core', data: 'Natural-language task extraction, explanations and summaries.', ai: ['Natural-language tasks', 'Meeting-to-task extraction', 'Briefings', 'Ask SyncAI'], demo: 'Deterministic local rules stand in for the model' },
   { id: 'teams', name: 'Microsoft Teams', icon: 'message', phase: 'Phase 2', data: 'Sends alerts and approval requests to officers and supervisors.', ai: ['Smart reminders', 'Proactive workload alerts', 'Daily briefing notifications'], demo: 'Alerts panel (bell icon)' },
+  { id: 'automate', name: 'Power Automate approvals', icon: 'check-square', phase: 'Phase 2', data: 'Posts an Approvals card in Teams when SyncAI recommends a reassignment or an emergency re-plan; the supervisor’s decision is sent back to SyncAI. Power Automate is in the baseline Microsoft licence at Town Councils, and EMS said it will arrange any licences the project needs.', ai: ['Supervisor approval of reassignments', 'Escalation when safety and statutory work clash'], demo: 'Approve / discard buttons in the What-If Simulator and Smart Planner' },
   { id: 'planner', name: 'Microsoft Planner', icon: 'columns', phase: 'Phase 2', data: 'Retrieves team-assigned tasks alongside personal tasks.', ai: ['Multi-source workload consolidation', 'Dependency awareness', 'Allocation suggestions'], demo: 'Tasks tagged “Planner”' },
   { id: 'sharepoint', name: 'SharePoint / OneDrive', icon: 'folder', phase: 'Stretch', data: 'Reads authorised documents such as meeting minutes and maintenance reports.', ai: ['Extract action items', 'Identify responsible officers', 'Suggest tasks and effort'], demo: 'Import from meeting minutes on My Tasks' },
 ];
@@ -143,6 +144,8 @@ function tasks() {
       dependsOn: extra.dependsOn || [],
       source: extra.source || 'SyncAI',
       safety: !!extra.safety,
+      statutory: !!extra.statutory,
+      complaints: extra.complaints || 0,
       impact: extra.impact || 'medium',
       createdAt: extra.createdAt || dt(workDay(-2), '09:00'),
       completedAt: extra.completedAt || null,
@@ -157,9 +160,10 @@ function tasks() {
   T('t103', 'o1', 'Site check: ceiling seepage at Blk 211 #05-12', 'Inspection', 'High', TODAY, '17:00', 1, { source: 'Outlook', location: 'Blk 211', impact: 'high', description: 'Flagged email from resident. Determine if the source is the unit above or common pipe.' });
   T('t104', 'o1', 'Resident follow-up call: Blk 211 seepage', 'Resident Feedback', 'Medium', workDay(1), '12:00', 0.75, { dependsOn: ['t103'], location: 'Phone', impact: 'high' });
   T('t105', 'o1', 'Inspect playground equipment — Blk 215', 'Inspection', 'Medium', workDay(1), '17:00', 2, { safety: true, source: 'Planner', location: 'Blk 215 playground' });
-  T('t106', 'o1', 'Verify corridor cleaning complaint — Blk 209', 'Cleaning', 'Medium', workDay(2), '17:00', 0.75, { location: 'Blk 209' });
+  T('t106', 'o1', 'Verify corridor cleaning complaint — Blk 209', 'Cleaning', 'Medium', workDay(2), '17:00', 0.75, { location: 'Blk 209', complaints: 6, description: 'Six calls this week, mostly from one resident. Verify on site; the number of calls alone does not make it urgent.' });
   T('t107', 'o1', 'Compile common-area lighting defect summary', 'Admin', 'Low', workDay(3), '17:00', 2, { source: 'To Do', location: 'Office' });
   T('t108', 'o1', 'Update estate maintenance log on SharePoint', 'Admin', 'Low', workDay(4), '17:00', 1, { location: 'Office' });
+  T('t111', 'o1', 'Submit funding claim — Blk 214 lighting upgrade', 'Admin', 'Medium', workDay(2), '12:00', 1.5, { statutory: true, source: 'SharePoint', location: 'Office', description: 'Approved project funding lapses if the claim misses the submission cut-off.' });
   T('t109', 'o1', 'Lift inspection — Blk 212 (Lift C)', 'Inspection', 'High', workDay(3), '17:00', 1.5, { safety: true, location: 'Blk 212', source: 'Planner' });
   T('t110', 'o1', 'Inspect lift motor room access — Blk 213', 'Inspection', 'Medium', workDay(4), '17:00', 1, { safety: true, location: 'Blk 213', source: 'Planner' });
 
@@ -177,14 +181,14 @@ function tasks() {
   // Priya Nair (o3) — balanced, on leave later this week
   T('t301', 'o3', 'Resident dialogue follow-ups (12 cases)', 'Resident Feedback', 'Medium', TODAY, '17:00', 2, { impact: 'high', location: 'Office' });
   T('t302', 'o3', 'Update notice boards — Blk 204 to 207', 'Admin', 'Low', workDay(1), '17:00', 1, { location: 'Blk 204–207' });
-  T('t303', 'o3', 'Noise complaint mediation — Blk 202', 'Resident Feedback', 'High', workDay(1), '12:00', 1.5, { impact: 'high', location: 'Blk 202' });
+  T('t303', 'o3', 'Noise complaint mediation — Blk 202', 'Resident Feedback', 'High', workDay(1), '12:00', 1.5, { impact: 'high', location: 'Blk 202', complaints: 4 });
   T('t304', 'o3', 'Prepare community event permit checklist', 'Admin', 'Low', workDay(4), '17:00', 1.5, { location: 'Office' });
   T('t305', 'o3', 'Corridor obstruction check — Blk 206', 'Inspection', 'Medium', workDay(3), '12:00', 1, { safety: true, location: 'Blk 206' });
 
   // Daniel Lim (o4) — technical, busy
   T('t401', 'o4', 'Lift fault investigation — Blk 322 Lift C', 'Maintenance', 'Critical', TODAY, '13:00', 2.5, { safety: true, status: 'in_progress', spent: 0.5, location: 'Blk 322', impact: 'high' });
   T('t402', 'o4', 'Review lift maintenance contractor logs', 'Contractor', 'Medium', TODAY, '17:00', 2.5, { location: 'Office', source: 'Planner' });
-  T('t403', 'o4', 'Electrical DB inspection — Blk 325', 'Inspection', 'High', workDay(1), '17:00', 2, { safety: true, location: 'Blk 325' });
+  T('t403', 'o4', 'Electrical DB inspection — Blk 325', 'Inspection', 'High', workDay(1), '17:00', 2, { safety: true, statutory: true, location: 'Blk 325', description: 'Periodic electrical inspection required for compliance; the certificate expires at the end of the week.' });
   T('t404', 'o4', 'Water pump servicing follow-up — Blk 330', 'Maintenance', 'Medium', workDay(2), '17:00', 1.5, { location: 'Blk 330' });
   T('t405', 'o4', 'Joint inspection preparation pack', 'Admin', 'Low', workDay(2), '12:00', 1, { location: 'Office' });
 

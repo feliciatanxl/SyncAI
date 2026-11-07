@@ -609,7 +609,7 @@ export function emergencyReschedule(s, officerId, fields) {
   const broken = new Set(checkPlan(s, officerId, current).filter((i) => i.level === 'danger' && i.blockId).map((i) => i.blockId));
   const keep = current.filter((b) => {
     const t = getTask(sim, b.taskId);
-    return t && isOpen(t) && !broken.has(b.id) && dt(b.date, b.start) >= NOW && (t.priority === 'Critical' || (t.safety && datePart(t.due) === TODAY));
+    return t && isOpen(t) && !broken.has(b.id) && dt(b.date, b.start) >= NOW && (t.priority === 'Critical' || ((t.safety || t.statutory) && datePart(t.due) === TODAY));
   });
   const after = buildSchedule(sim, officerId, horizonDays(), { fixed: keep });
   const first = (blocks, id) => blocks.filter((b) => b.taskId === id).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0];

@@ -199,6 +199,7 @@ function boardCard(s, t) {
       ${isOpen(t) ? dueChip(t.due.slice(0, 10)) : html`<span class="due-chip done">${icon('check', 12)}Done</span>`}
       ${checks.length ? html`<span class="due-chip ${done === checks.length ? 'done' : ''}" title="Checklist">${icon('check-square', 12)}${done}/${checks.length}</span>` : ''}
       ${t.safety ? html`<span class="badge badge-danger" style="padding:0 6px">${icon('shield', 11)}Safety</span>` : ''}
+              ${t.statutory ? html`<span class="badge badge-warning" style="padding:0 6px" title="Statutory or compliance deadline">${icon('calendar', 11)}Statutory</span>` : ''}
     </div>
     <div class="row" style="justify-content:space-between">
       <span class="row small muted">${avatar(officerName(s, t.ownerId), 'sm')}${officerName(s, t.ownerId).split(' ')[0]}</span>

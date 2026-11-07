@@ -37,6 +37,16 @@ test('priority score is 0–100 and ranks urgent safety work above routine admin
   assert.ok(lift.reasons.length > 0, 'score is explained');
 });
 
+test('statutory deadlines raise priority; repeat complaints alone do not', () => {
+  const s = seed();
+  const base = { ...task(s, 't107'), statutory: false, complaints: 0 };
+  const plain = scoreTask(s, base).score;
+  assert.ok(scoreTask(s, { ...base, statutory: true }).score > plain, 'statutory adds points');
+  const loud = scoreTask(s, { ...base, complaints: 9 });
+  assert.equal(loud.score, plain, 'complaint volume does not change the score');
+  assert.ok(loud.reasons.some((r) => /repeat complaints/.test(r.label)), 'but the reason is shown');
+});
+
 test('deadline risk: overdue is high, done is none', () => {
   const s = seed();
   assert.equal(assessRisk(s, task(s, 't201')).level, 'high'); // due yesterday

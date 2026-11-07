@@ -96,6 +96,7 @@ flowchart TB
 
 - **Dataverse** is Microsoft's managed data platform with built-in row-level security, auditing and ready-made connectors to Dynamics 365 and SharePoint. That makes it the natural shared data layer for a Microsoft-only brief.
 - **Rules first, LLM second.** Priority scores, schedules, risk and project health come from deterministic rules, so every result is explainable and repeatable. Azure OpenAI is used only to read and write language: turning text into tasks, meeting minutes into actions, and drafting briefings. A person approves every change.
+- **Power Automate for workflow, not for the planner.** The scoring and scheduling stay in the API, where they can be tested and explained. Power Automate sends Teams approval cards (reassignments, emergency re-plans) and returns the decision. Calling the SyncAI API from a flow needs a premium or custom connector, so licensing is a question for EMS.
 - **Azure Functions** keep the API small and serverless. Each module adds its own endpoints without a shared monolith.
 - **Power Apps was considered** for speed. A React + Fluent UI client was chosen for the drag-and-drop board, the timeline and the planner calendar, which are hard to build well in Power Apps. Simple modules (for example 12c compliments intake) could still be Power Apps screens embedded in the hub.
 
@@ -209,7 +210,27 @@ The prototype in [`prototype/`](../prototype/) is a browser-only working slice w
 | **Phase 2** | Teams alerts and approvals; Planner sync; D365 contractor work orders; HQ overview for all councils |
 | **Phase 3** | IEMS and TCMS connectors ⚠️; modules for other EMS statements (12b lift spot-checks, 12c compliments, 12d early warning) on the same data layer |
 
-## 10. Questions for the EMS briefing
+## 10. What the client briefing changed (Nov 2026)
+
+| Client said | Prototype now |
+| --- | --- |
+| Officers should act first on genuine safety concerns; a resident who complains more often is not automatically more urgent | Safety stays the largest flag (+15). Repeat complaints are shown in the score breakdown with **0 points**, so the volume is visible but does not move the ranking |
+| Statutory and compliance dates (for example funding claims, certifications) cannot be missed | New **Statutory** flag on tasks: +20 within 3 working days, +10 otherwise. Emergency re-planning keeps statutory work due today in place, like same-day safety work |
+| Service impact matters | "High resident impact" is now **High service impact** (residents or operations) |
+| The Operations Command Centre already sees where officers are and what they are working on | Listed on **Data sources** as a source to confirm; the prototype uses simulated availability |
+| EMS has an analysis of how long Property Officers spend on tasks | Listed on **Data sources** as the replacement for SyncAI's assumed effort baselines |
+| Microsoft is the baseline: every Town Council has Power Automate and Copilot; more depends on each council. Licences are handled by EMS | **Power Automate approvals** added to the Phase 2 integrations; licensing removed as a blocker |
+| Each Property Officer manages 2,500–2,700 units; most time goes on talking to residents and on admin (matching contractor claims to site work and the term contract) | Admin and resident-feedback effort feeds the overload and "falling behind" checks; the time study will show where to automate |
+| Feedback data is real time; admin and analysis extracts are monthly or bi-monthly | **Data sources** schedules updated (IEMS real time, TCMS monthly) |
+| When repairs overrun the SLA, whether the SLA is realistic is a **manager** decision, not an officer one | Re-plans still need approval; the estimated-vs-actual effort by category on **AI Insights** gives managers the evidence |
+| Management wants the success rate of each project category and whether it needs manpower up front or later, to justify budgets | New **Project categories** table on the EMS HQ overview (sample figures) |
+| 12i covers business-as-usual daily tasks; 12h covers one-off initiatives | Matches the existing split between Smart Work Planner and Project Tracker |
+
+Communication with contractors over calls and WhatsApp should become trackable for audits; that is noted for a later phase.
+
+The weights are our own proposal. The client did not give a formula, so they should be validated with EMS before the build.
+
+## 11. Questions for the EMS briefing
 
 1. What data do IEMS and TCMS hold, and do they offer APIs, database access or exports?
 2. Is Dataverse already licensed in the EMS tenant, or is SharePoint Lists the expected data store?

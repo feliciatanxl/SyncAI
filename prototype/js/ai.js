@@ -31,7 +31,11 @@ export function scoreTask(s, t) {
 
   if (isOpen(t) && t.effort >= 2 && t.due >= NOW && workDaysUntil(t.due) <= 2) add(6, `Needs ${t.effort}h of effort — start early`);
   if (t.safety) add(15, 'Safety-related — residents could be at risk');
-  if (t.impact === 'high') add(8, 'High resident impact');
+  // Client briefing (EMS, Nov 2026): statutory and compliance dates cannot slip, and how often
+  // a resident complains is not, on its own, a reason to rank the work higher.
+  if (t.statutory) add(isOpen(t) && workDaysUntil(t.due) <= 3 ? 20 : 10, 'Statutory or compliance deadline — cannot be moved');
+  if (t.impact === 'high') add(8, 'High service impact on residents or operations');
+  if (t.complaints > 1) reasons.push({ points: 0, label: `${t.complaints} repeat complaints — volume alone does not raise priority` });
 
   const dependents = s.tasks.filter((x) => isOpen(x) && x.dependsOn.includes(t.id));
   if (dependents.length) add(Math.min(dependents.length * 6, 12), `Unblocks ${dependents.length} other task${dependents.length > 1 ? 's' : ''}`);
@@ -108,6 +112,7 @@ const CATEGORY_KEYWORDS = [
   ['Admin', /\b(report|update|prepare|log|summary|notice|minutes|memo)\b/g],
 ];
 
+const STATUTORY_RE = /(statutory|compliance|permit|certifw*|licen[cs]e|funding claim|regulatw*)/i;
 const SAFETY_RE = /\b(lift|trapped|fire|electric\w*|leak\w*|seepage|fallen|collapse|gas|spalling|playground|hazard)\b/i;
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
@@ -252,9 +257,11 @@ export function parseNaturalTask(s, input, defaultOwnerId) {
 
   const safety = SAFETY_RE.test(lower);
   if (safety) found.push({ field: 'Safety', value: 'Yes', why: 'Safety keyword detected' });
+  const statutory = STATUTORY_RE.test(lower);
+  if (statutory) found.push({ field: 'Statutory', value: 'Yes', why: 'Compliance or statutory keyword detected' });
 
   return {
-    task: { title, category, priority, due: dt(date, time), effort, location, ownerId, safety, impact: safety ? 'high' : 'medium' },
+    task: { title, category, priority, due: dt(date, time), effort, location, ownerId, safety, statutory, impact: safety ? 'high' : 'medium' },
     found,
   };
 }

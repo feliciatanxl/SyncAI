@@ -83,6 +83,7 @@ function listView(s, rows) {
               ${t.location ? html`<span>${icon('pin', 12)}${t.location}</span>` : ''}
               ${sourceTag(t.source)}
               ${t.safety ? html`<span class="badge badge-danger" style="padding:0 6px">${icon('shield', 11)}Safety</span>` : ''}
+              ${t.statutory ? html`<span class="badge badge-warning" style="padding:0 6px" title="Statutory or compliance deadline">${icon('calendar', 11)}Statutory</span>` : ''}
               ${t.dependsOn.length ? html`<span title="Has dependencies">${icon('link', 12)}${t.dependsOn.length}</span>` : ''}
               ${t.status === 'in_progress' ? html`<span class="badge badge-info" style="padding:0 6px">In progress</span>` : ''}
               ${t.status === 'review' ? html`<span class="badge badge-neutral" style="padding:0 6px">In review</span>` : ''}

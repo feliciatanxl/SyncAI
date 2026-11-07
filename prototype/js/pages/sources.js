@@ -18,10 +18,16 @@ const SOURCES = [
   { id: 'd365', name: 'Dynamics 365', icon: 'link', status: 'connected', via: 'Dataverse native tables', every: 'Near real time',
     provides: 'Contractors, contracts, work orders and invoices. Work orders become contractor tasks and lift defects.',
     entities: ['Contractor', 'Work order', 'Invoice'], count: () => '24 contractors · 312 work orders (sample)' },
-  { id: 'iems', name: 'IEMS', icon: 'message', status: 'confirm', via: 'Power Automate custom connector or scheduled export', every: 'Hourly',
+  { id: 'iems', name: 'IEMS', icon: 'message', status: 'confirm', via: 'Power Automate custom connector or scheduled export', every: 'Real time (feedback)',
     provides: 'Resident feedback cases and estate defects, used for tasks, response rates and early-warning tracking.',
     entities: ['Feedback case', 'Defect'], count: () => 'Not connected' },
-  { id: 'tcms', name: 'TCMS', icon: 'chart', status: 'planned', via: 'Scheduled export to Dataverse', every: 'Daily',
+  { id: 'occ', name: 'Operations Command Centre', icon: 'pin', status: 'confirm', via: 'Read-only API or scheduled export (to confirm)', every: 'Every 15 minutes',
+    provides: 'Where officers are, what they are working on and task status. Lets the planner see real availability instead of asking officers to update it twice.',
+    entities: ['Officer status', 'Task assignment', 'Location'], count: () => 'Not connected (simulated availability used)' },
+  { id: 'timestudy', name: 'Property Officer time study', icon: 'chart', status: 'confirm', via: 'One-off import from EMS analysis', every: 'When refreshed',
+    provides: 'Measured time Property Officers spend on each kind of task. Replaces the assumed baselines SyncAI uses to estimate effort.',
+    entities: ['Task category', 'Average duration'], count: () => 'Requested from EMS (assumed baselines used)' },
+  { id: 'tcms', name: 'TCMS', icon: 'chart', status: 'planned', via: 'Scheduled export to Dataverse', every: 'Monthly or bi-monthly',
     provides: 'Town Council administration and finance figures for HQ roll-ups and management reports.',
     entities: ['Council', 'Budget line', 'Report score'], count: () => 'Not connected' },
   { id: 'entra', name: 'Microsoft Entra ID', icon: 'shield', status: 'connected', via: 'OpenID Connect + group claims', every: 'At sign-in',
@@ -38,7 +44,7 @@ const STATUS = {
 function flow() {
   const box = (title, items, cls = '') => html`<div class="flow-box ${cls}"><strong>${title}</strong><ul>${items.map((i) => html`<li>${i}</li>`)}</ul></div>`;
   return html`<div class="flow" role="img" aria-label="Source systems feed connectors, which write to the shared Dataverse data layer. The Smart Work Planner, Project Tracker and HQ overview read from the data layer.">
-    ${box('Source systems', ['Microsoft 365', 'SharePoint', 'Dynamics 365', 'IEMS', 'TCMS'])}
+    ${box('Source systems', ['Microsoft 365', 'SharePoint', 'Dynamics 365', 'IEMS', 'Ops Command Centre', 'TCMS'])}
     <span class="flow-arrow" aria-hidden="true">${icon('arrow', 20)}</span>
     ${box('Connectors', ['Microsoft Graph', 'Dataverse tables', 'Power Automate flows'])}
     <span class="flow-arrow" aria-hidden="true">${icon('arrow', 20)}</span>
