@@ -1,5 +1,27 @@
 import { Link } from 'react-router-dom'
+import { useMsal } from '@azure/msal-react'
+import { Avatar } from '@fluentui/react-components'
+import { authConfigured } from '../auth/msal.js'
 import { BrandLink } from './Brand.jsx'
+
+const signInLink = <Link to="/login" className="header-cta">Sign in</Link>
+
+// Split out so MSAL hooks only run when MsalProvider is mounted.
+function HeaderAccount() {
+  const { instance, accounts } = useMsal()
+  const account = instance.getActiveAccount() ?? accounts[0]
+  if (!account) return signInLink
+  const name = account.name || account.username
+  return (
+    <Link to="/app" className="header-account" aria-label={`Open your planner, signed in as ${name}`}>
+      <span className="header-account-text">
+        <strong>{name}</strong>
+        <span>{account.username}</span>
+      </span>
+      <Avatar name={name} size={32} color="colorful" />
+    </Link>
+  )
+}
 
 export default function SiteLayout({ children, nav = true }) {
   return (
@@ -16,7 +38,7 @@ export default function SiteLayout({ children, nav = true }) {
               <a href="/#trust">Responsible AI</a>
             </nav>
           )}
-          <Link to="/login" className="header-cta">Sign in</Link>
+          {authConfigured ? <HeaderAccount /> : signInLink}
         </div>
       </header>
       <main id="main">{children}</main>
