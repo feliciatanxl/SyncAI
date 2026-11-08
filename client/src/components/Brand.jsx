@@ -1,13 +1,7 @@
 import { Link } from 'react-router-dom'
 
 export function Logo({ size = 28 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="8" fill="#0F6CBD" />
-      <path d="M9 12.5a7 7 0 0 1 12.2-3.4M23 19.5a7 7 0 0 1-12.2 3.4" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M21.6 5.6v4h-4M10.4 26.4v-4h4" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
+  return <img src="/syncai-logo.png" width={size} height={size} alt="" />
 }
 
 export function BrandLink() {
