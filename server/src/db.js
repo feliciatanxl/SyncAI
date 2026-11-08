@@ -297,7 +297,7 @@ export function createUserStore(pool, { adminEmails = [] } = {}) {
     },
 
     // Newest first. `person` matches either who did it or who it was done to. `before` is the last id seen, for paging.
-    async listActivity({ limit, before, person, action }) {
+    async listActivity({ limit, before, person, action, date }) {
       const { rows } = await pool.query(
         `SELECT a.id::text AS id, a.at, a.action, a.details,
                 a.actor_id AS "actorId", actor.display_name AS "actorName", actor.email AS "actorEmail",
@@ -308,9 +308,10 @@ export function createUserStore(pool, { adminEmails = [] } = {}) {
          WHERE ($1::bigint IS NULL OR a.id < $1)
            AND ($2::uuid IS NULL OR a.actor_id = $2 OR a.target_id = $2)
            AND ($3::text IS NULL OR a.action = $3)
+           AND ($4::text IS NULL OR (a.at >= ($4 || ' 00:00:00+08')::timestamptz AND a.at < ($4 || ' 00:00:00+08')::timestamptz + INTERVAL '1 day'))
          ORDER BY a.id DESC
-         LIMIT $4`,
-        [before ?? null, person ?? null, action ?? null, limit],
+         LIMIT $5`,
+        [before ?? null, person ?? null, action ?? null, date ?? null, limit],
       )
       return rows
     },

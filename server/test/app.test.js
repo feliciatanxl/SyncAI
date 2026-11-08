@@ -103,9 +103,9 @@ function fakeUsers(adminEmails = []) {
       log(actorId, 'team_member_removed', userId, { team: teams.get(teamId).name, kind: m.kind })
     },
     async logActivity(actorId, action, targetId, details) { log(actorId, action, targetId, details) },
-    async listActivity({ limit, before, person, action }) {
+    async listActivity({ limit, before, person, action, date }) {
       return activity
-        .filter((a) => (!before || Number(a.id) < Number(before)) && (!person || a.actorId === person || a.targetId === person) && (!action || a.action === action))
+        .filter((a) => (!before || Number(a.id) < Number(before)) && (!person || a.actorId === person || a.targetId === person) && (!action || a.action === action) && (!date || (a.at && a.at.startsWith(date))))
         .reverse()
         .slice(0, limit)
     },
@@ -245,7 +245,7 @@ test('only active admins can read activity, with validated filters', () => withS
   const aboutA = await (await call(`/activity?person=${a.id}&action=approved`, 'boss@x.com')).json()
   assert.deepEqual(aboutA.items.map((e) => [e.actorId, e.targetId]), [[boss.id, a.id]])
 
-  for (const bad of ['limit=0', 'limit=101', 'limit=abc', 'before=1;drop', 'person=x', 'action=deleted']) {
+  for (const bad of ['limit=0', 'limit=101', 'limit=abc', 'before=1;drop', 'person=x', 'action=deleted', 'date=invalid', 'date=2026/11/08']) {
     assert.equal((await call(`/activity?${bad}`, 'boss@x.com')).status, 400, bad)
   }
 }))

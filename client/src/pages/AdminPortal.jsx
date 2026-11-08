@@ -274,13 +274,15 @@ function Overview({ me, users, pending, busyId, actions, goTo, notify, nameOf, n
       </ul>
 
       <div className="portal-grid">
-        <section className="panel" aria-labelledby="queue-h">
+        <section className="panel panel-queue" aria-labelledby="queue-h">
           <div className="panel-head">
             <h2 id="queue-h">{t('queue.title')}</h2>
             <div className="panel-tools">
-              {updatedAt && <span className="updated-label">{updatedLabel(t, locale, updatedAt, now)}</span>}
-              <Button appearance="subtle" icon={<ArrowClockwise20Regular />} disabled={refreshing} onClick={onRefresh} aria-label={t('btn.refresh')} title={t('btn.refresh')} />
-              <Button appearance="transparent" onClick={() => goTo('people')}>{t('queue.seeAll')}</Button>
+              <div className="updated-group">
+                {updatedAt && <span className="updated-label">{updatedLabel(t, locale, updatedAt, now)}</span>}
+                <Button size="small" appearance="subtle" icon={<ArrowClockwise20Regular />} disabled={refreshing} onClick={onRefresh} aria-label={t('btn.refresh')} title={t('btn.refresh')} />
+              </div>
+              <Button size="small" appearance="subtle" onClick={() => goTo('people')}>{t('queue.seeAll')}</Button>
             </div>
           </div>
           {users == null ? (
