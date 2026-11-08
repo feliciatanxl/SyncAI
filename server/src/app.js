@@ -1,14 +1,26 @@
 import express from 'express'
+import { rateLimit } from 'express-rate-limit'
 
 const ROLES = ['admin', 'manager', 'member']
 const STATUSES = ['pending', 'active', 'disabled']
 
 const fail = (res, status, message) => res.status(status).json({ message })
 
-export function createApp({ verifyToken, users }) {
+// `requestsPerWindow` is per IP address over 15 minutes; every API call checks a token and writes to the database.
+export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
   const app = express()
   app.disable('x-powered-by')
   app.use(express.json({ limit: '100kb' }))
+  app.use(
+    '/api',
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      limit: requestsPerWindow,
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+      handler: (_req, res) => fail(res, 429, 'Too many requests. Wait a few minutes and try again.'),
+    }),
+  )
 
   // Signed in with Microsoft, and known to SyncAI. Sets req.user.
   async function authenticate(req, res, next) {

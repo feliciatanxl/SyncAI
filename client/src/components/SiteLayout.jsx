@@ -48,13 +48,6 @@ export default function SiteLayout({ children, nav = true }) {
             <BrandLink />
             <p className="muted small">Your Work. Your Time. In Sync.</p>
           </div>
-          <nav aria-label="Footer" className="footer-links">
-            <a href="/#capabilities">Capabilities</a>
-            <a href="/#priority">Priority logic</a>
-            <a href="/#how">How it works</a>
-            <a href="/#trust">Responsible AI</a>
-            <Link to="/login">Sign in</Link>
-          </nav>
           <p className="muted small footer-note">© 2026 SyncAI. All rights reserved.</p>
         </div>
       </footer>

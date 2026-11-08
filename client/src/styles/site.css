@@ -133,10 +133,7 @@ code { font-size: 0.9em; }
 /* Footer */
 .site-footer { border-top: 1px solid var(--colorNeutralStroke2); padding: 40px 0; background: var(--colorNeutralBackground1); }
 .footer-inner { display: grid; grid-template-columns: 1fr auto; gap: 16px 40px; align-items: start; }
-.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
-.footer-links a { color: var(--colorNeutralForeground2); text-decoration: none; }
-.footer-links a:hover { color: var(--colorBrandForeground1); text-decoration: underline; }
-.footer-note { grid-column: 1 / -1; margin: 0; }
+.footer-note { margin: 0; align-self: center; }
 
 /* Login */
 .login-page { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }

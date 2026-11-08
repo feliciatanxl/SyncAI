@@ -80,3 +80,17 @@ test('maps Microsoft claims to an identity', () => {
   })
   assert.throws(() => claimsToIdentity({ tid: 't' }))
 })
+
+test('rate-limits API requests per IP', async () => {
+  const server = createApp({ verifyToken, users: fakeUsers(), requestsPerWindow: 2 }).listen(0)
+  const url = `http://localhost:${server.address().port}/api/health`
+  try {
+    assert.equal((await fetch(url)).status, 200)
+    assert.equal((await fetch(url)).status, 200)
+    const blocked = await fetch(url)
+    assert.equal(blocked.status, 429)
+    assert.match((await blocked.json()).message, /Too many requests/)
+  } finally {
+    server.close()
+  }
+})
