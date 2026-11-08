@@ -5,7 +5,7 @@ import {
   Toast, ToastTitle, Toaster, useId, useToastController,
 } from '@fluentui/react-components'
 import {
-  ArrowRight16Regular, BrainCircuit24Regular, Checkmark20Regular, CheckmarkCircle24Regular, Copy20Regular, Eye24Regular, Grid20Regular,
+  ArrowClockwise20Regular, ArrowRight16Regular, BrainCircuit24Regular, Checkmark20Regular, CheckmarkCircle24Regular, Copy20Regular, Eye24Regular, Grid20Regular,
   Info20Regular, People20Regular, People24Regular, PeopleCheckmark24Regular, PersonClock24Regular, PersonProhibited20Regular,
   Settings20Regular, ShieldCheckmark24Regular, Sparkle20Regular, ArrowCounterclockwise20Regular,
 } from '@fluentui/react-icons'
@@ -26,9 +26,25 @@ const FILTERS = ['all', 'pending', 'active', 'disabled']
 const ROLE_KEYS = ['admin', 'manager', 'member']
 const FACTOR_NUMBERS = [1, 2, 3, 4]
 
-const greetingKey = () => {
-  const h = new Date().getHours()
+const greetingKey = (now) => {
+  const h = now.getHours()
   return h < 12 ? 'greet.morning' : h < 18 ? 'greet.afternoon' : 'greet.evening'
+}
+
+// The current time, re-read every 15 seconds so the clock and "Updated … ago" stay right without ticking seconds.
+function useNow() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 15_000)
+    return () => clearInterval(timer)
+  }, [])
+  return now
+}
+
+function updatedLabel(t, locale, updatedAt, now) {
+  const minutes = Math.floor((now - updatedAt) / 60_000)
+  if (minutes < 1) return t('updated.now')
+  return t('updated.ago', { when: new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-minutes, 'minute') })
 }
 
 export default function AdminPortal({ me, photo, tenantId, getToken, onSignOut, onSwitchAccount }) {
@@ -46,17 +62,45 @@ export default function AdminPortal({ me, photo, tenantId, getToken, onSignOut, 
     dispatchToast(<Toast><ToastTitle>{title}</ToastTitle></Toast>, { intent, position: 'bottom-end' })
   }, [dispatchToast])
 
-  const load = useCallback((signal) => {
-    return apiRequest('/users', { getToken, signal })
-      .then(setUsers)
-      .catch((err) => err.name !== 'AbortError' && setLoadError(err))
-  }, [getToken])
+  const [updatedAt, setUpdatedAt] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const now = useNow()
 
+  // Resolves true on success. A background refresh that fails keeps the list on screen;
+  // the "Updated … ago" label then shows honestly how old it is.
+  const load = useCallback((signal, background = false) =>
+    apiRequest('/users', { getToken, signal }).then(
+      (list) => {
+        setUsers(list)
+        setUpdatedAt(new Date())
+        return true
+      },
+      (err) => {
+        if (err.name !== 'AbortError' && !background) setLoadError(err)
+        return false
+      },
+    ), [getToken])
+
+  // Keeps the list current: every minute while the tab is visible, and straight away when you come back to it.
   useEffect(() => {
     const controller = new AbortController()
     load(controller.signal)
-    return () => controller.abort()
+    const refresh = () => document.visibilityState === 'visible' && load(controller.signal, true)
+    const timer = setInterval(refresh, 60_000)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      controller.abort()
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', refresh)
+    }
   }, [load])
+
+  async function refreshNow() {
+    setRefreshing(true)
+    const ok = await load(undefined, true)
+    setRefreshing(false)
+    if (!ok) notify(t('toast.refreshFailed'), 'error')
+  }
 
   async function change(user, patch, message) {
     setBusyId(user.id)
@@ -134,7 +178,7 @@ export default function AdminPortal({ me, photo, tenantId, getToken, onSignOut, 
               <Button size="small" onClick={() => { setLoadError(null); load() }}>{t('app.retry')}</Button>
             </MessageBar>
           ) : section === 'overview' ? (
-            <Overview {...shared} pending={pending} goTo={setSection} notify={notify} />
+            <Overview {...shared} pending={pending} goTo={setSection} notify={notify} now={now} updatedAt={updatedAt} refreshing={refreshing} onRefresh={refreshNow} />
           ) : section === 'people' ? (
             <PeopleSection {...shared} />
           ) : (
@@ -168,7 +212,7 @@ export default function AdminPortal({ me, photo, tenantId, getToken, onSignOut, 
   )
 }
 
-function Overview({ me, users, pending, busyId, actions, goTo, notify, nameOf }) {
+function Overview({ me, users, pending, busyId, actions, goTo, notify, nameOf, now, updatedAt, refreshing, onRefresh }) {
   const t = useT()
   const locale = useLocale()
   const count = (fn) => users?.filter(fn).length
@@ -179,7 +223,6 @@ function Overview({ me, users, pending, busyId, actions, goTo, notify, nameOf })
     { key: 'managers', value: count((u) => u.role === 'manager' && u.status === 'active'), icon: <ShieldCheckmark24Regular /> },
   ]
   const inviteUrl = `${window.location.origin}/login`
-  const [today] = useState(() => new Date())
 
   async function copyInvite() {
     try {
@@ -194,8 +237,14 @@ function Overview({ me, users, pending, busyId, actions, goTo, notify, nameOf })
     <>
       <section className="portal-hero" aria-labelledby="hero-h">
         <div>
-          <p className="portal-hero-date">{today.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-          <h1 id="hero-h">{t(greetingKey(), { name: nameOf(me).split(' ')[0] })}</h1>
+          <p className="portal-hero-date">
+            <time dateTime={now.toISOString()}>
+              {now.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
+              {' · '}
+              {now.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}
+            </time>
+          </p>
+          <h1 id="hero-h">{t(greetingKey(now), { name: nameOf(me).split(' ')[0] })}</h1>
           <p>
             {users == null
               ? t('hero.loading')
@@ -227,7 +276,11 @@ function Overview({ me, users, pending, busyId, actions, goTo, notify, nameOf })
         <section className="panel" aria-labelledby="queue-h">
           <div className="panel-head">
             <h2 id="queue-h">{t('queue.title')}</h2>
-            <Button appearance="transparent" onClick={() => goTo('people')}>{t('queue.seeAll')}</Button>
+            <div className="panel-tools">
+              {updatedAt && <span className="updated-label">{updatedLabel(t, locale, updatedAt, now)}</span>}
+              <Button appearance="subtle" icon={<ArrowClockwise20Regular />} disabled={refreshing} onClick={onRefresh} aria-label={t('btn.refresh')} title={t('btn.refresh')} />
+              <Button appearance="transparent" onClick={() => goTo('people')}>{t('queue.seeAll')}</Button>
+            </div>
           </div>
           {users == null ? (
             <PanelSkeleton />

@@ -295,6 +295,8 @@ code { font-size: 0.9em; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .panel-head h2 { margin: 0; }
 .panel-head button { flex: none; white-space: nowrap; }
+.panel-tools { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.updated-label { font-size: 0.8125rem; color: var(--colorNeutralForeground3); margin-right: 4px; }
 .panel-usp {
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 28px; align-items: center; padding: 28px;
   background: linear-gradient(135deg, var(--colorBrandBackground2), var(--colorNeutralBackground1) 70%);

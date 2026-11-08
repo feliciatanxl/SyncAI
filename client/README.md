@@ -60,7 +60,7 @@ Signing out clears SyncAI's session and returns to the home page without Microso
 
 | Section | What it does |
 | --- | --- |
-| **Overview** | Greeting, live counts, the approval queue (approve as team member or manager, or decline), an invite link to copy, and the USP with its four priority factors |
+| **Overview** | Date and time (to the minute), greeting, counts, the approval queue (approve as team member or manager, or decline) with an "Updated … ago" label and a Refresh button, an invite link to copy, and the USP with its four priority factors. The people list reloads every minute while the tab is visible and as soon as you return to it |
 | **People** | Search and filter everyone who has signed in; change roles; approve, turn off or turn back on access. Turning off asks for confirmation, and you cannot change your own access |
 | **How SyncAI decides** | The USP in plain language: the four factors and the human-approval principles |
 | **Settings** | Text size, language and appearance (see below) |
