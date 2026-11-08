@@ -4,11 +4,12 @@
 import { effortAccuracy, explainScore, scoreTask } from '../ai.js';
 import { analyseOfficer, assessRisk, dayCapacity, meetingConflicts, smartReminders, teamAnalysis } from '../planner.js';
 import { ctx } from '../ctx.js';
-import { getState, isOpen, isSupervisor, officerName, openTasksFor, absenceLabel } from '../state.js';
+import { getState, isOpen, isSupervisor, officerName, openTasksFor, absenceLabel, getTask } from '../state.js';
 import { TODAY, fmtDue, fmtHours, fmtTime, fromMin, relDay, timePart } from '../time.js';
 import { html, icon, render, pct } from '../ui.js';
 import { visibleRecs } from './shared.js';
 import { QUESTIONS } from './insights.js';
+import { traceDownstream, analyzeTaskRipple } from '../ripple.js';
 
 const log = [];
 
@@ -78,6 +79,53 @@ function answer(s, raw) {
     return html`<strong>Why “${top.title}” is priority #${1} (score ${sc.score}):</strong>
       <ul>${sc.reasons.map((r) => html`<li>${r.label} (${r.points > 0 ? `+${r.points}` : r.points} pts)</li>`)}</ul>
       <p class="muted small mt-sm">SyncAI scores genuine safety hazards, statutory compliance deadlines, service impact, and long-term consequences. Repeat resident complaints alone add 0 points.</p>`;
+  }
+
+  // Ripple Intelligence questions
+  if (has(q, 'delayed', 'delay', 'postpone', 'what happens if this task is delayed')) {
+    const matchedTask = s.tasks.find((t) => isOpen(t) && q.includes(t.title.toLowerCase().slice(0, 15))) ||
+      openTasksFor(s, sup && named ? named.id : me).find((t) => t.consequence || t.dependsOn?.length || s.tasks.some((x) => x.dependsOn?.includes(t.id))) ||
+      openTasksFor(s, sup && named ? named.id : me)[0];
+
+    if (!matchedTask) return html`Specify a task or select one from your schedule to trace its ripple effect.`;
+    const rip = analyzeTaskRipple(s, matchedTask.id, { delayHours: 2 });
+    return html`<strong>Ripple Analysis for “${matchedTask.title}”:</strong>
+      <ul>
+        <li>Direct impact: Delays completion by estimated 2 hours.</li>
+        <li>Downstream cascade: ${rip.downstreamCount ? `${rip.downstreamCount} dependent task(s) affected (${rip.downstreamTaskIds.join(', ')}).` : 'No downstream dependencies declare this task as prerequisite.'}</li>
+        ${rip.mandatoryAtRisk.length ? html`<li class="delta-bad">Statutory risk: Puts ${rip.mandatoryAtRisk.length} mandatory deadline(s) at risk (${rip.mandatoryAtRisk.map((m) => m.title).join(', ')}).</li>` : ''}
+        ${matchedTask.consequence ? html`<li class="delta-bad">Potential consequence: ${matchedTask.consequence}</li>` : ''}
+      </ul>
+      <p class="small muted mt-xs">Use the <a href="#/simulator">What-If Simulator</a> to evaluate feasible rebalancing alternatives before confirming delays.</p>`;
+  }
+
+  if (has(q, 'depend', 'dependencies', 'downstream', 'depend on')) {
+    const matchedTask = s.tasks.find((t) => isOpen(t) && q.includes(t.title.toLowerCase().slice(0, 15))) ||
+      openTasksFor(s, sup && named ? named.id : me).find((t) => s.tasks.some((x) => x.dependsOn?.includes(t.id)));
+
+    if (!matchedTask) return html`Specify an inspection or task (e.g. “Which tasks depend on the ceiling seepage check?”).`;
+    const ds = traceDownstream(s, matchedTask.id);
+    if (!ds.dependents.length) return html`No other open tasks declare “${matchedTask.title}” as a prerequisite.`;
+    return html`<strong>Tasks depending on “${matchedTask.title}”:</strong>
+      <ul>${ds.dependents.map((d) => html`<li><strong>${d.task.title}</strong> (Depth ${d.depth}, assigned to ${officerName(s, d.task.ownerId)}) — due ${fmtDue(d.task.due)}${d.task.statutory ? ' [Statutory]' : ''}</li>`)}</ul>`;
+  }
+
+  if (has(q, 'accommodate', 'urgent safety', 'safety assignment')) {
+    const id = sup && named ? named.id : me;
+    const a = analyseOfficer(s, id);
+    const free = (a.today.workMin - a.today.meetingMin - a.today.dueMin) / 60;
+    return free >= 2.5
+      ? html`Yes. ${officerName(s, id)} has ${fmtHours(free)} of spare capacity today after scheduled meetings and tasks, which accommodates a 2.5h urgent incident without displacing work.`
+      : html`Capacity constraint detected: ${officerName(s, id)} has only ${fmtHours(Math.max(0, free))} free today. Accommodating a 2.5h urgent incident will displace routine work. SyncAI recommends Alternative B (Reschedule routine admin) or Alternative C (Reassign eligible inspection). See <a href="#/simulator">What-If Simulator</a>.`;
+  }
+
+  if (has(q, 'least capacity', 'which alternative', 'why is this alternative', 'why recommended')) {
+    return html`<strong>Alternative Trade-off Analysis:</strong>
+      <ul>
+        <li><strong>Alternative A (No Action):</strong> Squeezes zero additional capacity, but breaches statutory compliance deadlines.</li>
+        <li><strong>Alternative B (Reschedule Lower-Impact Tasks):</strong> Uses only the assigned officer’s existing capacity by deferring flexible routine work. Recommended when compliance deadlines can be protected without cross-zone handover.</li>
+        <li><strong>Alternative C (Reassign Eligible Work):</strong> Distributes work to qualified colleagues with spare hours. Recommended when an officer is absent or completely over capacity.</li>
+      </ul>`;
   }
 
   if (has(q, 'risk', 'late', 'overdue', 'miss', 'deadline')) {

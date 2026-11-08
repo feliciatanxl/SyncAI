@@ -20,10 +20,10 @@ const view = {
 const step = (n) => html`<span class="step-num" aria-hidden="true">${n}</span>`;
 
 const PRESETS = {
-  incident: { label: 'Urgent lift breakdown (Safety)', desc: 'Safety incident: resident trapped. Tests emergency insertion while protecting statutory work.', icon: 'zap', form: { absent: [], incident: 'lift', incidentAssignee: 'auto', extraOn: false } },
-  mc: { label: 'Officer on MC (Absence)', desc: 'Daniel on MC for 2 days. Tests capacity absorption and skill-matched reassignment.', icon: 'user', form: { absent: ['o4'], absenceType: 'mc', absenceDays: 2, incident: '', extraOn: false } },
-  extra: { label: 'Extra compliance assignment', desc: 'New 4-hour task due tomorrow. Tests schedule feasibility before committing.', icon: 'plus', form: { absent: [], incident: '', extraOn: true, extra: { ...DEFAULT_EXTRA, assignee: 'o1' } } },
-  multi: { label: 'Two officers unavailable (Capacity stress)', desc: 'Marcus and Daniel unavailable. Tests capacity exhaustion and honest escalation warnings.', icon: 'users', form: { absent: ['o2', 'o4'], absenceType: 'leave', absenceDays: 1, incident: '', extraOn: false } },
+  incident: { label: 'The Ripple Effect (Urgent Lift Incident)', desc: '11:15 AM lift entrapment at Blk 214. Traces downstream ripples, protects statutory work, and evaluates 3 alternatives.', icon: 'zap', form: { absent: [], incident: 'lift', incidentAssignee: 'auto', extraOn: false } },
+  mc: { label: 'Officer on MC (Absence Absorption)', desc: 'Daniel on MC for 2 days. Tests capacity absorption and skill-matched reassignment.', icon: 'user', form: { absent: ['o4'], absenceType: 'mc', absenceDays: 2, incident: '', extraOn: false } },
+  extra: { label: 'Extra Compliance Assignment', desc: 'New 4-hour task due tomorrow. Tests schedule feasibility before committing.', icon: 'plus', form: { absent: [], incident: '', extraOn: true, extra: { ...DEFAULT_EXTRA, assignee: 'o1' } } },
+  multi: { label: 'Two Officers Unavailable (Capacity Stress)', desc: 'Marcus and Daniel unavailable. Tests capacity exhaustion and honest escalation warnings.', icon: 'users', form: { absent: ['o2', 'o4'], absenceType: 'leave', absenceDays: 1, incident: '', extraOn: false } },
 };
 
 function scenarioPicker() {
@@ -131,8 +131,11 @@ function results(s) {
   const sim = r.sim;
 
   return html`<div class="stack">
+    ${rippleCascadeCard(r, s)}
+    ${alternativesComparisonCard(r)}
+
     <section class="card ai-card" aria-labelledby="sr-h">
-      <div class="card-head"><h2 id="sr-h">${step(3)}<span class="ai-label">${icon('sparkles', 16)}Impact: before and after</span></h2><span class="badge badge-warning">Preview — not applied</span></div>
+      <div class="card-head"><h2 id="sr-h">${step(5)}<span class="ai-label">${icon('sparkles', 16)}Impact: before and after</span></h2><span class="badge badge-warning">Preview — not applied</span></div>
       <div class="card-body">
         <ul class="reasons">${r.notes.map((n) => html`<li><span>${n}</span></li>`)}</ul>
         <p class="ai-headline">${newRisks.length
@@ -149,7 +152,7 @@ function results(s) {
     </section>
 
     <section class="card" aria-labelledby="ob-h">
-      <div class="card-head"><h2 id="ob-h">Officer capacity this week <span class="sub">top bar: before · bottom bar: after SyncAI actions</span></h2></div>
+      <div class="card-head"><h2 id="ob-h">${step(6)}Officer capacity this week <span class="sub">top bar: before · bottom bar: after SyncAI actions</span></h2></div>
       <div class="card-body officer-bars">
         ${r.before.team.map((b) => {
           const a = r.after.team.find((x) => x.id === b.id);
@@ -163,7 +166,7 @@ function results(s) {
     </section>
 
     <section class="card" aria-labelledby="rr-h">
-      <div class="card-head"><h2 id="rr-h">${step(4)}Recommended reassignments & task decisions <span class="sub">untick any you don't want to apply</span></h2></div>
+      <div class="card-head"><h2 id="rr-h">${step(7)}Recommended reassignments & task decisions <span class="sub">untick any you don't want to apply</span></h2></div>
       <div class="card-body">
         ${r.recs.length
           ? r.recs.map((rec) => {
@@ -187,7 +190,7 @@ function results(s) {
     ${stillRisky(r)}
 
     <section class="card" aria-labelledby="mv-h">
-      <div class="card-head"><h2 id="mv-h">${step(5)}Affected schedule <span class="sub">${r.moved.length} task${r.moved.length === 1 ? '' : 's'} move</span></h2></div>
+      <div class="card-head"><h2 id="mv-h">${step(8)}Affected schedule <span class="sub">${r.moved.length} task${r.moved.length === 1 ? '' : 's'} move</span></h2></div>
       <div class="card-body flush table-wrap">
         ${r.moved.length
           ? html`<table class="table"><thead><tr><th>Task</th><th>Owner</th><th>Planned start</th><th class="hide-sm">Deadline</th></tr></thead><tbody>
@@ -205,7 +208,7 @@ function results(s) {
     </section>
 
     <section class="card" aria-labelledby="ap-h">
-      <div class="card-head"><h2 id="ap-h">${step(6)}Apply or discard</h2></div>
+      <div class="card-head"><h2 id="ap-h">${step(9)}Apply or discard</h2></div>
       <div class="card-body stack">
         ${stale ? html`<p class="notice notice-warning">${icon('alert', 16)}<span class="grow">The live data changed after this simulation ran. Re-run it before applying.</span></p>` : ''}
         <p class="notice notice-info">${icon('shield', 16)}<span class="grow">Applying updates availability, adds new tasks and reassigns the ${view.accepted.size} selected task${view.accepted.size === 1 ? '' : 's'}. Officers would be notified in Teams and their calendars would only change after they accept new plans (simulated).</span></p>
@@ -218,10 +221,123 @@ function results(s) {
   </div>`;
 }
 
+function rippleCascadeCard(r, s) {
+  const rip = r.ripple;
+  if (!rip) return '';
+  const incTitle = r.scenario.incident
+    ? INCIDENTS.find((i) => i.id === r.scenario.incident)?.title || 'Urgent incident'
+    : r.scenario.absent?.length
+    ? `${r.scenario.absent.length} officer(s) unavailable`
+    : 'Operational disruption';
+
+  return html`<section class="card" aria-labelledby="rip-h">
+    <div class="card-head">
+      <h2 id="rip-h">${step(3)}<span class="ai-label">${icon('sparkles', 16)}Operational Ripple Analysis</span> <span class="sub">multi-level dependency cascade</span></h2>
+      <span class="badge badge-ai">Ripple trace</span>
+    </div>
+    <div class="card-body stack">
+      <div class="ripple-grid">
+        <div class="ripple-col">
+          <span class="eyebrow" style="color:var(--brand)">1. Trigger Disruption</span>
+          <div class="ripple-box primary">
+            <strong>${incTitle}</strong>
+            <p class="small muted mt-xs">Immediate impact: introduces ~${rip.capacityDeficitHours}h workload deficit onto assigned officer.</p>
+          </div>
+        </div>
+        <div class="ripple-col">
+          <span class="eyebrow" style="color:var(--warning)">2. Displaced Routine Work</span>
+          <div class="ripple-box warning">
+            <strong>${rip.directAffectedTaskIds.length} tasks directly displaced</strong>
+            <p class="small muted mt-xs">Non-safety work displaced in the schedule to accommodate the emergency.</p>
+          </div>
+        </div>
+        <div class="ripple-col">
+          <span class="eyebrow" style="color:var(--danger)">3. Downstream Dependents</span>
+          <div class="ripple-box danger">
+            <strong>${rip.downstreamTaskIds.length} downstream tasks affected</strong>
+            <p class="small muted mt-xs">${rip.mandatoryAtRisk.length ? `${rip.mandatoryAtRisk.length} statutory deadline(s) exposed` : 'Multi-level cascade traced safely.'}</p>
+          </div>
+        </div>
+      </div>
+
+      ${rip.allDownstream && rip.allDownstream.length
+        ? html`<div class="mt-sm">
+            <h4 style="font-size:13px;margin-bottom:8px">Multi-Level Dependency Chain</h4>
+            <div class="dep-chain-list">
+              ${rip.allDownstream.map(
+                (d) => html`<div class="dep-chain-item">
+                  <span class="dep-depth-badge">Depth ${d.depth}</span>
+                  <div class="grow">
+                    <strong>${d.task.title}</strong>
+                    <div class="meta"><span>Assigned: ${officerName(s, d.task.ownerId)}</span><span>Due: ${fmtDue(d.task.due)}</span>${d.task.statutory ? html`<span class="badge badge-warning">Statutory</span>` : ''}${d.task.safety ? html`<span class="badge badge-danger">Safety</span>` : ''}</div>
+                    <div class="small muted mt-xs">Cascade Path: <code>${d.chain.join(' → ')}</code></div>
+                    ${d.task.consequence ? html`<p class="small mt-xs" style="color:var(--danger)">Potential consequence: ${d.task.consequence}</p>` : ''}
+                  </div>
+                </div>`,
+              )}
+            </div>
+          </div>`
+        : ''}
+    </div>
+  </section>`;
+}
+
+function alternativesComparisonCard(r) {
+  const ev = r.alternativesEvaluation;
+  if (!ev || !ev.alternatives) return '';
+  const alts = [ev.alternatives.noAction, ev.alternatives.reschedule, ev.alternatives.reassign];
+  const rec = ev.recommendation;
+
+  return html`<section class="card" aria-labelledby="alt-h">
+    <div class="card-head">
+      <h2 id="alt-h">${step(4)}Three Operational Alternatives Compared <span class="sub">evaluate feasible paths before committing</span></h2>
+      <span class="badge badge-neutral">Client-informed decision support</span>
+    </div>
+    <div class="card-body stack">
+      <div class="alts-grid">
+        ${alts.map(
+          (a) => html`<div class="alt-card ${rec.preferredId === a.id ? 'featured-alt' : ''}">
+            <div class="alt-head">
+              <h4>${a.label}</h4>
+              <span class="badge ${a.statusBadge}">${a.status}</span>
+            </div>
+            <p class="small" style="margin:6px 0 10px">${a.summary}</p>
+            <div class="alt-metrics">
+              <div class="alt-metric-row"><span>High-risk deadlines:</span><strong>${a.highRiskCount}</strong></div>
+              <div class="alt-metric-row"><span>Overdue / slipped:</span><strong class="${a.missingCount ? 'delta-bad' : ''}">${a.missingCount}</strong></div>
+              <div class="alt-metric-row"><span>Mandatory breaches:</span><strong class="${a.mandatoryBreaches?.length ? 'delta-bad' : ''}">${a.mandatoryBreaches?.length || 0}</strong></div>
+              ${a.displacedCount != null ? html`<div class="alt-metric-row"><span>Displaced tasks:</span><strong>${a.displacedCount}</strong></div>` : ''}
+              ${a.reassignmentsCount != null ? html`<div class="alt-metric-row"><span>Reassignments:</span><strong>${a.reassignmentsCount}</strong></div>` : ''}
+            </div>
+            <div class="alt-tradeoff mt-sm">
+              <strong style="font-size:12px;color:var(--text-muted)">Operational Trade-off:</strong>
+              <p class="small mt-xs">${a.tradeOffs}</p>
+            </div>
+            ${a.ineligibleCandidates?.length
+              ? html`<div class="notice notice-warning small mt-xs">
+                  <strong>Skill mismatch detected:</strong>
+                  <span>${a.ineligibleCandidates[0].issue}</span>
+                </div>`
+              : ''}
+          </div>`,
+        )}
+      </div>
+
+      <div class="rec-banner ${rec.escalationRequired ? 'escalate' : ''}">
+        <span class="stat-icon ${rec.escalationRequired ? 'danger' : 'ai'}">${icon(rec.escalationRequired ? 'alert' : 'sparkles', 18)}</span>
+        <div class="grow">
+          <strong>${rec.escalationRequired ? 'Manager Escalation Required' : 'SyncAI Recommendation'}</strong>
+          <p class="small mt-xs">${rec.rationale}</p>
+        </div>
+      </div>
+    </div>
+  </section>`;
+}
+
 function protectedMandatoryCard(r) {
   if (!r.protectedMandatory || !r.protectedMandatory.length) return '';
   return html`<section class="card" aria-labelledby="pm-h">
-    <div class="card-head"><h2 id="pm-h">${icon('shield', 16)}Protected mandatory & compliance obligations <span class="sub">cannot slip under disruption</span></h2></div>
+    <div class="card-head"><h2 id="pm-h">${icon('shield', 16)}Protected mandatory & compliance obligations <span class="sub">compliance deadline protected under current assumptions</span></h2></div>
     <div class="card-body flush"><ul class="list">
       ${r.protectedMandatory.map((m) => html`<li class="list-item">
         <span class="stat-icon ${m.protected ? 'success' : 'danger'}">${icon(m.protected ? 'check' : 'alert', 14)}</span>
@@ -238,7 +354,7 @@ function protectedMandatoryCard(r) {
 function consequencesCard(r) {
   if (!r.consequencesMitigated || !r.consequencesMitigated.length) return '';
   return html`<section class="card" aria-labelledby="cq-h">
-    <div class="card-head"><h2 id="cq-h">${icon('sparkles', 16)}Mitigated long-term consequences <span class="sub">prevented by proactive replanning</span></h2></div>
+    <div class="card-head"><h2 id="cq-h">${icon('sparkles', 16)}Potential consequences addressed <span class="sub">estimated risk reduction under proposal (requires operational verification)</span></h2></div>
     <div class="card-body flush"><ul class="list">
       ${r.consequencesMitigated.map((c) => html`<li class="list-item">
         <span class="stat-icon success">${icon('shield', 14)}</span>
@@ -279,8 +395,14 @@ function stillRisky(r) {
 function renderPage(s) {
   return html`
     <div class="page-head">
-      <div><h1>What-If Simulator</h1><p>Preview the impact of absences and urgent work before changing anyone's schedule.</p></div>
-      <span class="badge badge-neutral">${icon('lock', 12)}Baseline protected until you apply</span>
+      <div>
+        <h1>Operational Ripple Intelligence</h1>
+        <p>Preview disruption cascades, trace multi-level dependencies, and evaluate three operational alternatives before committing schedule changes.</p>
+      </div>
+      <div class="row">
+        <span class="badge badge-ai">${icon('sparkles', 12)}Ripple Engine</span>
+        <span class="badge badge-neutral">${icon('lock', 12)}Baseline protected until you apply</span>
+      </div>
     </div>
     <div class="grid grid-sim">
       <div class="stack">

@@ -3,7 +3,7 @@
 
 import { TODAY, workDay, horizonDays, dt } from './time.js';
 
-export const DATA_VERSION = 9;
+export const DATA_VERSION = 10;
 
 export const CATEGORIES = [
   'Inspection',
@@ -160,6 +160,7 @@ function tasks() {
   T('t102', 'o1', 'Review CleanPro monthly contractor report', 'Contractor', 'Medium', TODAY, '17:00', 1.5, { source: 'To Do', location: 'Office', description: 'Check KPI attainment and penalty items before the coordination meeting.' });
   T('t103', 'o1', 'Site check: ceiling seepage at Blk 211 #05-12', 'Inspection', 'High', TODAY, '17:00', 1, { source: 'Outlook', location: 'Blk 211', impact: 'high', consequence: 'Unchecked ceiling seepage penetrates structural slab causing concrete spalling and costly emergency repair.', description: 'Flagged email from resident. Determine if the source is the unit above or common pipe.' });
   T('t104', 'o1', 'Resident follow-up call: Blk 211 seepage', 'Resident Feedback', 'Medium', workDay(1), '12:00', 0.75, { dependsOn: ['t103'], location: 'Phone', impact: 'high' });
+  T('t112', 'o1', 'Submit contractor rectification work-order: Blk 211 seepage', 'Contractor', 'Medium', workDay(2), '17:00', 1.5, { dependsOn: ['t104'], location: 'Office', consequence: 'Delayed work-order postpones water ingress repairs causing progressive structural reinforcement corrosion.', description: 'Prepared after resident inspection and follow-up call are concluded.' });
   T('t105', 'o1', 'Inspect playground equipment — Blk 215', 'Inspection', 'Medium', workDay(1), '17:00', 2, { safety: true, source: 'Planner', location: 'Blk 215 playground' });
   T('t106', 'o1', 'Verify corridor cleaning complaint — Blk 209', 'Cleaning', 'Medium', workDay(2), '17:00', 0.75, { location: 'Blk 209', complaints: 6, description: 'Six calls this week, mostly from one resident. Verify on site; the number of calls alone does not make it urgent.' });
   T('t107', 'o1', 'Compile common-area lighting defect summary', 'Admin', 'Low', workDay(3), '17:00', 2, { source: 'To Do', location: 'Office' });
