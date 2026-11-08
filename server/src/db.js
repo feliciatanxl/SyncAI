@@ -33,16 +33,23 @@ export function createUserStore(pool, { adminEmails = [] } = {}) {
     },
 
     // Finds the signed-in person, creating them as pending on first sign-in.
-    // shortcut: bootstraps admins by email (emails can change), fine until an admin UI assigns roles.
+    // Emails can be renamed or reassigned, so ADMIN_EMAILS only creates the first admin: once any admin row
+    // exists, a matching email gets no special treatment and roles change only through an admin.
     async upsertFromToken({ tenantId, objectId, email, displayName }) {
-      const isAdmin = email && adminEmails.includes(email.toLowerCase())
+      const bootstrap = Boolean(email && adminEmails.includes(email.toLowerCase()))
       const { rows } = await pool.query(
-        `INSERT INTO users (tenant_id, object_id, email, display_name, role, status)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `WITH first_admin AS (
+           SELECT $5::boolean AND NOT EXISTS (SELECT 1 FROM users WHERE role = 'admin') AS yes
+         )
+         INSERT INTO users (tenant_id, object_id, email, display_name, role, status)
+         SELECT $1, $2, $3, $4,
+                CASE WHEN yes THEN 'admin' ELSE 'member' END,
+                CASE WHEN yes THEN 'active' ELSE 'pending' END
+         FROM first_admin
          ON CONFLICT (tenant_id, object_id)
          DO UPDATE SET email = EXCLUDED.email, display_name = EXCLUDED.display_name, updated_at = now()
          RETURNING ${COLUMNS}`,
-        [tenantId, objectId, email, displayName, isAdmin ? 'admin' : 'member', isAdmin ? 'active' : 'pending'],
+        [tenantId, objectId, email, displayName, bootstrap],
       )
       return rows[0]
     },

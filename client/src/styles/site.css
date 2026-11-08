@@ -131,9 +131,10 @@ code { font-size: 0.9em; }
 .cta-band h2 { color: #fff; margin: 0; }
 
 /* Footer */
-.site-footer { border-top: 1px solid var(--colorNeutralStroke2); padding: 40px 0; background: var(--colorNeutralBackground1); }
+.site-footer { border-top: 1px solid var(--colorNeutralStroke2); padding: 28px 0; background: var(--colorNeutralBackground1); }
 .footer-inner { display: grid; grid-template-columns: 1fr auto; gap: 16px 40px; align-items: start; }
 .footer-note { margin: 0; align-self: center; }
+.site-footer .footer-inner > div p { margin: 4px 0 0; }
 
 /* Login */
 .login-page { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }

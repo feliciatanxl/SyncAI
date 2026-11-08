@@ -13,7 +13,7 @@ function fakeUsers(adminEmails = []) {
     async upsertFromToken({ tenantId, objectId, email, displayName }) {
       const key = `${tenantId}/${objectId}`
       if (!rows.has(key)) {
-        const admin = adminEmails.includes(email)
+        const admin = adminEmails.includes(email) && ![...rows.values()].some((u) => u.role === 'admin')
         rows.set(key, { id: randomUUID(), email, displayName, role: admin ? 'admin' : 'member', status: admin ? 'active' : 'pending' })
       }
       return rows.get(key)
@@ -27,10 +27,11 @@ function fakeUsers(adminEmails = []) {
   }
 }
 
-// Tokens are just "<email>" here; the fake verifier rejects "bad".
+// Tokens are "<email>" or "<email>#<other account>" here; the fake verifier rejects "bad".
 const verifyToken = async (token) => {
   if (token === 'bad') throw new Error('invalid')
-  return { tenantId: 't1', objectId: token, email: token, displayName: token }
+  const email = token.split('#')[0]
+  return { tenantId: 't1', objectId: token, email, displayName: email }
 }
 
 async function withServer(fn) {
@@ -50,6 +51,13 @@ test('rejects missing and invalid tokens', () => withServer(async (call) => {
 test('new people are pending; admin email is active admin', () => withServer(async (call) => {
   assert.deepEqual(await (await call('/me', 'new@x.com')).json().then(({ role, status }) => ({ role, status })), { role: 'member', status: 'pending' })
   assert.deepEqual(await (await call('/me', 'boss@x.com')).json().then(({ role, status }) => ({ role, status })), { role: 'admin', status: 'active' })
+}))
+
+test('admin email only creates the first admin', () => withServer(async (call) => {
+  assert.equal((await (await call('/me', 'boss@x.com')).json()).role, 'admin')
+  // A different account claiming the same email, after an admin exists, gets nothing special.
+  const lookalike = await (await call('/me', 'boss@x.com#other-tenant')).json()
+  assert.deepEqual({ role: lookalike.role, status: lookalike.status }, { role: 'member', status: 'pending' })
 }))
 
 test('only active admins manage users', () => withServer(async (call) => {
