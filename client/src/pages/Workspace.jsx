@@ -45,8 +45,14 @@ export default function Workspace() {
     }
   }, [instance, accountId])
 
-  // Clears SyncAI's session only, skipping Microsoft's "You signed out" page; the browser stays signed in to Microsoft.
+  // Records the sign-out (best effort, 3 seconds at most: logging must never keep anyone signed in), then clears
+  // SyncAI's session only, skipping Microsoft's "You signed out" page; the browser stays signed in to Microsoft.
   async function signOut() {
+    try {
+      await apiRequest('/signout', { method: 'POST', getToken, signal: AbortSignal.timeout(3000) })
+    } catch {
+      // Sign out anyway.
+    }
     await instance.logoutRedirect({ account, onRedirectNavigate: () => false })
     navigate('/', { replace: true })
   }

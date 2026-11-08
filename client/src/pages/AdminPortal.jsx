@@ -7,18 +7,20 @@ import {
 import {
   ArrowClockwise20Regular, ArrowRight16Regular, BrainCircuit24Regular, Checkmark20Regular, CheckmarkCircle24Regular, Copy20Regular, Grid20Regular,
   Info20Regular, People20Regular, People24Regular, PeopleCheckmark24Regular, PersonClock24Regular, PersonProhibited20Regular,
-  Settings20Regular, ShieldCheckmark24Regular, Sparkle20Regular, ArrowCounterclockwise20Regular,
+  History20Regular, Settings20Regular, ShieldCheckmark24Regular, Sparkle20Regular, ArrowCounterclockwise20Regular,
 } from '@fluentui/react-icons'
+import ActivityLog from '../components/ActivityLog.jsx'
 import HowItDecides from '../components/HowItDecides.jsx'
 import PortalShell from '../components/PortalShell.jsx'
 import SettingsPanel from '../components/SettingsPanel.jsx'
 import { apiRequest } from '../lib/api.js'
 import { useLocale, useT } from '../lib/i18n.js'
-import { greetingKey, greetingName, useNow } from '../lib/time.js'
+import { greetingKey, greetingName, relativeTime, useNow } from '../lib/time.js'
 
 const SECTIONS = [
   { id: 'overview', icon: <Grid20Regular /> },
   { id: 'people', icon: <People20Regular /> },
+  { id: 'activity', icon: <History20Regular /> },
   { id: 'decides', icon: <Sparkle20Regular /> },
   { id: 'settings', icon: <Settings20Regular /> },
 ]
@@ -139,7 +141,9 @@ export default function AdminPortal({ me, photo, tenantId, getToken, onSignOut, 
       ) : section === 'overview' ? (
         <Overview {...shared} pending={pending} goTo={setSection} notify={notify} now={now} updatedAt={updatedAt} refreshing={refreshing} onRefresh={refreshNow} />
       ) : section === 'people' ? (
-        <PeopleSection {...shared} />
+        <PeopleSection {...shared} now={now} />
+      ) : section === 'activity' ? (
+        <ActivityLog getToken={getToken} people={users} nameOf={nameOf} />
       ) : (
         <HowItDecides />
       )}
@@ -309,7 +313,7 @@ function Overview({ me, users, pending, busyId, actions, goTo, notify, nameOf, n
   )
 }
 
-function PeopleSection({ me, users, busyId, actions, nameOf }) {
+function PeopleSection({ me, users, busyId, actions, nameOf, now }) {
   const t = useT()
   const locale = useLocale()
   const [query, setQuery] = useState('')
@@ -364,6 +368,7 @@ function PeopleSection({ me, users, busyId, actions, nameOf }) {
               <th scope="col">{t('people.person')}</th>
               <th scope="col">{t('people.role')}</th>
               <th scope="col">{t('people.status')}</th>
+              <th scope="col">{t('people.lastActive')}</th>
               <th scope="col">{t('people.joined')}</th>
               <th scope="col"><span className="visually-hidden">{t('people.actions')}</span></th>
             </tr>
@@ -379,7 +384,10 @@ function PeopleSection({ me, users, busyId, actions, nameOf }) {
                     <span className="person">
                       <Avatar name={name} size={32} color="colorful" />
                       <span>
-                        <strong>{name}</strong> {self && <Badge appearance="tint" size="small">{t('people.you')}</Badge>}
+                        <span className="person-name">
+                          <strong>{name}</strong>
+                          {self && <Badge appearance="tint" size="small">{t('people.you')}</Badge>}
+                        </span>
                         <span className="muted small person-email">{u.email}</span>
                       </span>
                     </span>
@@ -391,6 +399,13 @@ function PeopleSection({ me, users, busyId, actions, nameOf }) {
                   </td>
                   <td data-label={t('people.status')}>
                     <Badge appearance="tint" color={STATUS_COLOR[u.status]}>{t(`status.${u.status}`)}</Badge>
+                  </td>
+                  <td data-label={t('people.lastActive')} className="muted small">
+                    {u.lastActiveAt ? (
+                      <time dateTime={u.lastActiveAt} title={new Date(u.lastActiveAt).toLocaleString(locale)}>
+                        {relativeTime(u.lastActiveAt, now, locale) ?? t('lastActive.justNow')}
+                      </time>
+                    ) : t('lastActive.never')}
                   </td>
                   <td data-label={t('people.joined')} className="muted small">
                     {new Date(u.createdAt).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}

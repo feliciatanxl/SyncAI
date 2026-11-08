@@ -1,5 +1,5 @@
 import { Button } from '@fluentui/react-components'
-import { ArrowReset20Regular, ShieldCheckmark24Regular } from '@fluentui/react-icons'
+import { ArrowReset20Regular, ShieldCheckmark24Regular, ShieldKeyhole20Regular } from '@fluentui/react-icons'
 import { TEXT_SIZES, usePreferences, useT } from '../lib/i18n.js'
 import { LANGUAGES } from '../lib/strings.js'
 
@@ -86,6 +86,10 @@ export default function SettingsPanel({ onReset }) {
           <Button appearance="primary">{t('btn.approve')}</Button>
         </aside>
       </div>
+
+      <p className="privacy-note small muted">
+        <ShieldKeyhole20Regular /> {t('privacy.notice')}
+      </p>
     </>
   )
 }

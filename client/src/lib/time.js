@@ -20,3 +20,13 @@ export function greetingName(name) {
   const [before, after] = name.split(',')
   return (after?.trim() || before.trim()).split(/\s+/)[0]
 }
+
+// "5 minutes ago", "3 hours ago", "yesterday" in the chosen language. Returns null for under a minute.
+export function relativeTime(date, now, locale) {
+  const minutes = Math.floor((now - new Date(date)) / 60_000)
+  if (minutes < 1) return null
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+  if (minutes < 60) return rtf.format(-minutes, 'minute')
+  if (minutes < 24 * 60) return rtf.format(-Math.floor(minutes / 60), 'hour')
+  return rtf.format(-Math.floor(minutes / (24 * 60)), 'day')
+}

@@ -61,7 +61,8 @@ Signing out clears SyncAI's session and returns to the home page without Microso
 | Section | What it does |
 | --- | --- |
 | **Overview** | Date and time (to the minute), greeting, counts, the approval queue (approve as team member or manager, or decline) with an "Updated … ago" label and a Refresh button, an invite link to copy, and the USP with its four priority factors. The people list reloads every minute while the tab is visible and as soon as you return to it |
-| **People** | Search and filter everyone who has signed in; change roles; approve, turn off or turn back on access. Turning off asks for confirmation, and you cannot change your own access |
+| **People** | Search and filter everyone who has signed in; see when each person was last active (exact time on hover); change roles; approve, turn off or turn back on access. Turning off asks for confirmation, and you cannot change your own access |
+| **Activity** | The audit trail ([`src/components/ActivityLog.jsx`](src/components/ActivityLog.jsx)): first sign-ins, daily visits, sign-outs and every approval, role change and access change, grouped by day and filterable by person and type. Read-only, kept for 12 months (see [server/README.md](../server/README.md#activity-log-and-personal-data-pdpa)) |
 | **How SyncAI decides** | The USP in plain language: the four factors and the human-approval principles |
 | **Settings** | Text size, language and appearance (see below) |
 
@@ -90,6 +91,8 @@ Everyone signed in can open **Settings** from the portal sidebar ([`src/componen
 | Appearance | Match my device, Light, Dark |
 
 Choices apply straight away and are saved in the browser's local storage on that device ([`src/lib/preferences.jsx`](src/lib/preferences.jsx)). If storage is blocked, the defaults are used. The page's `lang` attribute follows the chosen language, so screen readers pronounce it correctly.
+
+The sign-in page and Settings both carry the PDPA notice: SyncAI records sign-ins, sign-outs and changes to access for security, and keeps those records for 12 months.
 
 ## Translations
 

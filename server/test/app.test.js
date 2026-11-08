@@ -2,27 +2,45 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { test } from 'node:test'
 import { createApp } from '../src/app.js'
+import { eventsForChange } from '../src/activity.js'
 import { claimsToIdentity } from '../src/auth.js'
 
-// In-memory stand-in for the Postgres user store, with the same admin bootstrap rule.
+// In-memory stand-in for the Postgres store, with the same admin bootstrap, visit and audit rules.
 function fakeUsers(adminEmails = []) {
   const rows = new Map()
+  const activity = []
+  const visitedToday = new Set()
+  const log = (actorId, action, targetId, details = {}) => activity.push({ id: String(activity.length + 1), actorId, action, targetId, details })
   return {
     rows,
+    activity,
     async ping() {},
     async upsertFromToken({ tenantId, objectId, email, displayName }) {
       const key = `${tenantId}/${objectId}`
-      if (!rows.has(key)) {
+      const created = !rows.has(key)
+      if (created) {
         const admin = adminEmails.includes(email) && ![...rows.values()].some((u) => u.role === 'admin')
-        rows.set(key, { id: randomUUID(), email, displayName, role: admin ? 'admin' : 'member', status: admin ? 'active' : 'pending' })
+        rows.set(key, { id: randomUUID(), email, displayName, role: admin ? 'admin' : 'member', status: admin ? 'active' : 'pending', lastActiveAt: new Date() })
       }
-      return rows.get(key)
+      const firstVisitToday = !visitedToday.has(key)
+      visitedToday.add(key)
+      return { ...rows.get(key), created, firstVisitToday }
     },
     async list() { return [...rows.values()] },
-    async update(id, { role, status }) {
+    async update(id, { role, status }, actorId) {
       const user = [...rows.values()].find((u) => u.id === id)
       if (!user) return null
-      return Object.assign(user, role && { role }, status && { status })
+      const before = { ...user }
+      Object.assign(user, role && { role }, status && { status })
+      for (const e of eventsForChange(before, user)) log(actorId, e.action, id, e.details)
+      return user
+    },
+    async logActivity(actorId, action, targetId, details) { log(actorId, action, targetId, details) },
+    async listActivity({ limit, before, person, action }) {
+      return activity
+        .filter((a) => (!before || Number(a.id) < Number(before)) && (!person || a.actorId === person || a.targetId === person) && (!action || a.action === action))
+        .reverse()
+        .slice(0, limit)
     },
   }
 }
@@ -102,3 +120,97 @@ test('rate-limits API requests per IP', async () => {
     server.close()
   }
 })
+
+test('admins cannot act once their own access is turned off', () => withServer(async (call, users) => {
+  const boss = await (await call('/me', 'boss@x.com')).json()
+  users.rows.get(`t1/boss@x.com`).status = 'disabled'
+  assert.equal((await call('/users', 'boss@x.com')).status, 403)
+  assert.equal((await call('/activity', 'boss@x.com')).status, 403)
+  assert.equal((await call(`/users/${boss.id}`, 'boss@x.com', { method: 'PATCH', body: '{"status":"active"}' })).status, 403)
+}))
+
+test('rejects empty and malformed change requests', () => withServer(async (call) => {
+  await call('/me', 'boss@x.com')
+  const other = await (await call('/me', 'new@x.com')).json()
+  assert.equal((await call(`/users/${other.id}`, 'boss@x.com', { method: 'PATCH', body: '{}' })).status, 400)
+  assert.equal((await call(`/users/${other.id}`, 'boss@x.com', { method: 'PATCH', body: '{not json' })).status, 400)
+  assert.equal((await call('/users/not-a-uuid', 'boss@x.com', { method: 'PATCH', body: '{"status":"active"}' })).status, 404)
+}))
+
+test('logs first sign-in once and a visit at most once a day', () => withServer(async (call, users) => {
+  const me = await (await call('/me', 'new@x.com')).json()
+  await call('/me', 'new@x.com')
+  await call('/me', 'new@x.com')
+  assert.deepEqual(users.activity.map((a) => a.action), ['signed_up'])
+  assert.equal(users.activity[0].actorId, me.id)
+  assert.equal('created' in me || 'firstVisitToday' in me, false)
+}))
+
+test('records who approved, changed or turned off whom', () => withServer(async (call, users) => {
+  const boss = await (await call('/me', 'boss@x.com')).json()
+  const a = await (await call('/me', 'a@x.com')).json()
+  const b = await (await call('/me', 'b@x.com')).json()
+  const patch = (id, body) => call(`/users/${id}`, 'boss@x.com', { method: 'PATCH', body: JSON.stringify(body) })
+  await patch(a.id, { status: 'active', role: 'manager' })
+  await patch(a.id, { role: 'member' })
+  await patch(a.id, { status: 'disabled' })
+  await patch(b.id, { status: 'disabled' })
+  const changes = users.activity.filter((e) => e.actorId === boss.id && e.targetId !== boss.id)
+  assert.deepEqual(changes.map((e) => [e.action, e.details]), [
+    ['approved', { role: 'manager' }],
+    ['role_changed', { from: 'manager', to: 'member' }],
+    ['access_off', {}],
+    ['declined', {}],
+  ])
+}))
+
+test('only active admins can read activity, with validated filters', () => withServer(async (call) => {
+  const boss = await (await call('/me', 'boss@x.com')).json()
+  const a = await (await call('/me', 'a@x.com')).json()
+  assert.equal((await call('/activity')).status, 401)
+  assert.equal((await call('/activity', 'a@x.com')).status, 403)
+
+  await call(`/users/${a.id}`, 'boss@x.com', { method: 'PATCH', body: '{"status":"active"}' })
+  assert.equal((await call('/activity', 'a@x.com')).status, 403, 'an approved member is still not an admin')
+
+  const all = await (await call('/activity', 'boss@x.com')).json()
+  assert.equal(all.items[0].action, 'approved', 'newest first')
+  const aboutA = await (await call(`/activity?person=${a.id}&action=approved`, 'boss@x.com')).json()
+  assert.deepEqual(aboutA.items.map((e) => [e.actorId, e.targetId]), [[boss.id, a.id]])
+
+  for (const bad of ['limit=0', 'limit=101', 'limit=abc', 'before=1;drop', 'person=x', 'action=deleted']) {
+    assert.equal((await call(`/activity?${bad}`, 'boss@x.com')).status, 400, bad)
+  }
+}))
+
+test('sends security headers and hides internals', () => withServer(async (call) => {
+  const res = await call('/health')
+  assert.equal(res.headers.get('cache-control'), 'no-store')
+  assert.equal(res.headers.get('x-content-type-options'), 'nosniff')
+  assert.equal(res.headers.get('x-frame-options'), 'DENY')
+  assert.equal(res.headers.get('x-powered-by'), null)
+}))
+
+test('turns status and role changes into audit events', () => {
+  assert.deepEqual(eventsForChange({ role: 'member', status: 'pending' }, { role: 'manager', status: 'active' }), [{ action: 'approved', details: { role: 'manager' } }])
+  assert.deepEqual(eventsForChange({ role: 'member', status: 'disabled' }, { role: 'manager', status: 'active' }), [
+    { action: 'access_on', details: {} },
+    { action: 'role_changed', details: { from: 'member', to: 'manager' } },
+  ])
+  assert.deepEqual(eventsForChange({ role: 'member', status: 'active' }, { role: 'member', status: 'pending' }), [
+    { action: 'status_changed', details: { from: 'active', to: 'pending' } },
+  ])
+  assert.deepEqual(eventsForChange({ role: 'member', status: 'active' }, { role: 'member', status: 'active' }), [])
+})
+
+test('records explicit sign-outs, for anyone signed in', () => withServer(async (call, users) => {
+  assert.equal((await call('/signout', null, { method: 'POST' })).status, 401)
+  const pending = await (await call('/me', 'new@x.com')).json()
+  const res = await call('/signout', 'new@x.com', { method: 'POST' })
+  assert.equal(res.status, 204)
+  assert.deepEqual(users.activity.at(-1), { id: String(users.activity.length), actorId: pending.id, action: 'signed_out', targetId: pending.id, details: {} })
+
+  await call('/me', 'boss@x.com')
+  const feed = await (await call('/activity?action=signed_out', 'boss@x.com')).json()
+  assert.deepEqual(feed.items.map((e) => e.actorId), [pending.id])
+}))
