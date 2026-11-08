@@ -200,7 +200,7 @@ prototype/
 ├── tests/              Rules-engine tests (node --test)
 ├── serve.py            No-cache local dev server
 ├── css/style.css       Fluent 2-inspired design tokens, components and responsive layout
-├── assets/logo.svg     SyncAI mark
+├── assets/syncai-logo.png  SyncAI mark
 └── js/
     ├── app.js          Router, navigation, role switch, event delegation
     ├── state.js        Shared state, localStorage persistence, selectors
