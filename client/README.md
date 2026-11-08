@@ -1,6 +1,6 @@
 # SyncAI client
 
-The React frontend for SyncAI, the Smart Work Planner for EMS problem statement 12i. Full JavaScript: React + Vite, Fluent UI, MSAL for Microsoft Entra ID sign-in, and Vitest. It talks to the Node.js + Express API in `../server` over HTTPS. See [docs/architecture.md](../docs/architecture.md).
+The React frontend for SyncAI, the AI Smart Work Planner. Full JavaScript: React + Vite, Fluent UI, MSAL for Microsoft Entra ID sign-in, and Vitest. It talks to the Node.js + Express API in `../server` over HTTPS. See [docs/architecture.md](../docs/architecture.md).
 
 ## Run it
 
@@ -44,7 +44,7 @@ Until those are set, the site still runs and the login page explains what is mis
 
 ## API status codes
 
-[`src/lib/httpStatus.js`](src/lib/httpStatus.js) lists every HTTP status code (1xx–5xx, including WebDAV and common non-standard ones) with its technical meaning and the plain-language message officers see. It exports named constants such as `HTTP.NOT_FOUND`.
+[`src/lib/httpStatus.js`](src/lib/httpStatus.js) lists every HTTP status code (1xx–5xx, including WebDAV and common non-standard ones) with its technical meaning and the plain-language message users see. It exports named constants such as `HTTP.NOT_FOUND`.
 
 [`src/lib/api.js`](src/lib/api.js) wraps `fetch` for the API: it adds the Entra bearer token, returns parsed JSON (or `null` for 204), and throws an `ApiError` carrying the status, its friendly message and any server message. A network failure becomes status `0`.
 

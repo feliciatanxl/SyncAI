@@ -1,5 +1,5 @@
 // HTTP status codes used by the SyncAI API and shown on the client's status pages.
-// `description` is the technical meaning; `message` is what a Property Officer sees.
+// `description` is the technical meaning; `message` is what a user sees.
 
 export const CATEGORIES = {
   informational: { range: '1xx', label: 'Informational', summary: 'Protocol-level information. Users never see these.' },

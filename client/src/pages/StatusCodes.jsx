@@ -22,7 +22,7 @@ export default function StatusCodes() {
           <div className="section-head left">
             <p className="eyebrow">Developer reference</p>
             <h1>API status codes</h1>
-            <p className="lead">Every HTTP status the SyncAI API may return, what it means, and what officers see. Select a code to preview its page.</p>
+            <p className="lead">Every HTTP status the SyncAI API may return, what it means, and what users see. Select a code to preview its page.</p>
           </div>
           <SearchBox className="status-search" placeholder="Search by code or name, e.g. 429 or conflict" value={query} onChange={(_, d) => setQuery(d.value)} aria-label="Search status codes" />
           {groups.length === 0 && <p className="muted">No status codes match “{query}”.</p>}

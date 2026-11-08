@@ -17,7 +17,7 @@ export default function Login() {
           <h2>Smarter priorities. More realistic plans.</h2>
           <p>Safety first, deadlines protected, and a day that actually fits.</p>
         </div>
-        <p className="small">EM Services · Problem statement 12i</p>
+        <p className="small">Your Work. Your Time. In Sync.</p>
       </aside>
       <main id="main" className="login-main">
         <div className="login-card">
