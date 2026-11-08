@@ -646,6 +646,27 @@ code { font-size: 0.9em; }
 }
 
 /* ---------- Teams Redesign (Accordion / Directory UI) ---------- */
+/* Manager callout banner */
+.soon-note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: var(--colorBrandBackground2);
+  border: 1px solid var(--colorBrandStroke2);
+  color: var(--colorNeutralForeground1);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  margin: 0 0 20px 0;
+}
+
+.soon-note svg {
+  color: var(--colorBrandForeground1);
+  flex: none;
+  font-size: 20px;
+}
+
 .teams-toolbar {
   display: flex;
   flex-wrap: wrap;
