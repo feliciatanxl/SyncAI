@@ -16,14 +16,17 @@ export default function Workspace() {
   const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0]
   const [me, setMe] = useState(null)
   const [error, setError] = useState(null)
+  // MSAL returns a fresh account object on every render, so the effect keys on the stable ID instead.
+  const accountId = account?.homeAccountId
 
   useEffect(() => {
     const controller = new AbortController()
-    apiRequest('/me', { getToken: () => getApiToken(instance, account), signal: controller.signal })
+    const signedIn = instance.getAccount({ homeAccountId: accountId })
+    apiRequest('/me', { getToken: () => getApiToken(instance, signedIn), signal: controller.signal })
       .then(setMe)
       .catch((err) => err.name !== 'AbortError' && setError(err))
     return () => controller.abort()
-  }, [instance, account])
+  }, [instance, accountId])
 
   // Clears SyncAI's session only, skipping Microsoft's "You signed out" page; the browser stays signed in to Microsoft.
   async function signOut() {

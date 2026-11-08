@@ -1,6 +1,6 @@
 import { getStatus, NETWORK_ERROR } from './httpStatus.js'
 
-const BASE_URL = (import.meta.env?.VITE_API_BASE_URL ?? '/api').replace(/\/$/, '')
+const BASE_URL = (import.meta.env?.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
 
 export class ApiError extends Error {
   constructor(status, body) {

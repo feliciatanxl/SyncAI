@@ -7,14 +7,19 @@ const tenantId = env.VITE_ENTRA_TENANT_ID
 // Without an app registration the site still runs; the sign-in button explains what is missing.
 export const authConfigured = Boolean(clientId && tenantId)
 
-// Scopes for the sign-in itself. The API scope is added once the Express API is registered.
+// The scope exposed under "Expose an API" in the app registration. Tokens for it are what the Express API accepts.
+const apiScope = env.VITE_API_SCOPE || `api://${clientId}/access_as_user`
+
+// Scopes for the sign-in itself. Consent to the API scope is asked for up front, so later token requests stay silent.
 export const loginRequest = {
   scopes: ['openid', 'profile', 'User.Read'],
+  extraScopesToConsent: [apiScope],
   prompt: 'select_account',
 }
 
-// The scope exposed under "Expose an API" in the app registration. Tokens for it are what the Express API accepts.
-const apiScope = env.VITE_API_SCOPE || `api://${clientId}/access_as_user`
+// Silent attempts that fail this way need the user at Microsoft. Personal accounts' sign-in page refuses to load
+// in MSAL's hidden iframe, which surfaces as a timeout rather than an interaction-required error.
+const NEEDS_REDIRECT = new Set(['timed_out', 'monitor_window_timeout'])
 
 // Returns an access token for the SyncAI API, sending the user to Microsoft only if consent or sign-in is needed.
 export async function getApiToken(instance, account) {
@@ -22,7 +27,7 @@ export async function getApiToken(instance, account) {
   try {
     return (await instance.acquireTokenSilent(request)).accessToken
   } catch (err) {
-    if (err instanceof InteractionRequiredAuthError) await instance.acquireTokenRedirect(request)
+    if (err instanceof InteractionRequiredAuthError || NEEDS_REDIRECT.has(err?.errorCode)) await instance.acquireTokenRedirect(request)
     throw err
   }
 }
