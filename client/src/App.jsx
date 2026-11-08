@@ -1,28 +1,17 @@
-import { useEffect, useState } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import { FluentProvider, webDarkTheme, webLightTheme } from '@fluentui/react-components'
+import { FluentProvider } from '@fluentui/react-components'
 import Landing from './pages/Landing.jsx'
 import Login from './pages/Login.jsx'
 import Workspace from './pages/Workspace.jsx'
 import StatusPage from './pages/StatusPage.jsx'
 import StatusCodes from './pages/StatusCodes.jsx'
 import RequireAuth from './components/RequireAuth.jsx'
+import { usePreferences } from './lib/i18n.js'
+import { PreferencesProvider } from './lib/preferences.jsx'
 
-const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
-
-function useSystemTheme() {
-  const [dark, setDark] = useState(darkQuery.matches)
-  useEffect(() => {
-    const onChange = (e) => setDark(e.matches)
-    darkQuery.addEventListener('change', onChange)
-    return () => darkQuery.removeEventListener('change', onChange)
-  }, [])
-  return dark ? webDarkTheme : webLightTheme
-}
-
-export default function App() {
+function ThemedApp() {
   return (
-    <FluentProvider theme={useSystemTheme()} className="app-root">
+    <FluentProvider theme={usePreferences().theme} className="app-root">
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -35,4 +24,8 @@ export default function App() {
       </BrowserRouter>
     </FluentProvider>
   )
+}
+
+export default function App() {
+  return <PreferencesProvider><ThemedApp /></PreferencesProvider>
 }

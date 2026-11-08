@@ -32,6 +32,18 @@ export async function getApiToken(instance, account) {
   }
 }
 
+// The signed-in person's Microsoft profile photo as an object URL, or null when they have none or Microsoft
+// won't share it. Uses the User.Read consent from sign-in and never redirects: initials are a fine fallback.
+export async function getProfilePhoto(instance, account) {
+  try {
+    const { accessToken } = await instance.acquireTokenSilent({ scopes: ['User.Read'], account })
+    const res = await fetch('https://graph.microsoft.com/v1.0/me/photo/$value', { headers: { Authorization: `Bearer ${accessToken}` } })
+    return res.ok ? URL.createObjectURL(await res.blob()) : null
+  } catch {
+    return null
+  }
+}
+
 export async function createMsalInstance() {
   if (!authConfigured) return null
   const instance = new PublicClientApplication({

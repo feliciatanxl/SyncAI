@@ -41,8 +41,8 @@ Our three proposed AI capabilities:
 | --- | --- |
 | [`prototype/`](prototype/) | The interactive Smart Work Planner (HTML, CSS, JavaScript; fictional data, no backend). See [prototype/README.md](prototype/README.md). Live at <https://feliciatanxl.github.io/SyncAI/site/index.html>. |
 | [`prototype/site/`](prototype/site/) | The public website that explains SyncAI, with sign-in, forgot-password and reset-password pages that lead into the portal. |
-| [`client/`](client/) | The React (Vite) frontend for the real build. Just scaffolded. See [client/README.md](client/README.md). |
-| `server/` | The Node.js + Express API (not started yet). |
+| [`client/`](client/) | The React (Vite) frontend for the real build: public website, Microsoft sign-in, admin portal (approve people, assign roles) and Settings (text size, four languages, light or dark). See [client/README.md](client/README.md). |
+| [`server/`](server/) | The Node.js + Express API: verifies Microsoft sign-in tokens, stores users in PostgreSQL and enforces roles and approvals. See [server/README.md](server/README.md). |
 | [`docs/architecture.md`](docs/architecture.md) | Proposed architecture, what EMS told us, how the prototype maps onto the build, and open questions. |
 | [`docs/demo-script.md`](docs/demo-script.md) | A 7-minute demo walkthrough with likely questions and answers. |
 | [`prototype/tests/`](prototype/tests/) | Automated tests for the rules engine. |
@@ -67,11 +67,17 @@ Rules-engine tests (Node.js 20 or later, no install needed):
 node --test "prototype/tests/*.test.mjs"
 ```
 
-React client (Node.js 20 or later):
+Real build (Node.js 22 or later). Run the API and the client in two terminals, after filling in `server/.env` and `client/.env` as described in [server/README.md](server/README.md) and [client/README.md](client/README.md):
+
+```bash
+cd server && npm install && npm run dev
+```
 
 ```bash
 cd client && npm install && npm run dev
 ```
+
+Then open <http://localhost:5173>. The client forwards `/api` to the API on port 3000.
 
 ## Proposed stack
 

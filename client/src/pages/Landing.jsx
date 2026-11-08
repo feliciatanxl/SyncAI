@@ -13,6 +13,7 @@ import {
 } from '@fluentui/react-icons'
 import SiteLayout from '../components/SiteLayout.jsx'
 import { MicrosoftLogo } from '../components/Brand.jsx'
+import { FACTORS, USP } from '../lib/product.js'
 
 const PROBLEMS = [
   { icon: <TaskListLtr24Regular />, title: 'Many demands at once', text: 'Operations teams juggle inspections, customer requests, contractor follow-ups and admin, often across thousands of units each.' },
@@ -24,13 +25,6 @@ const CAPABILITIES = [
   { n: '01', icon: <ShieldCheckmark24Regular />, title: 'Smart priority', text: 'Ranks tasks by safety, mandatory deadlines, service impact and long-term consequences, and shows the reason for every score.' },
   { n: '02', icon: <CalendarLtr24Regular />, title: 'Realistic planning', text: 'Proposes daily and weekly schedules around task durations, availability, meetings and existing commitments.' },
   { n: '03', icon: <PeopleSwap24Regular />, title: 'Team rebalancing', text: 'Spots capacity problems when someone is away or urgent work lands, and suggests changes for a manager to approve.' },
-]
-
-const FACTORS = [
-  { n: 1, title: 'Safety', text: 'Genuine risks to people, staff and property.' },
-  { n: 2, title: 'Mandatory deadlines', text: 'Statutory, regulatory, contractual and funding-approval dates that cannot slip.' },
-  { n: 3, title: 'Service impact & long-term consequences', text: 'Real customer needs and what happens if the work waits. Not who complains loudest.' },
-  { n: 4, title: 'Scheduling feasibility', text: 'Estimated task durations matched to each person’s free time and capacity.' },
 ]
 
 const STEPS = [
@@ -88,7 +82,7 @@ export default function Landing() {
       <section className="section alt" id="capabilities" aria-labelledby="cap-h">
         <div className="wrap">
           <div className="section-head">
-            <p className="eyebrow">Operationally aware AI scheduling</p>
+            <p className="eyebrow">{USP}</p>
             <h2 id="cap-h">Understand priorities. Build achievable plans. Explain the changes.</h2>
           </div>
           <div className="grid-3">
