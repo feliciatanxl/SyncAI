@@ -8,7 +8,6 @@ import { getState, isOpen, isSupervisor, officerName, openTasksFor, absenceLabel
 import { TODAY, fmtDue, fmtHours, fmtTime, fromMin, relDay, timePart } from '../time.js';
 import { html, icon, render, pct } from '../ui.js';
 import { visibleRecs } from './shared.js';
-import { rankedProjects } from './projects.js';
 import { QUESTIONS } from './insights.js';
 
 const log = [];
@@ -71,14 +70,14 @@ function answer(s, raw) {
     return html`I'd suggest:<ul>${recs.slice(0, 4).map((r) => html`<li>Move “${s.tasks.find((t) => t.id === r.taskId).title}” from ${officerName(s, r.fromId)} to <strong>${officerName(s, r.toId)}</strong> (${r.reasons.join(', ')})</li>`)}</ul>Approve them on <a href="#/team">Team Workload</a>.`;
   }
 
-  if (has(q, 'project')) {
-    const list = rankedProjects(s);
-    if (!list.length) return html`You are not part of any projects yet.`;
-    const label = { risk: 'at risk', attention: 'needs attention', 'on-track': 'on track', done: 'complete' };
-    // Officers never see reasons that name other officers.
-    const why = (h) => h.reasons.find((r) => sup || !r.personal)?.text || '';
-    return html`${sup ? 'Projects' : 'Your projects'}, most urgent first:
-      <ul>${list.map(({ p, h }) => html`<li><a href="#/projects/${p.id}"><strong>${p.name}</strong></a> — ${label[h.level]}, ${pct(h.progress)} done${h.level === 'risk' || h.level === 'attention' ? `. ${why(h)}` : ''}</li>`)}</ul>`;
+  if (has(q, 'why is', 'why urgent', 'urgency', 'priority reason', 'how priority')) {
+    const id = sup && named ? named.id : me;
+    const top = openTasksFor(s, id).sort((a, b) => scoreTask(s, b).score - scoreTask(s, a).score)[0];
+    if (!top) return html`No open tasks to explain.`;
+    const sc = scoreTask(s, top);
+    return html`<strong>Why “${top.title}” is priority #${1} (score ${sc.score}):</strong>
+      <ul>${sc.reasons.map((r) => html`<li>${r.label} (${r.points > 0 ? `+${r.points}` : r.points} pts)</li>`)}</ul>
+      <p class="muted small mt-sm">SyncAI scores genuine safety hazards, statutory compliance deadlines, service impact, and long-term consequences. Repeat resident complaints alone add 0 points.</p>`;
   }
 
   if (has(q, 'risk', 'late', 'overdue', 'miss', 'deadline')) {

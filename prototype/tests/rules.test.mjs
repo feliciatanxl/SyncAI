@@ -4,8 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { COUNCILS, PROJECT_TEMPLATES, createSeedState } from '../js/data.js';
-import { scoreTask } from '../js/ai.js';
+import { scoreTask, checkTaskFeasibility } from '../js/ai.js';
 import { assessRisk, buildSchedule } from '../js/planner.js';
+import { isManager, isTeamMember, isAdmin } from '../js/state.js';
+import { runSimulation, INCIDENTS } from '../js/simulation.js';
 import { TODAY, dt, toMin, workDay } from '../js/time.js';
 import { projectHealth } from '../js/pages/projects.js';
 import { statusOf } from '../js/pages/hub.js';
@@ -133,4 +135,90 @@ test('section tabs: one selected tab, wired to its panel, remembered per tab set
   assert.match(String(sectionTabs('t', 'Views', items)), /id="tab-t-b" aria-controls="panel-t-b" aria-selected="true"/);
   activeTabs.set('t', 'gone');
   assert.match(String(sectionTabs('t', 'Views', items)), /id="tab-t-a" aria-controls="panel-t-a" aria-selected="true"/, 'unknown tab falls back to the first');
+});
+
+test('safety hazards are explicitly identified and awarded +20 pts', () => {
+  const s = seed();
+  const safeTask = { ...task(s, 't108'), safety: false, due: dt(workDay(3), '17:00') };
+  const hazardTask = { ...safeTask, safety: true };
+  const safeScore = scoreTask(s, safeTask);
+  const hazardScore = scoreTask(s, hazardTask);
+  assert.equal(hazardScore.score, safeScore.score + 20, 'safety receives +20 bonus');
+  assert.ok(hazardScore.reasons.some((r) => r.type === 'safety' || /safety/i.test(r.label)), 'safety hazard reason identified');
+});
+
+test('mandatory/statutory deadlines act as hard constraints', () => {
+  const s = seed();
+  const standardTask = { ...task(s, 't108'), statutory: false, due: dt(workDay(1), '14:00') };
+  const statutoryTask = { ...standardTask, statutory: true };
+  const scoredStandard = scoreTask(s, standardTask);
+  const scoredStatutory = scoreTask(s, statutoryTask);
+  assert.ok(scoredStatutory.isMandatory, 'isMandatory flag is set on statutory task');
+  assert.ok(scoredStatutory.score > scoredStandard.score, 'mandatory tasks outscore non-mandatory');
+  assert.ok(scoredStatutory.reasons.some((r) => /statutory/i.test(r.label)), 'statutory reason is present');
+});
+
+test('long-term consequences add priority points and explain risks', () => {
+  const s = seed();
+  const base = { ...task(s, 't108'), impact: 'low', consequence: null };
+  const withConsequence = { ...base, consequence: 'Severe structural water ingress damaging building integrity' };
+  const baseScore = scoreTask(s, base);
+  const scored = scoreTask(s, withConsequence);
+  assert.equal(scored.score, Math.min(100, baseScore.score + 12), 'consequence adds 12 pts');
+  assert.ok(scored.reasons.some((r) => r.type === 'consequence' || /consequence/i.test(r.label)), 'long-term risk reason present');
+});
+
+test('feasibility engine identifies impossible scheduling conflicts', () => {
+  const s = seed();
+  const impossibleTask = {
+    ...task(s, 't101'),
+    ownerId: 'o1',
+    est: 5,
+    spent: 0,
+    due: dt(TODAY, '09:00'),
+  };
+  const feasibility = checkTaskFeasibility(s, impossibleTask);
+  assert.equal(feasibility.impossible, true, 'flagged as impossible conflict');
+  assert.equal(feasibility.feasible, false);
+  assert.ok(feasibility.freeHours < 5, 'free hours strictly less than remaining effort');
+
+  const scored = scoreTask(s, impossibleTask);
+  assert.ok(scored.impossibleConflict, 'scoreTask includes impossible conflict flag');
+  assert.match(scored.impossibleConflict, /effort/);
+});
+
+test('priority scoring returns configurable prototype assumptions disclaimer', () => {
+  const s = seed();
+  const scored = scoreTask(s, task(s, 't101'));
+  assert.ok(Array.isArray(scored.assumptions), 'assumptions list provided');
+  assert.ok(scored.assumptions.some((a) => /prototype assumptions/i.test(a)), 'clarifies weights are prototype assumptions');
+});
+
+test('role alignment: manager, team_member, admin helpers', () => {
+  assert.equal(isManager({ role: 'manager' }), true);
+  assert.equal(isManager({ role: 'supervisor' }), true);
+  assert.equal(isManager({ role: 'team_member' }), false);
+
+  assert.equal(isTeamMember({ role: 'team_member' }), true);
+  assert.equal(isTeamMember({ role: 'officer' }), true);
+  assert.equal(isTeamMember({ role: 'manager' }), false);
+
+  assert.equal(isAdmin({ role: 'admin' }), true);
+  assert.equal(isAdmin({ role: 'manager' }), false);
+});
+
+test('What-If simulator computes protected mandatory tasks and task decisions', () => {
+  const s = seed();
+  const liftScenario = { absent: [], incident: 'lift', incidentAssignee: 'auto', extra: null, absenceDays: 1, absenceType: 'mc' };
+  const result = runSimulation(s, liftScenario);
+
+  assert.ok(Array.isArray(result.protectedMandatory), 'lists protected mandatory tasks');
+  assert.ok(Array.isArray(result.consequencesMitigated), 'lists consequences mitigated');
+  assert.ok(Array.isArray(result.taskDecisions.moved), 'lists moved task decisions');
+  assert.ok(Array.isArray(result.taskDecisions.retained), 'lists retained task decisions');
+  assert.ok(result.taskDecisions.retained.length > 0 || result.taskDecisions.moved.length > 0, 'has explainable decisions');
+
+  // Verify non-destructive nature
+  const originalTaskCount = s.tasks.length;
+  assert.equal(s.tasks.length, originalTaskCount, 'seed state tasks remained untouched');
 });

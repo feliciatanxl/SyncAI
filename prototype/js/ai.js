@@ -3,19 +3,121 @@
 // No network requests or real AI services are used.
 
 import { CATEGORY_BASE_EFFORT, CATEGORIES } from './data.js';
-import { isOpen, getTask, getOfficer, officerName } from './state.js';
-import { TODAY, NOW, workDay, workDaysUntil, relDay, fmtTime, timePart, dt, parseDate } from './time.js';
+import { isOpen, getTask, getOfficer, officerName, meetingsFor, isUnavailable } from './state.js';
+import { TODAY, NOW, workDay, workDaysUntil, relDay, fmtTime, timePart, dt, parseDate, datePart, toMin, fmtDue, fmtHours } from './time.js';
 
 const PRIORITY_POINTS = { Critical: 40, High: 30, Medium: 18, Low: 8 };
 
 /**
- * Priority score (0–100) with an itemised explanation.
- * Bands: 70+ Do now · 50–69 Do next · 30–49 Plan · <30 Later.
+ * Assess scheduling feasibility for a task: does the assigned officer have
+ * enough free working hours before the deadline (accounting for working hours,
+ * lunch breaks, Outlook meetings, and recorded absences)?
+ */
+export function checkTaskFeasibility(s, t) {
+  if (!isOpen(t)) return { feasible: true, impossible: false, tight: false, freeHours: 8, needHours: 0 };
+  const owner = getOfficer(s, t.ownerId);
+  if (!owner) return { feasible: false, impossible: true, tight: false, freeHours: 0, needHours: t.effort, conflictReason: 'Task is unassigned' };
+
+  if (t.due < NOW) {
+    return { feasible: false, impossible: true, tight: false, freeHours: 0, needHours: t.effort, conflictReason: `Already overdue (was due ${fmtDue(t.due)})` };
+  }
+
+  const st = s.settings || { workStart: '08:30', workEnd: '17:30', lunchStart: '12:30', lunchEnd: '13:30' };
+  const ws = toMin(st.workStart);
+  const we = toMin(st.workEnd);
+  const ls = toMin(st.lunchStart);
+  const le = toMin(st.lunchEnd);
+  const lunchMin = Math.max(0, le - ls);
+
+  const dueDate = datePart(t.due);
+  const dueTimeMin = toMin(timePart(t.due));
+  const spent = t.spent || 0;
+  const needHours = Math.max(0.25, t.effort - spent);
+
+  let freeMinutes = 0;
+  let allDaysUnavailable = true;
+
+  for (let i = 0; i < 15; i++) {
+    const d = workDay(i);
+    if (d > dueDate) break;
+
+    if (isUnavailable(owner, d)) continue;
+    allDaysUnavailable = false;
+
+    // Day boundaries
+    let dayStart = d === TODAY ? Math.max(ws, toMin(timePart(NOW))) : ws;
+    let dayEnd = d === dueDate ? Math.min(we, dueTimeMin) : we;
+    if (dayEnd <= dayStart) continue;
+
+    let available = Math.max(0, dayEnd - dayStart);
+    // Deduct lunch if within window
+    if (dayStart < le && dayEnd > ls) {
+      const overlapLunch = Math.max(0, Math.min(dayEnd, le) - Math.max(dayStart, ls));
+      available = Math.max(0, available - overlapLunch);
+    }
+
+    // Deduct meetings
+    const ms = meetingsFor(s, t.ownerId, d);
+    for (const m of ms) {
+      const msStart = toMin(m.start);
+      const msEnd = toMin(m.end);
+      if (msStart < dayEnd && msEnd > dayStart) {
+        const overlap = Math.max(0, Math.min(dayEnd, msEnd) - Math.max(dayStart, msStart));
+        available = Math.max(0, available - overlap);
+      }
+    }
+
+    freeMinutes += available;
+  }
+
+  const freeHours = Math.round((freeMinutes / 60) * 10) / 10;
+  if (allDaysUnavailable) {
+    return {
+      feasible: false,
+      impossible: true,
+      tight: false,
+      freeHours: 0,
+      needHours,
+      conflictReason: `${owner.name} is unavailable until after the deadline (${fmtDue(t.due)})`,
+    };
+  }
+
+  if (freeHours < needHours) {
+    return {
+      feasible: false,
+      impossible: true,
+      tight: false,
+      freeHours,
+      needHours,
+      conflictReason: `Requires ${needHours}h effort but only ${fmtHours(freeHours)} free before deadline (${fmtDue(t.due)})`,
+    };
+  }
+
+  const tight = freeHours < needHours + 1.0;
+  return {
+    feasible: true,
+    impossible: false,
+    tight,
+    freeHours,
+    needHours,
+    conflictReason: null,
+  };
+}
+
+/**
+ * Priority score (0–100) with an itemised, explainable breakdown.
+ * Considers base priority, deadline urgency, genuine safety risks,
+ * mandatory/statutory constraints, long-term operational consequences,
+ * task duration, and available capacity.
+ *
+ * Prototype assumption note: Numerical scoring weights are illustrative
+ * configuration assumptions designed for the EM Services PS 12i prototype,
+ * not verified EMS standards.
  */
 export function scoreTask(s, t) {
   const reasons = [];
-  const add = (points, label) => {
-    if (points) reasons.push({ points, label });
+  const add = (points, label, meta = {}) => {
+    if (points) reasons.push({ points, label, ...meta });
   };
 
   add(PRIORITY_POINTS[t.priority] ?? 18, `${t.priority} priority`);
@@ -29,24 +131,68 @@ export function scoreTask(s, t) {
     else if (days <= 5) add(6, 'Due this week');
   }
 
-  if (isOpen(t) && t.effort >= 2 && t.due >= NOW && workDaysUntil(t.due) <= 2) add(6, `Needs ${t.effort}h of effort — start early`);
-  if (t.safety) add(15, 'Safety-related — residents could be at risk');
-  // Client briefing (EMS, Nov 2026): statutory and compliance dates cannot slip, and how often
-  // a resident complains is not, on its own, a reason to rank the work higher.
-  if (t.statutory) add(isOpen(t) && workDaysUntil(t.due) <= 3 ? 20 : 10, 'Statutory or compliance deadline — cannot be moved');
-  if (t.impact === 'high') add(8, 'High service impact on residents or operations');
-  if (t.complaints > 1) reasons.push({ points: 0, label: `${t.complaints} repeat complaints — volume alone does not raise priority` });
+  // 1. Genuine safety risks explicitly identified
+  if (t.safety) {
+    add(20, 'Genuine safety risk — direct hazard to residents or public safety (immediate operational priority)', { type: 'safety' });
+  }
 
-  const dependents = s.tasks.filter((x) => isOpen(x) && x.dependsOn.includes(t.id));
+  // 2. Mandatory / statutory deadlines treated as non-negotiable scheduling constraints
+  if (t.statutory) {
+    const isImminent = isOpen(t) && workDaysUntil(t.due) <= 3;
+    add(isImminent ? 25 : 15, 'Mandatory / statutory deadline — non-negotiable compliance constraint (cannot slip)', { type: 'statutory' });
+  }
+
+  // 3. Long-term operational consequences represented and explained
+  if (t.consequence) {
+    add(12, `Long-term consequence if deferred: ${t.consequence}`, { type: 'consequence' });
+  } else if (t.impact === 'high') {
+    add(8, 'High operational & service impact on residents or Town Council operations', { type: 'impact' });
+  }
+
+  // 4. Repeat complaints volume alone does not increase priority
+  if (t.complaints > 1) {
+    reasons.push({ points: 0, label: `${t.complaints} repeat complaints recorded — volume alone adds 0 points (priority is governed by safety and statutory constraints, not noise)` });
+  }
+
+  // 5. Task duration and scheduling feasibility
+  let feas = { feasible: true, impossible: false, tight: false, freeHours: 8 };
+  if (isOpen(t) && t.due >= NOW) {
+    feas = checkTaskFeasibility(s, t);
+    if (feas.impossible) {
+      reasons.push({ points: 0, label: `Impossible scheduling conflict: ${feas.conflictReason}` });
+    } else if (feas.tight) {
+      add(6, `Tight scheduling margin — needs ${t.effort}h with only ${fmtHours(feas.freeHours)} free before deadline`);
+    } else if (t.effort >= 2 && workDaysUntil(t.due) <= 2) {
+      add(5, `Needs ${t.effort}h of effort — start early to avoid deadline pressure`);
+    }
+  }
+
+  const dependents = s.tasks ? s.tasks.filter((x) => isOpen(x) && x.dependsOn?.includes(t.id)) : [];
   if (dependents.length) add(Math.min(dependents.length * 6, 12), `Unblocks ${dependents.length} other task${dependents.length > 1 ? 's' : ''}`);
 
   if (t.status === 'in_progress') add(5, 'Already in progress');
 
-  const blockers = t.dependsOn.map((id) => getTask(s, id)).filter((d) => d && isOpen(d));
+  const blockers = t.dependsOn ? t.dependsOn.map((id) => getTask(s, id)).filter((d) => d && isOpen(d)) : [];
   if (blockers.length) add(-10, `Waiting on “${blockers[0].title}”`);
 
   const score = Math.max(0, Math.min(100, reasons.reduce((n, r) => n + r.points, 0)));
-  return { score, band: band(score), reasons };
+
+  return {
+    score,
+    band: band(score),
+    reasons,
+    isMandatory: !!t.statutory,
+    hasSafetyRisk: !!t.safety,
+    hasLongTermConsequence: !!t.consequence,
+    consequence: t.consequence || null,
+    feasibility: feas,
+    impossibleConflict: feas.impossible ? feas.conflictReason : null,
+    assumptions: [
+      'Configurable prototype assumptions — illustrative weights to be calibrated with EM Services operations',
+      'Assumes standard 08:30–17:30 working hours with 60-minute lunch break',
+      'Assumes 10-minute travel/buffer after meetings and site visits',
+    ],
+  };
 }
 
 export function band(score) {
@@ -268,13 +414,17 @@ export function parseNaturalTask(s, input, defaultOwnerId) {
 
 /** Short natural-language summary of why a task is ranked where it is. */
 export function explainScore(s, t) {
-  const { reasons } = scoreTask(s, t);
-  const top = reasons
+  const res = scoreTask(s, t);
+  const top = res.reasons
     .filter((r) => r.points > 0)
     .sort((a, b) => b.points - a.points)
     .slice(0, 3)
     .map((r) => r.label.charAt(0).toLowerCase() + r.label.slice(1));
-  return top.length ? `Ranked here because it is ${top.join(', ')}.` : 'No strong urgency signals.';
+  let summary = top.length ? `Ranked here because it is ${top.join(', ')}.` : 'Standard priority task.';
+  if (res.impossibleConflict) {
+    summary += ` ⚠ ${res.impossibleConflict}`;
+  }
+  return summary;
 }
 
 export function ownerLabel(s, id) {

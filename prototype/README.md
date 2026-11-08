@@ -1,9 +1,16 @@
-# SyncAI — Interactive Prototype
+# SyncAI — PS 12i Smart Work Planner Prototype
 
-**Your Work. Your Time. In Sync.**
-An AI-powered Smart Work Planner for Town Council Property Officers and supervisors: Team 24's answer to EMS Challenge 12i. USP: **Operationally Aware AI Scheduling**. See the [repository README](../README.md).
+**"Know what matters. Plan what fits. Adapt when work changes."**
+An AI-powered Smart Work Planner for EM Services Property Officers and Estate Managers: focused exclusively on **EMS Challenge PS 12i (Microsoft-based)**. See the [repository README](../README.md).
 
-This folder contains a working HTML/CSS/JavaScript prototype for demonstrating SyncAI's user experience and AI features to EMS stakeholders and lecturers before the React / Node.js build in [`client/`](../client/). Everything runs in the browser using fictional data and deterministic, explainable rules. **No real Microsoft 365 or Azure OpenAI connection is made.**
+### Proposed Product Differentiators
+1. **Flagship USP — Operationally Aware AI Scheduling:** A scheduling experience that considers real operational priorities, genuine public safety hazards, mandatory statutory compliance deadlines (BCA/SCDF), and available working capacity. Repeat complaint volume awards zero priority points.
+2. **Supporting Differentiator 1 — Explainable What-If Replanning:** Transparently simulates unexpected disruptions (urgent lift breakdowns, officer medical leave, emergency tasks) before committing changes, showing protected statutory obligations, rebalanced capacity, and explicit reasons for each move.
+3. **Supporting Differentiator 2 — Capacity-Aware Planning:** Accurately evaluates whether open tasks can realistically fit into available working hours around Microsoft Outlook meetings, lunch breaks, and travel buffer, proactively flagging impossible scheduling conflicts.
+
+> **Note:** These are proposed product differentiators for EM Services challenge PS 12i, not claims of commercial exclusivity or verified commercial uniqueness.
+
+This folder contains a fully functional HTML/CSS/JavaScript static prototype demonstrating SyncAI's user experience and deterministic priority engine to EM Services stakeholders before full-stack implementation. Everything runs client-side in the browser using fictional data and deterministic, explainable rules. **No real Microsoft 365 or Azure OpenAI connection is made.**
 
 ## Run it
 
@@ -15,15 +22,40 @@ python prototype/serve.py
 
 Then open **<http://localhost:8765/site/login.html>** and sign in with a demo account (password `SyncAI-demo1`). See [docs/architecture.md](../docs/architecture.md) for how the prototype maps to the production design.
 
-| Email | Opens |
-| --- | --- |
-| `officer@syncai.demo` | Officer view (Aisyah Rahman) |
-| `supervisor@syncai.demo` | Supervisor view (Jennifer Ong) |
-| `hq@syncai.demo` | EMS HQ view (Lim Wei Ling): roll-ups across Town Councils. Demo extra outside the 12i scope |
+| Email | Role | Operational Workflow |
+| --- | --- | --- |
+| `officer@syncai.demo` | **Property Officer** (`team_member`) | Property Officer operational day: AI briefing, next task recommendation, statutory alerts, calendar time-blocking. |
+| `manager@syncai.demo` | **Estate Manager** (`manager`) | Supervisory workflow: team capacity heatmap, What-If simulation, reassignment approvals, statutory oversight. |
+| `admin@syncai.demo` | **System Administrator** (`admin`) | Lightweight administration: demo user accounts, role permission matrix, approvals policy status, audit logging. |
+
+*(Legacy login aliases `member@syncai.demo` and `supervisor@syncai.demo` remain fully supported.)*
 
 `serve.py` uses only the Python standard library. It binds to `127.0.0.1` and disables caching so edits appear on refresh. Alternatives: VS Code **Live Server** (open `prototype/site/login.html`), or `npx serve prototype`.
 
-The portal always requires sign-in. Opening `index.html` without signing in sends you to the login page. Each account sees only its own role's view; there is no role switcher. Use **Sign out** (under your name at the bottom of the sidebar) to switch accounts. Ticking **Keep me signed in** keeps the sign-in after the tab closes; otherwise it lasts for the tab only.
+The portal always requires sign-in. Opening `index.html` without signing in sends you to the login page. Each account sees only its own role's view. Use **Sign out** (under your name at the bottom of the sidebar) to switch accounts. Ticking **Keep me signed in** keeps the sign-in after the tab closes; otherwise it lasts for the tab only.
+
+## Aligned Roles & Scopes
+
+### 1. Role Alignment with Full-Stack Application
+- **Property Officer (`team_member`):** Front-line estate officer managing inspections, resident follow-ups, and daily calendar time-blocking.
+- **Estate Manager (`manager`):** Supervisory oversight across estate zones, workload balancing, and disruption replanning.
+- **System Administrator (`admin`):** Lightweight governance demonstrating role-based access control (RBAC), approval requirements, and tenant settings without operational clutter.
+- **EMS HQ (`hq`):** Demo login retired from the primary prototype to focus cleanly on PS 12i.
+
+### 2. PS 12g / 12h Scope Boundary Management
+Capabilities identified as overlapping with other problem statements have been cleanly retired from primary navigation and marketing while preserving source files and data integrity:
+- **PS 12g overlaps retired from primary navigation:** Cross-council roll-up hub (`pages/hub.js`) and data sources monitor (`pages/sources.js`).
+- **PS 12h overlap retired from primary navigation:** Project portfolio tracking, Gantt timelines, and templates (`pages/projects.js`). Tasks belonging to estate initiatives retain their contextual project name without broken links.
+
+## Priority & Feasibility Engine
+
+All scoring in `prototype/js/ai.js` is explainable and deterministic:
+- **Genuine Safety Hazards (+20 pts):** Direct hazards to resident or public safety (falling concrete, lift entrapments, exposed wiring) are explicitly identified and prioritised above routine work.
+- **Mandatory Statutory Deadlines (+25 / +15 pts):** BCA annual lift certifications and SCDF compliance deadlines are treated as hard scheduling constraints that cannot slip.
+- **Long-Term Operational Consequences (+12 pts):** Evaluates severe structural risks (e.g., ceiling seepage penetrating rebar) or regulatory stop-work orders if work is deferred.
+- **Repeat Complaints = 0 Points:** Resident complaint volume alone awards 0 priority points, protecting officers from loudest-voice bias while maintaining professional service.
+- **Scheduling Feasibility & Impossible Conflict Detection:** `checkTaskFeasibility(s, t)` computes remaining task effort against Outlook meetings, lunch, and working hours before deadline. Mathematically impossible deadlines are flagged with warning badges rather than silently ignored.
+- **Configurable Prototype Assumptions:** All scoring rules are clearly labeled in the UI as illustrative prototype configuration assumptions, not EMS-approved corporate standards.
 
 ## Public website
 
@@ -135,27 +167,18 @@ Use **Settings → Reset demo data** before a demo. Dates are generated relative
 2. **Extract action items**: SyncAI finds each action, its owner, deadline, priority and effort, with reasons.
 3. Officers import their own items. Supervisors choose an owner for each item and import all of them.
 
-### 9. Projects (Supervisor, ~2 min)
+### 9. Retired Scopes (Preserved for Reference & Context)
 
-1. Open **Projects**. Three projects are at risk, one is on track and one is complete. Use the tabs to filter.
-2. Open **Blk 312 repainting works**. **AI project health** explains the risk: tasks at high risk, behind schedule for the time used, and Marcus overloaded. It suggests reassignments you can accept.
-3. On the **Board**, drag a card to another column or change its status. Click a card to tick off its checklist. Switch to **Timeline** to see bars, milestones and today's line.
-4. Click **New project**, choose the **Lift replacement** template and create it. Five tasks are spread across the project dates.
+- **PS 12h Project Portfolio Tracking:** Files `pages/projects.js` remain in the repository for architectural reference and task foreign-key integrity, but are retired from primary PS 12i navigation.
+- **PS 12g Cross-Council HQ & Data Sources:** Files `pages/hub.js` and `pages/sources.js` remain intact for dependencies and cross-module tests, but are retired from active PS 12i navigation.
 
-### 10. EMS HQ overview (HQ, ~2 min)
+### 10. Alerts and Reminders
 
-1. Sign out and sign in as `hq@syncai.demo`. The **HQ overview** opens with roll-ups across four Town Councils.
-2. The **AI HQ briefing** says Westridge and Northvale need support and that Southhaven has spare capacity, with the reason for each.
-3. Use the **council tabs** to switch to one council and see its figures and projects. Note that HQ never sees officer names.
-4. Open **Data sources** to show how every EMS system feeds the shared data layer. Try **Sync now**.
+Open the **bell** to see the alerts that would go to Microsoft Teams: statutory compliance warnings, start-by warnings, and capacity overload alerts. On the Dashboard, **Smart reminders** suggest when to be reminded based on each task's latest start time and preparation needs.
 
-### 11. Alerts and reminders
+### 11. Ask SyncAI
 
-Open the **bell** to see the alerts that would go to Microsoft Teams. On the Dashboard, **Smart reminders** suggest when to be reminded based on each task's latest start time and preparation needs.
-
-### 12. Ask SyncAI
-
-Open **Ask SyncAI** and try *"Can I finish everything today?"*, *"When am I free today?"*, *"Who is overloaded?"* or *"What happens if Ravi is on MC?"*. As an officer, team questions are politely refused.
+Open **Ask SyncAI** and try *"What should I do first?"*, *"Can I realistically finish today?"*, *"Why is this task urgent?"*, or *"Which deadlines are at risk?"*.
 
 ## How the simulated intelligence works
 
@@ -163,7 +186,8 @@ All logic is deterministic. The same data always gives the same result.
 
 | Capability | Where | Rule summary |
 | --- | --- | --- |
-| Priority score (0–100) | `js/ai.js` `scoreTask` | Priority (8–40) + deadline urgency (6–35) + safety (+15) + statutory deadline (+20 within 3 working days, otherwise +10) + high service impact (+8) + large task due within 2 days (+6) + unblocks others (+6 each, max 12) + in progress (+5) − waiting on a dependency (−10). Recalculated on every change. Bands: Do now ≥ 70, Do next ≥ 50, Plan ≥ 30. |
+| Priority score (0–100) | `js/ai.js` `scoreTask` | Priority (8–40) + deadline urgency (6–35) + genuine safety hazard (+20) + mandatory/statutory compliance (+25 within 3 working days, otherwise +15) + long-term consequence (+12) or high service impact (+8) + tight feasibility margin / effort (+5 to +6) + unblocks others (+6 each, max 12) + in progress (+5) − waiting on dependency (−10). Repeat complaints award 0 points. Proactively flags impossible scheduling conflicts when free hours before deadline are insufficient. Recalculated on every change. Bands: Do now ≥ 70, Do next ≥ 50, Plan ≥ 30. |
+| Feasibility check | `js/ai.js` `checkTaskFeasibility` | Calculates net working hours against Outlook meetings, lunch, and scheduled absences before the deadline. Flags impossible conflicts and tight buffers. |
 | Start-by deadline | `planner.js` `latestStart` | Works backwards from the deadline through the officer's free time to find the latest start. Raises a warning within 2 hours of it, and high risk if it has already passed. |
 | Smart reminders | `planner.js` `smartReminders` | Latest start minus a lead time: 60 min for safety work, 45 for “Do now”, 30 for “Do next”, otherwise 15. |
 | Schedule check | `planner.js` `checkPlan` | Flags blocks outside working hours, on unavailable days, overlapping meetings, lunch or other blocks, finishing after the deadline, starting before a dependency, unplanned work, overbooked days and out-of-priority order. |

@@ -275,9 +275,9 @@ function actionList(actions) {
   );
 }
 
-const QUESTIONS = {
-  officer: ['What should I work on first?', 'Can I finish everything today?', 'Plan tomorrow, prioritise inspections', 'Which deadlines are at risk?', 'How are my projects doing?', 'When am I free today?'],
-  supervisor: ['Who is overloaded?', 'Who has spare capacity?', 'What happens if Ravi is on MC?', 'Which deadlines are at risk?', 'Which projects are at risk?'],
+export const QUESTIONS = {
+  officer: ['What should I work on first?', 'Can I finish everything today?', 'Why is this task urgent?', 'Which deadlines are at risk?', 'Plan tomorrow, prioritise inspections', 'When am I free today?'],
+  supervisor: ['Who is overloaded?', 'Who has spare capacity?', 'What happens if Ravi is on MC?', 'Which deadlines are at risk?', 'What happens if an urgent lift breakdown occurs?'],
 };
 
 function renderPage(s) {
@@ -345,7 +345,7 @@ export default {
   id: 'insights',
   title: 'AI Insights',
   icon: 'sparkles',
-  roles: ['officer', 'supervisor'],
+  roles: ['team_member', 'manager', 'officer', 'supervisor'],
   render: renderPage,
   actions: {
     'ins-period': (el) => {
