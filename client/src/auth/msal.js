@@ -1,4 +1,4 @@
-import { EventType, PublicClientApplication } from '@azure/msal-browser'
+import { EventType, InteractionRequiredAuthError, PublicClientApplication } from '@azure/msal-browser'
 
 const env = import.meta.env
 const clientId = env.VITE_ENTRA_CLIENT_ID
@@ -11,6 +11,20 @@ export const authConfigured = Boolean(clientId && tenantId)
 export const loginRequest = {
   scopes: ['openid', 'profile', 'User.Read'],
   prompt: 'select_account',
+}
+
+// The scope exposed under "Expose an API" in the app registration. Tokens for it are what the Express API accepts.
+const apiScope = env.VITE_API_SCOPE || `api://${clientId}/access_as_user`
+
+// Returns an access token for the SyncAI API, sending the user to Microsoft only if consent or sign-in is needed.
+export async function getApiToken(instance, account) {
+  const request = { scopes: [apiScope], account }
+  try {
+    return (await instance.acquireTokenSilent(request)).accessToken
+  } catch (err) {
+    if (err instanceof InteractionRequiredAuthError) await instance.acquireTokenRedirect(request)
+    throw err
+  }
 }
 
 export async function createMsalInstance() {
