@@ -28,6 +28,8 @@ export function loadState() {
     storage.notice = 'Browser storage is unavailable, so changes will not be kept after you close this tab.';
   }
   if (saved && saved.version === DATA_VERSION && saved.seededFor === TODAY) {
+    if (saved.role === 'officer') saved.role = 'team_member';
+    else if (saved.role === 'supervisor' || saved.role === 'hq') saved.role = 'manager';
     state = saved;
   } else {
     state = createSeedState();
@@ -90,11 +92,15 @@ export function logActivity(s, text, actor) {
 
 // ----- selectors -----
 
-export const isSupervisor = (s) => s.role === 'supervisor';
+export const isManager = (s) => s.role === 'manager' || s.role === 'supervisor';
+export const isSupervisor = isManager;
+export const isTeamMember = (s) => s.role === 'team_member' || s.role === 'officer';
+export const isAdmin = (s) => s.role === 'admin';
 export const isHQ = (s) => s.role === 'hq';
 
 export function actorName(s) {
-  return isSupervisor(s) ? s.supervisor.name : getOfficer(s, s.currentOfficerId).name;
+  if (isAdmin(s)) return s.admin?.name || 'Administrator';
+  return isManager(s) ? s.supervisor.name : (getOfficer(s, s.currentOfficerId)?.name || 'Property Officer');
 }
 
 export function getOfficer(s, id) {
@@ -115,9 +121,10 @@ export function openTasksFor(s, officerId) {
   return s.tasks.filter((t) => t.ownerId === officerId && isOpen(t));
 }
 
-/** Tasks the current role is allowed to see. Officers only see their own. */
+/** Tasks the current role is allowed to see. Officers only see their own. Admin has no operational task list by default. */
 export function visibleTasks(s) {
-  return isSupervisor(s) ? s.tasks : s.tasks.filter((t) => t.ownerId === s.currentOfficerId);
+  if (isAdmin(s)) return [];
+  return isManager(s) ? s.tasks : s.tasks.filter((t) => t.ownerId === s.currentOfficerId);
 }
 
 export function meetingsFor(s, officerId, date) {

@@ -98,13 +98,20 @@ const matchesBoost = (t, boost) => {
 /** Order tasks for a strategy while keeping dependencies ahead of dependants. */
 function orderTasks(s, tasks, opts = {}) {
   const strategy = opts.strategy || 'balanced';
-  // Balanced: "Do now" work (score 70+) first, then earliest deadline day,
-  // then score, so a high-scoring task due later never pushes a task due
-  // today past its deadline.
-  const urgentToday = (x) => x.score >= 70 && datePart(x.t.due) <= TODAY;
+  // Balanced: Genuine safety work & "Do now" work first, then earliest deadline day,
+  // prioritizing mandatory/statutory deadlines so non-statutory work cannot delay compliance,
+  // then AI score.
+  const urgentToday = (x) => (x.t.safety || x.score >= 70) && datePart(x.t.due) <= TODAY;
+  const isMandatory = (x) => (x.t.statutory ? 1 : 0);
   const balanced = (a, b) =>
-    urgentToday(b) - urgentToday(a) || datePart(a.t.due).localeCompare(datePart(b.t.due)) || b.score - a.score || a.t.due.localeCompare(b.t.due);
-  const cmp = strategy === 'deadline' ? (a, b) => a.t.due.localeCompare(b.t.due) || b.score - a.score : balanced;
+    urgentToday(b) - urgentToday(a) ||
+    datePart(a.t.due).localeCompare(datePart(b.t.due)) ||
+    isMandatory(b) - isMandatory(a) ||
+    b.score - a.score ||
+    a.t.due.localeCompare(b.t.due);
+  const cmp = strategy === 'deadline'
+    ? (a, b) => isMandatory(b) - isMandatory(a) || a.t.due.localeCompare(b.t.due) || b.score - a.score
+    : balanced;
   let scored = tasks
     .map((t) => {
       const boosted = matchesBoost(t, opts.boost);
@@ -238,11 +245,22 @@ export function buildSchedule(s, officerId, days = horizonDays(), opts = {}) {
 
     const dueDay = dayIndex(t.due, days);
     if (need > 0) {
+      const isMandatory = !!t.statutory;
       const reason =
         dueDay === Infinity
           ? `Not enough free time this week — due ${fmtDue(t.due)}, can be planned later.`
+          : isMandatory
+          ? `Impossible scheduling conflict: statutory compliance deadline (${fmtDue(t.due)}) cannot be met with current workload.`
           : `Not enough free time before the deadline (${fmtDue(t.due)}).`;
-      unscheduled.push({ taskId: t.id, score, reason, beyondHorizon: dueDay === Infinity });
+      unscheduled.push({
+        taskId: t.id,
+        score,
+        reason,
+        beyondHorizon: dueDay === Infinity,
+        isMandatory,
+        hasSafetyRisk: !!t.safety,
+        conflict: dueDay !== Infinity ? reason : null,
+      });
       continue;
     }
 
@@ -260,8 +278,15 @@ export function buildSchedule(s, officerId, days = horizonDays(), opts = {}) {
     const t = getTask(s, taskId);
     if (!t) continue;
     const finishAt = dt(days[f.day], fromMin(f.min));
-    if (t.due < NOW) warnings.push({ taskId, type: 'overdue', message: `Already overdue (was due ${fmtDue(t.due)}).` });
-    else if (finishAt > t.due) warnings.push({ taskId, type: 'late', message: `Earliest finish ${fmtDue(finishAt)} is after the deadline (${fmtDue(t.due)}).` });
+    if (t.due < NOW) {
+      warnings.push({ taskId, type: 'overdue', message: `Already overdue (was due ${fmtDue(t.due)}).` });
+    } else if (finishAt > t.due) {
+      if (t.statutory) {
+        warnings.push({ taskId, type: 'mandatory_breach', message: `Mandatory deadline conflict: statutory obligation finishes at ${fmtDue(finishAt)}, violating deadline (${fmtDue(t.due)}).` });
+      } else {
+        warnings.push({ taskId, type: 'late', message: `Earliest finish ${fmtDue(finishAt)} is after the deadline (${fmtDue(t.due)}).` });
+      }
+    }
   }
 
   blocks.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
@@ -344,8 +369,12 @@ export function assessRisk(s, t) {
 
   const un = sch.unscheduled.find((u) => u.taskId === t.id);
   if (un && !un.beyondHorizon) raise('high', un.reason);
-  const late = sch.warnings.find((w) => w.taskId === t.id && w.type === 'late');
+  const late = sch.warnings.find((w) => w.taskId === t.id && (w.type === 'late' || w.type === 'mandatory_breach'));
   if (late) raise('high', late.message);
+
+  if (t.statutory && level !== 'none') {
+    reasons.unshift('Statutory compliance obligation — mandatory deadline cannot slip.');
+  }
 
   const fin = plannedFinish(s, t);
   if (fin && !late && t.due >= NOW && datePart(fin) === dueDate) {
@@ -537,7 +566,13 @@ export function checkPlan(s, officerId, blocks) {
     for (const o of sorted.slice(i + 1)) {
       if (o.date === b.date && overlap(iv, { start: toMin(o.start), end: toMin(o.end) }) > 0) add('danger', b.id, t.id, `“${t.title}” overlaps another planned block.`);
     }
-    if (t.due >= NOW && dt(b.date, b.end) > t.due) add('danger', b.id, t.id, `“${t.title}” is planned to finish after its deadline (${fmtDue(t.due)}).`);
+    if (t.due >= NOW && dt(b.date, b.end) > t.due) {
+      if (t.statutory) {
+        add('danger', b.id, t.id, `Mandatory deadline breach: “${t.title}” finishes after statutory deadline (${fmtDue(t.due)}). Statutory deadlines cannot slip.`);
+      } else {
+        add('danger', b.id, t.id, `“${t.title}” is planned to finish after its deadline (${fmtDue(t.due)}).`);
+      }
+    }
     for (const depId of t.dependsOn) {
       const dep = getTask(s, depId);
       if (dep && isOpen(dep) && lastEnd[depId] && lastEnd[depId] > dt(b.date, b.start)) add('warning', b.id, t.id, `“${t.title}” starts before “${dep.title}” is planned to finish.`);

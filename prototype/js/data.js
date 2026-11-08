@@ -3,7 +3,7 @@
 
 import { TODAY, workDay, horizonDays, dt } from './time.js';
 
-export const DATA_VERSION = 8;
+export const DATA_VERSION = 9;
 
 export const CATEGORIES = [
   'Inspection',
@@ -145,6 +145,7 @@ function tasks() {
       source: extra.source || 'SyncAI',
       safety: !!extra.safety,
       statutory: !!extra.statutory,
+      consequence: extra.consequence || null,
       complaints: extra.complaints || 0,
       impact: extra.impact || 'medium',
       createdAt: extra.createdAt || dt(workDay(-2), '09:00'),
@@ -155,27 +156,27 @@ function tasks() {
     });
 
   // Aisyah Rahman (o1) — the demo officer
-  T('t101', 'o1', 'Lift inspection — Blk 208 (Lifts A & B)', 'Inspection', 'High', TODAY, '12:00', 1.5, { safety: true, location: 'Blk 208', source: 'Planner', impact: 'high', description: 'Quarterly safety inspection following two resident reports of jerky stops.' });
+  T('t101', 'o1', 'Lift inspection — Blk 208 (Lifts A & B)', 'Inspection', 'High', TODAY, '12:00', 1.5, { safety: true, location: 'Blk 208', source: 'Planner', impact: 'high', consequence: 'Deferred inspection risks passenger entrapment and regulatory stop-work notice under BCA lift regulations.', description: 'Quarterly safety inspection following two resident reports of jerky stops.' });
   T('t102', 'o1', 'Review CleanPro monthly contractor report', 'Contractor', 'Medium', TODAY, '17:00', 1.5, { source: 'To Do', location: 'Office', description: 'Check KPI attainment and penalty items before the coordination meeting.' });
-  T('t103', 'o1', 'Site check: ceiling seepage at Blk 211 #05-12', 'Inspection', 'High', TODAY, '17:00', 1, { source: 'Outlook', location: 'Blk 211', impact: 'high', description: 'Flagged email from resident. Determine if the source is the unit above or common pipe.' });
+  T('t103', 'o1', 'Site check: ceiling seepage at Blk 211 #05-12', 'Inspection', 'High', TODAY, '17:00', 1, { source: 'Outlook', location: 'Blk 211', impact: 'high', consequence: 'Unchecked ceiling seepage penetrates structural slab causing concrete spalling and costly emergency repair.', description: 'Flagged email from resident. Determine if the source is the unit above or common pipe.' });
   T('t104', 'o1', 'Resident follow-up call: Blk 211 seepage', 'Resident Feedback', 'Medium', workDay(1), '12:00', 0.75, { dependsOn: ['t103'], location: 'Phone', impact: 'high' });
   T('t105', 'o1', 'Inspect playground equipment — Blk 215', 'Inspection', 'Medium', workDay(1), '17:00', 2, { safety: true, source: 'Planner', location: 'Blk 215 playground' });
   T('t106', 'o1', 'Verify corridor cleaning complaint — Blk 209', 'Cleaning', 'Medium', workDay(2), '17:00', 0.75, { location: 'Blk 209', complaints: 6, description: 'Six calls this week, mostly from one resident. Verify on site; the number of calls alone does not make it urgent.' });
   T('t107', 'o1', 'Compile common-area lighting defect summary', 'Admin', 'Low', workDay(3), '17:00', 2, { source: 'To Do', location: 'Office' });
   T('t108', 'o1', 'Update estate maintenance log on SharePoint', 'Admin', 'Low', workDay(4), '17:00', 1, { location: 'Office' });
-  T('t111', 'o1', 'Submit funding claim — Blk 214 lighting upgrade', 'Admin', 'Medium', workDay(2), '12:00', 1.5, { statutory: true, source: 'SharePoint', location: 'Office', description: 'Approved project funding lapses if the claim misses the submission cut-off.' });
+  T('t111', 'o1', 'Submit funding claim — Blk 214 lighting upgrade', 'Admin', 'Medium', workDay(2), '12:00', 1.5, { statutory: true, source: 'SharePoint', location: 'Office', consequence: 'Missed cut-off date causes permanent forfeiture of Town Council co-funding grant.', description: 'Approved project funding lapses if the claim misses the submission cut-off.' });
   T('t109', 'o1', 'Lift inspection — Blk 212 (Lift C)', 'Inspection', 'High', workDay(3), '17:00', 1.5, { safety: true, location: 'Blk 212', source: 'Planner' });
   T('t110', 'o1', 'Inspect lift motor room access — Blk 213', 'Inspection', 'Medium', workDay(4), '17:00', 1, { safety: true, location: 'Blk 213', source: 'Planner' });
 
   // Marcus Tan (o2) — overloaded
   T('t201', 'o2', 'Submit defect rectification report — Blk 305', 'Admin', 'High', workDay(-1), '17:00', 1.5, { status: 'in_progress', spent: 0.5, location: 'Office', source: 'Planner' });
-  T('t202', 'o2', 'Inspect refuse chute hopper — Blk 310', 'Inspection', 'High', TODAY, '17:00', 1.5, { safety: true, location: 'Blk 310' });
+  T('t202', 'o2', 'Inspect refuse chute hopper — Blk 310', 'Inspection', 'High', TODAY, '17:00', 1.5, { safety: true, location: 'Blk 310', consequence: 'Defective refuse hopper allows smoke and toxic fumes to draft upward into residential corridors during chute fires.' });
   T('t209', 'o2', 'Verify handover defects list — Blk 315', 'Inspection', 'Medium', TODAY, '17:00', 1, { location: 'Blk 315', source: 'Planner' });
   T('t203', 'o2', 'Contractor site walk — repainting works Blk 312', 'Contractor', 'Medium', TODAY, '17:00', 2, { location: 'Blk 312', source: 'Outlook' });
   T('t204', 'o2', 'Respond to resident petition on car park lighting', 'Resident Feedback', 'Medium', workDay(1), '12:00', 1.5, { impact: 'high', location: 'Office' });
   T('t205', 'o2', 'Check cleaning contractor attendance records', 'Cleaning', 'Medium', workDay(1), '17:00', 1.5, { location: 'Office', source: 'To Do' });
   T('t206', 'o2', 'Prepare repainting progress update for committee', 'Admin', 'Medium', workDay(2), '12:00', 2.5, { dependsOn: ['t203'], location: 'Office' });
-  T('t207', 'o2', 'Inspect roof waterproofing works — Blk 318', 'Inspection', 'High', workDay(2), '17:00', 2, { safety: true, location: 'Blk 318' });
+  T('t207', 'o2', 'Inspect roof waterproofing works — Blk 318', 'Inspection', 'High', workDay(2), '17:00', 2, { safety: true, location: 'Blk 318', consequence: 'Delayed waterproofing allows rainwater ponding to corrode reinforcement rebar across top floor units.' });
   T('t208', 'o2', 'Verify pest control treatment — Blk 306 bin centre', 'Cleaning', 'Low', workDay(3), '17:00', 1, { location: 'Blk 306' });
 
   // Priya Nair (o3) — balanced, on leave later this week
@@ -186,9 +187,9 @@ function tasks() {
   T('t305', 'o3', 'Corridor obstruction check — Blk 206', 'Inspection', 'Medium', workDay(3), '12:00', 1, { safety: true, location: 'Blk 206' });
 
   // Daniel Lim (o4) — technical, busy
-  T('t401', 'o4', 'Lift fault investigation — Blk 322 Lift C', 'Maintenance', 'Critical', TODAY, '13:00', 2.5, { safety: true, status: 'in_progress', spent: 0.5, location: 'Blk 322', impact: 'high' });
+  T('t401', 'o4', 'Lift fault investigation — Blk 322 Lift C', 'Maintenance', 'Critical', TODAY, '13:00', 2.5, { safety: true, status: 'in_progress', spent: 0.5, location: 'Blk 322', impact: 'high', consequence: 'Unresolved recurring lift fault leads to passenger entrapment escalation and statutory safety audit penalty.' });
   T('t402', 'o4', 'Review lift maintenance contractor logs', 'Contractor', 'Medium', TODAY, '17:00', 2.5, { location: 'Office', source: 'Planner' });
-  T('t403', 'o4', 'Electrical DB inspection — Blk 325', 'Inspection', 'High', workDay(1), '17:00', 2, { safety: true, statutory: true, location: 'Blk 325', description: 'Periodic electrical inspection required for compliance; the certificate expires at the end of the week.' });
+  T('t403', 'o4', 'Electrical DB inspection — Blk 325', 'Inspection', 'High', workDay(1), '17:00', 2, { safety: true, statutory: true, location: 'Blk 325', consequence: 'Expired electrical compliance certificate invalidates building fire insurance and violates EMA regulations.', description: 'Periodic electrical inspection required for compliance; the certificate expires at the end of the week.' });
   T('t404', 'o4', 'Water pump servicing follow-up — Blk 330', 'Maintenance', 'Medium', workDay(2), '17:00', 1.5, { location: 'Blk 330' });
   T('t405', 'o4', 'Joint inspection preparation pack', 'Admin', 'Low', workDay(2), '12:00', 1, { location: 'Office' });
 
@@ -310,9 +311,10 @@ export function createSeedState() {
   return {
     version: DATA_VERSION,
     seededFor: TODAY,
-    role: 'officer',
+    role: 'team_member',
     currentOfficerId: 'o1',
     supervisor: { id: 's1', name: 'Jennifer Ong', title: 'Estate Manager' },
+    admin: { id: 'a1', name: 'Alex Tan', title: 'System Administrator' },
     hq: { id: 'h1', name: 'Lim Wei Ling', title: 'EMS HQ · Estate Operations' },
     council: 'nv',
     settings: {

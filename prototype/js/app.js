@@ -1,7 +1,7 @@
 // SyncAI prototype shell: routing, navigation, sign-in gate and event
 // delegation. Pages are plain modules that return escaped HTML.
 
-import { loadState, getState, subscribe, update, storage, isSupervisor, isHQ, getOfficer, openTasksFor, isOpen } from './state.js';
+import { loadState, getState, subscribe, update, storage, isSupervisor, isAdmin, isHQ, getOfficer, openTasksFor, isOpen } from './state.js';
 import { COUNCILS } from './data.js';
 import { assessRisk } from './planner.js';
 import { TODAY, NOW, fmtDay, fmtTime } from './time.js';
@@ -23,15 +23,21 @@ import projects from './pages/projects.js';
 import hub from './pages/hub.js';
 import sources from './pages/sources.js';
 
-const PAGES = [hub, dashboard, tasks, projects, planner, team, insights, simulator, sources, settings];
-// Bottom tab bar on phones: the four most-used pages for each role, plus Menu.
-const TABS = { officer: ['dashboard', 'tasks', 'projects', 'planner'], supervisor: ['dashboard', 'tasks', 'projects', 'team'], hq: ['hub', 'sources'] };
-const TAB_LABEL = { dashboard: 'Home', tasks: 'Tasks', projects: 'Projects', planner: 'Planner', team: 'Team', hub: 'Overview', sources: 'Sources' };
+const PAGES = [dashboard, tasks, planner, team, insights, simulator, settings, projects, hub, sources];
+// Bottom tab bar on phones: the most-used pages for each role, plus Menu.
+const TABS = {
+  team_member: ['dashboard', 'tasks', 'planner'],
+  officer: ['dashboard', 'tasks', 'planner'],
+  manager: ['dashboard', 'tasks', 'planner', 'team'],
+  supervisor: ['dashboard', 'tasks', 'planner', 'team'],
+  admin: ['settings'],
+};
+const TAB_LABEL = { dashboard: 'Home', tasks: 'Tasks', planner: 'Planner', team: 'Team', settings: 'Settings', insights: 'Insights', simulator: 'What-If' };
 const NAV = [
-  { section: 'Workspace', ids: ['hub', 'dashboard', 'tasks', 'projects', 'planner'] },
-  { section: 'Team', ids: ['team', 'simulator'] },
-  { section: 'Intelligence', ids: ['insights'] },
-  { section: 'System', ids: ['sources', 'settings'] },
+  { section: 'Workspace', ids: ['dashboard', 'tasks', 'planner'] },
+  { section: 'Team Management', ids: ['team', 'simulator'] },
+  { section: 'Operational Intelligence', ids: ['insights'] },
+  { section: 'System & Administration', ids: ['settings'] },
 ];
 
 // Set by site/login.html. The portal always runs as the signed-in role; without one it sends you to sign in.
@@ -39,7 +45,9 @@ const SESSION_KEY = 'syncai.session';
 function readSession() {
   try {
     const role = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
-    return ['officer', 'supervisor', 'hq'].includes(role) ? role : null;
+    if (role === 'officer') return 'team_member';
+    if (role === 'supervisor' || role === 'hq') return 'manager';
+    return ['team_member', 'manager', 'admin'].includes(role) ? role : null;
   } catch {
     return null;
   }
@@ -50,7 +58,7 @@ let current = dashboard;
 const el = (id) => document.getElementById(id);
 const allowed = (page, s) => page.roles.includes(s.role);
 const pageTitle = (page, s) => (page.titleFor ? page.titleFor(s) : page.title);
-// Top bar and tab title can be more specific than the menu label, e.g. a project's name.
+// Top bar and tab title can be more specific than the menu label.
 const heading = (page, s) => page.headingFor?.(s) || pageTitle(page, s);
 
 function navCounts(s) {
@@ -76,29 +84,38 @@ function renderNav(s) {
         })}`;
     }),
   );
+  const tabsForRole = TABS[s.role] || TABS.team_member;
   render(
     el('tabbar'),
-    html`${TABS[s.role].map((id) => {
+    html`${tabsForRole.map((id) => {
       const p = PAGES.find((x) => x.id === id);
-      return html`<a href="#/${id}" ${p === current ? html`aria-current="page"` : ''}>${icon(p.icon, 20)}<span>${TAB_LABEL[id]}</span></a>`;
+      return html`<a href="#/${id}" ${p === current ? html`aria-current="page"` : ''}>${icon(p.icon, 20)}<span>${TAB_LABEL[id] || p.title}</span></a>`;
     })}<button data-action="nav-open" aria-controls="sidebar">${icon('menu', 20)}<span>Menu</span></button>`,
   );
-  const who = isHQ(s) ? s.hq : isSupervisor(s) ? s.supervisor : getOfficer(s, s.currentOfficerId);
+  const who = isAdmin(s)
+    ? (s.admin || { name: 'Alex Tan', title: 'System Administrator' })
+    : isSupervisor(s)
+    ? s.supervisor
+    : getOfficer(s, s.currentOfficerId) || s.officers[0];
+  const roleDisplay = isAdmin(s)
+    ? 'System Administrator'
+    : isSupervisor(s)
+    ? 'Estate Manager'
+    : who.title || 'Property Officer';
   render(
     el('sidebar-foot'),
-    html`<div class="sidebar-user">${avatar(who.name)}<div><strong>${who.name}</strong><span>${isHQ(s) ? 'EMS HQ' : isSupervisor(s) ? 'Supervisor' : who.title}</span></div></div>
+    html`<div class="sidebar-user">${avatar(who.name)}<div><strong>${who.name}</strong><span>${roleDisplay}</span></div></div>
       <button class="signout-btn" data-action="sign-out" aria-label="Sign out" title="Sign out">${icon('logout', 16)}<span class="nav-label">Sign out</span></button>`,
   );
 }
 
 function renderTopbar(s) {
-  const unread = isHQ(s) ? 0 : unreadCount(s);
+  const unread = isAdmin(s) ? 0 : unreadCount(s);
   render(
     el('topbar-title'),
-    html`<strong>${heading(current, s)}</strong><span>${isHQ(s) ? 'All Town Councils' : COUNCILS.find((c) => c.id === s.council).name} · Demo clock · ${fmtDay(TODAY)}, ${fmtTime(NOW.slice(11, 16))}</span>`,
+    html`<strong>${heading(current, s)}</strong><span>${COUNCILS.find((c) => c.id === s.council)?.name || 'Northvale Town Council'} · Demo clock · ${fmtDay(TODAY)}, ${fmtTime(NOW.slice(11, 16))}</span>`,
   );
-  const timer = isSupervisor(s) || isHQ(s) ? null : runningTimer(s, s.currentOfficerId);
-  // HQ sees roll-ups only, so it has no personal alerts or assistant.
+  const timer = isSupervisor(s) || isAdmin(s) ? null : runningTimer(s, s.currentOfficerId);
   render(
     el('topbar-actions'),
     html`${timer
@@ -109,29 +126,24 @@ function renderTopbar(s) {
           <button class="icon-btn sm" data-action="timer-stop" data-id="${timer.id}" aria-label="Stop timer for “${timer.title}”" title="Stop timer">${icon('stop', 14)}</button>
         </span>`
       : ''}<button class="icon-btn" data-action="search-open" aria-label="Search (Ctrl+K)" title="Search (Ctrl+K)">${icon('search', 18)}</button>
-    ${isHQ(s)
-      ? ''
-      : html`<button class="icon-btn bell" data-action="alerts-open" aria-label="Alerts, ${unread} unread" aria-controls="alerts">${icon('bell', 18)}${unread ? html`<span class="bell-count" aria-hidden="true">${unread > 9 ? '9+' : unread}</span>` : ''}</button>
-      <button class="btn btn-ai" data-action="assistant-open">${icon('sparkles', 16)}<span class="hide-sm">Ask SyncAI</span></button>`}`,
+      <button class="icon-btn bell" data-action="alerts-open" aria-label="Alerts, ${unread} unread" aria-controls="alerts">${icon('bell', 18)}${unread ? html`<span class="bell-count" aria-hidden="true">${unread > 9 ? '9+' : unread}</span>` : ''}</button>
+      <button class="btn btn-ai" data-action="assistant-open">${icon('sparkles', 16)}<span class="hide-sm">Ask SyncAI</span></button>`,
   );
   render(
     el('demo-banner'),
-    html`${icon('info', 14)}<span>Prototype · fictional sample data · AI is simulated with local rules · Microsoft 365 integrations are mock.${storage.notice ? ` ${storage.notice}` : ''}</span>`,
+    html`${icon('info', 14)}<span>Prototype for EM Services PS 12i · Fictional sample data · Configurable AI rules · Microsoft 365 integrations are simulated.${storage.notice ? ` ${storage.notice}` : ''}</span>`,
   );
 }
 
-const ROLE_NAME = { officer: 'Officer', supervisor: 'Supervisor', hq: 'EMS HQ' };
+const ROLE_NAME = { team_member: 'Team Member', manager: 'Manager', admin: 'Administrator', officer: 'Team Member', supervisor: 'Manager', hq: 'Manager' };
 
 function restricted(s) {
-  const hq = isHQ(s);
-  const who = current.roles.map((r) => ROLE_NAME[r]).join(' and ');
+  const who = current.roles.map((r) => ROLE_NAME[r] || r).join(' and ');
   return html`<section class="card restricted">${html`<div class="empty">
     <div class="empty-icon">${icon('lock', 28)}</div>
-    <h3>${hq ? 'Not available for HQ accounts' : `${who} access only`}</h3>
-    <p>${hq
-      ? `${current.title} shows individual officers' work. EMS HQ sees council roll-ups only.`
-      : `${current.title} is limited to ${who} accounts. Sign out and sign in with one of those accounts to view it.`}</p>
-    <a class="btn btn-primary" href="#/">${hq ? 'Back to HQ overview' : 'Back to dashboard'}</a>
+    <h3>${who} access only</h3>
+    <p>${current.title} is limited to ${who} accounts. Sign out and sign in with one of those accounts to view it.</p>
+    <a class="btn btn-primary" href="#/">Back to workspace</a>
   </div>`}</section>`;
 }
 

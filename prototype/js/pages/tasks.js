@@ -412,7 +412,7 @@ export default {
   title: 'My Tasks',
   titleFor: (s) => (isSupervisor(s) ? 'Team Tasks' : 'My Tasks'),
   icon: 'check-square',
-  roles: ['officer', 'supervisor'],
+  roles: ['team_member', 'manager', 'officer', 'supervisor'],
   render: renderPage,
   mount: (root) => mountKanban(root),
   actions: {

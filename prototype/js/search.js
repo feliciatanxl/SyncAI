@@ -1,10 +1,9 @@
-// Quick search (Ctrl+K / Cmd+K): pages, projects and tasks the signed-in role may see.
+// Quick search (Ctrl+K / Cmd+K): pages and tasks the signed-in role may see.
 
-import { isHQ, isOpen, visibleTasks } from './state.js';
+import { isOpen, visibleTasks } from './state.js';
 import { fmtDue } from './time.js';
 import { html, icon, render, openModal, closeModal } from './ui.js';
 import { openTaskDetail } from './pages/shared.js';
-import { visibleProjects } from './pages/projects.js';
 import { ctx } from './ctx.js';
 
 const LIMIT = 8;
@@ -13,16 +12,12 @@ function results(s, pages, q) {
   const needle = q.trim().toLowerCase();
   const match = (text) => !needle || text.toLowerCase().includes(needle);
   const out = pages.filter((p) => match(p.label)).map((p) => ({ kind: 'Page', icon: p.icon, label: p.label, go: () => ctx.navigate(p.id) }));
-  if (!isHQ(s)) {
-    visibleProjects(s)
-      .filter((p) => match(p.name))
-      .forEach((p) => out.push({ kind: 'Project', icon: 'folder', label: p.name, go: () => ctx.navigate(`projects/${p.id}`) }));
-    // Tasks only once the user types, so the empty list stays short.
-    if (needle)
-      visibleTasks(s)
-        .filter((t) => match(`${t.title} ${t.location} ${t.category}`))
-        .sort((a, b) => Number(!isOpen(a)) - Number(!isOpen(b)) || a.due.localeCompare(b.due)) // open work first
-        .forEach((t) => out.push({ kind: 'Task', icon: 'check-square', label: t.title, meta: `Due ${fmtDue(t.due)}`, go: () => openTaskDetail(t.id), keepModal: true }));
+  // Tasks only once the user types, so the empty list stays short.
+  if (needle) {
+    visibleTasks(s)
+      .filter((t) => match(`${t.title} ${t.location} ${t.category}`))
+      .sort((a, b) => Number(!isOpen(a)) - Number(!isOpen(b)) || a.due.localeCompare(b.due)) // open work first
+      .forEach((t) => out.push({ kind: 'Task', icon: 'check-square', label: t.title, meta: `Due ${fmtDue(t.due)}`, go: () => openTaskDetail(t.id), keepModal: true }));
   }
   return out.slice(0, LIMIT);
 }
@@ -33,8 +28,8 @@ export function openSearch(s, pages) {
     html`<header class="modal-head"><h2 id="modal-title">${icon('search', 18)} Search SyncAI</h2>
       <button class="icon-btn" data-action="modal-close" aria-label="Close">${icon('x')}</button></header>
     <div class="modal-body">
-      <label class="sr-only" for="qs-input">Search pages, projects and tasks</label>
-      <input class="input" id="qs-input" type="search" autocomplete="off" placeholder="Search pages, projects and tasks…" aria-controls="qs-results" aria-describedby="qs-hint" autofocus />
+      <label class="sr-only" for="qs-input">Search pages and tasks</label>
+      <input class="input" id="qs-input" type="search" autocomplete="off" placeholder="Search pages and tasks…" aria-controls="qs-results" aria-describedby="qs-hint" autofocus />
       <p class="muted small mt-sm" id="qs-hint">↑ ↓ to move · Enter to open · Esc to close</p>
       <ul class="qs-results" id="qs-results" aria-live="polite"></ul>
     </div>`,

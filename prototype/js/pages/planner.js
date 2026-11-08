@@ -584,7 +584,7 @@ export default {
   id: 'planner',
   title: 'Smart Planner',
   icon: 'calendar',
-  roles: ['officer', 'supervisor'],
+  roles: ['team_member', 'manager', 'officer', 'supervisor'],
   render: renderPage,
   mount: () => {
     if (ctx.pending === 'generate-plan') {

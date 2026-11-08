@@ -225,7 +225,7 @@ export default {
   id: 'team',
   title: 'Team Workload',
   icon: 'users',
-  roles: ['supervisor'],
+  roles: ['manager', 'supervisor'],
   render: renderPage,
   actions: {
     'team-select': (el) => {
