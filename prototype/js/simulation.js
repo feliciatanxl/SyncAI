@@ -236,6 +236,89 @@ export function runSimulation(base, sc) {
   recs.forEach((r) => applyReassignment(withActions, r));
   bumpRev(withActions);
 
+  // 1. Protected mandatory deadlines
+  const protectedMandatory = base.tasks
+    .filter((t) => t.statutory && isOpen(t))
+    .map((t) => {
+      const riskAfter = assessRisk(withActions, t);
+      return {
+        task: t,
+        officer: officerName(withActions, t.ownerId),
+        protected: riskAfter.level !== 'high',
+        deadline: fmtDue(t.due),
+        status: riskAfter.level === 'high' ? 'At risk — requires supervisor escalation' : 'Protected on time',
+      };
+    });
+
+  // 2. Mitigated long-term consequences
+  const consequencesMitigated = [];
+  for (const t of sim.tasks.filter((x) => x.consequence && isOpen(x))) {
+    const riskNoAction = assessRisk(sim, t);
+    const riskAfter = assessRisk(withActions, t);
+    if (riskNoAction.level === 'high' && riskAfter.level !== 'high') {
+      consequencesMitigated.push({
+        taskId: t.id,
+        title: t.title,
+        consequence: t.consequence,
+        fromOwner: officerName(sim, t.ownerId),
+        toOwner: officerName(withActions, t.ownerId),
+        explanation: `Prevented consequence: “${t.consequence}” by reallocating to an officer with capacity.`,
+      });
+    }
+  }
+
+  // 3. Unresolved conflicts that cannot be solved automatically
+  const unresolvedConflicts = withActions.tasks
+    .filter(isOpen)
+    .map((t) => ({ t, r: assessRisk(withActions, t) }))
+    .filter(({ r }) => r.level === 'high')
+    .map(({ t, r }) => ({
+      taskId: t.id,
+      title: t.title,
+      owner: officerName(withActions, t.ownerId),
+      due: fmtDue(t.due),
+      isMandatory: !!t.statutory,
+      hasSafety: !!t.safety,
+      reason: r.reasons[0],
+      escalationAdvice: t.statutory
+        ? 'Statutory obligation: arrange emergency contractor or supervisor intervention immediately.'
+        : t.due < NOW
+        ? 'Overdue: agree a revised completion date with resident or contractor.'
+        : 'Team capacity exhausted: consider activating standby vendor or overtime.',
+    }));
+
+  // 4. Detailed task decisions (why moved, retained, escalated)
+  const taskDecisions = {
+    moved: recs.map((r) => {
+      const t = getTask(sim, r.taskId);
+      return {
+        taskId: r.taskId,
+        title: t?.title || 'Task',
+        action: 'Moved',
+        from: officerName(sim, r.fromId),
+        to: officerName(sim, r.toId),
+        why: `Moved: ${r.why}. ${officerName(sim, r.toId)} ${r.reasons.join(', ')}.`,
+      };
+    }),
+    retained: sim.tasks
+      .filter((t) => isOpen(t) && (t.safety || t.priority === 'Critical') && !recs.some((r) => r.taskId === t.id))
+      .slice(0, 4)
+      .map((t) => ({
+        taskId: t.id,
+        title: t.title,
+        action: 'Retained',
+        owner: officerName(sim, t.ownerId),
+        why: `Retained: ${t.priority === 'Critical' ? 'Critical priority' : 'Safety inspection'} kept with ${officerName(sim, t.ownerId)} to maintain operational continuity.`,
+      })),
+    escalated: unresolvedConflicts.map((u) => ({
+      taskId: u.taskId,
+      title: u.title,
+      action: 'Escalated',
+      owner: u.owner,
+      why: `Escalated: ${u.reason} (${u.escalationAdvice})`,
+    })),
+  };
+
   return {
     scenario: sc,
     sim,
@@ -247,6 +330,10 @@ export function runSimulation(base, sc) {
     after: snapshot(withActions),
     afterState: withActions,
     moved: movedTasks(base, withActions),
+    protectedMandatory,
+    consequencesMitigated,
+    unresolvedConflicts,
+    taskDecisions,
   };
 }
 

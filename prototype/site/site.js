@@ -4,9 +4,11 @@
 // shortcut: demo password lives in client code, fine for a mock with fictional data; replace with Entra ID before any real deployment.
 const DEMO_PASSWORD = 'SyncAI-demo1';
 const DEMO_ACCOUNTS = {
-  'officer@syncai.demo': 'officer',
-  'supervisor@syncai.demo': 'supervisor',
-  'hq@syncai.demo': 'hq',
+  'member@syncai.demo': 'team_member',
+  'officer@syncai.demo': 'team_member',
+  'manager@syncai.demo': 'manager',
+  'supervisor@syncai.demo': 'manager',
+  'admin@syncai.demo': 'admin',
 };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PW_RULES = {

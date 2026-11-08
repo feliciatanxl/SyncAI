@@ -1,11 +1,10 @@
 import { explainScore, scoreTask } from '../ai.js';
 import { analyseOfficer, assessRisk, meetingConflicts, schedule, smartReminders, teamAnalysis } from '../planner.js';
-import { getOfficer, getTask, isOpen, isSupervisor, openTasksFor, officerName, update, absenceLabel } from '../state.js';
+import { getOfficer, getTask, isOpen, isSupervisor, isAdmin, openTasksFor, officerName, update, absenceLabel } from '../state.js';
 import { TODAY, NOW, datePart, fmtDay, fmtDue, fmtHours, fmtTime, fmtLongDay, relDay, timePart, toMin } from '../time.js';
 import { html, icon, avatar, priorityBadge, riskBadge, capacityBadge, meter, pct, emptyState, sourceTag, toast, limitTo, showMore } from '../ui.js';
 import { ctx } from '../ctx.js';
 import { recCard, scorePill, visibleRecs } from './shared.js';
-import { healthBadge, rankedProjects } from './projects.js';
 
 const greeting = () => {
   const h = toMin(NOW.slice(11, 16)) / 60;
@@ -202,29 +201,28 @@ function officerView(s) {
       ${remindersCard(s, me)}
     </div>
 
-    <div class="mt">${projectsCard(s, 'My projects')}</div>`;
+    ${mandatoryCardOfficer(s, me)}`;
 }
 
-function projectsCard(s, title) {
-  const list = rankedProjects(s).filter((x) => x.h.level !== 'done');
-  if (!list.length) return '';
-  const sup = isSupervisor(s);
-  return html`<section class="card" aria-labelledby="pj-h">
-    <div class="card-head"><h2 id="pj-h">${title} <span class="tab-count">${list.length}</span></h2><a class="btn btn-subtle btn-sm" href="#/projects">All projects</a></div>
-    <div class="card-body proj-list">${list.slice(0, 4).map(({ p, h }) => {
-      const done = h.tasks.length - h.open.length;
-      // Officers only see reasons that don't name other officers.
-      const reason = h.reasons.find((r) => sup || !r.personal);
-      return html`<a class="proj-item" href="#/projects/${p.id}" style="--proj:${p.color}">
-        <span class="proj-top"><strong class="proj-name">${p.name}</strong>${healthBadge(h.level)}</span>
-        <span class="meta"><span>${icon('calendar', 12)}Due ${fmtDay(p.due)}</span><span>${icon('check-square', 12)}${done} of ${h.tasks.length} tasks done</span></span>
-        <span class="proj-bar" role="img" aria-label="${pct(h.progress)} of the work done, ${pct(h.expected)} of the time used">
-          <span class="proj-fill" style="width:${Math.min(h.progress, 1) * 100}%"></span><i style="left:${Math.min(h.expected, 1) * 100}%" aria-hidden="true"></i>
-        </span>
-        <span class="proj-stats small"><span><strong>${pct(h.progress)}</strong> done</span><span class="muted">${pct(h.expected)} of time used</span></span>
-        ${reason && h.level !== 'on-track' ? html`<span class="proj-why small">${icon('info', 12)}${reason.text}</span>` : ''}
-      </a>`;
-    })}</div>
+function mandatoryCardOfficer(s, me) {
+  const open = openTasksFor(s, me).filter((t) => t.statutory);
+  if (!open.length) return '';
+  return html`<section class="card mt" aria-labelledby="mand-h">
+    <div class="card-head">
+      <h2 id="mand-h">${icon('shield', 16)}Upcoming Mandatory Obligations <span class="tab-count">${open.length}</span></h2>
+      <span class="badge badge-warning">Statutory Constraints · Cannot Slip</span>
+    </div>
+    <div class="card-body flush"><ul class="list">
+      ${open.map((t) => html`<li class="list-item">
+        <span class="stat-icon warning">${icon('calendar', 14)}</span>
+        <div class="grow">
+          <button class="task-title title" data-action="task-view" data-id="${t.id}">${t.title}</button>
+          <div class="meta"><span>Due ${fmtDue(t.due)}</span><span>Effort ${fmtHours(t.effort)}</span>${priorityBadge(t.priority)}</div>
+          ${t.description ? html`<p class="small muted mt-sm">${t.description}</p>` : ''}
+          ${t.consequence ? html`<p class="why mt-sm">${icon('info', 12)}<span>${t.consequence}</span></p>` : ''}
+        </div>
+      </li>`)}
+    </ul></div>
   </section>`;
 }
 
@@ -305,21 +303,113 @@ function supervisorView(s) {
           </div>
         </section>
 
-    <div class="mt">${projectsCard(s, 'Projects')}</div>
+    ${statutoryCardSupervisor(s)}
         <section class="card mt" aria-labelledby="act-h">
-          <div class="card-head"><h2 id="act-h">Recent activity</h2></div>
+          <div class="card-head"><h2 id="act-h">Recent activity &amp; approvals</h2></div>
           <div class="card-body flush">
             <ul class="activity">${s.activity.slice(0, 5).map((x) => html`<li><time>${fmtTime(x.at.slice(11, 16))}</time><span><strong>${x.actor}</strong> · ${x.text}</span></li>`)}</ul>
           </div>
         </section>`;
 }
 
+function statutoryCardSupervisor(s) {
+  const mand = s.tasks.filter((t) => t.statutory && isOpen(t)).sort((a, b) => a.due.localeCompare(b.due));
+  if (!mand.length) return '';
+  return html`<section class="card mt" aria-labelledby="mand-sup-h">
+    <div class="card-head">
+      <h2 id="mand-sup-h">${icon('shield', 16)}Team Statutory &amp; Compliance Obligations <span class="tab-count">${mand.length}</span></h2>
+      <span class="badge badge-warning">Mandatory Constraints · Non-Negotiable</span>
+    </div>
+    <div class="card-body flush"><ul class="list">
+      ${mand.map((t) => {
+        const risk = assessRisk(s, t);
+        return html`<li class="list-item">
+          <span class="stat-icon ${risk.level === 'high' ? 'danger' : 'warning'}">${icon('shield', 14)}</span>
+          <div class="grow">
+            <button class="task-title title" data-action="task-view" data-id="${t.id}">${t.title}</button>
+            <div class="meta"><span>Assigned: <strong>${officerName(s, t.ownerId)}</strong></span><span>Due ${fmtDue(t.due)}</span><span>Effort ${fmtHours(t.effort)}</span>${riskBadge(risk.level)}</div>
+            ${t.consequence ? html`<p class="why mt-sm">${icon('info', 12)}<span>${t.consequence}</span></p>` : ''}
+          </div>
+          <button class="btn btn-sm btn-subtle" data-action="task-view" data-id="${t.id}">View</button>
+        </li>`;
+      })}
+    </ul></div>
+  </section>`;
+}
+
+function adminDashboardView(s) {
+  return html`
+    <div class="page-head">
+      <div>
+        <h1>System Administration</h1>
+        <p>SyncAI Prototype · Role and demo access control demonstration.</p>
+      </div>
+      <div class="actions">
+        <a class="btn btn-primary" href="#/settings">${icon('settings', 16)}System Settings</a>
+      </div>
+    </div>
+
+    <div class="notice notice-info mt">
+      ${icon('info', 16)}<span><strong>Lightweight Demonstration:</strong> The Administrator profile demonstrates user approvals and role management. Operational estate views (Property Officer tasks and supervisor schedules) are segregated by default.</span>
+    </div>
+
+    <div class="grid grid-3 mt">
+      <div class="card stat">
+        <div class="stat-label"><span class="stat-icon">${icon('user', 16)}</span>Demo Accounts</div>
+        <div class="stat-value">3</div>
+        <div class="stat-foot">Property Officer, Manager, Admin</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-label"><span class="stat-icon ai">${icon('shield', 16)}</span>Role Separation</div>
+        <div class="stat-value">Active</div>
+        <div class="stat-foot">RBAC access policy enforced</div>
+      </div>
+      <div class="card stat">
+        <div class="stat-label"><span class="stat-icon success">${icon('check', 16)}</span>Approvals Engine</div>
+        <div class="stat-value">Enabled</div>
+        <div class="stat-foot">Power Automate simulation ready</div>
+      </div>
+    </div>
+
+    <div class="grid grid-2 mt">
+      <section class="card" aria-labelledby="acc-h">
+        <div class="card-head"><h2 id="acc-h">Fictional Demo Identities</h2></div>
+        <div class="card-body">
+          <ul class="list">
+            <li class="list-item">
+              ${avatar('Aisyah Rahman')}
+              <div class="grow"><strong>Aisyah Rahman</strong><div class="meta"><span>Property Officer (Team Member)</span><span><code>member@syncai.demo</code></span></div></div>
+              <span class="badge badge-brand">Operational</span>
+            </li>
+            <li class="list-item">
+              ${avatar('Jennifer Ong')}
+              <div class="grow"><strong>Jennifer Ong</strong><div class="meta"><span>Estate Manager (Manager)</span><span><code>manager@syncai.demo</code></span></div></div>
+              <span class="badge badge-ai">Supervisory</span>
+            </li>
+            <li class="list-item">
+              ${avatar('Alex Tan')}
+              <div class="grow"><strong>Alex Tan</strong><div class="meta"><span>System Administrator (Admin)</span><span><code>admin@syncai.demo</code></span></div></div>
+              <span class="badge badge-neutral">Administration</span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="audit-h">
+        <div class="card-head"><h2 id="audit-h">Recent Activity &amp; Audit Log</h2></div>
+        <div class="card-body flush">
+          <ul class="activity">${s.activity.slice(0, 6).map((x) => html`<li><time>${fmtTime(x.at.slice(11, 16))}</time><span><strong>${x.actor}</strong> · ${x.text}</span></li>`)}</ul>
+        </div>
+      </section>
+    </div>`;
+}
+
 export default {
   id: 'dashboard',
   title: 'Dashboard',
   icon: 'dashboard',
-  roles: ['officer', 'supervisor'],
-  render: (s) => (isSupervisor(s) ? supervisorView(s) : officerView(s)),
+  roles: ['team_member', 'manager', 'admin', 'officer', 'supervisor'],
+  render: (s) => (isAdmin(s) ? adminDashboardView(s) : isSupervisor(s) ? supervisorView(s) : officerView(s)),
   actions: {
     dismiss: (el) => update((st) => st.dismissed.push(el.dataset.key)),
     'reminder-toggle': (el) => {

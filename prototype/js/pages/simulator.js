@@ -20,10 +20,10 @@ const view = {
 const step = (n) => html`<span class="step-num" aria-hidden="true">${n}</span>`;
 
 const PRESETS = {
-  mc: { label: 'Officer on MC', desc: 'One officer is unavailable for 2 working days.', icon: 'user', form: { absent: ['o4'], absenceType: 'mc', absenceDays: 2, incident: '', extraOn: false } },
-  incident: { label: 'Urgent lift breakdown', desc: 'A lift fault needs urgent attention today.', icon: 'zap', form: { absent: [], incident: 'lift', incidentAssignee: 'auto', extraOn: false } },
-  extra: { label: 'Extra high-priority assignment', desc: 'A new 4-hour task due tomorrow lands on one officer.', icon: 'plus', form: { absent: [], incident: '', extraOn: true, extra: { ...DEFAULT_EXTRA, assignee: 'o1' } } },
-  multi: { label: 'Two officers unavailable', desc: 'Two officers are on leave for a day.', icon: 'users', form: { absent: ['o2', 'o4'], absenceType: 'leave', absenceDays: 1, incident: '', extraOn: false } },
+  incident: { label: 'Urgent lift breakdown (Safety)', desc: 'Safety incident: resident trapped. Tests emergency insertion while protecting statutory work.', icon: 'zap', form: { absent: [], incident: 'lift', incidentAssignee: 'auto', extraOn: false } },
+  mc: { label: 'Officer on MC (Absence)', desc: 'Daniel on MC for 2 days. Tests capacity absorption and skill-matched reassignment.', icon: 'user', form: { absent: ['o4'], absenceType: 'mc', absenceDays: 2, incident: '', extraOn: false } },
+  extra: { label: 'Extra compliance assignment', desc: 'New 4-hour task due tomorrow. Tests schedule feasibility before committing.', icon: 'plus', form: { absent: [], incident: '', extraOn: true, extra: { ...DEFAULT_EXTRA, assignee: 'o1' } } },
+  multi: { label: 'Two officers unavailable (Capacity stress)', desc: 'Marcus and Daniel unavailable. Tests capacity exhaustion and honest escalation warnings.', icon: 'users', form: { absent: ['o2', 'o4'], absenceType: 'leave', absenceDays: 1, incident: '', extraOn: false } },
 };
 
 function scenarioPicker() {
@@ -163,7 +163,7 @@ function results(s) {
     </section>
 
     <section class="card" aria-labelledby="rr-h">
-      <div class="card-head"><h2 id="rr-h">${step(4)}Recommended reassignments <span class="sub">untick any you don't want to apply</span></h2></div>
+      <div class="card-head"><h2 id="rr-h">${step(4)}Recommended reassignments & task decisions <span class="sub">untick any you don't want to apply</span></h2></div>
       <div class="card-body">
         ${r.recs.length
           ? r.recs.map((rec) => {
@@ -175,13 +175,15 @@ function results(s) {
                     <span class="meta"><span>${officerName(sim, rec.fromId)}</span>${icon('arrow', 12)}<strong>${officerName(sim, rec.toId)}</strong><span>· ${fmtHours(t.effort)}</span>${rec.alternatives.length ? html`<span>· Alternatives: ${rec.alternatives.join(', ')}</span>` : ''}</span></span>
                   <span class="badge badge-ai">Fit ${rec.fit}</span>
                 </span>
-                <span class="why">${icon('info', 14)}<span>${rec.why} → ${rec.reasons.join(', ')}.</span></span>
+                <span class="why">${icon('info', 14)}<span><strong>Why moved:</strong> ${rec.why} → ${rec.reasons.join(', ')}.</span></span>
               </label>`;
             })
           : html`<p class="notice notice-success">${icon('check', 16)}No reassignments needed — remaining officers can absorb the change.</p>`}
       </div>
     </section>
 
+    ${protectedMandatoryCard(r)}
+    ${consequencesCard(r)}
     ${stillRisky(r)}
 
     <section class="card" aria-labelledby="mv-h">
@@ -216,24 +218,61 @@ function results(s) {
   </div>`;
 }
 
-/** High-risk work that no reassignment could fix — needs a human decision. */
+function protectedMandatoryCard(r) {
+  if (!r.protectedMandatory || !r.protectedMandatory.length) return '';
+  return html`<section class="card" aria-labelledby="pm-h">
+    <div class="card-head"><h2 id="pm-h">${icon('shield', 16)}Protected mandatory & compliance obligations <span class="sub">cannot slip under disruption</span></h2></div>
+    <div class="card-body flush"><ul class="list">
+      ${r.protectedMandatory.map((m) => html`<li class="list-item">
+        <span class="stat-icon ${m.protected ? 'success' : 'danger'}">${icon(m.protected ? 'check' : 'alert', 14)}</span>
+        <div class="grow">
+          <strong>${m.task.title}</strong>
+          <div class="meta"><span>Assigned: ${m.officer}</span><span>Due ${m.deadline}</span><span class="badge ${m.protected ? 'badge-success' : 'badge-danger'}">${m.status}</span></div>
+          ${m.task.description ? html`<p class="small muted mt-sm">${m.task.description}</p>` : ''}
+        </div>
+      </li>`)}
+    </ul></div>
+  </section>`;
+}
+
+function consequencesCard(r) {
+  if (!r.consequencesMitigated || !r.consequencesMitigated.length) return '';
+  return html`<section class="card" aria-labelledby="cq-h">
+    <div class="card-head"><h2 id="cq-h">${icon('sparkles', 16)}Mitigated long-term consequences <span class="sub">prevented by proactive replanning</span></h2></div>
+    <div class="card-body flush"><ul class="list">
+      ${r.consequencesMitigated.map((c) => html`<li class="list-item">
+        <span class="stat-icon success">${icon('shield', 14)}</span>
+        <div class="grow">
+          <strong>${c.title}</strong>
+          <div class="meta"><span>Reassigned: ${c.fromOwner} → ${c.toOwner}</span></div>
+          <p class="why mt-sm">${icon('info', 12)}<span>${c.explanation}</span></p>
+        </div>
+      </li>`)}
+    </ul></div>
+  </section>`;
+}
+
+/** High-risk work that no reassignment could fix — honest escalation warning. */
 function stillRisky(r) {
   const st = r.afterState;
   const items = r.after.highRisk.map((id) => getTask(st, id)).filter(Boolean);
   if (!items.length) return '';
   return html`<section class="card" aria-labelledby="sk-h">
-    <div class="card-head"><h2 id="sk-h">${icon('alert', 16)}Still at risk after SyncAI actions <span class="sub">needs a supervisor decision</span></h2></div>
-    <div class="card-body flush"><ul class="list">
-      ${items.map((t) => {
-        const risk = assessRisk(st, t);
-        return html`<li class="list-item" style="align-items:flex-start"><span class="stat-icon danger">${icon('alert', 14)}</span><div class="grow">
-          <strong>${t.title}</strong>
-          <div class="meta"><span>${officerName(st, t.ownerId)}</span><span>Due ${fmtDue(t.due)}</span><span>${fmtHours(remainingHours(t))} left</span>${priorityBadge(t.priority)}</div>
-          <p class="why mt-sm">${icon('info', 12)}<span>${risk.reasons[0]} ${t.due < NOW ? 'Agree a new completion date and record why it slipped.' : 'No available officer can absorb it on time.'}</span></p>
-          <p class="small muted mt-sm">Options: extend the deadline with the resident or contractor, activate the term contractor / standby team, or approve overtime.</p>
-        </div></li>`;
-      })}
-    </ul></div>
+    <div class="card-head"><h2 id="sk-h">${icon('alert', 16)}Still at risk after SyncAI actions <span class="sub">requires human decision</span></h2></div>
+    <div class="card-body flush">
+      <div class="notice notice-warning" style="margin:12px 16px">${icon('alert', 14)}<span><strong>Operational Notice:</strong> Do not assume all scheduling conflicts can be solved automatically. When team capacity is exhausted, SyncAI flags unresolved work for supervisor escalation rather than hiding constraints.</span></div>
+      <ul class="list">
+        ${items.map((t) => {
+          const risk = assessRisk(st, t);
+          return html`<li class="list-item" style="align-items:flex-start"><span class="stat-icon danger">${icon('alert', 14)}</span><div class="grow">
+            <strong>${t.title}</strong>
+            <div class="meta"><span>${officerName(st, t.ownerId)}</span><span>Due ${fmtDue(t.due)}</span><span>${fmtHours(remainingHours(t))} left</span>${priorityBadge(t.priority)}${t.statutory ? html`<span class="badge badge-warning">Statutory</span>` : ''}</div>
+            <p class="why mt-sm">${icon('info', 12)}<span>${risk.reasons[0]} ${t.due < NOW ? 'Agree a new completion date and record why it slipped.' : 'No available officer has enough free capacity before deadline.'}</span></p>
+            <p class="small muted mt-sm"><strong>Recommended escalation:</strong> ${t.statutory ? 'Statutory deadline cannot slip: engage standby contractor or authorize overtime immediately.' : 'Contact resident to re-negotiate visit time or reassign lower-priority work.'}</p>
+          </div></li>`;
+        })}
+      </ul>
+    </div>
   </section>`;
 }
 
@@ -310,7 +349,7 @@ export default {
   id: 'simulator',
   title: 'What-If Simulator',
   icon: 'flask',
-  roles: ['supervisor'],
+  roles: ['manager', 'supervisor'],
   render: renderPage,
   mount: () => {
     if (ctx.pending?.simulate) {

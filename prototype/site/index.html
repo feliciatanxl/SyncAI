@@ -19,12 +19,13 @@
       <div class="wrap">
         <a class="logo" href="index.html"><img src="../assets/syncai-logo.png" alt="" width="32" height="32" />SyncAI</a>
         <nav class="site-nav" aria-label="Main">
+          <a href="#differentiators">Differentiators</a>
           <a href="#features">Features</a>
           <a href="#how">How it works</a>
           <a href="#roles">For teams</a>
           <a href="#platform">Priority logic</a>
-          <a href="#trust">Responsible AI</a>
-          <a href="#plans">Plans</a>
+          <a href="#walkthrough">Operational example</a>
+          <a href="#integrations">Microsoft roadmap</a>
           <a href="#faq">FAQ</a>
         </nav>
         <div class="header-actions">
@@ -38,29 +39,59 @@
       <section class="hero">
         <div class="wrap">
           <div>
-            <span class="eyebrow">AI Smart Work Planner for Town Councils</span>
-            <h1>Your Work. Your Time. <span class="grad">In Sync.</span></h1>
+            <span class="eyebrow">Smart Work Planner for EM Services PS 12i</span>
+            <h1>SyncAI — <span class="grad">Operationally Aware AI Scheduling</span></h1>
             <p class="lead">
-              SyncAI turns a pile of inspections, resident cases and meetings into a realistic daily plan. Officers know what to do first. Supervisors see who is overloaded before deadlines slip.
+              Help Property Officers prioritise what matters, create achievable schedules and adapt when urgent work disrupts the day.
+            </p>
+            <p class="lead" style="font-weight: 600; color: var(--text-color); margin-top: -8px">
+              "Know what matters. Plan what fits. Adapt when work changes."
             </p>
             <div class="hero-cta">
-              <a class="btn btn-primary btn-lg" href="#demo">Request a demo</a>
-              <a class="btn btn-lg" href="login.html">Try the live prototype</a>
+              <a class="btn btn-primary btn-lg" href="login.html">Try the live prototype</a>
+              <a class="btn btn-lg" href="#walkthrough">Operational walkthrough</a>
             </div>
-            <p class="hero-note">Built on Microsoft 365. Every AI suggestion is explained and needs a person's approval.</p>
+            <p class="hero-note">Designed for Microsoft 365 environments. Illustrated with fictional EM Services data. All AI suggestions require human approval.</p>
           </div>
 
           <div class="mock" role="img" aria-label="Preview of the SyncAI dashboard: an AI daily briefing, three ranked tasks and a workload meter at 78 percent.">
             <div class="mock-bar"><span></span><span></span><span></span></div>
             <div class="mock-body" aria-hidden="true">
-              <div class="mock-brief"><strong>AI Daily Briefing</strong><br />Today's work fits. Start with the Blk 208 lift inspection: it is safety-critical and due at 2pm.</div>
-              <div class="mock-row"><div class="t">Lift inspection, Blk 208<small>Safety · due today 2:00pm</small></div><span class="mock-score hi">92 Do now</span></div>
-              <div class="mock-row"><div class="t">Ceiling seepage site check, Blk 214<small>Unblocks resident call</small></div><span class="mock-score md">64 Do next</span></div>
-              <div class="mock-row"><div class="t">Monthly estate report<small>Due Friday</small></div><span class="mock-score lo">38 Plan</span></div>
+              <div class="mock-brief"><strong>AI Daily Briefing</strong><br />Today's work fits. Start with the Blk 208 lift inspection: genuine safety hazard and statutory deadline due at 2:00pm.</div>
+              <div class="mock-row"><div class="t">Lift inspection, Blk 208<small>Safety hazard · Statutory due 2:00pm</small></div><span class="mock-score hi">95 Do now</span></div>
+              <div class="mock-row"><div class="t">Ceiling seepage site check, Blk 214<small>Structural defect risk</small></div><span class="mock-score md">64 Do next</span></div>
+              <div class="mock-row"><div class="t">Estate signage refresh<small>Repeat complaints (0 pts) · Flexible</small></div><span class="mock-score lo">28 Plan</span></div>
               <div>
-                <div class="row-between" style="font-size: 13px"><span>Today's workload</span><strong>78% of free time</strong></div>
+                <div class="row-between" style="font-size: 13px"><span>Today's workload</span><strong>78% of free capacity (3.2h / 4.1h)</strong></div>
                 <div class="meter"><i></i></div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="differentiators" aria-labelledby="diff-h">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Proposed product differentiators</span>
+            <h2 id="diff-h">Three pillars of the PS 12i Smart Work Planner</h2>
+            <p class="lead">Built to address the daily realities of EM Services estate management with transparent, explainable assistance.</p>
+          </div>
+          <div class="grid-3">
+            <div class="tile">
+              <span class="ico ai"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5z" /></svg></span>
+              <h3>1. Operationally Aware AI Scheduling</h3>
+              <p>Considers real estate management priorities: genuine resident safety hazards, statutory deadlines (BCA/SCDF), and service impact. Repeat complaint volume receives 0 extra urgency points.</p>
+            </div>
+            <div class="tile">
+              <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" /></svg></span>
+              <h3>2. Explainable What-If Replanning</h3>
+              <p>Simulate unexpected disruptions—such as an urgent lift breakdown or officer medical leave—before committing changes. See affected tasks, preserved statutory obligations, and clear reasons for every move.</p>
+            </div>
+            <div class="tile">
+              <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg></span>
+              <h3>3. Capacity-Aware Planning</h3>
+              <p>Assesses whether tasks realistically fit into true available working hours around Outlook meetings, inspections, and mandatory travel buffer. Flags impossible constraints instead of silently overpromising.</p>
             </div>
           </div>
         </div>
@@ -143,25 +174,37 @@
         <div class="wrap">
           <div class="section-head">
             <span class="eyebrow">For teams</span>
-            <h2 id="roles-h">One planner, two views</h2>
+            <h2 id="roles-h">Tailored views for estate operations</h2>
           </div>
-          <div class="grid-2">
+          <div class="grid-3">
             <div class="tile">
-              <h3>For officers</h3>
+              <h3>Property Officers</h3>
+              <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px">Team Member workflow</p>
               <ul class="ticks">
-                <li>An AI daily briefing that says where to start and why</li>
-                <li>Start-by warnings and smart reminders before deadlines slip</li>
-                <li>Natural-language task entry: "Urgent lift fault Blk 214, 2pm"</li>
-                <li>Only your own work is visible to you</li>
+                <li>AI daily briefing: what to do first and why</li>
+                <li>Statutory deadline countdowns and alerts</li>
+                <li>Daily &amp; weekly calendar time-blocked around meetings</li>
+                <li>Capacity meter showing realistic free time</li>
               </ul>
             </div>
             <div class="tile">
-              <h3>For supervisors</h3>
+              <h3>Estate Managers</h3>
+              <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px">Supervisor workflow</p>
               <ul class="ticks">
-                <li>Team briefing with capacity, at-risk deadlines and approvals</li>
-                <li>Reassignment suggestions that check skills, zone and free time</li>
-                <li>What-If simulations for MC, leave and urgent incidents</li>
-                <li>Absences show as MC or leave only, never medical details</li>
+                <li>Team capacity heatmap and officer availability</li>
+                <li>What-If replanning simulation with impact preview</li>
+                <li>Protected statutory obligations and unblocked work</li>
+                <li>Human approval required before any reassignment</li>
+              </ul>
+            </div>
+            <div class="tile">
+              <h3>System Admins</h3>
+              <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px">Governance &amp; RBAC</p>
+              <ul class="ticks">
+                <li>Fictional demo user management and role switching</li>
+                <li>Least-privilege role matrix (Officer / Manager / Admin)</li>
+                <li>Approval policies and decision audit log</li>
+                <li>Zero operational noise in administrative views</li>
               </ul>
             </div>
           </div>
@@ -186,42 +229,70 @@
         <div class="wrap">
           <div class="section-head">
             <span class="eyebrow">Operationally aware AI scheduling</span>
-            <h2 id="platform-h">Ranked the way Property Officers really work</h2>
-            <p class="lead">A loud complaint is not the same as an urgent one. SyncAI weighs genuine safety risks, mandatory deadlines, service impact and long-term consequences, then fits the work into the time an officer really has. The rules will be validated with EM Services.</p>
+            <h2 id="platform-h">Ranked the way EM Services Property Officers really work</h2>
+            <p class="lead">A loud complaint is not the same as an urgent one. SyncAI weighs genuine safety risks, mandatory statutory deadlines, service impact and long-term consequences against realistic working capacity. All numerical rules are clearly labeled as configurable prototype assumptions.</p>
           </div>
           <div class="grid-3">
-            <div class="tile"><h3>Smart priority</h3><p>Ranks tasks by safety, statutory, compliance and funding deadlines, and the real impact of a delay. How vocal a resident is does not move a task up on its own.</p></div>
-            <div class="tile"><h3>Realistic planning</h3><p>Proposes schedules around task durations, availability, meetings and existing commitments, and flags days that cannot fit.</p></div>
-            <div class="tile"><h3>Team rebalancing</h3><p>Spots capacity problems when an officer is away or urgent work lands, and suggests adjustments for a supervisor to approve.</p></div>
+            <div class="tile"><h3>Genuine safety hazards (+20)</h3><p>Explicitly identifies falling concrete, lift entrapments, exposed wiring, and fire hazards. Safety always precedes general maintenance.</p></div>
+            <div class="tile"><h3>Mandatory deadlines (+25 / +15)</h3><p>BCA annual lift certifications and statutory compliance deadlines are treated as hard scheduling constraints, not just numerical bonuses.</p></div>
+            <div class="tile"><h3>Long-term consequences (+12)</h3><p>Flags severe escalation risks such as ceiling water seepage penetrating structural rebar, void deck pooling, or regulatory stop-work orders.</p></div>
+            <div class="tile"><h3>Repeat complaints: 0 pts</h3><p>Repeated resident calls add zero priority points. SyncAI protects officers from loudest-voice bias while maintaining professional response standards.</p></div>
+            <div class="tile"><h3>Feasibility &amp; impossible conflicts</h3><p>Calculates required task effort against Outlook meetings, lunch, and mandatory travel buffer. Proactively warns when a deadline is mathematically unachievable.</p></div>
+            <div class="tile"><h3>Configurable assumptions</h3><p>Every score factor is clearly labeled as an illustrative prototype model assumption, ready for calibration against EM Services operational benchmarks.</p></div>
           </div>
         </div>
       </section>
 
-      <section class="section alt" id="plans" aria-labelledby="plans-h">
+      <section class="section alt" id="walkthrough" aria-labelledby="walkthrough-h">
         <div class="wrap">
           <div class="section-head">
-            <span class="eyebrow">Plans</span>
-            <h2 id="plans-h">Start small, roll out when it proves itself</h2>
+            <span class="eyebrow">Operational walkthrough</span>
+            <h2 id="walkthrough-h">A day in the life of a Property Officer</h2>
+            <p class="lead">How SyncAI guides an EM Services Property Officer through competing demands, sudden emergencies, and hard statutory obligations.</p>
           </div>
           <div class="grid-3">
-            <div class="tile plan">
-              <h3>Pilot</h3>
-              <p class="price">Free for 8 weeks</p>
-              <ul class="ticks"><li>One team, up to 15 officers</li><li>Officer and supervisor views</li><li>Outlook calendar sync</li></ul>
-              <a class="btn btn-lg" href="#demo">Start a pilot</a>
+            <div class="tile">
+              <span class="ico">08:30</span>
+              <h3>Morning briefing &amp; triage</h3>
+              <p>The officer logs in. SyncAI evaluates assigned tasks against today's Outlook calendar (3.5 hours free). It identifies a BCA annual lift compliance deadline due at 14:00 as a hard statutory constraint.</p>
             </div>
-            <div class="tile plan featured">
-              <h3>Town Council</h3>
-              <p class="price">Per officer, per month</p>
-              <ul class="ticks"><li>All teams and estates</li><li>What-If Simulator and reassignment</li><li>Teams alerts and Planner sync</li></ul>
-              <a class="btn btn-primary btn-lg" href="#demo">Talk to us</a>
+            <div class="tile">
+              <span class="ico ai">11:15</span>
+              <h3>Urgent disruption lands</h3>
+              <p>A sudden lift passenger-trap incident occurs at Blk 208. SyncAI immediately triggers an explainable rescheduling proposal: prioritising resident safety, protecting the BCA compliance deadline, and deferring non-statutory estate signage review.</p>
             </div>
-            <div class="tile plan">
-              <h3>Managing agent</h3>
-              <p class="price">Custom</p>
-              <ul class="ticks"><li>Multiple Town Councils</li><li>Cross-council reporting</li><li>Dedicated onboarding</li></ul>
-              <a class="btn btn-lg" href="#demo">Contact sales</a>
+            <div class="tile">
+              <span class="ico">16:45</span>
+              <h3>Day-end statutory verification</h3>
+              <p>All mandatory statutory inspections are fulfilled. The Estate Manager receives an audit-ready confirmation of completed compliance filings and rebalanced non-urgent work.</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="integrations" aria-labelledby="integ-h">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Architecture &amp; Roadmap</span>
+            <h2 id="integ-h">Microsoft 365 integration roadmap</h2>
+            <p class="lead">Designed for seamless deployment within the EM Services enterprise Microsoft tenant. (All integrations are currently simulated in this prototype.)</p>
+          </div>
+          <div class="grid-3">
+            <div class="tile">
+              <h3>Microsoft Graph API</h3>
+              <p>Bi-directional synchronisation with Microsoft Outlook calendars, Exchange event availability, and Microsoft To Do work orders.</p>
+            </div>
+            <div class="tile">
+              <h3>Microsoft Teams Bot</h3>
+              <p>Adaptive card alerts for high-severity safety incidents, emergency schedule changes, and one-click manager reassignments.</p>
+            </div>
+            <div class="tile">
+              <h3>Power Automate &amp; SharePoint</h3>
+              <p>Automated intake flows connecting Town Council resident feedback portals, contractor reports, and estate documentation archives.</p>
+            </div>
+          </div>
+          <div class="notice" style="margin-top: 24px; text-align: center;">
+            <strong>Prototype transparency note:</strong> This static evaluation prototype simulates Microsoft Graph calendar feeds and Entra ID authentication using client-side mock data. Production deployment will leverage verified Microsoft 365 app registrations.
           </div>
         </div>
       </section>

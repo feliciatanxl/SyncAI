@@ -1,9 +1,15 @@
 import { INTEGRATIONS } from '../data.js';
-import { isSupervisor, logActivity, resetState, update, storage } from '../state.js';
+import { isSupervisor, isAdmin, isTeamMember, logActivity, resetState, update, storage } from '../state.js';
 import { fmtDay, fmtTime, toMin } from '../time.js';
-import { html, icon, toast, confirmDialog, sectionTabs, limitTo, showMore } from '../ui.js';
+import { html, icon, toast, confirmDialog, sectionTabs, limitTo, showMore, avatar } from '../ui.js';
 
-const TABS = [['integrations', 'Integrations'], ['preferences', 'Preferences'], ['privacy', 'Responsible AI'], ['data', 'Data & activity']];
+const TABS = [
+  ['integrations', 'Integrations'],
+  ['preferences', 'Preferences'],
+  ['roles', 'Roles & Access'],
+  ['privacy', 'Responsible AI'],
+  ['data', 'Data & activity'],
+];
 
 function workingHoursForm(s) {
   const st = s.settings;
@@ -59,6 +65,50 @@ const SECTIONS = {
           <div class="card-head"><h2 id="wh-h">Planning preferences</h2></div>
           <div class="card-body">${workingHoursForm(s)}</div>
         </section>`,
+  roles: (s) => html`
+        <div class="stack narrow">
+          <section class="card" aria-labelledby="rm-h">
+            <div class="card-head"><h2 id="rm-h">Demo accounts &amp; role alignment</h2></div>
+            <div class="card-body">
+              <p class="small muted mb-sm">Roles aligned with full-stack application (<code>team_member</code>, <code>manager</code>, <code>admin</code>). Uses fictional demo identities.</p>
+              <ul class="list">
+                <li class="list-item">
+                  ${avatar('Aisyah Rahman')}
+                  <div class="grow"><strong>Aisyah Rahman</strong><div class="meta"><span>Property Officer (Team Member)</span><span><code>member@syncai.demo</code></span></div></div>
+                  <span class="badge badge-brand">Operational</span>
+                </li>
+                <li class="list-item">
+                  ${avatar('Jennifer Ong')}
+                  <div class="grow"><strong>Jennifer Ong</strong><div class="meta"><span>Estate Manager (Manager)</span><span><code>manager@syncai.demo</code></span></div></div>
+                  <span class="badge badge-ai">Supervisory</span>
+                </li>
+                <li class="list-item">
+                  ${avatar('Alex Tan')}
+                  <div class="grow"><strong>Alex Tan</strong><div class="meta"><span>System Administrator (Admin)</span><span><code>admin@syncai.demo</code></span></div></div>
+                  <span class="badge badge-neutral">Administration</span>
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="pm-h">
+            <div class="card-head"><h2 id="pm-h">Role permissions matrix</h2></div>
+            <div class="card-body flush table-wrap">
+              <table class="table">
+                <thead><tr><th>Capability</th><th>Team Member</th><th>Manager</th><th>Admin</th></tr></thead>
+                <tbody>
+                  <tr><td>Personal work planner &amp; calendar</td><td>✅</td><td>✅</td><td>—</td></tr>
+                  <tr><td>Explainable AI priority scoring</td><td>✅</td><td>✅</td><td>—</td></tr>
+                  <tr><td>Emergency rescheduling</td><td>✅</td><td>✅</td><td>—</td></tr>
+                  <tr><td>Team workload heatmap &amp; capacity</td><td>🔒</td><td>✅</td><td>—</td></tr>
+                  <tr><td>What-If simulation &amp; rebalancing</td><td>🔒</td><td>✅</td><td>—</td></tr>
+                  <tr><td>Human approvals &amp; commits</td><td>🔒 (personal)</td><td>✅ (team)</td><td>—</td></tr>
+                  <tr><td>System settings &amp; integrations</td><td>✅ (preferences)</td><td>✅</td><td>✅</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>`,
   privacy: () => html`
         <section class="card narrow" aria-labelledby="pr-h">
           <div class="card-head"><h2 id="pr-h">${icon('shield', 16)} Responsible AI & privacy</h2></div>
@@ -76,7 +126,7 @@ const SECTIONS = {
         <section class="card" aria-labelledby="dd-h">
           <div class="card-head"><h2 id="dd-h">Demo data</h2></div>
           <div class="card-body stack" style="gap:10px">
-            <p class="small muted">Signed in as <strong>${isSupervisor(s) ? `${s.supervisor.name} (Supervisor)` : 'Aisyah Rahman (Officer)'}</strong>. Data seeded for ${fmtDay(s.seededFor)}. ${storage.ok ? 'Saved in this browser.' : 'Browser storage unavailable — changes are temporary.'}</p>
+            <p class="small muted">Signed in as <strong>${isSupervisor(s) ? `${s.supervisor.name} (Estate Manager)` : isAdmin(s) ? `${s.admin.name} (System Administrator)` : 'Aisyah Rahman (Property Officer)'}</strong>. Data seeded for ${fmtDay(s.seededFor)}. ${storage.ok ? 'Saved in this browser.' : 'Browser storage unavailable — changes are temporary.'}</p>
             <button class="btn btn-danger" data-action="reset-demo">${icon('reset', 16)}Reset demo data</button>
           </div>
         </section>
@@ -126,7 +176,7 @@ export default {
   id: 'settings',
   title: 'Settings & Integrations',
   icon: 'settings',
-  roles: ['officer', 'supervisor'],
+  roles: ['team_member', 'manager', 'admin', 'officer', 'supervisor'],
   render: renderPage,
   actions: {
     'reset-demo': async () => {

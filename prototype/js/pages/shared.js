@@ -95,7 +95,7 @@ export function openTaskDetail(id) {
             <div class="meta"><span>${icon('pin', 14)}${t.location || 'No location'}</span></div>
             <div class="meta"><span>${icon('chart', 14)}Effort ${fmtHours(t.effort)}${t.spent ? ` · ${fmtHours(t.spent)} spent` : ''}${t.actual ? ` · actual ${fmtHours(t.actual)}` : ''}</span></div>
             ${deps.length ? html`<div class="meta"><span>${icon('link', 14)}Depends on: ${deps.map((d) => d.title).join(', ')}</span></div>` : ''}
-            ${project ? html`<div class="meta"><span>${icon('folder', 14)}Project: <a href="#/projects/${project.id}" data-action="modal-close-go" data-href="#/projects/${project.id}">${project.name}</a></span></div>` : ''}
+            ${project ? html`<div class="meta"><span>${icon('folder', 14)}Estate Initiative: <strong>${project.name}</strong></span></div>` : ''}
           </div>
         </div>
         ${checklist.length || canEdit
@@ -119,10 +119,12 @@ export function openTaskDetail(id) {
           ? html`<section>
               <h3 class="row">${icon('sparkles', 16)} AI priority score: ${sc.score} · ${sc.band.label}</h3>
               ${reasonList(sc.reasons)}
+              <p class="muted small mt-sm" style="font-style:italic">* Prototype scoring weights are configurable demonstration assumptions, not verified EMS standards.</p>
             </section>
             <section>
-              <h3>Deadline risk</h3>
+              <h3>Deadline risk &amp; feasibility</h3>
               <ul class="reasons">${risk.reasons.map((r) => html`<li><span>${r}</span></li>`)}</ul>
+              ${sc.impossibleConflict ? html`<div class="notice notice-danger mt-sm">${icon('alert', 14)}<strong>Scheduling Conflict:</strong> ${sc.impossibleConflict}</div>` : ''}
             </section>`
           : ''}
       </div>
