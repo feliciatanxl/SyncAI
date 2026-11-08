@@ -32,6 +32,18 @@ export async function getApiToken(instance, account) {
   }
 }
 
+// The signed-in person's Microsoft profile photo as an object URL, or null when they have none or Microsoft
+// won't share it. Uses the User.Read consent from sign-in and never redirects: initials are a fine fallback.
+export async function getProfilePhoto(instance, account) {
+  try {
+    const { accessToken } = await instance.acquireTokenSilent({ scopes: ['User.Read'], account })
+    const res = await fetch('https://graph.microsoft.com/v1.0/me/photo/$value', { headers: { Authorization: `Bearer ${accessToken}` } })
+    return res.ok ? URL.createObjectURL(await res.blob()) : null
+  } catch {
+    return null
+  }
+}
+
 export async function createMsalInstance() {
   if (!authConfigured) return null
   const instance = new PublicClientApplication({
@@ -47,7 +59,25 @@ export async function createMsalInstance() {
   const [first] = instance.getAllAccounts()
   if (first && !instance.getActiveAccount()) instance.setActiveAccount(first)
   instance.addEventCallback((event) => {
-    if (event.eventType === EventType.LOGIN_SUCCESS && event.payload?.account) instance.setActiveAccount(event.payload.account)
+    if (event.eventType === EventType.LOGIN_SUCCESS && event.payload?.account) {
+      instance.setActiveAccount(event.payload.account)
+      markSignedIn()
+    }
   })
   return instance
+}
+
+// A real Microsoft sign-in just finished: the next load of the signed-in area records it once (see takeSignedIn).
+const SIGNED_IN = 'syncai.justSignedIn'
+function markSignedIn() {
+  try { sessionStorage.setItem(SIGNED_IN, '1') } catch { /* storage blocked: the visit is recorded as an open instead */ }
+}
+export function takeSignedIn() {
+  try {
+    const value = sessionStorage.getItem(SIGNED_IN)
+    sessionStorage.removeItem(SIGNED_IN)
+    return value === '1'
+  } catch {
+    return false
+  }
 }

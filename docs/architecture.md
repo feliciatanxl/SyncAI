@@ -104,6 +104,18 @@ erDiagram
 
 Changes to SLAs or how long a category of case should take are **manager** decisions, not officer ones (see §8). Role checks run in every API route, not only in the screen.
 
+**How the build names these roles.** The application uses three roles: **Admin**, **Manager** and **Team member** (stored as `admin`, `manager`, `member`). Manager corresponds to the supervisor workflow above and Team member to the Property Officer workflow. Admin is a technical role for approving accounts, assigning roles, arranging teams and reading the audit log; it does not get a team-wide view of anyone's work.
+
+### Assumptions to confirm with EMS
+
+For the PoC we made these decisions where the brief is silent. Each is easy to change later:
+
+| Assumption | Why | If EMS says otherwise |
+| --- | --- | --- |
+| Each Property Officer (Team member) belongs to **one** team; a Manager can lead several | Mirrors an officer reporting to one supervisor, and keeps "who manages this person?" unambiguous | The membership table already allows several teams per person; only one rule changes |
+| System administrators **don't** run teams | Keeps access administration separate from operational data, as the RBAC brief asks | Allow an admin to also be a team's manager, with the extra access audited |
+| Availability for the Smart Planner is **entered manually** (working hours and blocked time) | Works without extra Microsoft permissions or real calendar data during the PoC | Read Outlook free/busy through Microsoft Graph once access is approved |
+
 ## 6. Key flows
 
 **Generate a daily plan**

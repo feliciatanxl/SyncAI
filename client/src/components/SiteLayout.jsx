@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useMsal } from '@azure/msal-react'
 import { Avatar } from '@fluentui/react-components'
 import { authConfigured } from '../auth/msal.js'
+import { useProfilePhoto } from '../auth/useProfilePhoto.js'
 import { BrandLink } from './Brand.jsx'
 
 const signInLink = <Link to="/login" className="header-cta">Sign in</Link>
@@ -10,6 +11,7 @@ const signInLink = <Link to="/login" className="header-cta">Sign in</Link>
 function HeaderAccount() {
   const { instance, accounts } = useMsal()
   const account = instance.getActiveAccount() ?? accounts[0]
+  const photo = useProfilePhoto(instance, account?.homeAccountId)
   if (!account) return signInLink
   const name = account.name || account.username
   return (
@@ -18,7 +20,7 @@ function HeaderAccount() {
         <strong>{name}</strong>
         <span>{account.username}</span>
       </span>
-      <Avatar name={name} size={32} color="colorful" />
+      <Avatar name={name} image={photo ? { src: photo, alt: '' } : undefined} size={32} color="colorful" />
     </Link>
   )
 }

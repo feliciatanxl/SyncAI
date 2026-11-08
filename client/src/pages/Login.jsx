@@ -3,11 +3,13 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useIsAuthenticated, useMsal } from '@azure/msal-react'
 import { InteractionStatus } from '@azure/msal-browser'
 import { MessageBar, MessageBarBody, MessageBarTitle, Spinner } from '@fluentui/react-components'
-import { LockClosed16Regular } from '@fluentui/react-icons'
+import { LockClosed16Regular, ShieldKeyhole16Regular } from '@fluentui/react-icons'
 import { authConfigured, loginRequest } from '../auth/msal.js'
 import { BrandLink, MicrosoftLogo } from '../components/Brand.jsx'
+import { useT } from '../lib/i18n.js'
 
 export default function Login() {
+  const t = useT()
   return (
     <div className="login-page">
       <a className="skip-link" href="#main">Skip to content</a>
@@ -27,6 +29,10 @@ export default function Login() {
           {authConfigured ? <MicrosoftSignIn /> : <NotConfigured />}
           <p className="login-foot small muted">
             <LockClosed16Regular /> Sign-in is handled by Microsoft Entra ID. SyncAI never sees your password.
+          </p>
+          {/* PDPA notice: shown before sign-in, because signing in creates the first activity record. */}
+          <p className="login-foot small muted">
+            <ShieldKeyhole16Regular /> {t('privacy.notice')}
           </p>
         </div>
       </main>

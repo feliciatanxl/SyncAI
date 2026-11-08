@@ -1,86 +1,86 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useMsal } from '@azure/msal-react'
 import { useNavigate } from 'react-router-dom'
 import { Button, MessageBar, MessageBarBody, MessageBarTitle, Spinner } from '@fluentui/react-components'
-import { SignOut20Regular } from '@fluentui/react-icons'
 import { BrandLink } from '../components/Brand.jsx'
-import { getApiToken } from '../auth/msal.js'
+import { getApiToken, loginRequest, takeSignedIn } from '../auth/msal.js'
+import { useProfilePhoto } from '../auth/useProfilePhoto.js'
 import { apiRequest } from '../lib/api.js'
+import { useT } from '../lib/i18n.js'
+import AdminPortal from './AdminPortal.jsx'
+import MemberPortal from './MemberPortal.jsx'
 
-const ROLE_LABEL = { admin: 'Admin', manager: 'Manager', member: 'Team member' }
-
-// Placeholder for the signed-in planner. The team member and manager screens come next.
+// Signed-in entry point: finds out who you are from the API, then opens the admin or member portal.
 export default function Workspace() {
+  const t = useT()
   const { instance } = useMsal()
   const navigate = useNavigate()
   const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0]
   const [me, setMe] = useState(null)
   const [error, setError] = useState(null)
-  // MSAL returns a fresh account object on every render, so the effect keys on the stable ID instead.
+  const [attempt, setAttempt] = useState(0)
+  // MSAL returns a fresh account object on every render, so effects key on the stable ID instead.
   const accountId = account?.homeAccountId
 
-  useEffect(() => {
-    const controller = new AbortController()
-    const signedIn = instance.getAccount({ homeAccountId: accountId })
-    apiRequest('/me', { getToken: () => getApiToken(instance, signedIn), signal: controller.signal })
-      .then(setMe)
-      .catch((err) => err.name !== 'AbortError' && setError(err))
-    return () => controller.abort()
-  }, [instance, accountId])
+  const getToken = useCallback(() => getApiToken(instance, instance.getAccount({ homeAccountId: accountId })), [instance, accountId])
 
-  // Clears SyncAI's session only, skipping Microsoft's "You signed out" page; the browser stays signed in to Microsoft.
+  // Straight after a Microsoft sign-in, POST /signin records it; otherwise GET /me (a daily "opened SyncAI" at most).
+  // The sign-in request isn't aborted on cleanup, so it is recorded exactly once even when effects run twice.
+  useEffect(() => {
+    let live = true
+    const controller = new AbortController()
+    const request = takeSignedIn()
+      ? apiRequest('/signin', { method: 'POST', getToken })
+      : apiRequest('/me', { getToken, signal: controller.signal })
+    request
+      .then((user) => live && setMe(user))
+      .catch((err) => live && err.name !== 'AbortError' && setError(err))
+    return () => {
+      live = false
+      controller.abort()
+    }
+  }, [getToken, attempt])
+
+  const photo = useProfilePhoto(instance, accountId)
+
+  // Records the sign-out (best effort, 3 seconds at most: logging must never keep anyone signed in), then clears
+  // SyncAI's session only, skipping Microsoft's "You signed out" page; the browser stays signed in to Microsoft.
   async function signOut() {
+    try {
+      await apiRequest('/signout', { method: 'POST', getToken, signal: AbortSignal.timeout(3000) })
+    } catch {
+      // Sign out anyway.
+    }
     await instance.logoutRedirect({ account, onRedirectNavigate: () => false })
     navigate('/', { replace: true })
   }
+
+  const switchAccount = () => instance.loginRedirect(loginRequest)
+  // The Ask SyncAI conversation lives here so it survives switching tabs and is gone after signing out.
+  const chat = useState([])
+  const common = { me, photo, chat, tenantId: account?.tenantId, onSignOut: signOut, onSwitchAccount: switchAccount }
+
+  if (me?.role === 'admin' && me.status === 'active') return <AdminPortal {...common} getToken={getToken} />
+  if (me) return <MemberPortal {...common} getToken={getToken} />
 
   return (
     <div className="workspace">
       <header className="site-header">
         <div className="wrap header-inner">
           <BrandLink />
-          <Button appearance="subtle" icon={<SignOut20Regular />} onClick={signOut}>Sign out</Button>
+          <Button appearance="subtle" onClick={signOut}>{t('account.signOut')}</Button>
         </div>
       </header>
       <main id="main" className="wrap workspace-main">
-        <p className="eyebrow">Signed in with Microsoft</p>
-        <h1>Welcome, {account?.name || account?.username || 'there'}</h1>
-        <p className="muted">{account?.username}</p>
-        <div className="card workspace-card"><AccessStatus me={me} error={error} /></div>
+        {error ? (
+          <MessageBar intent="error" className="workspace-card">
+            <MessageBarBody><MessageBarTitle>{t('ws.error')}</MessageBarTitle>{error.message}</MessageBarBody>
+            <Button size="small" onClick={() => { setError(null); setAttempt((n) => n + 1) }}>{t('app.retry')}</Button>
+          </MessageBar>
+        ) : (
+          <div className="center-page"><Spinner label={t('ws.checking')} /></div>
+        )}
       </main>
     </div>
-  )
-}
-
-function AccessStatus({ me, error }) {
-  if (error) {
-    return (
-      <MessageBar intent="error">
-        <MessageBarBody><MessageBarTitle>Couldn’t reach SyncAI</MessageBarTitle>{error.message}</MessageBarBody>
-      </MessageBar>
-    )
-  }
-  if (!me) return <Spinner size="small" label="Checking your access…" />
-  if (me.status === 'pending') {
-    return (
-      <>
-        <h2>Waiting for approval</h2>
-        <p>Your account is registered. An admin needs to approve it before you can use SyncAI.</p>
-      </>
-    )
-  }
-  if (me.status === 'disabled') {
-    return (
-      <>
-        <h2>Access turned off</h2>
-        <p>Your SyncAI access has been disabled. Contact your admin if you think this is a mistake.</p>
-      </>
-    )
-  }
-  return (
-    <>
-      <h2>Your planner is on the way</h2>
-      <p>You’re signed in as <strong>{ROLE_LABEL[me.role]}</strong>. The task list, Smart Planner and team workload screens will appear here as they are built.</p>
-    </>
   )
 }
