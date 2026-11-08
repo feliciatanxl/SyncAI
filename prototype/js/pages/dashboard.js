@@ -136,7 +136,15 @@ function officerView(s) {
           <div class="card-body">
             <p class="ai-headline">${headline}</p>
             ${top
-              ? briefingItem(s, `brief:top:${top.id}`, '', 'zap', `Start with “${top.title}”`, explainScore(s, top), html`<button class="btn btn-primary btn-sm" data-action="task-view" data-id="${top.id}">View task</button>`)
+              ? briefingItem(
+                  s,
+                  `brief:top:${top.id}`,
+                  '',
+                  'zap',
+                  `Start with “${top.title}”`,
+                  explainScore(s, top) + (top.consequence ? ` Potential consequence if delayed: ${top.consequence}` : ''),
+                  html`<button class="btn btn-primary btn-sm" data-action="task-view" data-id="${top.id}">Why recommended?</button>`,
+                )
               : ''}
             ${conflicts.map(([m1, m2]) =>
               briefingItem(s, `brief:clash:${m1.id}:${m2.id}`, 'danger', 'calendar', `Meeting clash at ${fmtTime(m2.start)}`, `“${m1.title}” (${fmtTime(m1.start)}–${fmtTime(m1.end)}) overlaps “${m2.title}”. Decline or reschedule one in Outlook — SyncAI will not plan work in this window.`, html`<button class="btn btn-sm" data-action="go" data-page="planner">Open planner</button>`),
@@ -250,7 +258,7 @@ function supervisorView(s) {
       </div>
       <div class="actions">
         <a class="btn" href="#/team">${icon('users', 16)}Team workload</a>
-        <a class="btn btn-ai" href="#/simulator">${icon('flask', 16)}Run what-if</a>
+        <a class="btn btn-ai" href="#/simulator">${icon('sparkles', 16)}Evaluate scheduling impact (Ripple)</a>
       </div>
     </div>
 

@@ -112,7 +112,7 @@ function renderPage(s) {
   return html`
     <div class="page-head">
       <div><h1>Team Workload</h1><p>Capacity, overload and skill-aware reassignment across ${s.officers.length} officers this week.</p></div>
-      <div class="actions"><a class="btn btn-ai" href="#/simulator">${icon('flask', 16)}What-if simulator</a></div>
+      <div class="actions"><a class="btn btn-ai" href="#/simulator">${icon('sparkles', 16)}Explore alternatives &amp; ripple impact</a></div>
     </div>
 
     <div class="grid grid-4 page-section">

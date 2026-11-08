@@ -3,14 +3,17 @@
 **"Know what matters. Plan what fits. Adapt when work changes."**
 An AI-powered Smart Work Planner for EM Services Property Officers and Estate Managers: focused exclusively on **EMS Challenge PS 12i (Microsoft-based)**. See the [repository README](../README.md).
 
-### Proposed Product Differentiators
+### Signature Product Differentiators
 1. **Flagship USP — Operationally Aware AI Scheduling:** A scheduling experience that considers real operational priorities, genuine public safety hazards, mandatory statutory compliance deadlines (BCA/SCDF), and available working capacity. Repeat complaint volume awards zero priority points.
-2. **Supporting Differentiator 1 — Explainable What-If Replanning:** Transparently simulates unexpected disruptions (urgent lift breakdowns, officer medical leave, emergency tasks) before committing changes, showing protected statutory obligations, rebalanced capacity, and explicit reasons for each move.
-3. **Supporting Differentiator 2 — Capacity-Aware Planning:** Accurately evaluates whether open tasks can realistically fit into available working hours around Microsoft Outlook meetings, lunch breaks, and travel buffer, proactively flagging impossible scheduling conflicts.
+2. **Signature Differentiator — Operational Ripple Intelligence:** Understand the downstream consequences of delaying or reassigning work before making changes. Evaluates multi-level task dependency cascades, flags mandatory statutory deadline risks, and compares three feasible operational alternatives side-by-side.
+3. **Supporting Differentiator — Capacity-Aware Planning:** Accurately evaluates whether open tasks can realistically fit into available working hours around Microsoft Outlook meetings, lunch breaks, and travel buffer, proactively flagging impossible scheduling conflicts.
 
-> **Note:** These are proposed product differentiators for EM Services challenge PS 12i, not claims of commercial exclusivity or verified commercial uniqueness.
+> **Note:** These are proposed product differentiators for EM Services challenge PS 12i, not claims of commercial exclusivity or verified commercial uniqueness. All intelligence is simulated client-side via deterministic, explainable rules using fictional Town Council data.
 
-This folder contains a fully functional HTML/CSS/JavaScript static prototype demonstrating SyncAI's user experience and deterministic priority engine to EM Services stakeholders before full-stack implementation. Everything runs client-side in the browser using fictional data and deterministic, explainable rules. **No real Microsoft 365 or Azure OpenAI connection is made.**
+SyncAI directly addresses three core operational questions:
+1. **What work matters most?** Genuine safety hazards and non-negotiable statutory compliance obligations outrank loud complaints and routine admin.
+2. **What could happen if that work is delayed?** Operational Ripple Intelligence traces downstream dependency cascades, identifying secondary inspection stalls, contractor delay claims, and potential regulatory breaches.
+3. **Which feasible alternative best protects operational obligations?** Compares No Action, Rescheduling Lower-Impact Work, and Reassigning to Qualified Officers, with trade-offs and manager escalation warnings.
 
 ## Run it
 
@@ -141,13 +144,16 @@ Use **Settings → Reset demo data** before a demo. Dates are generated relative
 2. Open **Team Workload** to see the heatmap and the reassignment recommendations. Each one explains why the task is at risk and why the receiving officer fits: skills, free time before the deadline, zone, and a check that the move won't make their other work late.
 3. **Accept**, **Modify** (choose another officer) or **Dismiss**.
 
-### 5. What-If Simulator — the standout demo (Supervisor, ~3 min)
+### 5. What-If Simulator & Operational Ripple Intelligence — the signature demo (Manager, ~3 min)
 
-1. Open **What-If Simulator** and click **Officer on MC**, which marks Daniel unavailable for 2 days.
-2. Compare **Before**, **After (no action)** and **After (with SyncAI actions)**. High-risk deadlines rise sharply without action and drop once SyncAI's reassignments are applied.
-3. Review the per-officer capacity bars, the reassignments (untick any you disagree with), the schedule changes, and **Still at risk**: work no one can absorb, with escalation options.
-4. Try **Urgent lift breakdown** or **Two officers unavailable**.
-5. **Apply to live schedule** (with confirmation) or **Discard**. The baseline never changes until you apply.
+1. Open **What-If Simulator** and select the signature preset: **The Ripple Effect (Urgent Lift Incident)** (11:15 AM lift entrapment at Blk 214).
+2. Inspect the **Disruption Cascade & Downstream Ripple**: see how shifting Aisyah's morning ceiling inspection cascades across 3 dependency levels to stall follow-up calls and contractor rectification work orders.
+3. Compare the **Three Operational Alternatives** side-by-side:
+   - **Alternative A: No Action** — exposes severe statutory breaches, unmitigated deadline slips, and unresolved conflict.
+   - **Alternative B: Reschedule Lower-Impact Tasks** — shifts non-safety routine tasks later into the planning horizon, keeping work with the primary officer while protecting compliance.
+   - **Alternative C: Reassign Eligible Work** — evaluates skill-certified candidates with spare capacity before deadlines, explicitly flagging officers who have free time but lack required domain certifications (e.g. lift specialist).
+4. Review the dynamic recommendation banner and trade-off summary (or manager escalation warning if team capacity cannot accommodate obligations).
+5. **Apply to live schedule** (with confirmation) or **Discard**. The live schedule remains completely untouched until explicit approval.
 
 ### 6. Natural-language planning and manual edits (Officer, ~3 min)
 
@@ -204,16 +210,29 @@ All logic is deterministic. The same data always gives the same result.
 | Deadline risk | `planner.js` `assessRisk` | High if overdue, owner away until the deadline, unschedulable, or finishing late. Medium if less than 90 minutes of buffer, owner away on the due date, or waiting on another task. |
 | Reassignment | `js/simulation.js` | Ranks officers by skills, free time before the deadline, overload and zone. Safety work prefers skilled officers. Each move is checked against the receiver's re-planned schedule. |
 | What-If | `simulation.js` `runSimulation` | Runs on a cloned state: applies absences and new work, compares snapshots, and proposes reassignments. Commits only on approval. |
+| Operational Ripple Intelligence | `js/ripple.js` | Traces multi-level downstream and upstream dependency chains with cycle detection. Evaluates capacity deficits, mandatory compliance exposures, and compares Three Meaningful Alternatives (No Action, Reschedule, Reassign). Generates calibrated risk advisories and manager escalation warnings. |
 
 ## Tests
 
-The rules engine has automated tests that run with Node's built-in test runner (Node.js 20 or later, nothing to install). From the repository root:
+The rules and ripple engines have automated tests that run with Node's built-in test runner (Node.js 20 or later, nothing to install). From the repository root:
 
 ```bash
 node --test "prototype/tests/*.test.mjs"
 ```
 
-They check the seed data, priority scoring, deadline risk, the scheduler (no blocks outside working hours or on top of meetings), project health, the privacy flag on project reasons, the council status thresholds, the task timer, task grouping and the section-tab markup.
+The test suite contains **42 automated tests** across `rules.test.mjs` and `ripple.test.mjs`:
+- Seed data integrity and foreign keys
+- Explainable priority scoring and hard statutory constraints
+- Scheduling feasibility and meeting avoidance
+- Multi-level dependency traversal (`t103` → `t104` → `t112`)
+- Circular dependency handling and safe cycle termination
+- Safe handling of missing or deleted task references
+- Mandatory deadline protection under disruption
+- Urgent safety incident and absence capacity deficit calculation
+- Skill-based reassignment restrictions and mismatch flagging
+- Three Alternatives evaluation (No Action, Reschedule, Reassign)
+- Non-destructive simulation state isolation and explicit commit verification
+- Calibrated language enforcement (no uncalibrated guarantee claims)
 
 ## Project structure
 
@@ -221,7 +240,7 @@ They check the seed data, priority scoring, deadline risk, the scheduler (no blo
 prototype/
 ├── index.html          App shell (sidebar, top bar, modal and toast hosts, CSP)
 ├── site/               Public website: landing, login, forgot and reset password (site.css, site.js)
-├── tests/              Rules-engine tests (node --test)
+├── tests/              Rules and ripple tests (node --test)
 ├── serve.py            No-cache local dev server
 ├── css/style.css       Fluent 2-inspired design tokens, components and responsive layout
 ├── assets/syncai-logo.png  SyncAI mark
@@ -232,6 +251,7 @@ prototype/
     ├── time.js         Demo clock and date helpers
     ├── ai.js           Scoring, estimation, natural-language parsing
     ├── planner.js      Scheduling, capacity, conflicts, deadline risk
+    ├── ripple.js       Operational Ripple Intelligence, multi-level dependencies, alternatives
     ├── simulation.js   Reassignment recommendations and What-If simulations
     ├── ui.js           Safe HTML templating, icons, dialogs, toasts
     ├── ctx.js          Late-bound hooks (rerender, navigate, route parameter)

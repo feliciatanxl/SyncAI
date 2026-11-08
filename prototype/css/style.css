@@ -2182,6 +2182,124 @@ textarea {
   height: 7px;
 }
 
+/* ---------- Operational Ripple Intelligence ---------- */
+
+.ripple-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.ripple-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ripple-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  background: var(--surface);
+  flex-grow: 1;
+}
+.ripple-box.primary {
+  border-left: 3px solid var(--brand);
+}
+.ripple-box.warning {
+  border-left: 3px solid var(--warning);
+}
+.ripple-box.danger {
+  border-left: 3px solid var(--danger);
+}
+.dep-chain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dep-chain-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.dep-depth-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--brand-soft);
+  color: var(--brand);
+  white-space: nowrap;
+}
+.alts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.alt-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s ease;
+}
+.alt-card.featured-alt {
+  border-color: var(--ai-border);
+  background: var(--ai-soft);
+  box-shadow: var(--shadow-sm);
+}
+.alt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.alt-head h4 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+}
+.alt-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border-top: 1px dashed var(--border);
+  border-bottom: 1px dashed var(--border);
+  font-size: 12.5px;
+}
+.alt-metric-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.alt-tradeoff {
+  background: var(--surface-2);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+}
+.rec-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--ai-soft);
+  border: 1px solid var(--ai-border);
+}
+.rec-banner.escalate {
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+}
+
 /* ---------- Assistant ---------- */
 
 .assistant {
@@ -3100,7 +3218,9 @@ textarea {
 
 @media (max-width: 900px) {
   .grid-3,
-  .grid-2 {
+  .grid-2,
+  .alts-grid,
+  .ripple-grid {
     grid-template-columns: minmax(0, 1fr);
   }
   .officer-bar {

@@ -6,6 +6,7 @@ import { CATEGORY_SKILL } from './data.js';
 import { bumpRev, getOfficer, getTask, isOpen, isUnavailable, nextId, openTasksFor, remainingHours, officerName } from './state.js';
 import { analyseOfficer, assessRisk, schedule, teamAnalysis } from './planner.js';
 import { TODAY, NOW, horizonDays, workDay, dt, datePart, timePart, toMin, fmtDue, fmtDay, fmtTime } from './time.js';
+import { analyzeScenarioRipple, evaluateAlternatives } from './ripple.js';
 
 export const INCIDENTS = [
   { id: 'lift', title: 'Lift breakdown with resident trapped — Blk 214', category: 'Maintenance', effort: 2.5, dueTime: '13:00', location: 'Blk 214', zone: 'Zone A', skill: 'lift', label: 'Lift breakdown (resident trapped)' },
@@ -187,12 +188,14 @@ export function runSimulation(base, sc) {
   const sim = bumpRev(structuredClone(base));
   const notes = [];
   const added = [];
-  const absenceDays = horizonDays().slice(0, sc.absenceDays);
+  const absentList = Array.isArray(sc?.absent) ? sc.absent : [];
+  const absenceDays = horizonDays().slice(0, sc?.absenceDays || 1);
 
-  for (const id of sc.absent) {
+  for (const id of absentList) {
     const o = getOfficer(sim, id);
+    if (!o) continue;
     absenceDays.forEach((d) => {
-      o.availability[d] = o.availability[d] || sc.absenceType;
+      o.availability[d] = o.availability[d] || sc.absenceType || 'Absent';
     });
     notes.push(`${o.name} marked unavailable for ${absenceDays.length} day${absenceDays.length > 1 ? 's' : ''} (${fmtDay(absenceDays[0])}${absenceDays.length > 1 ? ` – ${fmtDay(absenceDays[absenceDays.length - 1])}` : ''}).`);
   }
@@ -262,7 +265,7 @@ export function runSimulation(base, sc) {
         consequence: t.consequence,
         fromOwner: officerName(sim, t.ownerId),
         toOwner: officerName(withActions, t.ownerId),
-        explanation: `Prevented consequence: “${t.consequence}” by reallocating to an officer with capacity.`,
+        explanation: `Potential consequence addressed by this proposal: “${t.consequence}” — estimated scheduling exposure reduced by reallocating to an officer with capacity under current assumptions (requires operational verification).`,
       });
     }
   }
@@ -319,6 +322,10 @@ export function runSimulation(base, sc) {
     })),
   };
 
+  // Operational Ripple Intelligence & Alternatives Evaluation
+  const ripple = analyzeScenarioRipple(base, sc);
+  const alternativesEvaluation = evaluateAlternatives(base, sc);
+
   return {
     scenario: sc,
     sim,
@@ -334,6 +341,8 @@ export function runSimulation(base, sc) {
     consequencesMitigated,
     unresolvedConflicts,
     taskDecisions,
+    ripple,
+    alternativesEvaluation,
   };
 }
 
