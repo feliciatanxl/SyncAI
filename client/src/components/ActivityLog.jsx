@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, MessageBar, MessageBarBody, MessageBarTitle, Select, Spinner } from '@fluentui/react-components'
 import {
-  ArrowClockwise20Regular, Checkmark20Regular, DismissCircle20Regular, History20Regular, LockClosed20Regular,
+  ArrowClockwise20Regular, ArrowEnterLeft20Regular, History24Regular, Checkmark20Regular, DismissCircle20Regular, History20Regular, LockClosed20Regular,
   LockOpen20Regular, Open20Regular, PersonAdd20Regular, PersonEdit20Regular, ShieldTask20Regular, SignOut20Regular,
 } from '@fluentui/react-icons'
 import { apiRequest } from '../lib/api.js'
+import PageHeader, { HeroStat } from './PageHeader.jsx'
 import { useLocale, useT } from '../lib/i18n.js'
 import { useNow } from '../lib/time.js'
 
-const ACTIONS = ['signed_up', 'opened', 'signed_out', 'approved', 'declined', 'role_changed', 'access_off', 'access_on', 'status_changed']
+const ACTIONS = ['signed_up', 'signed_in', 'opened', 'signed_out', 'approved', 'declined', 'role_changed', 'access_off', 'access_on', 'status_changed']
 const ICON = {
   signed_up: <PersonAdd20Regular />,
+  signed_in: <ArrowEnterLeft20Regular />,
   opened: <Open20Regular />,
   signed_out: <SignOut20Regular />,
   approved: <Checkmark20Regular />,
@@ -69,6 +71,9 @@ export default function ActivityLog({ getToken, people, nameOf }) {
     }
   }
 
+  // Summary for the header, from the entries loaded below.
+  const today = (items ?? []).filter((e) => dayKey(new Date(e.at)) === dayKey(now))
+
   const who = useCallback((e, side) => e[`${side}Name`] || e[`${side}Email`] || t('activity.unknown'), [t])
   const sentence = (e) =>
     t(`activity.${e.action}`, {
@@ -101,10 +106,10 @@ export default function ActivityLog({ getToken, people, nameOf }) {
 
   return (
     <>
-      <div className="section-title">
-        <h1>{t('nav.activity')}</h1>
-        <p className="muted">{t('activity.lead')}</p>
-      </div>
+      <PageHeader icon={<History24Regular />} title={t('nav.activity')} description={t('activity.lead')}>
+        <HeroStat value={items ? today.length : '–'} label={t('activity.stat.today')} />
+        <HeroStat value={items ? new Set(today.map((e) => e.actorId)).size : '–'} label={t('activity.stat.people')} />
+      </PageHeader>
 
       <div className="activity-tools">
         <label className="activity-filter">

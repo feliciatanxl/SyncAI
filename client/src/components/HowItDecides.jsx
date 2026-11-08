@@ -1,4 +1,5 @@
-import { CheckmarkCircle24Regular, Eye24Regular, ShieldCheckmark24Regular } from '@fluentui/react-icons'
+import { CheckmarkCircle24Regular, Eye24Regular, ShieldCheckmark24Regular, Sparkle24Regular } from '@fluentui/react-icons'
+import PageHeader from './PageHeader.jsx'
 import { useT } from '../lib/i18n.js'
 
 const FACTOR_NUMBERS = [1, 2, 3, 4]
@@ -13,11 +14,7 @@ export default function HowItDecides() {
   ]
   return (
     <>
-      <div className="section-title">
-        <p className="eyebrow">{t('usp.eyebrow')}</p>
-        <h1>{t('usp.name')}</h1>
-        <p className="muted">{t('decides.lead')}</p>
-      </div>
+      <PageHeader icon={<Sparkle24Regular />} eyebrow={t('usp.eyebrow')} title={t('usp.name')} description={t('decides.lead')} />
       <ol className="factor-cards">
         {FACTOR_NUMBERS.map((n) => (
           <li key={n} className="panel">

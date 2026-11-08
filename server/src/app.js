@@ -36,7 +36,16 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
     }),
   )
 
-  // Signed in with Microsoft, and known to SyncAI. Sets req.user and logs first sign-ins and daily visits.
+  // A missed visit record shouldn't lock anyone out; access changes are logged transactionally instead.
+  async function recordVisit(user, action, details = {}) {
+    try {
+      await users.logActivity(user.id, action, user.id, details)
+    } catch (err) {
+      console.error('Could not record visit', err)
+    }
+  }
+
+  // Signed in with Microsoft, and known to SyncAI. Sets req.user and req.visit, and logs first sign-ins.
   async function authenticate(req, res, next) {
     const token = req.get('authorization')?.match(/^Bearer (.+)$/)?.[1]
     if (!token) return fail(res, 401, 'Sign in to continue.')
@@ -48,13 +57,8 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
     }
     const { created, firstVisitToday, ...user } = await users.upsertFromToken(identity)
     req.user = user
-    try {
-      if (created) await users.logActivity(user.id, 'signed_up', user.id, { role: user.role, status: user.status })
-      else if (firstVisitToday) await users.logActivity(user.id, 'opened', user.id, {})
-    } catch (err) {
-      // A missed visit record shouldn't lock someone out; access changes are logged transactionally instead.
-      console.error('Could not record visit', err)
-    }
+    req.visit = { created, firstVisitToday }
+    if (created) await recordVisit(user, 'signed_up', { role: user.role, status: user.status })
     next()
   }
 
@@ -77,7 +81,18 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
   })
 
   // Any signed-in person, including pending ones, so the app can show the right screen. Only their own record.
-  api.get('/me', authenticate, (req, res) => res.json(req.user))
+  // The app calls this when it opens while someone is still signed in: logged at most once a day.
+  api.get('/me', authenticate, async (req, res) => {
+    if (!req.visit.created && req.visit.firstVisitToday) await recordVisit(req.user, 'opened')
+    res.json(req.user)
+  })
+
+  // The app calls this instead of /me straight after someone signs in through Microsoft, so every real sign-in
+  // is recorded (a first sign-in is already recorded as signed_up). Returns the same record as /me.
+  api.post('/signin', authenticate, async (req, res) => {
+    if (!req.visit.created) await recordVisit(req.user, 'signed_in')
+    res.json(req.user)
+  })
 
   // Called by the app when someone clicks Sign out, while their token is still valid. Only explicit sign-outs
   // reach the server (closing the tab sends nothing), so the log shows these, not every session end.

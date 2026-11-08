@@ -3,7 +3,7 @@ import { useMsal } from '@azure/msal-react'
 import { useNavigate } from 'react-router-dom'
 import { Button, MessageBar, MessageBarBody, MessageBarTitle, Spinner } from '@fluentui/react-components'
 import { BrandLink } from '../components/Brand.jsx'
-import { getApiToken, getProfilePhoto, loginRequest } from '../auth/msal.js'
+import { getApiToken, getProfilePhoto, loginRequest, takeSignedIn } from '../auth/msal.js'
 import { apiRequest } from '../lib/api.js'
 import { useT } from '../lib/i18n.js'
 import AdminPortal from './AdminPortal.jsx'
@@ -23,12 +23,21 @@ export default function Workspace() {
 
   const getToken = useCallback(() => getApiToken(instance, instance.getAccount({ homeAccountId: accountId })), [instance, accountId])
 
+  // Straight after a Microsoft sign-in, POST /signin records it; otherwise GET /me (a daily "opened SyncAI" at most).
+  // The sign-in request isn't aborted on cleanup, so it is recorded exactly once even when effects run twice.
   useEffect(() => {
+    let live = true
     const controller = new AbortController()
-    apiRequest('/me', { getToken, signal: controller.signal })
-      .then(setMe)
-      .catch((err) => err.name !== 'AbortError' && setError(err))
-    return () => controller.abort()
+    const request = takeSignedIn()
+      ? apiRequest('/signin', { method: 'POST', getToken })
+      : apiRequest('/me', { getToken, signal: controller.signal })
+    request
+      .then((user) => live && setMe(user))
+      .catch((err) => live && err.name !== 'AbortError' && setError(err))
+    return () => {
+      live = false
+      controller.abort()
+    }
   }, [getToken, attempt])
 
   const [photo, setPhoto] = useState(null)
@@ -58,7 +67,9 @@ export default function Workspace() {
   }
 
   const switchAccount = () => instance.loginRedirect(loginRequest)
-  const common = { me, photo, tenantId: account?.tenantId, onSignOut: signOut, onSwitchAccount: switchAccount }
+  // The Ask SyncAI conversation lives here so it survives switching tabs and is gone after signing out.
+  const chat = useState([])
+  const common = { me, photo, chat, tenantId: account?.tenantId, onSignOut: signOut, onSwitchAccount: switchAccount }
 
   if (me?.role === 'admin' && me.status === 'active') return <AdminPortal {...common} getToken={getToken} />
   if (me) return <MemberPortal {...common} />

@@ -5,12 +5,14 @@ import {
   Toast, ToastTitle, Toaster, useId, useToastController,
 } from '@fluentui/react-components'
 import {
-  ArrowClockwise20Regular, ArrowRight16Regular, BrainCircuit24Regular, Checkmark20Regular, CheckmarkCircle24Regular, Copy20Regular, Grid20Regular,
+  ArrowClockwise20Regular, ArrowRight16Regular, ChatSparkle20Regular, BrainCircuit24Regular, Checkmark20Regular, CheckmarkCircle24Regular, Copy20Regular, Grid20Regular,
   Info20Regular, People20Regular, People24Regular, PeopleCheckmark24Regular, PersonClock24Regular, PersonProhibited20Regular,
   History20Regular, Settings20Regular, ShieldCheckmark24Regular, Sparkle20Regular, ArrowCounterclockwise20Regular,
 } from '@fluentui/react-icons'
 import ActivityLog from '../components/ActivityLog.jsx'
+import AssistantChat from '../components/AssistantChat.jsx'
 import HowItDecides from '../components/HowItDecides.jsx'
+import PageHeader, { HeroStat } from '../components/PageHeader.jsx'
 import PortalShell from '../components/PortalShell.jsx'
 import SettingsPanel from '../components/SettingsPanel.jsx'
 import { apiRequest } from '../lib/api.js'
@@ -19,6 +21,7 @@ import { greetingKey, greetingName, relativeTime, useNow } from '../lib/time.js'
 
 const SECTIONS = [
   { id: 'overview', icon: <Grid20Regular /> },
+  { id: 'assistant', icon: <ChatSparkle20Regular /> },
   { id: 'people', icon: <People20Regular /> },
   { id: 'activity', icon: <History20Regular /> },
   { id: 'decides', icon: <Sparkle20Regular /> },
@@ -35,7 +38,7 @@ function updatedLabel(t, locale, updatedAt, now) {
   return t('updated.ago', { when: new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-minutes, 'minute') })
 }
 
-export default function AdminPortal({ me, photo, tenantId, getToken, onSignOut, onSwitchAccount }) {
+export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSignOut, onSwitchAccount }) {
   const t = useT()
   const [section, setSection] = useState('overview')
   const [users, setUsers] = useState(null)
@@ -142,6 +145,8 @@ export default function AdminPortal({ me, photo, tenantId, getToken, onSignOut, 
         <Overview {...shared} pending={pending} goTo={setSection} notify={notify} now={now} updatedAt={updatedAt} refreshing={refreshing} onRefresh={refreshNow} />
       ) : section === 'people' ? (
         <PeopleSection {...shared} now={now} />
+      ) : section === 'assistant' ? (
+        <AssistantChat me={me} name={nameOf(me)} chat={chat} goTo={setSection} available={SECTIONS.map((s) => s.id)} />
       ) : section === 'activity' ? (
         <ActivityLog getToken={getToken} people={users} nameOf={nameOf} />
       ) : (
@@ -328,10 +333,11 @@ function PeopleSection({ me, users, busyId, actions, nameOf, now }) {
 
   return (
     <>
-      <div className="section-title">
-        <h1>{t('nav.people')}</h1>
-        <p className="muted">{t('people.lead')}</p>
-      </div>
+      <PageHeader icon={<People24Regular />} title={t('nav.people')} description={t('people.lead')}>
+        <HeroStat value={users ? users.length : '–'} label={t('filter.all')} />
+        <HeroStat value={users ? users.filter((u) => u.status === 'pending').length : '–'} label={t('filter.pending')} tone={users?.some((u) => u.status === 'pending') ? 'warn' : undefined} />
+        <HeroStat value={users ? users.filter((u) => u.status === 'active').length : '–'} label={t('filter.active')} />
+      </PageHeader>
 
       <details className="roles-help">
         <summary><Info20Regular /> {t('people.rolesHelp')}</summary>

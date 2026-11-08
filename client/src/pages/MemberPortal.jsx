@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Badge, Button } from '@fluentui/react-components'
 import {
-  ArrowRight16Regular, BrainCircuit24Regular, CalendarLtr20Regular, CalendarLtr24Regular, Grid20Regular, PeopleTeam20Regular,
+  ArrowRight16Regular, BrainCircuit24Regular, ChatSparkle20Regular, CalendarLtr20Regular, CalendarLtr24Regular, Grid20Regular, PeopleTeam20Regular,
   PeopleTeam24Regular, PersonClock24Regular, PersonProhibited24Regular, Settings20Regular, Sparkle20Regular,
   TaskListLtr20Regular, TaskListLtr24Regular, CheckmarkCircle20Filled, Circle20Regular, Clock20Regular, DismissCircle20Regular,
 } from '@fluentui/react-icons'
+import AssistantChat from '../components/AssistantChat.jsx'
 import HowItDecides from '../components/HowItDecides.jsx'
+import PageHeader from '../components/PageHeader.jsx'
 import PortalShell from '../components/PortalShell.jsx'
 import SettingsPanel from '../components/SettingsPanel.jsx'
 import { useLocale, useT } from '../lib/i18n.js'
@@ -13,6 +15,7 @@ import { greetingKey, greetingName, useNow } from '../lib/time.js'
 
 const ICONS = {
   overview: <Grid20Regular />,
+  assistant: <ChatSparkle20Regular />,
   tasks: <TaskListLtr20Regular />,
   plan: <CalendarLtr20Regular />,
   team: <PeopleTeam20Regular />,
@@ -24,13 +27,13 @@ const FACTOR_NUMBERS = [1, 2, 3, 4]
 // What each person sees depends on their status and role: pending and disabled people get only what
 // doesn't need approval; managers also get Team workload.
 function sectionsFor(me) {
-  if (me.status !== 'active') return ['overview', 'decides', 'settings']
-  return ['overview', 'tasks', 'plan', ...(me.role === 'manager' ? ['team'] : []), 'decides', 'settings']
+  if (me.status !== 'active') return ['overview', 'assistant', 'decides', 'settings']
+  return ['overview', 'assistant', 'tasks', 'plan', ...(me.role === 'manager' ? ['team'] : []), 'decides', 'settings']
 }
 
 // Portal for team members and managers. Tasks, plans and team workload arrive with the planning engine,
 // so those pages explain what's coming instead of showing made-up data.
-export default function MemberPortal({ me, photo, tenantId, onSignOut, onSwitchAccount }) {
+export default function MemberPortal({ me, photo, chat, tenantId, onSignOut, onSwitchAccount }) {
   const t = useT()
   const [section, setSection] = useState('overview')
   const ids = sectionsFor(me)
@@ -54,6 +57,8 @@ export default function MemberPortal({ me, photo, tenantId, onSignOut, onSwitchA
         <ComingSoon icon={<CalendarLtr24Regular />} title={t('nav.plan')} heading={t('member.plan.heading')} text={t('member.plan.text')} goTo={setSection} />
       ) : current === 'team' ? (
         <ComingSoon icon={<PeopleTeam24Regular />} title={t('nav.team')} heading={t('member.team.heading')} text={t('member.team.text')} goTo={setSection} />
+      ) : current === 'assistant' ? (
+        <AssistantChat me={me} name={name} chat={chat} goTo={setSection} available={ids} />
       ) : current === 'decides' ? (
         <HowItDecides />
       ) : (
@@ -196,13 +201,9 @@ function ComingSoon({ icon, title, heading, text, goTo }) {
   const t = useT()
   return (
     <>
-      <div className="section-title">
-        <h1>{title}</h1>
-      </div>
+      <PageHeader icon={icon} title={title} badge={<span className="hero-badge">{t('member.soon')}</span>} description={heading} />
       <section className="panel coming-soon">
         <span className="coming-icon" aria-hidden="true">{icon}</span>
-        <Badge appearance="tint" color="brand">{t('member.soon')}</Badge>
-        <h2>{heading}</h2>
         <p className="muted">{text}</p>
         <Button appearance="primary" icon={<ArrowRight16Regular />} iconPosition="after" onClick={() => goTo('decides')}>{t('usp.cta')}</Button>
       </section>

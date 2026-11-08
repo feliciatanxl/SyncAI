@@ -1,6 +1,6 @@
 // Audit events SyncAI records. Only actions that grant access or change something are logged, not page views:
 // accountability without monitoring staff (PDPA: collect only what the purpose needs).
-export const ACTIONS = ['signed_up', 'opened', 'signed_out', 'approved', 'declined', 'role_changed', 'access_off', 'access_on', 'status_changed']
+export const ACTIONS = ['signed_up', 'signed_in', 'opened', 'signed_out', 'approved', 'declined', 'role_changed', 'access_off', 'access_on', 'status_changed']
 
 // The events an admin's change to a person produces, from that person's state before and after.
 export function eventsForChange(before, after) {

@@ -48,6 +48,7 @@ The app registration also needs **Expose an API** with an `access_as_user` scope
 | --- | --- | --- |
 | `GET /api/health` | Anyone | `{ ok, db }`, checks the database |
 | `GET /api/me` | Any signed-in person | Their own record: role (`admin`, `manager`, `member`), status (`pending`, `active`, `disabled`) and `lastActiveAt` |
+| `POST /api/signin` | Any signed-in person | Called by the app straight after a Microsoft sign-in instead of `/api/me`: records `signed_in` and returns the same record |
 | `POST /api/signout` | Any signed-in person | Records that they signed out (204). The app calls it before clearing the session and signs out anyway if it fails |
 | `GET /api/users` | Active admins | Everyone who has signed in, with `lastActiveAt` |
 | `PATCH /api/users/:id` | Active admins | Change `role` and/or `status`; the change and its audit record are saved together |
@@ -60,7 +61,8 @@ SyncAI records only what accountability needs, not how people use the app:
 | Recorded | When |
 | --- | --- |
 | `signed_up` | Someone signs in for the first time |
-| `opened` | Someone opens SyncAI, at most once per day (Singapore time) |
+| `signed_in` | Someone signs in through Microsoft (every time; a first sign-in is recorded as `signed_up` instead) |
+| `opened` | Someone opens SyncAI while still signed in from before, at most once per day (Singapore time) |
 | `signed_out` | Someone clicks **Sign out**. Closing the tab or browser sends nothing, so this shows explicit sign-outs only; use Last active to see whether someone is still using SyncAI |
 | `approved`, `declined` | An admin approves or declines a new person |
 | `role_changed`, `status_changed` | An admin changes someone's role or status |

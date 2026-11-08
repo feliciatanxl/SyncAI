@@ -62,9 +62,11 @@ Signing out clears SyncAI's session and returns to the home page without Microso
 | --- | --- |
 | **Overview** | Date and time (to the minute), greeting, counts, the approval queue (approve as team member or manager, or decline) with an "Updated … ago" label and a Refresh button, an invite link to copy, and the USP with its four priority factors. The people list reloads every minute while the tab is visible and as soon as you return to it |
 | **People** | Search and filter everyone who has signed in; see when each person was last active (exact time on hover); change roles; approve, turn off or turn back on access. Turning off asks for confirmation, and you cannot change your own access |
-| **Activity** | The audit trail ([`src/components/ActivityLog.jsx`](src/components/ActivityLog.jsx)): first sign-ins, daily visits, sign-outs and every approval, role change and access change, grouped by day and filterable by person and type. Read-only, kept for 12 months (see [server/README.md](../server/README.md#activity-log-and-personal-data-pdpa)) |
+| **Activity** | The audit trail ([`src/components/ActivityLog.jsx`](src/components/ActivityLog.jsx)): first sign-ins, every sign-in, daily visits, sign-outs and every approval, role change and access change, grouped by day and filterable by person and type. Read-only, kept for 12 months (see [server/README.md](../server/README.md#activity-log-and-personal-data-pdpa)) |
 | **How SyncAI decides** | The USP in plain language: the four factors and the human-approval principles |
 | **Settings** | Text size, language and appearance (see below) |
+
+Every portal page opens with the same branded header ([`src/components/PageHeader.jsx`](src/components/PageHeader.jsx)): icon, title, description and live summary numbers (for example People's counts, today's activity, or the current Settings).
 
 The account menu at the top right shows the person's Microsoft profile photo (initials if there is none) and has *Manage your Microsoft account*, *Sign in with a different account* and *Sign out*. On tablets and phones the sidebar becomes a tab strip and the People table becomes cards.
 
@@ -74,11 +76,19 @@ The account menu at the top right shows the person's Microsoft profile photo (in
 
 | Who | Sections |
 | --- | --- |
-| Active team member | Overview, My tasks, My plan, How SyncAI decides, Settings |
+| Active team member | Overview, Ask SyncAI, My tasks, My plan, How SyncAI decides, Settings |
 | Active manager | The same, plus Team workload |
-| Waiting for approval or turned off | Overview (explains their status and what to do next), How SyncAI decides, Settings |
+| Waiting for approval or turned off | Overview (explains their status and what to do next), Ask SyncAI, How SyncAI decides, Settings |
 
 The overview shows the date and time, a greeting, Today's plan, the person's role, a *Your setup* checklist (signed in, approved, tasks and calendar connected) based on their real account state, and the four priority factors. My tasks, My plan and Team workload explain what each will do and are marked *Coming soon*: they need the planning engine and task data, which the API doesn't have yet. The portal shows no made-up data.
+
+## Ask SyncAI (preview)
+
+Every portal has an **Ask SyncAI** tab ([`src/components/AssistantChat.jsx`](src/components/AssistantChat.jsx)): a chat with suggested questions as tap-able chips, a typing indicator, Enter to send (Shift+Enter for a new line), and buttons in answers that open the relevant page (Settings, People, How SyncAI decides).
+
+It is clearly labelled **Preview**. There is no AI or server call yet: answers come from SyncAI's help guide ([`src/lib/helpGuide.js`](src/lib/helpGuide.js)) about how SyncAI works (the four factors, roles, settings, what is recorded, approvals for admins, when tasks arrive), in all four languages. Questions outside the guide get an honest "I can't answer that yet". The conversation lives in the signed-in page, so it survives switching tabs and is gone after signing out.
+
+When it becomes real AI, the model must be called from the Express server (the key never reaches the browser), only be given data the person is allowed to see, and suggestions still go through the normal approval buttons. Decide chat retention and update the PDPA notice at that point.
 
 ## Settings and accessibility
 

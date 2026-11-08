@@ -59,7 +59,25 @@ export async function createMsalInstance() {
   const [first] = instance.getAllAccounts()
   if (first && !instance.getActiveAccount()) instance.setActiveAccount(first)
   instance.addEventCallback((event) => {
-    if (event.eventType === EventType.LOGIN_SUCCESS && event.payload?.account) instance.setActiveAccount(event.payload.account)
+    if (event.eventType === EventType.LOGIN_SUCCESS && event.payload?.account) {
+      instance.setActiveAccount(event.payload.account)
+      markSignedIn()
+    }
   })
   return instance
+}
+
+// A real Microsoft sign-in just finished: the next load of the signed-in area records it once (see takeSignedIn).
+const SIGNED_IN = 'syncai.justSignedIn'
+function markSignedIn() {
+  try { sessionStorage.setItem(SIGNED_IN, '1') } catch { /* storage blocked: the visit is recorded as an open instead */ }
+}
+export function takeSignedIn() {
+  try {
+    const value = sessionStorage.getItem(SIGNED_IN)
+    sessionStorage.removeItem(SIGNED_IN)
+    return value === '1'
+  } catch {
+    return false
+  }
 }

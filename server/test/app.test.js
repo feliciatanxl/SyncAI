@@ -214,3 +214,13 @@ test('records explicit sign-outs, for anyone signed in', () => withServer(async 
   const feed = await (await call('/activity?action=signed_out', 'boss@x.com')).json()
   assert.deepEqual(feed.items.map((e) => e.actorId), [pending.id])
 }))
+
+test('records every sign-in, and daily opens only for people already signed in', () => withServer(async (call, users) => {
+  const me = await (await (await call('/signin', 'new@x.com', { method: 'POST' })).json())
+  assert.equal(me.status, 'pending', 'sign-in returns the same record as /me')
+  await call('/signin', 'new@x.com', { method: 'POST' })
+  await call('/signin', 'new@x.com', { method: 'POST' })
+  await call('/me', 'new@x.com')
+  assert.deepEqual(users.activity.map((a) => a.action), ['signed_up', 'signed_in', 'signed_in'])
+  assert.equal((await call('/signin', null, { method: 'POST' })).status, 401)
+}))
