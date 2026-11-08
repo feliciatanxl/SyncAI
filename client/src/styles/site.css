@@ -967,60 +967,59 @@ code { font-size: 0.9em; }
 
 /* Empty card for Teams (Microsoft 365 style) */
 .empty-card {
-  padding: 28px 32px;
-  border-radius: 14px;
+  padding: 16px 20px;
+  border-radius: 12px;
   background: var(--colorNeutralBackground1);
   border: 1px solid var(--colorNeutralStroke2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
 .empty-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
 .empty-card-content {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
   min-width: 0;
-  flex: 1 1 360px;
+  flex: 1 1 320px;
 }
 
 .empty-card-icon {
   display: inline-grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   background: var(--colorBrandBackground2);
   border: 1px solid var(--colorBrandStroke2);
   color: var(--colorBrandForeground1);
   flex: none;
-  box-shadow: 0 2px 6px rgba(0, 120, 212, 0.12);
 }
 
 .empty-card-icon svg {
-  font-size: 26px;
-  width: 26px;
-  height: 26px;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
 }
 
 .empty-card-text {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .empty-card h3 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.0625rem;
   font-weight: 600;
   color: var(--colorNeutralForeground1);
   letter-spacing: -0.01em;
@@ -1028,9 +1027,9 @@ code { font-size: 0.9em; }
 
 .empty-card p {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--colorNeutralForeground2);
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 .empty-card-action {
@@ -1039,41 +1038,39 @@ code { font-size: 0.9em; }
 
 .empty-card-action .fui-Button {
   font-weight: 600;
-  padding-left: 18px;
-  padding-right: 18px;
 }
 
 .empty-card-footer {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding-top: 18px;
+  gap: 10px;
+  padding-top: 10px;
   border-top: 1px solid var(--colorNeutralStroke3);
   flex-wrap: wrap;
 }
 
 .empty-card-footer-label {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--colorNeutralForeground3);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .empty-card-chips {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .empty-card-chip {
-  padding: 5px 14px;
-  border-radius: 16px;
+  padding: 3px 10px;
+  border-radius: 14px;
   background: var(--colorNeutralBackground2);
   border: 1px solid var(--colorNeutralStroke3);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--colorNeutralForeground2);
   cursor: pointer;
   transition: all 0.15s ease;
