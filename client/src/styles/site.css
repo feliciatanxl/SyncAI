@@ -734,7 +734,7 @@ code { font-size: 0.9em; }
 .team-card-info {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -756,16 +756,16 @@ code { font-size: 0.9em; }
 .team-badges-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .team-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 12px;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 14px;
   font-size: 0.75rem;
   font-weight: 600;
   background: var(--colorNeutralBackground3);
