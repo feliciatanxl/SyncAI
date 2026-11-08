@@ -12,7 +12,6 @@ import {
 import {
   ChevronDown20Regular,
   ChevronUp20Regular,
-  Info20Regular,
   PeopleTeam20Regular,
   PeopleTeam24Regular,
   Person20Regular,
@@ -84,6 +83,10 @@ export default function MyTeam({ getToken }) {
     }
   }
 
+  const hasMultipleTeams = (teams ?? []).length > 1
+  const hasAnyMembers = allMembers.length > 0
+  const showToolbar = hasMultipleTeams || hasAnyMembers
+
   return (
     <>
       <PageHeader icon={<PeopleTeam24Regular />} title={t('nav.team')} description={t('myteam.lead')}>
@@ -117,29 +120,28 @@ export default function MyTeam({ getToken }) {
         </div>
       ) : (
         <>
-          <div className="soon-note" role="note">
-            <Info20Regular aria-hidden="true" />
-            <span>{t('myteam.workloadSoon')}</span>
-          </div>
-
-          <div className="teams-toolbar">
-            <div className="teams-toolbar-left">
-              <SearchBox
-                className="teams-search"
-                placeholder={t('myteam.search')}
-                value={query}
-                onChange={(_e, d) => setQuery(d.value)}
-                aria-label={t('myteam.search')}
-              />
-              <Button
-                appearance="subtle"
-                icon={allExpanded ? <ChevronUp20Regular /> : <ChevronDown20Regular />}
-                onClick={toggleAll}
-              >
-                {allExpanded ? t('teams.collapseAll') : t('teams.expandAll')}
-              </Button>
+          {showToolbar && (
+            <div className="teams-toolbar">
+              <div className="teams-toolbar-left">
+                <SearchBox
+                  className="teams-search"
+                  placeholder={t('myteam.search')}
+                  value={query}
+                  onChange={(_e, d) => setQuery(d.value)}
+                  aria-label={t('myteam.search')}
+                />
+                {hasMultipleTeams && (
+                  <Button
+                    appearance="subtle"
+                    icon={allExpanded ? <ChevronUp20Regular /> : <ChevronDown20Regular />}
+                    onClick={toggleAll}
+                  >
+                    {allExpanded ? t('teams.collapseAll') : t('teams.expandAll')}
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {shownTeams.length === 0 ? (
             <div className="panel empty">
@@ -185,11 +187,6 @@ export default function MyTeam({ getToken }) {
                         <div className="team-card-info">
                           <div className="team-card-title-row">
                             <h2 id={`myteam-${team.id}`}>{team.name}</h2>
-                            <span className="muted small">
-                              {teamMembers.length === 1
-                                ? t('teams.countOne')
-                                : t('teams.count', { n: teamMembers.length })}
-                            </span>
                           </div>
                           <div className="team-badges-row">
                             <span className="team-badge">
@@ -229,55 +226,47 @@ export default function MyTeam({ getToken }) {
                     </div>
 
                     {isExpanded && (
-                      <div className="team-card-content is-single">
-                        <div className="team-section-box">
-                          <div className="team-section-header">
-                            <h3>
+                      <div className="myteam-content">
+                        {teamMembers.length === 0 ? (
+                          <div className="myteam-empty-state">
+                            <div className="myteam-empty-icon" aria-hidden="true">
                               <Person20Regular />
-                              {t('teams.members')}
-                            </h3>
-                            <span className="team-section-count">{teamMembers.length}</span>
-                          </div>
-
-                          {teamMembers.length === 0 ? (
-                            <div className="team-empty-state-box">
-                              <Person20Regular aria-hidden="true" />
-                              <p>{t('teams.noMembers')}</p>
-                              <span className="muted small">{t('myteam.emptyMembersHint')}</span>
                             </div>
-                          ) : (
-                            <ul className="team-people-list">
-                              {teamMembers.map((m) => (
-                                <li key={m.id} className="team-person-item">
-                                  <Avatar name={nameOf(m)} size={36} color="colorful" />
-                                  <div className="team-person-details">
-                                    <div className="team-person-name-row">
-                                      <strong>{nameOf(m)}</strong>
-                                      <Badge appearance="tint" color={STATUS_COLOR[m.status]}>
-                                        {t(`status.${m.status}`)}
-                                      </Badge>
-                                    </div>
-                                    <span>{m.email}</span>
+                            <h3>{t('teams.noMembers')}</h3>
+                            <p>{t('myteam.emptyMembersHint')}</p>
+                          </div>
+                        ) : (
+                          <ul className="team-people-list">
+                            {teamMembers.map((m) => (
+                              <li key={m.id} className="team-person-item">
+                                <Avatar name={nameOf(m)} size={36} color="colorful" />
+                                <div className="team-person-details">
+                                  <div className="team-person-name-row">
+                                    <strong>{nameOf(m)}</strong>
+                                    <Badge appearance="tint" color={STATUS_COLOR[m.status]}>
+                                      {t(`status.${m.status}`)}
+                                    </Badge>
                                   </div>
-                                  <div className="team-person-meta">
-                                    <span className="team-last">
-                                      {m.lastActiveAt ? (
-                                        <time
-                                          dateTime={m.lastActiveAt}
-                                          title={new Date(m.lastActiveAt).toLocaleString(locale)}
-                                        >
-                                          {relativeTime(m.lastActiveAt, now, locale) ?? t('lastActive.justNow')}
-                                        </time>
-                                      ) : (
-                                        t('lastActive.never')
-                                      )}
-                                    </span>
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
+                                  <span>{m.email}</span>
+                                </div>
+                                <div className="team-person-meta">
+                                  <span className="team-last">
+                                    {m.lastActiveAt ? (
+                                      <time
+                                        dateTime={m.lastActiveAt}
+                                        title={new Date(m.lastActiveAt).toLocaleString(locale)}
+                                      >
+                                        {relativeTime(m.lastActiveAt, now, locale) ?? t('lastActive.justNow')}
+                                      </time>
+                                    ) : (
+                                      t('lastActive.never')
+                                    )}
+                                  </span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     )}
                   </section>

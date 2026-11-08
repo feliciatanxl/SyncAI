@@ -1209,3 +1209,55 @@ code { font-size: 0.9em; }
     max-width: 100%;
   }
 }
+
+/* Manager My Team view */
+.myteam-content {
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--colorNeutralStroke2);
+  background: var(--colorNeutralBackground1);
+}
+
+.myteam-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 20px;
+  border-radius: 8px;
+  background: var(--colorNeutralBackground2);
+  border: 1px dashed var(--colorNeutralStroke2);
+  gap: 6px;
+}
+
+.myteam-empty-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground3);
+  margin-bottom: 4px;
+}
+
+.myteam-empty-icon svg {
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+}
+
+.myteam-empty-state h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--colorNeutralForeground1);
+}
+
+.myteam-empty-state p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--colorNeutralForeground3);
+  max-width: 420px;
+  line-height: 1.4;
+}
