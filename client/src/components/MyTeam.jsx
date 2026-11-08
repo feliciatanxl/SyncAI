@@ -108,13 +108,15 @@ export default function MyTeam({ getToken }) {
         </div>
       ) : teams.length === 0 ? (
         <div className="panel empty-card">
-          <div className="empty-card-content">
-            <span className="empty-card-icon" aria-hidden="true">
-              <PeopleTeam24Regular />
-            </span>
-            <div>
-              <h3>{t('myteam.emptyTitle')}</h3>
-              <p className="muted">{t('myteam.none')}</p>
+          <div className="empty-card-header">
+            <div className="empty-card-content">
+              <span className="empty-card-icon" aria-hidden="true">
+                <PeopleTeam24Regular />
+              </span>
+              <div className="empty-card-text">
+                <h3>{t('myteam.emptyTitle')}</h3>
+                <p>{t('myteam.none')}</p>
+              </div>
             </div>
           </div>
         </div>

@@ -138,14 +138,38 @@ export default function TeamsAdmin({ getToken, people, nameOf, notify, onPeopleC
         <div className="panel"><Spinner size="small" label={t('app.loading')} /></div>
       ) : teams.length === 0 ? (
         <div className="panel empty-card">
-          <div className="empty-card-content">
-            <span className="empty-card-icon" aria-hidden="true"><PeopleTeam24Regular /></span>
-            <div>
-              <h3>{t('teams.emptyTitle')}</h3>
-              <p className="muted">{t('teams.empty')}</p>
+          <div className="empty-card-header">
+            <div className="empty-card-content">
+              <span className="empty-card-icon" aria-hidden="true"><PeopleTeam24Regular /></span>
+              <div className="empty-card-text">
+                <h3>{t('teams.emptyTitle')}</h3>
+                <p>{t('teams.empty')}</p>
+              </div>
+            </div>
+            <div className="empty-card-action">
+              <Button appearance="primary" size="large" icon={<Add20Regular />} onClick={() => openDialog('create')}>
+                {t('teams.new')}
+              </Button>
             </div>
           </div>
-          <Button appearance="primary" icon={<Add20Regular />} onClick={() => openDialog('create')}>{t('teams.new')}</Button>
+          <div className="empty-card-footer">
+            <span className="empty-card-footer-label">{t('teams.suggestions')}</span>
+            <div className="empty-card-chips">
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className="empty-card-chip"
+                  onClick={() => {
+                    setName(s)
+                    setDialog({ mode: 'create' })
+                  }}
+                >
+                  + {s}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       ) : (
         <>
