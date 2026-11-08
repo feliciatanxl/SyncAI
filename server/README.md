@@ -52,7 +52,24 @@ The app registration also needs **Expose an API** with an `access_as_user` scope
 | `POST /api/signout` | Any signed-in person | Records that they signed out (204). The app calls it before clearing the session and signs out anyway if it fails |
 | `GET /api/users` | Active admins | Everyone who has signed in, with `lastActiveAt` |
 | `PATCH /api/users/:id` | Active admins | Change `role` and/or `status`; the change and its audit record are saved together |
+| `GET /api/teams` | Active admins | Every team with its managers and members |
+| `POST /api/teams`, `PATCH /api/teams/:id`, `DELETE /api/teams/:id` | Active admins | Create or rename a team (`name`, 1–80 characters, unique ignoring case); delete it only when empty |
+| `POST /api/teams/:id/members`, `DELETE /api/teams/:id/members/:userId` | Active admins | Add someone (`userId`, `kind`: `manager` or `member`) or remove them |
+| `GET /api/my-teams` | Active managers | Only the teams they manage, with each member's name, email, status and last active |
 | `GET /api/activity` | Active admins | The audit trail, newest first. Optional `person` (user id, matches who did it or who it was done to), `action`, `limit` (1–100, default 50) and `before` (for the next page) |
+
+`GET /api/me` (and `POST /api/signin`) also return `teams`: the teams the person is in, as manager or member, with each team's managers.
+
+## Teams
+
+Admins arrange teams; managers see only the teams they lead; team members see only their own team and its managers. The rules live in [`src/teams.js`](src/teams.js), shared by the database code and the tests:
+
+- Only people with the **Manager** role can manage a team, and only **Team members** can join one as members. Admins can't be in teams, so they never get a team-wide view of anyone's work.
+- Each team member belongs to **one** team; a manager can lead several. (The `team_memberships` table allows more, and a partial unique index enforces one per member, so relaxing it later is a one-line change.)
+- Turned-off accounts can't be added to a team.
+- Changing someone's role removes team places that no longer fit (managers lose teams they led, team members leave the team they were in), recorded in the activity log in the same transaction.
+- Team names are unique ignoring case, and a team can only be deleted when it's empty.
+- Broken rules return a `code` (for example `member_has_team`) that the app translates.
 
 ## Activity log and personal data (PDPA)
 
@@ -67,6 +84,8 @@ SyncAI records only what accountability needs, not how people use the app:
 | `approved`, `declined` | An admin approves or declines a new person |
 | `role_changed`, `status_changed` | An admin changes someone's role or status |
 | `access_off`, `access_on` | An admin turns someone's access off or back on |
+| `team_created`, `team_renamed`, `team_deleted` | An admin creates, renames or deletes a team |
+| `team_member_added`, `team_member_removed` | An admin adds or removes someone, or a role change removes them |
 
 - **Not recorded:** page views, clicks, time on screen, IP addresses or device details.
 - **Last active:** `users.last_active_at` is updated at most every 5 minutes, so ordinary requests don't write to the database.

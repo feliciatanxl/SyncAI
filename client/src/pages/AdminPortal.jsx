@@ -7,9 +7,10 @@ import {
 import {
   ArrowClockwise20Regular, ArrowRight16Regular, ChatSparkle20Regular, BrainCircuit24Regular, Checkmark20Regular, CheckmarkCircle24Regular, Copy20Regular, Grid20Regular,
   Info20Regular, People20Regular, People24Regular, PeopleCheckmark24Regular, PersonClock24Regular, PersonProhibited20Regular,
-  History20Regular, Settings20Regular, ShieldCheckmark24Regular, Sparkle20Regular, ArrowCounterclockwise20Regular,
+  History20Regular, PeopleTeam20Regular, Settings20Regular, ShieldCheckmark24Regular, Sparkle20Regular, ArrowCounterclockwise20Regular,
 } from '@fluentui/react-icons'
 import ActivityLog from '../components/ActivityLog.jsx'
+import TeamsAdmin from '../components/TeamsAdmin.jsx'
 import AssistantChat from '../components/AssistantChat.jsx'
 import HowItDecides from '../components/HowItDecides.jsx'
 import PageHeader, { HeroStat } from '../components/PageHeader.jsx'
@@ -23,6 +24,7 @@ const SECTIONS = [
   { id: 'overview', icon: <Grid20Regular /> },
   { id: 'assistant', icon: <ChatSparkle20Regular /> },
   { id: 'people', icon: <People20Regular /> },
+  { id: 'teams', icon: <PeopleTeam20Regular /> },
   { id: 'activity', icon: <History20Regular /> },
   { id: 'decides', icon: <Sparkle20Regular /> },
   { id: 'settings', icon: <Settings20Regular /> },
@@ -30,6 +32,9 @@ const SECTIONS = [
 const STATUS_COLOR = { pending: 'warning', active: 'success', disabled: 'subtle' }
 const FILTERS = ['all', 'pending', 'active', 'disabled']
 const ROLE_KEYS = ['admin', 'manager', 'member']
+// Team places a role change would drop: managers lead teams, team members belong to one, admins to none.
+const KEEPS = { manager: 'manager', member: 'member' }
+const teamsLostBy = (user, newRole) => (user.teams ?? []).filter((team) => team.kind !== KEEPS[newRole])
 const FACTOR_NUMBERS = [1, 2, 3, 4]
 
 function updatedLabel(t, locale, updatedAt, now) {
@@ -45,6 +50,7 @@ export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSig
   const [loadError, setLoadError] = useState(null)
   const [busyId, setBusyId] = useState(null)
   const [confirm, setConfirm] = useState(null)
+  const [roleConfirm, setRoleConfirm] = useState(null)
   const toasterId = useId('toaster')
   const { dispatchToast } = useToastController(toasterId)
   const nameOf = useCallback((u) => u.displayName || u.email || t('app.unnamed'), [t])
@@ -97,8 +103,9 @@ export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSig
     setBusyId(user.id)
     try {
       const updated = await apiRequest(`/users/${user.id}`, { method: 'PATCH', body: patch, getToken })
-      setUsers((list) => list.map((u) => (u.id === updated.id ? updated : u)))
+      setUsers((list) => list.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)))
       notify(message)
+      load(undefined, true)
     } catch (err) {
       notify(err.message, 'error')
     } finally {
@@ -109,7 +116,9 @@ export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSig
   const role = (key) => t(`role.${key}`)
   const actions = {
     approve: (u, r = 'member') => change(u, { status: 'active', role: r }, t('toast.approved', { name: nameOf(u), role: role(r) })),
-    setRole: (u, r) => change(u, { role: r }, t('toast.roleChanged', { name: nameOf(u), role: role(r) })),
+    setRole: (u, r) => (teamsLostBy(u, r).length
+      ? setRoleConfirm({ user: u, role: r })
+      : change(u, { role: r }, t('toast.roleChanged', { name: nameOf(u), role: role(r) }))),
     restore: (u) => change(u, { status: 'active' }, t('toast.restored', { name: nameOf(u) })),
     turnOff: (u) => setConfirm(u),
   }
@@ -147,6 +156,8 @@ export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSig
         <PeopleSection {...shared} now={now} />
       ) : section === 'assistant' ? (
         <AssistantChat me={me} name={nameOf(me)} chat={chat} goTo={setSection} available={SECTIONS.map((s) => s.id)} />
+      ) : section === 'teams' ? (
+        <TeamsAdmin getToken={getToken} people={users} nameOf={nameOf} notify={notify} onPeopleChanged={() => load(undefined, true)} />
       ) : section === 'activity' ? (
         <ActivityLog getToken={getToken} people={users} nameOf={nameOf} />
       ) : (
@@ -169,6 +180,30 @@ export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSig
                 }}
               >
                 {t('btn.turnOff')}
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+
+      <Dialog open={Boolean(roleConfirm)} onOpenChange={(_e, data) => !data.open && setRoleConfirm(null)}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>{roleConfirm && t('confirm.roleTitle', { name: nameOf(roleConfirm.user), role: role(roleConfirm.role) })}</DialogTitle>
+            <DialogContent>
+              {roleConfirm && t('confirm.roleBody', { teams: teamsLostBy(roleConfirm.user, roleConfirm.role).map((team) => team.name).join(', ') })}
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="secondary" onClick={() => setRoleConfirm(null)}>{t('teams.cancel')}</Button>
+              <Button
+                appearance="primary"
+                onClick={() => {
+                  const { user, role: next } = roleConfirm
+                  setRoleConfirm(null)
+                  change(user, { role: next }, t('toast.roleChanged', { name: nameOf(user), role: role(next) }))
+                }}
+              >
+                {t('confirm.roleOk')}
               </Button>
             </DialogActions>
           </DialogBody>
@@ -374,6 +409,7 @@ function PeopleSection({ me, users, busyId, actions, nameOf, now }) {
               <th scope="col">{t('people.person')}</th>
               <th scope="col">{t('people.role')}</th>
               <th scope="col">{t('people.status')}</th>
+              <th scope="col">{t('people.team')}</th>
               <th scope="col">{t('people.lastActive')}</th>
               <th scope="col">{t('people.joined')}</th>
               <th scope="col"><span className="visually-hidden">{t('people.actions')}</span></th>
@@ -405,6 +441,11 @@ function PeopleSection({ me, users, busyId, actions, nameOf, now }) {
                   </td>
                   <td data-label={t('people.status')}>
                     <Badge appearance="tint" color={STATUS_COLOR[u.status]}>{t(`status.${u.status}`)}</Badge>
+                  </td>
+                  <td data-label={t('people.team')} className="small">
+                    {u.teams?.length
+                      ? u.teams.map((team) => team.name + (team.kind === 'manager' ? ` (${t('teams.kind.manager')})` : '')).join(', ')
+                      : <span className="muted">{u.role === 'admin' ? '—' : t('people.noTeam')}</span>}
                   </td>
                   <td data-label={t('people.lastActive')} className="muted small">
                     {u.lastActiveAt ? (

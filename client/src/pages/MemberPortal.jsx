@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { Badge, Button } from '@fluentui/react-components'
 import {
   ArrowRight16Regular, BrainCircuit24Regular, ChatSparkle20Regular, CalendarLtr20Regular, CalendarLtr24Regular, Grid20Regular, PeopleTeam20Regular,
-  PeopleTeam24Regular, PersonClock24Regular, PersonProhibited24Regular, Settings20Regular, Sparkle20Regular,
+  PersonClock24Regular, PersonProhibited24Regular, Settings20Regular, Sparkle20Regular,
   TaskListLtr20Regular, TaskListLtr24Regular, CheckmarkCircle20Filled, Circle20Regular, Clock20Regular, DismissCircle20Regular,
 } from '@fluentui/react-icons'
 import AssistantChat from '../components/AssistantChat.jsx'
 import HowItDecides from '../components/HowItDecides.jsx'
+import MyTeam from '../components/MyTeam.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import PortalShell from '../components/PortalShell.jsx'
 import SettingsPanel from '../components/SettingsPanel.jsx'
@@ -33,7 +34,7 @@ function sectionsFor(me) {
 
 // Portal for team members and managers. Tasks, plans and team workload arrive with the planning engine,
 // so those pages explain what's coming instead of showing made-up data.
-export default function MemberPortal({ me, photo, chat, tenantId, onSignOut, onSwitchAccount }) {
+export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSignOut, onSwitchAccount }) {
   const t = useT()
   const [section, setSection] = useState('overview')
   const ids = sectionsFor(me)
@@ -56,7 +57,7 @@ export default function MemberPortal({ me, photo, chat, tenantId, onSignOut, onS
       ) : current === 'plan' ? (
         <ComingSoon icon={<CalendarLtr24Regular />} title={t('nav.plan')} heading={t('member.plan.heading')} text={t('member.plan.text')} goTo={setSection} />
       ) : current === 'team' ? (
-        <ComingSoon icon={<PeopleTeam24Regular />} title={t('nav.team')} heading={t('member.team.heading')} text={t('member.team.text')} goTo={setSection} />
+        <MyTeam getToken={getToken} />
       ) : current === 'assistant' ? (
         <AssistantChat me={me} name={name} chat={chat} goTo={setSection} available={ids} />
       ) : current === 'decides' ? (
@@ -125,9 +126,10 @@ function Overview({ me, name, goTo }) {
               <Badge appearance="tint" size="large">{t(`role.${me.role}`)}</Badge>
             </div>
             <p className="muted">{t(`role.${me.role}.text`)}</p>
+            <TeamLines me={me} />
           </section>
 
-          <SetupCard status={me.status} />
+          <SetupCard me={me} />
 
           <section className="panel panel-usp" aria-labelledby="usp-h">
             <div className="usp-intro">
@@ -158,7 +160,7 @@ function Overview({ me, name, goTo }) {
               <p className="muted">{me.status === 'pending' ? t('member.pending.next') : t('ws.disabledBody')}</p>
             </div>
           </section>
-          <SetupCard status={me.status} wide />
+          <SetupCard me={me} wide />
         </div>
       )}
     </>
@@ -166,12 +168,14 @@ function Overview({ me, name, goTo }) {
 }
 
 // What's ready for this person and what's still to come, from their real account state.
-function SetupCard({ status, wide }) {
+function SetupCard({ me, wide }) {
   const t = useT()
-  const approval = { active: 'done', pending: 'waiting', disabled: 'off' }[status]
+  const approval = { active: 'done', pending: 'waiting', disabled: 'off' }[me.status]
+  const placed = (me.teams ?? []).some((team) => team.kind === (me.role === 'manager' ? 'manager' : 'member'))
   const steps = [
     { key: 'signedIn', state: 'done' },
     { key: 'approved', state: approval },
+    { key: me.role === 'manager' ? 'teamManager' : 'team', state: placed ? 'done' : me.status === 'disabled' ? 'off' : 'waiting' },
     { key: 'tasks', state: 'soon' },
     { key: 'calendar', state: 'soon' },
   ]
@@ -194,6 +198,25 @@ function SetupCard({ status, wide }) {
         ))}
       </ol>
     </section>
+  )
+}
+
+// Which team the person is in and who manages it, or which teams a manager leads.
+function TeamLines({ me }) {
+  const t = useT()
+  const teams = me.teams ?? []
+  const name = (u) => u.displayName || u.email
+  if (me.role === 'manager') {
+    const led = teams.filter((team) => team.kind === 'manager')
+    return <p className="team-lines">{led.length ? t('member.managesLine', { teams: led.map((team) => team.name).join(', ') }) : t('member.noTeamManager')}</p>
+  }
+  const team = teams.find((x) => x.kind === 'member')
+  if (!team) return <p className="team-lines muted">{t('member.noTeam')}</p>
+  return (
+    <p className="team-lines">
+      {t('member.teamLine', { team: team.name })}
+      {team.managers.length > 0 && <><br />{t('member.managerLine', { names: team.managers.map(name).join(', ') })}</>}
+    </p>
   )
 }
 

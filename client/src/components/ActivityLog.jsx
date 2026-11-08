@@ -2,14 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, MessageBar, MessageBarBody, MessageBarTitle, Select, Spinner } from '@fluentui/react-components'
 import {
   ArrowClockwise20Regular, ArrowEnterLeft20Regular, History24Regular, Checkmark20Regular, DismissCircle20Regular, History20Regular, LockClosed20Regular,
-  LockOpen20Regular, Open20Regular, PersonAdd20Regular, PersonEdit20Regular, ShieldTask20Regular, SignOut20Regular,
+  LockOpen20Regular, Open20Regular, PeopleTeam20Regular, PeopleTeamAdd20Regular, PersonAdd20Regular, PersonDelete20Regular, PersonEdit20Regular, ShieldTask20Regular, SignOut20Regular,
 } from '@fluentui/react-icons'
 import { apiRequest } from '../lib/api.js'
 import PageHeader, { HeroStat } from './PageHeader.jsx'
 import { useLocale, useT } from '../lib/i18n.js'
 import { useNow } from '../lib/time.js'
 
-const ACTIONS = ['signed_up', 'signed_in', 'opened', 'signed_out', 'approved', 'declined', 'role_changed', 'access_off', 'access_on', 'status_changed']
+const ACTIONS = [
+  'signed_up', 'signed_in', 'opened', 'signed_out', 'approved', 'declined', 'role_changed', 'access_off', 'access_on', 'status_changed',
+  'team_created', 'team_renamed', 'team_deleted', 'team_member_added', 'team_member_removed',
+]
 const ICON = {
   signed_up: <PersonAdd20Regular />,
   signed_in: <ArrowEnterLeft20Regular />,
@@ -21,8 +24,13 @@ const ICON = {
   access_off: <LockClosed20Regular />,
   access_on: <LockOpen20Regular />,
   status_changed: <ShieldTask20Regular />,
+  team_created: <PeopleTeamAdd20Regular />,
+  team_renamed: <PeopleTeam20Regular />,
+  team_deleted: <PeopleTeam20Regular />,
+  team_member_added: <PersonAdd20Regular />,
+  team_member_removed: <PersonDelete20Regular />,
 }
-const TONE = { approved: 'tone-good', access_on: 'tone-good', declined: 'tone-bad', access_off: 'tone-bad', role_changed: 'tone-info', status_changed: 'tone-info' }
+const TONE = { approved: 'tone-good', access_on: 'tone-good', declined: 'tone-bad', access_off: 'tone-bad', role_changed: 'tone-info', status_changed: 'tone-info', team_created: 'tone-info', team_member_added: 'tone-good', team_member_removed: 'tone-bad', team_deleted: 'tone-bad' }
 const PAGE = 50
 
 const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
@@ -80,8 +88,11 @@ export default function ActivityLog({ getToken, people, nameOf }) {
       actor: who(e, 'actor'),
       target: who(e, 'target'),
       role: e.details?.role ? t(`role.${e.details.role}`) : '',
-      from: e.details?.from ? t(e.action === 'role_changed' ? `role.${e.details.from}` : `status.${e.details.from}`) : '',
-      to: e.details?.to ? t(e.action === 'role_changed' ? `role.${e.details.to}` : `status.${e.details.to}`) : '',
+      // Role and status names are translated; team names (in renames) are shown as they were typed.
+      from: e.details?.from ? (e.action === 'team_renamed' ? e.details.from : t(e.action === 'role_changed' ? `role.${e.details.from}` : `status.${e.details.from}`)) : '',
+      to: e.details?.to ? (e.action === 'team_renamed' ? e.details.to : t(e.action === 'role_changed' ? `role.${e.details.to}` : `status.${e.details.to}`)) : '',
+      team: e.details?.team ?? '',
+      kind: e.details?.kind ? t(`teams.kind.${e.details.kind}`) : '',
     })
 
   // Day headings: "Today", "Yesterday", then the full date.

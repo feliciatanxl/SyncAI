@@ -1,6 +1,7 @@
 import express from 'express'
 import { rateLimit } from 'express-rate-limit'
 import { ACTIONS } from './activity.js'
+import { KINDS, cleanTeamName } from './teams.js'
 
 const ROLES = ['admin', 'manager', 'member']
 const STATUSES = ['pending', 'active', 'disabled']
@@ -82,16 +83,19 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
 
   // Any signed-in person, including pending ones, so the app can show the right screen. Only their own record.
   // The app calls this when it opens while someone is still signed in: logged at most once a day.
+  // Their own record plus the teams they're in (and those teams' managers), nothing about anyone else's work.
+  const ownRecord = async (user) => ({ ...user, teams: await users.teamsOf(user.id) })
+
   api.get('/me', authenticate, async (req, res) => {
     if (!req.visit.created && req.visit.firstVisitToday) await recordVisit(req.user, 'opened')
-    res.json(req.user)
+    res.json(await ownRecord(req.user))
   })
 
   // The app calls this instead of /me straight after someone signs in through Microsoft, so every real sign-in
   // is recorded (a first sign-in is already recorded as signed_up). Returns the same record as /me.
   api.post('/signin', authenticate, async (req, res) => {
     if (!req.visit.created) await recordVisit(req.user, 'signed_in')
-    res.json(req.user)
+    res.json(await ownRecord(req.user))
   })
 
   // Called by the app when someone clicks Sign out, while their token is still valid. Only explicit sign-outs
@@ -114,6 +118,41 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
     return updated ? res.json(updated) : fail(res, 404, 'User not found.')
   })
 
+  // ---- Teams ----
+  // Admins arrange teams but see no one's work. Managers only ever get the teams they lead.
+  const teamId = (req, res, next) => (UUID.test(req.params.id) ? next() : fail(res, 404, 'Team not found.'))
+
+  api.get('/teams', authenticate, allow('admin'), async (_req, res) => res.json(await users.listTeams()))
+
+  api.post('/teams', authenticate, allow('admin'), async (req, res) => {
+    res.status(201).json(await users.createTeam(cleanTeamName(req.body?.name), req.user.id))
+  })
+
+  api.patch('/teams/:id', authenticate, allow('admin'), teamId, async (req, res) => {
+    res.json(await users.renameTeam(req.params.id, cleanTeamName(req.body?.name), req.user.id))
+  })
+
+  api.delete('/teams/:id', authenticate, allow('admin'), teamId, async (req, res) => {
+    await users.deleteTeam(req.params.id, req.user.id)
+    res.status(204).end()
+  })
+
+  api.post('/teams/:id/members', authenticate, allow('admin'), teamId, async (req, res) => {
+    const { userId, kind } = req.body ?? {}
+    if (!UUID.test(userId ?? '')) return fail(res, 400, 'userId must be a user id.')
+    if (!KINDS.includes(kind)) return fail(res, 400, 'kind must be manager or member.')
+    await users.addToTeam(req.params.id, userId, kind, req.user.id)
+    res.status(204).end()
+  })
+
+  api.delete('/teams/:id/members/:userId', authenticate, allow('admin'), teamId, async (req, res) => {
+    if (!UUID.test(req.params.userId)) return fail(res, 404, 'They’re not in this team.')
+    await users.removeFromTeam(req.params.id, req.params.userId, req.user.id)
+    res.status(204).end()
+  })
+
+  api.get('/my-teams', authenticate, allow('manager'), async (req, res) => res.json(await users.teamsManagedBy(req.user.id)))
+
   // The audit trail, newest first. Admins only; read-only by design (there is no route to edit or delete it).
   api.get('/activity', authenticate, allow('admin'), async (req, res) => {
     const { limit = '50', before, person, action } = req.query
@@ -129,6 +168,8 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
   app.use('/api', api)
   app.use((_req, res) => fail(res, 404, 'Not found.'))
   app.use((err, _req, res, _next) => {
+    // Broken team rules carry a code the app translates into the person's language.
+    if (err.expose && err.code) return res.status(err.status).json({ message: err.message, code: err.code, ...err.extra })
     // Malformed JSON is the client's mistake; everything else stays vague so internals aren't exposed.
     if (err.type === 'entity.parse.failed') return fail(res, 400, 'The request body is not valid JSON.')
     if (err.type === 'entity.too.large') return fail(res, 413, 'The request body is too large.')

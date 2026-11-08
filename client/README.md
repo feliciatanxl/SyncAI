@@ -62,6 +62,7 @@ Signing out clears SyncAI's session and returns to the home page without Microso
 | --- | --- |
 | **Overview** | Date and time (to the minute), greeting, counts, the approval queue (approve as team member or manager, or decline) with an "Updated … ago" label and a Refresh button, an invite link to copy, and the USP with its four priority factors. The people list reloads every minute while the tab is visible and as soon as you return to it |
 | **People** | Search and filter everyone who has signed in; see when each person was last active (exact time on hover); change roles; approve, turn off or turn back on access. Turning off asks for confirmation, and you cannot change your own access |
+| **Teams** | Create, rename and delete teams (only when empty); add managers and team members using pickers that list only eligible people ([`src/components/TeamsAdmin.jsx`](src/components/TeamsAdmin.jsx)). People also shows each person's team, and changing the role of someone in a team asks for confirmation first, because it removes them from that team |
 | **Activity** | The audit trail ([`src/components/ActivityLog.jsx`](src/components/ActivityLog.jsx)): first sign-ins, every sign-in, daily visits, sign-outs and every approval, role change and access change, grouped by day and filterable by person and type. Read-only, kept for 12 months (see [server/README.md](../server/README.md#activity-log-and-personal-data-pdpa)) |
 | **How SyncAI decides** | The USP in plain language: the four factors and the human-approval principles |
 | **Settings** | Text size, language and appearance (see below) |
@@ -77,10 +78,10 @@ The account menu at the top right shows the person's Microsoft profile photo (in
 | Who | Sections |
 | --- | --- |
 | Active team member | Overview, Ask SyncAI, My tasks, My plan, How SyncAI decides, Settings |
-| Active manager | The same, plus Team workload |
+| Active manager | The same, plus **My team**: the members of the teams they manage, with status and last active ([`src/components/MyTeam.jsx`](src/components/MyTeam.jsx)) |
 | Waiting for approval or turned off | Overview (explains their status and what to do next), Ask SyncAI, How SyncAI decides, Settings |
 
-The overview shows the date and time, a greeting, Today's plan, the person's role, a *Your setup* checklist (signed in, approved, tasks and calendar connected) based on their real account state, and the four priority factors. My tasks, My plan and Team workload explain what each will do and are marked *Coming soon*: they need the planning engine and task data, which the API doesn't have yet. The portal shows no made-up data.
+The overview shows the date and time, a greeting, Today's plan, the person's role, a *Your setup* checklist (signed in, approved, added to or managing a team, tasks and calendar connected), their team and manager (or the teams they manage) based on their real account state, and the four priority factors. My tasks and My plan explain what each will do and are marked *Coming soon*: they need the planning engine and task data, which the API doesn't have yet. The portal shows no made-up data.
 
 ## Ask SyncAI (preview)
 
