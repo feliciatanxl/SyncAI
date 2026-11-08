@@ -4,7 +4,7 @@ import { useIsAuthenticated, useMsal } from '@azure/msal-react'
 import { InteractionStatus } from '@azure/msal-browser'
 import { MessageBar, MessageBarBody, MessageBarTitle, Spinner } from '@fluentui/react-components'
 import { LockClosed16Regular, ShieldKeyhole16Regular } from '@fluentui/react-icons'
-import { authConfigured, loginRequest } from '../auth/msal.js'
+import { authConfigured, clearSignedIn, loginRequest, markSignedIn } from '../auth/msal.js'
 import { BrandLink, MicrosoftLogo } from '../components/Brand.jsx'
 import { useT } from '../lib/i18n.js'
 
@@ -51,9 +51,11 @@ function MicrosoftSignIn() {
 
   async function signIn() {
     setError(null)
+    markSignedIn()
     try {
       await instance.loginRedirect(loginRequest)
     } catch (err) {
+      clearSignedIn()
       if (err?.errorCode !== 'user_cancelled') setError(err?.errorMessage || err?.message || 'Sign-in failed.')
     }
   }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, MessageBar, MessageBarBody, MessageBarTitle, Select, Spinner } from '@fluentui/react-components'
+import { Button, Input, MessageBar, MessageBarBody, MessageBarTitle, Select, Spinner } from '@fluentui/react-components'
 import {
-  ArrowClockwise20Regular, ArrowEnterLeft20Regular, History24Regular, Checkmark20Regular, DismissCircle20Regular, History20Regular, LockClosed20Regular,
+  ArrowClockwise20Regular, ArrowEnterLeft20Regular, Calendar20Regular, History24Regular, Checkmark20Regular, DismissCircle20Regular, History20Regular, LockClosed20Regular,
   LockOpen20Regular, Open20Regular, PeopleTeam20Regular, PeopleTeamAdd20Regular, PersonAdd20Regular, PersonDelete20Regular, PersonEdit20Regular, ShieldTask20Regular, SignOut20Regular,
 } from '@fluentui/react-icons'
 import { apiRequest } from '../lib/api.js'
@@ -41,6 +41,7 @@ export default function ActivityLog({ getToken, people, nameOf }) {
   const locale = useLocale()
   const [person, setPerson] = useState('')
   const [action, setAction] = useState('')
+  const [date, setDate] = useState('')
   const [items, setItems] = useState(null)
   const [nextBefore, setNextBefore] = useState(null)
   const [error, setError] = useState(null)
@@ -51,9 +52,10 @@ export default function ActivityLog({ getToken, people, nameOf }) {
     const query = new URLSearchParams({ limit: String(PAGE) })
     if (person) query.set('person', person)
     if (action) query.set('action', action)
+    if (date) query.set('date', date)
     if (before) query.set('before', before)
     return apiRequest(`/activity?${query}`, { getToken, signal })
-  }, [getToken, person, action])
+  }, [getToken, person, action, date])
 
   // Reloads from the top whenever the filters change.
   useEffect(() => {
@@ -136,6 +138,22 @@ export default function ActivityLog({ getToken, people, nameOf }) {
             <option value="">{t('activity.allTypes')}</option>
             {ACTIONS.map((a) => <option key={a} value={a}>{t(`activity.type.${a}`)}</option>)}
           </Select>
+        </label>
+        <label className="activity-filter">
+          <div className="activity-filter-header">
+            <span>{t('activity.filterDate')}</span>
+            {date && (
+              <button type="button" className="activity-clear-btn" onClick={() => setDate('')}>
+                {t('activity.clearDate')}
+              </button>
+            )}
+          </div>
+          <Input
+            type="date"
+            value={date}
+            onChange={(_e, d) => setDate(d.value)}
+            contentBefore={<Calendar20Regular />}
+          />
         </label>
         <Button icon={<ArrowClockwise20Regular />} disabled={loading} onClick={() => more(true)}>{t('btn.refresh')}</Button>
       </div>

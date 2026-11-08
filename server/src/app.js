@@ -155,13 +155,14 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
 
   // The audit trail, newest first. Admins only; read-only by design (there is no route to edit or delete it).
   api.get('/activity', authenticate, allow('admin'), async (req, res) => {
-    const { limit = '50', before, person, action } = req.query
+    const { limit = '50', before, person, action, date } = req.query
     const n = Number(limit)
     if (!Number.isInteger(n) || n < 1 || n > 100) return fail(res, 400, 'limit must be a whole number from 1 to 100.')
     if (before !== undefined && !/^\d{1,18}$/.test(before)) return fail(res, 400, 'before must be an activity id.')
     if (person !== undefined && !UUID.test(person)) return fail(res, 400, 'person must be a user id.')
-    if (action !== undefined && !ACTIONS.includes(action)) return fail(res, 400, `action must be one of ${ACTIONS.join(', ')}.`)
-    const items = await users.listActivity({ limit: n, before, person, action })
+    if (action !== undefined && !ACTIONS.includes(action)) return fail(res, 400, `action must be one of ${ACTIONS.join(', ')}.`) 
+    if (date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return fail(res, 400, 'date must be in YYYY-MM-DD format.')
+    const items = await users.listActivity({ limit: n, before, person, action, date })
     res.json({ items, nextBefore: items.length === n ? items.at(-1).id : null })
   })
 

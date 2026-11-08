@@ -3,7 +3,7 @@ import { useMsal } from '@azure/msal-react'
 import { useNavigate } from 'react-router-dom'
 import { Button, MessageBar, MessageBarBody, MessageBarTitle, Spinner } from '@fluentui/react-components'
 import { BrandLink } from '../components/Brand.jsx'
-import { getApiToken, loginRequest, takeSignedIn } from '../auth/msal.js'
+import { clearSignedIn, getApiToken, loginRequest, markSignedIn, takeSignedIn } from '../auth/msal.js'
 import { useProfilePhoto } from '../auth/useProfilePhoto.js'
 import { apiRequest } from '../lib/api.js'
 import { useT } from '../lib/i18n.js'
@@ -46,6 +46,7 @@ export default function Workspace() {
   // Records the sign-out (best effort, 3 seconds at most: logging must never keep anyone signed in), then clears
   // SyncAI's session only, skipping Microsoft's "You signed out" page; the browser stays signed in to Microsoft.
   async function signOut() {
+    clearSignedIn()
     try {
       await apiRequest('/signout', { method: 'POST', getToken, signal: AbortSignal.timeout(3000) })
     } catch {
@@ -55,7 +56,10 @@ export default function Workspace() {
     navigate('/', { replace: true })
   }
 
-  const switchAccount = () => instance.loginRedirect(loginRequest)
+  const switchAccount = () => {
+    markSignedIn()
+    instance.loginRedirect(loginRequest)
+  }
   // The Ask SyncAI conversation lives here so it survives switching tabs and is gone after signing out.
   const chat = useState([])
   const common = { me, photo, chat, tenantId: account?.tenantId, onSignOut: signOut, onSwitchAccount: switchAccount }

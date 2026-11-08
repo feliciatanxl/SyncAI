@@ -291,12 +291,16 @@ code { font-size: 0.9em; }
 
 .portal-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; }
 .panel-usp { grid-column: 1 / -1; }
+.panel-queue { display: flex; flex-direction: column; }
+.panel-queue .empty { margin: auto 0; }
 .panel { padding: 20px; border-radius: var(--radius); background: var(--colorNeutralBackground1); border: 1px solid var(--colorNeutralStroke2); }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .panel-head h2 { margin: 0; }
 .panel-head button { flex: none; white-space: nowrap; }
-.panel-tools { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
-.updated-label { font-size: 0.8125rem; color: var(--colorNeutralForeground3); margin-right: 4px; }
+.panel-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.panel-tools button { min-width: auto; }
+.updated-group { display: inline-flex; align-items: center; gap: 4px; }
+.updated-label { font-size: 0.8125rem; color: var(--colorNeutralForeground3); }
 .panel-usp {
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 28px; align-items: center; padding: 28px;
   background: linear-gradient(135deg, var(--colorBrandBackground2), var(--colorNeutralBackground1) 70%);
@@ -328,8 +332,8 @@ code { font-size: 0.9em; }
 
 .steps-list { margin: 0 0 14px; padding-left: 20px; color: var(--colorNeutralForeground2); }
 .steps-list li { margin-bottom: 4px; }
-.invite { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.invite code { flex: 1 1 180px; min-width: 0; padding: 8px 10px; border-radius: 6px; background: var(--colorNeutralBackground3); overflow-wrap: anywhere; }
+.invite { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.invite code { width: 100%; box-sizing: border-box; padding: 8px 12px; border-radius: 6px; background: var(--colorNeutralBackground3); white-space: nowrap; overflow-x: auto; font-size: 0.8125rem; user-select: all; }
 
 
 .section-title { margin-bottom: 16px; }
@@ -506,7 +510,10 @@ code { font-size: 0.9em; }
 /* ---------- Activity ---------- */
 .activity-tools { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
 .activity-filter { display: grid; gap: 4px; min-width: 220px; }
-.activity-filter > span { font-size: 0.8125rem; font-weight: 600; color: var(--colorNeutralForeground2); }
+.activity-filter > span, .activity-filter-header > span { font-size: 0.8125rem; font-weight: 600; color: var(--colorNeutralForeground2); }
+.activity-filter-header { display: flex; justify-content: space-between; align-items: baseline; }
+.activity-clear-btn { background: none; border: none; padding: 0; font-size: 0.75rem; color: var(--colorBrandForeground1); cursor: pointer; text-decoration: underline; }
+.activity-clear-btn:hover { color: var(--colorBrandForeground2); }
 .activity-day { margin-bottom: 20px; }
 .activity-day h2 { font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--colorNeutralForeground3); margin: 0 0 8px; }
 .activity-list { list-style: none; margin: 0; padding: 4px 0; }
@@ -638,29 +645,703 @@ code { font-size: 0.9em; }
   .suggestion-cards { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; }
 }
 
-/* ---------- Teams ---------- */
-.team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 30rem), 1fr)); gap: 16px; align-items: start; }
-.team-card { display: grid; gap: 16px; margin-bottom: 16px; }
-.team-grid .team-card { margin-bottom: 0; }
-.team-card-head { display: flex; align-items: center; gap: 10px; }
-.team-card-head h2 { margin: 0; font-size: 1.125rem; min-width: 0; overflow-wrap: anywhere; }
-.team-card-icon { flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); }
-.team-count { margin-right: auto; white-space: nowrap; }
-.team-group { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--colorNeutralStroke2); }
-.team-group h3 { margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--colorNeutralForeground2); display: flex; gap: 6px; }
-.team-none { margin: 0; }
-.team-people { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.team-people li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; background: var(--colorNeutralBackground2); }
-.team-person { display: grid; flex: 1; min-width: 0; line-height: 1.3; }
-.team-person span { overflow-wrap: anywhere; }
-.team-last { white-space: nowrap; min-width: 7.5rem; text-align: right; }
-.team-add { display: flex; gap: 8px; flex-wrap: wrap; }
-.team-add .fui-Select { flex: 1 1 200px; min-width: 0; }
-.soon-note { display: flex; gap: 8px; align-items: center; margin: 0 0 16px; padding: 10px 14px; border-radius: 10px; background: var(--colorBrandBackground2); color: var(--colorNeutralForeground2); }
-.soon-note svg { flex: none; color: var(--colorBrandForeground1); }
-.team-lines { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--colorNeutralBackground2); font-weight: 500; }
+/* ---------- Teams Redesign (Accordion / Directory UI) ---------- */
+/* Manager callout banner */
+.soon-note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: var(--colorBrandBackground2);
+  border: 1px solid var(--colorBrandStroke2);
+  color: var(--colorNeutralForeground1);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  margin: 0 0 20px 0;
+}
 
-@media (max-width: 560px) {
-  .team-people li { flex-wrap: wrap; }
-  .team-last { min-width: 0; text-align: left; flex-basis: 100%; padding-left: 42px; }
+.soon-note svg {
+  color: var(--colorBrandForeground1);
+  flex: none;
+  font-size: 20px;
+}
+
+.teams-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.teams-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 320px;
+}
+
+.teams-search {
+  flex: 1 1 260px;
+  max-width: 360px;
+}
+
+.teams-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.teams-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.team-card {
+  padding: 0;
+  border-radius: 12px;
+  background: var(--colorNeutralBackground1);
+  border: 1px solid var(--colorNeutralStroke2);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.team-card:hover {
+  border-color: var(--colorNeutralStroke1Hover);
+}
+
+.team-card.is-expanded {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.team-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 20px;
+  background: var(--colorNeutralBackground1);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.team-card-header:hover {
+  background: var(--colorNeutralBackground1Hover);
+}
+
+.team-card-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+
+.team-card-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--colorBrandBackground2);
+  color: var(--colorBrandForeground1);
+  flex: none;
+}
+
+.team-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.team-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.team-card-title-row h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--colorNeutralForeground1);
+  overflow-wrap: anywhere;
+}
+
+.team-badges-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.team-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground2);
+}
+
+.team-badge svg {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+}
+
+.team-badge.is-manager {
+  background: var(--colorBrandBackground2);
+  color: var(--colorBrandForeground1);
+}
+
+.team-avatar-stack {
+  display: flex;
+  align-items: center;
+  margin-left: 6px;
+}
+
+.team-avatar-stack .fui-Avatar {
+  margin-left: -8px;
+  border: 2px solid var(--colorNeutralBackground1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.team-avatar-stack .fui-Avatar:first-child {
+  margin-left: 0;
+}
+
+.team-avatar-more {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground2);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  margin-left: -6px;
+  border: 2px solid var(--colorNeutralBackground1);
+}
+
+.team-card-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.team-card-content {
+  padding: 20px 24px 24px;
+  border-top: 1px solid var(--colorNeutralStroke2);
+  background: var(--colorNeutralBackground2);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 20px;
+}
+
+.team-section-box {
+  background: var(--colorNeutralBackground1);
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.team-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.team-section-header h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--colorNeutralForeground1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-section-header h3 svg {
+  color: var(--colorBrandForeground1);
+}
+
+.team-section-count {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground2);
+}
+
+.team-people-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.team-person-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--colorNeutralBackground2);
+  border: 1px solid var(--colorNeutralStroke3);
+  transition: background 0.15s ease;
+}
+
+.team-person-item:hover {
+  background: var(--colorNeutralBackground2Hover);
+}
+
+.team-person-details {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.team-person-details strong {
+  font-size: 0.875rem;
+  color: var(--colorNeutralForeground1);
+}
+
+.team-person-details span {
+  font-size: 0.8125rem;
+  color: var(--colorNeutralForeground3);
+  overflow-wrap: anywhere;
+}
+
+.team-empty-state-text {
+  margin: 6px 0;
+  font-size: 0.875rem;
+  color: var(--colorNeutralForeground3);
+  font-style: italic;
+}
+
+.team-add-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.team-add-form .fui-Select {
+  flex: 1;
+}
+
+.team-all-assigned-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--colorNeutralBackground2);
+  font-size: 0.8125rem;
+  color: var(--colorNeutralForeground3);
+  line-height: 1.4;
+}
+
+.team-all-assigned-hint svg {
+  flex: none;
+  color: var(--colorBrandForeground1);
+}
+
+/* Empty card for Teams (Microsoft 365 style) */
+.empty-card {
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--colorNeutralBackground1);
+  border: 1px solid var(--colorNeutralStroke2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.empty-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.empty-card-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.empty-card-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--colorBrandBackground2);
+  border: 1px solid var(--colorBrandStroke2);
+  color: var(--colorBrandForeground1);
+  flex: none;
+}
+
+.empty-card-icon svg {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.empty-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.empty-card h3 {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--colorNeutralForeground1);
+  letter-spacing: -0.01em;
+}
+
+.empty-card p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--colorNeutralForeground2);
+  line-height: 1.4;
+}
+
+.empty-card-action {
+  flex: none;
+}
+
+.empty-card-action .fui-Button {
+  font-weight: 600;
+}
+
+.empty-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--colorNeutralStroke3);
+  flex-wrap: wrap;
+}
+
+.empty-card-footer-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--colorNeutralForeground3);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.empty-card-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.empty-card-chip {
+  padding: 3px 10px;
+  border-radius: 14px;
+  background: var(--colorNeutralBackground2);
+  border: 1px solid var(--colorNeutralStroke3);
+  font-size: 0.75rem;
+  color: var(--colorNeutralForeground2);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  font-family: inherit;
+}
+
+.empty-card-chip:hover {
+  background: var(--colorBrandBackground2);
+  border-color: var(--colorBrandStroke2);
+  color: var(--colorBrandForeground1);
+  transform: translateY(-1px);
+}
+
+/* Microsoft 365 Style Side Drawer */
+.ms-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  animation: msFadeIn 0.2s ease-out;
+}
+
+@keyframes msFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ms-drawer {
+  width: min(100vw, 480px);
+  height: 100%;
+  background: var(--colorNeutralBackground1);
+  border-left: 1px solid var(--colorNeutralStroke1);
+  box-shadow: -12px 0 36px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  animation: msSlideIn 0.26s cubic-bezier(0.1, 0.9, 0.2, 1);
+}
+
+@keyframes msSlideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.ms-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--colorNeutralStroke2);
+}
+
+.ms-drawer-title-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.ms-drawer-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--colorBrandBackground2);
+  color: var(--colorBrandForeground1);
+  flex: none;
+  margin-top: 2px;
+}
+
+.ms-drawer-title-group h2 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--colorNeutralForeground1);
+}
+
+.ms-drawer-subtitle {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--colorNeutralForeground3);
+  line-height: 1.4;
+}
+
+.ms-drawer-close {
+  flex: none;
+  margin: -4px -8px 0 0;
+}
+
+.ms-drawer-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.ms-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.ms-drawer-callout {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--colorNeutralBackground2);
+  border-left: 3px solid var(--colorBrandBackground);
+  font-size: 0.8125rem;
+  color: var(--colorNeutralForeground2);
+  line-height: 1.4;
+}
+
+.ms-drawer-callout svg {
+  flex: none;
+  color: var(--colorBrandForeground1);
+  margin-top: 2px;
+}
+
+.ms-drawer-callout p {
+  margin: 0;
+}
+
+.ms-field-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.ms-required {
+  color: var(--colorPaletteRedForeground1);
+}
+
+.ms-field-hint {
+  font-size: 0.8125rem;
+  color: var(--colorNeutralForeground3);
+  margin-top: 6px;
+  display: block;
+}
+
+.ms-drawer-input {
+  width: 100%;
+}
+
+.ms-drawer-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: -4px;
+}
+
+.ms-suggestions-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--colorNeutralForeground3);
+}
+
+.ms-suggestions-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ms-chip {
+  background: var(--colorNeutralBackground2);
+  border: 1px solid var(--colorNeutralStroke2);
+  color: var(--colorNeutralForeground2);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ms-chip:hover {
+  background: var(--colorBrandBackground2);
+  color: var(--colorBrandForeground1);
+  border-color: var(--colorBrandStroke1);
+}
+
+.ms-drawer-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 28px;
+  border-top: 1px solid var(--colorNeutralStroke2);
+  background: var(--colorNeutralBackground1);
+}
+
+@media (max-width: 600px) {
+  .team-card-header {
+    padding: 14px 16px;
+  }
+  .team-card-content {
+    padding: 16px;
+    grid-template-columns: 1fr;
+  }
+  .teams-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .teams-toolbar-left {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .teams-search {
+    max-width: 100%;
+  }
+}
+
+/* Manager My Team view */
+.myteam-content {
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--colorNeutralStroke2);
+  background: var(--colorNeutralBackground1);
+}
+
+.myteam-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 20px;
+  border-radius: 8px;
+  background: var(--colorNeutralBackground2);
+  border: 1px dashed var(--colorNeutralStroke2);
+  gap: 6px;
+}
+
+.myteam-empty-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground3);
+  margin-bottom: 4px;
+}
+
+.myteam-empty-icon svg {
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+}
+
+.myteam-empty-state h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--colorNeutralForeground1);
+}
+
+.myteam-empty-state p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--colorNeutralForeground3);
+  max-width: 420px;
+  line-height: 1.4;
 }
