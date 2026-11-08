@@ -24,3 +24,7 @@ jobs:
 
       - name: Run rules-engine tests
         run: node --test "prototype/tests/*.test.mjs"
+
+      - name: Run API tests
+        working-directory: server
+        run: npm ci && npm test

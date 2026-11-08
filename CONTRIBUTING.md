@@ -11,7 +11,7 @@ By contributing, you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md) a
 | `prototype/` | Interactive HTML/CSS/JS design prototype (no build step). See [`prototype/README.md`](prototype/README.md). |
 | `LICENSE`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md` | Project policies |
 
-The production application (React frontend, Node.js/Express API, Microsoft Graph and Azure OpenAI integration) will be added in its own folders. Reuse the prototype's layouts, data model and business rules rather than copying its code wholesale.
+The production application lives in its own folders: the React frontend in `client/` and the Node.js/Express API in `server/`, with proposed Microsoft Graph, Entra ID and Power Automate integration (Azure OpenAI optional, later). Reuse the prototype's layouts, data model and business rules rather than copying its code wholesale.
 
 ## Getting started
 

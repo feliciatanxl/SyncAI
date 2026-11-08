@@ -2,31 +2,54 @@
 
 **Your Work. Your Time. In Sync.**
 
-SyncAI is a Microsoft-based Town Council Operations Hub for EM Services (EMS), built for the NYP School of IT × SCCCI × EM Services Techno Semester Hackathon (Oct 2026). It answers EMS problem statements **12g, 12h and 12i** as one product: the hub is the platform, and the Smart Work Planner and Project Tracker are its first two modules.
+SyncAI is an AI-powered **Smart Work Planner** for Town Council Property Officers and their supervisors. It is Team 24's (IT2134-05) answer to EM Services (EMS) problem statement **12i — Smart Work Planner (Microsoft-based)**, built for the NYP School of IT × SCCCI × EM Services Techno Semester (Oct 2026).
 
-## Problem statements we cover
+## What makes it different
 
-| Statement | What EMS asked for | How SyncAI answers it | Status |
-| --- | --- | --- | --- |
-| **12g** Town Council Operations Hub | One Microsoft-based hub over IEMS, TCMS, D365 and SharePoint, with a shared data layer, built-in intelligence, role-based sharing across Town Councils and EMS HQ, and mobile-first design. Deliver the architecture plus a working slice. | SyncAI is the hub. [Architecture](docs/architecture.md) with diagrams, data model, roles and phases. Working slice: Planner and Projects modules, an **EMS HQ overview** with a Town Council switcher and roll-ups, a **Data sources** page showing the shared data layer, three roles, and a phone tab bar. | Architecture written, slice built |
-| **12h** Project Tracker | Create projects and break them into tasks, assign owners and deadlines, and monitor task status and overall progress. | Second module. Projects group the planner's tasks, with Board, List and Timeline views, progress, milestones, checklists, templates and an explainable AI project health check. | Prototype built |
-| **12i** Smart Work Planner | Organise officers' tasks and schedules, prioritise by deadline and effort, and suggest a realistic daily or weekly plan. | First module. Explainable priority scores, effort estimates, AI time-blocking around Outlook meetings, team workload and What-If simulation. | Interactive prototype built |
+**Operationally Aware AI Scheduling:** understand operational priorities, build achievable plans, and explain the changes when work shifts.
 
-The brief notes that 12h and 12i "pair naturally and could become modules of the Operations Hub (12g)", which is the structure we follow.
+A generic to-do list ranks work by due date. SyncAI ranks it the way EMS told us Property Officers should, then fits it into the time an officer really has:
+
+| Factor | What it means |
+| --- | --- |
+| **1. Safety** | Genuine risks to residents, staff and property come first |
+| **2. Mandatory deadlines** | Statutory, compliance and funding-approval dates that cannot be missed |
+| **3. Service impact and long-term consequences** | Real resident needs, disruption to operations, and what happens if the work is delayed. A resident who complains loudly or often does not move up the list for that reason alone |
+| **4. Scheduling feasibility** | Estimated task durations matched against the officer's availability, meetings and capacity |
+
+These factors are weighed together. They are not an official ranking formula, and the weights are our own proposal, to be checked with EMS. AI recommends; an officer or supervisor approves every change.
+
+## The problem statement
+
+| 12i asks for | How SyncAI answers it |
+| --- | --- |
+| Organise officers' tasks and schedules | My Tasks (list and Kanban), natural-language task entry, meeting-minutes-to-tasks, Smart Planner calendar around Outlook meetings |
+| Prioritise work by deadline and effort | Explainable priority score built on the four factors above, effort estimates, start-by warnings |
+| Suggest a realistic daily or weekly plan | AI time-blocking, a schedule check, alternative schedules and emergency re-planning when urgent work arrives |
+
+Our three proposed AI capabilities:
+
+1. **Smart Priority:** rank tasks by safety, mandatory deadlines, service impact and long-term consequences.
+2. **Realistic Planning:** propose schedules around task durations, availability, meetings and existing commitments.
+3. **Team Rebalancing:** spot capacity problems and evaluate adjustments when an officer is away or urgent work lands (What-If Simulator).
+
+**Out of scope for 12i:** resident case consolidation (PS 12g Operations Hub), project tracking (PS 12h Project Tracker), HR and medical records, payroll, resident-facing complaint portals, and production access to live EMS systems. The prototype still contains Projects, HQ overview and Data sources pages from earlier exploration; they are demo extras, not part of our 12i proposal.
 
 ## What's in this repository
 
 | Path | What it is |
 | --- | --- |
-| [`prototype/`](prototype/) | The interactive Smart Work Planner portal (HTML, CSS, JavaScript; fictional data, no backend). See [prototype/README.md](prototype/README.md). |
-| [`prototype/site/`](prototype/site/) | The public website that explains and sells SyncAI, with sign-in, forgot-password and reset-password pages that lead into the portal. |
-| [`docs/architecture.md`](docs/architecture.md) | Target Microsoft architecture for the hub (12g), how the prototype maps onto it, and open questions for EMS. |
-| [`docs/demo-script.md`](docs/demo-script.md) | An 8-minute demo walkthrough across 12i, 12h and 12g, with likely questions and answers. |
+| [`prototype/`](prototype/) | The interactive Smart Work Planner (HTML, CSS, JavaScript; fictional data, no backend). See [prototype/README.md](prototype/README.md). Live at <https://feliciatanxl.github.io/SyncAI/site/index.html>. |
+| [`prototype/site/`](prototype/site/) | The public website that explains SyncAI, with sign-in, forgot-password and reset-password pages that lead into the portal. |
+| [`client/`](client/) | The React (Vite) frontend for the real build. Just scaffolded. See [client/README.md](client/README.md). |
+| `server/` | The Node.js + Express API (not started yet). |
+| [`docs/architecture.md`](docs/architecture.md) | Proposed architecture, what EMS told us, how the prototype maps onto the build, and open questions. |
+| [`docs/demo-script.md`](docs/demo-script.md) | A 7-minute demo walkthrough with likely questions and answers. |
 | [`prototype/tests/`](prototype/tests/) | Automated tests for the rules engine. |
 
 ## Run it
 
-Requires Python 3 (standard library only).
+Prototype (Python 3, standard library only):
 
 ```bash
 python prototype/serve.py
@@ -38,23 +61,31 @@ python prototype/serve.py
 | <http://localhost:8765/site/login.html> | Sign in (demo accounts are shown on the page) |
 | <http://localhost:8765/> | Portal (sends you to sign in first if you are not signed in) |
 
-Run the rules-engine tests (Node.js 20 or later, no install needed):
+Rules-engine tests (Node.js 20 or later, no install needed):
 
 ```bash
 node --test "prototype/tests/*.test.mjs"
 ```
 
-## Target Microsoft stack
+React client (Node.js 20 or later):
 
-| Layer | Microsoft service |
-| --- | --- |
-| Sign-in and roles | Microsoft Entra ID (single sign-on, security groups for officer, supervisor, Town Council and HQ) |
-| Calendar and tasks | Microsoft Graph: Outlook Calendar, Microsoft Planner / To Do |
-| Alerts | Microsoft Teams (adaptive cards and activity feed) |
-| Shared data layer | Dataverse or SharePoint lists, with connectors to D365, IEMS and TCMS |
-| AI | Azure OpenAI for natural-language features; deterministic rules for scoring and scheduling so results stay explainable |
+```bash
+cd client && npm install && npm run dev
+```
 
-The prototype simulates all of these in the browser. No real Microsoft 365 or Azure connection is made.
+## Proposed stack
+
+| Part | Technology | Status |
+| --- | --- | --- |
+| Web app | React (Vite), officer and supervisor dashboards | We build |
+| API and planning engine | Node.js + Express: prioritisation, scheduling, workload calculations | We build |
+| Database | PostgreSQL | We build |
+| Sign-in | Microsoft Entra ID (MSAL) | Proposed, subject to tenant access |
+| Calendar and tasks | Microsoft Graph: Outlook Calendar, Microsoft To Do | Proposed, subject to permissions |
+| Approvals and alerts | Power Automate approval flows, Microsoft Teams notifications | Proposed, subject to licensing |
+| Language features | Azure OpenAI | Optional, later phase |
+
+EMS confirmed Microsoft is the baseline at every Town Council (Power Automate and Copilot at least; more varies by council) and said it will handle licences. Tenant access, API permissions and deployment requirements are still to be confirmed. The prototype simulates every Microsoft connection; none is live. We do not claim GCC compliance.
 
 ## Project documents
 
