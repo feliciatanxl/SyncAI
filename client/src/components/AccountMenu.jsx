@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Avatar, Badge, Button, Popover, PopoverSurface, PopoverTrigger } from '@fluentui/react-components'
+import { Avatar, Button, Popover, PopoverSurface, PopoverTrigger } from '@fluentui/react-components'
 import { ChevronDown16Regular, Open16Regular, PersonSwap20Regular, SignOut20Regular } from '@fluentui/react-icons'
 import { useT } from '../lib/i18n.js'
 
@@ -7,7 +7,7 @@ import { useT } from '../lib/i18n.js'
 const PERSONAL_TENANT = '9188040d-6c67-4c5b-b112-36a304b66dad'
 
 // Account card in the style of Microsoft 365's: who you are, manage your Microsoft account, switch account, sign out.
-export default function AccountMenu({ name, email, photo, tenantId, role, onSwitchAccount, onSignOut }) {
+export default function AccountMenu({ name, email, photo, tenantId, onSwitchAccount, onSignOut }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const manageUrl = tenantId === PERSONAL_TENANT ? 'https://account.microsoft.com/' : 'https://myaccount.microsoft.com/'
@@ -36,7 +36,6 @@ export default function AccountMenu({ name, email, photo, tenantId, role, onSwit
           <div>
             <strong>{name}</strong>
             <span className="muted">{email}</span>
-            {role && <Badge appearance="tint" size="small">{role}</Badge>}
             <a href={manageUrl} target="_blank" rel="noreferrer">
               {t('account.manage')} <Open16Regular />
             </a>

@@ -438,3 +438,66 @@ code { font-size: 0.9em; }
 @media (max-width: 560px) {
   .choice-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---------- Member portal ---------- */
+.member-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; margin-top: 20px; }
+.member-grid > .panel { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+/* Only each card's own heading and text: nested panels such as "Our difference" keep their spacing. */
+.member-grid > .panel > h2, .member-grid > .panel > .panel-head h2 { margin: 0; }
+.member-grid > .panel > p { margin: 0; }
+.member-grid > .panel-usp { display: grid; grid-column: 1 / -1; }
+.member-grid .panel-head { width: 100%; margin-bottom: 0; }
+.member-grid > .panel .card-icon { margin-bottom: 0; }
+
+.member-today { grid-row: span 2; }
+.plan-preview { width: 100%; display: grid; gap: 8px; padding: 14px; border-radius: 10px; background: var(--colorNeutralBackground2); }
+.plan-row {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) 64px; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 8px; background: var(--colorNeutralBackground1); box-shadow: inset 3px 0 0 var(--plan-accent);
+}
+.plan-row span { display: block; height: 10px; border-radius: 999px; background: var(--colorNeutralBackground4); }
+.plan-row .plan-tag { height: 14px; background: var(--plan-tint); }
+.plan-row.safety { --plan-accent: var(--colorPaletteRedBorderActive); --plan-tint: var(--colorPaletteRedBackground2); }
+.plan-row.deadline { --plan-accent: var(--colorPaletteMarigoldBorderActive); --plan-tint: var(--colorPaletteMarigoldBackground2); }
+.plan-row.service { --plan-accent: var(--colorBrandStroke1); --plan-tint: var(--colorBrandBackground2); }
+.plan-row.admin { --plan-accent: var(--colorNeutralStroke1); --plan-tint: var(--colorNeutralBackground5); }
+.plan-row:nth-child(1) .plan-bar { width: 72%; }
+.plan-row:nth-child(2) .plan-bar { width: 56%; }
+.plan-row:nth-child(3) .plan-bar { width: 84%; }
+.plan-row:nth-child(4) .plan-bar { width: 48%; }
+.today-note { display: flex; gap: 12px; align-items: flex-start; }
+.today-note svg { flex: none; color: var(--colorBrandForeground1); margin-top: 2px; }
+.today-note p { margin: 0; }
+
+.setup-card.wide { grid-column: 1 / -1; }
+.setup-list { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; gap: 6px; }
+.setup-step {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 8px; background: var(--colorNeutralBackground2);
+}
+.setup-icon { display: inline-flex; color: var(--colorNeutralForeground3); }
+.setup-name { font-weight: 500; }
+.setup-state { font-size: 0.8125rem; font-weight: 600; color: var(--colorNeutralForeground3); white-space: nowrap; }
+.setup-step.done .setup-icon, .setup-step.done .setup-state { color: var(--colorPaletteGreenForeground1); }
+.setup-step.waiting .setup-icon, .setup-step.waiting .setup-state { color: var(--colorPaletteMarigoldForeground2); }
+.setup-step.off .setup-icon, .setup-step.off .setup-state { color: var(--colorPaletteRedForeground1); }
+.setup-step.soon .setup-state { color: var(--colorBrandForeground1); }
+
+.status-panel { grid-column: 1 / -1; flex-direction: row !important; align-items: flex-start !important; gap: 16px !important; }
+.status-panel.pending { border-color: var(--colorPaletteMarigoldBorderActive); box-shadow: inset 4px 0 0 var(--colorPaletteMarigoldBorderActive); }
+.status-panel.pending .card-icon { background: var(--colorPaletteMarigoldBackground1); color: var(--colorPaletteMarigoldForeground2); }
+.status-panel.disabled .card-icon { background: var(--colorNeutralBackground4); color: var(--colorNeutralForeground2); }
+.status-panel .card-icon { flex: none; }
+.status-panel h2 { margin-bottom: 4px !important; }
+
+.coming-soon { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding: 48px 24px; }
+.coming-soon h2 { margin: 0; font-size: 1.375rem; }
+.coming-soon p { margin: 0; max-width: 56ch; }
+.coming-icon { display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 16px; background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); }
+.coming-icon svg { width: 32px; height: 32px; }
+
+@media (max-width: 760px) {
+  .member-grid { grid-template-columns: minmax(0, 1fr); }
+  .member-today { grid-row: auto; }
+  .status-panel { grid-column: auto; }
+}

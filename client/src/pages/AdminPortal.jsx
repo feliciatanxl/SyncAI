@@ -5,15 +5,16 @@ import {
   Toast, ToastTitle, Toaster, useId, useToastController,
 } from '@fluentui/react-components'
 import {
-  ArrowClockwise20Regular, ArrowRight16Regular, BrainCircuit24Regular, Checkmark20Regular, CheckmarkCircle24Regular, Copy20Regular, Eye24Regular, Grid20Regular,
+  ArrowClockwise20Regular, ArrowRight16Regular, BrainCircuit24Regular, Checkmark20Regular, CheckmarkCircle24Regular, Copy20Regular, Grid20Regular,
   Info20Regular, People20Regular, People24Regular, PeopleCheckmark24Regular, PersonClock24Regular, PersonProhibited20Regular,
   Settings20Regular, ShieldCheckmark24Regular, Sparkle20Regular, ArrowCounterclockwise20Regular,
 } from '@fluentui/react-icons'
-import AccountMenu from '../components/AccountMenu.jsx'
-import { BrandLink } from '../components/Brand.jsx'
+import HowItDecides from '../components/HowItDecides.jsx'
+import PortalShell from '../components/PortalShell.jsx'
 import SettingsPanel from '../components/SettingsPanel.jsx'
 import { apiRequest } from '../lib/api.js'
 import { useLocale, useT } from '../lib/i18n.js'
+import { greetingKey, greetingName, useNow } from '../lib/time.js'
 
 const SECTIONS = [
   { id: 'overview', icon: <Grid20Regular /> },
@@ -25,21 +26,6 @@ const STATUS_COLOR = { pending: 'warning', active: 'success', disabled: 'subtle'
 const FILTERS = ['all', 'pending', 'active', 'disabled']
 const ROLE_KEYS = ['admin', 'manager', 'member']
 const FACTOR_NUMBERS = [1, 2, 3, 4]
-
-const greetingKey = (now) => {
-  const h = now.getHours()
-  return h < 12 ? 'greet.morning' : h < 18 ? 'greet.afternoon' : 'greet.evening'
-}
-
-// The current time, re-read every 15 seconds so the clock and "Updated … ago" stay right without ticking seconds.
-function useNow() {
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 15_000)
-    return () => clearInterval(timer)
-  }, [])
-  return now
-}
 
 function updatedLabel(t, locale, updatedAt, now) {
   const minutes = Math.floor((now - updatedAt) / 60_000)
@@ -127,65 +113,36 @@ export default function AdminPortal({ me, photo, tenantId, getToken, onSignOut, 
   const shared = { me, users, busyId, actions, nameOf }
 
   return (
-    <div className="portal">
+    <PortalShell
+      tag={t('tag.admin')}
+      sections={SECTIONS}
+      section={section}
+      onSection={setSection}
+      badges={{
+        people: pending.length > 0 && (
+          <Badge size="small" color="warning" aria-label={t('nav.waiting', { n: pending.length })}>{pending.length}</Badge>
+        ),
+      }}
+      account={{ name: nameOf(me), email: me.email, photo, tenantId, onSwitchAccount, onSignOut }}
+    >
       <Toaster toasterId={toasterId} />
-      <header className="portal-header">
-        <BrandLink />
-        <span className="portal-tag">{t('tag.admin')}</span>
-        <div className="portal-account">
-          <AccountMenu
-            name={nameOf(me)}
-            email={me.email}
-            photo={photo}
-            tenantId={tenantId}
-            onSwitchAccount={onSwitchAccount}
-            onSignOut={onSignOut}
-          />
-        </div>
-      </header>
-
-      <div className="portal-body">
-        <nav className="portal-nav" aria-label={t('app.portal')}>
-          {SECTIONS.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className="portal-nav-item"
-              aria-current={section === s.id ? 'page' : undefined}
-              onClick={() => setSection(s.id)}
-            >
-              {s.icon}
-              <span>{t(`nav.${s.id}`)}</span>
-              {s.id === 'people' && pending.length > 0 && (
-                <Badge size="small" color="warning" aria-label={t('nav.waiting', { n: pending.length })}>{pending.length}</Badge>
-              )}
-            </button>
-          ))}
-          <p className="portal-nav-note small">
-            <Info20Regular /> {t('nav.note')}
-          </p>
-        </nav>
-
-        <main id="main" className="portal-main">
-          {section === 'settings' ? (
-            <SettingsPanel onReset={() => notify(t('settings.resetDone'))} />
-          ) : loadError ? (
-            <MessageBar intent="error" className="portal-error">
-              <MessageBarBody>
-                <MessageBarTitle>{t('err.loadTeam')}</MessageBarTitle>
-                {loadError.message}
-              </MessageBarBody>
-              <Button size="small" onClick={() => { setLoadError(null); load() }}>{t('app.retry')}</Button>
-            </MessageBar>
-          ) : section === 'overview' ? (
-            <Overview {...shared} pending={pending} goTo={setSection} notify={notify} now={now} updatedAt={updatedAt} refreshing={refreshing} onRefresh={refreshNow} />
-          ) : section === 'people' ? (
-            <PeopleSection {...shared} />
-          ) : (
-            <HowItDecides />
-          )}
-        </main>
-      </div>
+      {section === 'settings' ? (
+        <SettingsPanel onReset={() => notify(t('settings.resetDone'))} />
+      ) : loadError ? (
+        <MessageBar intent="error" className="portal-error">
+          <MessageBarBody>
+            <MessageBarTitle>{t('err.loadTeam')}</MessageBarTitle>
+            {loadError.message}
+          </MessageBarBody>
+          <Button size="small" onClick={() => { setLoadError(null); load() }}>{t('app.retry')}</Button>
+        </MessageBar>
+      ) : section === 'overview' ? (
+        <Overview {...shared} pending={pending} goTo={setSection} notify={notify} now={now} updatedAt={updatedAt} refreshing={refreshing} onRefresh={refreshNow} />
+      ) : section === 'people' ? (
+        <PeopleSection {...shared} />
+      ) : (
+        <HowItDecides />
+      )}
 
       <Dialog open={Boolean(confirm)} onOpenChange={(_e, data) => !data.open && setConfirm(null)}>
         <DialogSurface>
@@ -208,7 +165,7 @@ export default function AdminPortal({ me, photo, tenantId, getToken, onSignOut, 
           </DialogBody>
         </DialogSurface>
       </Dialog>
-    </div>
+    </PortalShell>
   )
 }
 
@@ -244,7 +201,7 @@ function Overview({ me, users, pending, busyId, actions, goTo, notify, nameOf, n
               {now.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}
             </time>
           </p>
-          <h1 id="hero-h">{t(greetingKey(now), { name: nameOf(me).split(' ')[0] })}</h1>
+          <h1 id="hero-h">{t(greetingKey(now), { name: greetingName(nameOf(me)) })}</h1>
           <p>
             {users == null
               ? t('hero.loading')
@@ -461,41 +418,6 @@ function PeopleSection({ me, users, busyId, actions, nameOf }) {
           </tbody>
         </table>
       )}
-    </>
-  )
-}
-
-function HowItDecides() {
-  const t = useT()
-  const principles = [
-    { n: 1, icon: <Eye24Regular /> },
-    { n: 2, icon: <CheckmarkCircle24Regular /> },
-    { n: 3, icon: <ShieldCheckmark24Regular /> },
-  ]
-  return (
-    <>
-      <div className="section-title">
-        <p className="eyebrow">{t('usp.eyebrow')}</p>
-        <h1>{t('usp.name')}</h1>
-        <p className="muted">{t('decides.lead')}</p>
-      </div>
-      <ol className="factor-cards">
-        {FACTOR_NUMBERS.map((n) => (
-          <li key={n} className="panel">
-            <span className="factor-n" aria-hidden="true">{n}</span>
-            <div><h2>{t(`factor${n}.title`)}</h2><p className="muted">{t(`factor${n}.text`)}</p></div>
-          </li>
-        ))}
-      </ol>
-      <div className="principles">
-        {principles.map((p) => (
-          <div key={p.n} className="panel">
-            <span className="card-icon">{p.icon}</span>
-            <h2>{t(`principle${p.n}.title`)}</h2>
-            <p className="muted">{t(`principle${p.n}.text`)}</p>
-          </div>
-        ))}
-      </div>
     </>
   )
 }

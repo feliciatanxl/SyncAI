@@ -49,7 +49,7 @@ Signing out clears SyncAI's session and returns to the home page without Microso
 | --- | --- |
 | `/` | Public website |
 | `/login` | Sign in with Microsoft |
-| `/app` | Signed-in area. Active admins get the admin portal; everyone else sees their access status and Settings. Sends you to `/login` if you are not signed in |
+| `/app` | Signed-in area. Active admins get the admin portal; everyone else gets the member portal. Sends you to `/login` if you are not signed in |
 | `/status` | Reference of every HTTP status code the API may return |
 | `/status/:code` | The designed page for one status, e.g. `/status/503` |
 | anything else | 404 page |
@@ -67,9 +67,21 @@ Signing out clears SyncAI's session and returns to the home page without Microso
 
 The account menu at the top right shows the person's Microsoft profile photo (initials if there is none) and has *Manage your Microsoft account*, *Sign in with a different account* and *Sign out*. On tablets and phones the sidebar becomes a tab strip and the People table becomes cards.
 
+## Member portal
+
+[`src/pages/MemberPortal.jsx`](src/pages/MemberPortal.jsx), for team members and managers. Both portals share the same frame ([`src/components/PortalShell.jsx`](src/components/PortalShell.jsx)): header with role tag and account menu, and a sidebar that becomes a tab strip on small screens.
+
+| Who | Sections |
+| --- | --- |
+| Active team member | Overview, My tasks, My plan, How SyncAI decides, Settings |
+| Active manager | The same, plus Team workload |
+| Waiting for approval or turned off | Overview (explains their status and what to do next), How SyncAI decides, Settings |
+
+The overview shows the date and time, a greeting, Today's plan, the person's role, a *Your setup* checklist (signed in, approved, tasks and calendar connected) based on their real account state, and the four priority factors. My tasks, My plan and Team workload explain what each will do and are marked *Coming soon*: they need the planning engine and task data, which the API doesn't have yet. The portal shows no made-up data.
+
 ## Settings and accessibility
 
-Everyone signed in can open **Settings**: admins from the portal sidebar, everyone else from the Settings button in the header ([`src/components/SettingsPanel.jsx`](src/components/SettingsPanel.jsx)):
+Everyone signed in can open **Settings** from the portal sidebar ([`src/components/SettingsPanel.jsx`](src/components/SettingsPanel.jsx)):
 
 | Setting | Options |
 | --- | --- |

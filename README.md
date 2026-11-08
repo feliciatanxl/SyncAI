@@ -41,7 +41,7 @@ Our three proposed AI capabilities:
 | --- | --- |
 | [`prototype/`](prototype/) | The interactive Smart Work Planner (HTML, CSS, JavaScript; fictional data, no backend). See [prototype/README.md](prototype/README.md). Live at <https://feliciatanxl.github.io/SyncAI/site/index.html>. |
 | [`prototype/site/`](prototype/site/) | The public website that explains SyncAI, with sign-in, forgot-password and reset-password pages that lead into the portal. |
-| [`client/`](client/) | The React (Vite) frontend for the real build: public website, Microsoft sign-in, admin portal (approve people, assign roles) and Settings (text size, four languages, light or dark). See [client/README.md](client/README.md). |
+| [`client/`](client/) | The React (Vite) frontend for the real build: public website, Microsoft sign-in, an admin portal (approve people, assign roles, live-updating overview), a member portal for team members and managers (overview, setup checklist; tasks, plan and team workload pages marked *Coming soon* until the planning engine lands) and Settings (text size, four languages, light or dark). See [client/README.md](client/README.md). |
 | [`server/`](server/) | The Node.js + Express API: verifies Microsoft sign-in tokens, stores users in PostgreSQL and enforces roles and approvals. See [server/README.md](server/README.md). |
 | [`docs/architecture.md`](docs/architecture.md) | Proposed architecture, what EMS told us, how the prototype maps onto the build, and open questions. |
 | [`docs/demo-script.md`](docs/demo-script.md) | A 7-minute demo walkthrough with likely questions and answers. |
