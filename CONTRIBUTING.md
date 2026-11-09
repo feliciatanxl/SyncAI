@@ -57,7 +57,7 @@ The production application is implemented across `client/` and `server/`. Micros
 Before opening a pull request, run the relevant automated test suites:
 
 ```bash
-# 1. Prototype rules, ripple, and client requirement tests (Node.js built-in runner, 56 tests)
+# 1. Prototype rules, ripple, and client requirement tests (Node.js built-in runner, 57 tests)
 node --test "prototype/tests/*.test.mjs"
 
 # 2. Client frontend tests (Vitest, 16 tests)
@@ -67,7 +67,7 @@ cd client && npm test
 cd server && npm test
 ```
 
-All 93 automated tests across the repository must pass without errors or unhandled rejections.
+All 94 automated tests across the repository must pass without errors or unhandled rejections.
 
 ---
 

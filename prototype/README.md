@@ -227,10 +227,10 @@ The rules and ripple engines have automated tests that run with Node's built-in 
 node --test "prototype/tests/*.test.mjs"
 ```
 
-The test suite contains **56 automated tests** across four test suites:
+The test suite contains **57 automated tests** across four test suites:
 - `prototype/tests/rules.test.mjs` (19 tests): Seed data integrity, foreign keys, explainable priority scoring, hard statutory constraints, scheduling feasibility, meeting avoidance, project health, timers, and role alignment.
 - `prototype/tests/ripple.test.mjs` (20 tests): Multi-level dependency cascades (`t103` → `t104` → `t112`), circular dependency termination, missing task resilience, urgent safety incidents, capacity deficits, officer unavailability, skill-based reassignment restrictions, Three Alternatives evaluation, state isolation, explicit commit verification, and calibrated language enforcement.
-- `prototype/tests/client-requirements.test.mjs` (14 tests): Client prioritisation 4-tier criteria, conflicting priorities resolution, repeat complaint handling, SLA deadlines and breach risks, fixed resident appointments, downstream cascade tracing, Three Alternatives SLA protection, hierarchical approval workflow, unauthorized self-approval prevention, multi-channel notification audit events, simulation isolation, seed reset behavior, role boundaries, and missing data resilience.
+- `prototype/tests/client-requirements.test.mjs` (15 tests): Client prioritisation 4-tier criteria, conflicting priorities resolution, repeat complaint handling, SLA deadlines and breach risks, fixed resident appointments, downstream cascade tracing, Three Alternatives SLA protection, hierarchical approval workflow, unauthorized self-approval prevention, multi-channel notification audit events, simulation isolation, seed reset behavior, role boundaries, missing data resilience, and all-role page rendering resilience.
 - `prototype/tests/status-codes.test.mjs` (3 tests): HTTP status code definitions, query-string text lookups, and presentation consistency.
 
 ## Project structure

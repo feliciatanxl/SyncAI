@@ -155,7 +155,7 @@ The production foundation is fully functional in `client/` and `server/`:
 
 ### 3.2 Implemented Static Prototype Intelligence
 
-Demonstrated in `prototype/` with **56 passing automated tests**:
+Demonstrated in `prototype/` with **57 passing automated tests**:
 
 1. **Deterministic Priority Scoring & Client-Criteria Alignment (`prototype/js/ai.js`):**
    - Scores tasks on a 0–100 scale:
