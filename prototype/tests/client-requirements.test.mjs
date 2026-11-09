@@ -26,6 +26,7 @@ import {
   loadState,
 } from '../js/state.js';
 import { TODAY, NOW, dt, workDay } from '../js/time.js';
+import tasksPage from '../js/pages/tasks.js';
 
 const seed = () => createSeedState();
 
@@ -304,4 +305,13 @@ test('14. Missing or incomplete data handled safely without throwing', () => {
   assert.doesNotThrow(() => scoreTask(s, emptyTask));
   assert.doesNotThrow(() => assessRisk(s, emptyTask));
   assert.doesNotThrow(() => schedule(s, 'non_existent_officer'));
+});
+
+test('15. Page rendering resilience: tasks view renders cleanly without reference errors for all roles', () => {
+  const s = seed();
+  s.role = 'team_member';
+  assert.doesNotThrow(() => tasksPage.render(s), 'My Tasks renders for Property Officer without throwing');
+
+  s.role = 'manager';
+  assert.doesNotThrow(() => tasksPage.render(s), 'Team Tasks renders for Estate Manager without throwing');
 });

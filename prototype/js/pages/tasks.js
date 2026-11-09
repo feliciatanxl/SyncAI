@@ -2,7 +2,7 @@ import { CATEGORIES, PRIORITIES, STATUSES, sampleMinutes } from '../data.js';
 import { extractActionItems, parseNaturalTask, scoreTask } from '../ai.js';
 import { assessRisk } from '../planner.js';
 import { getOfficer, getState, getTask, isOpen, isOverdue, isSupervisor, logActivity, nextId, officerName, update, visibleTasks } from '../state.js';
-import { NOW, TODAY, fmtDue, fmtHours } from '../time.js';
+import { NOW, TODAY, fmtDue, fmtHours, fmtTime, timePart } from '../time.js';
 import { html, icon, render, priorityBadge, riskBadge, sourceTag, emptyState, avatar, toast, openModal, closeModal, filterTabs, pager, limitTo, showMore } from '../ui.js';
 import { openTaskForm, scorePill, timerButton } from './shared.js';
 import { settleTimer } from '../timer.js';

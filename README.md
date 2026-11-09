@@ -220,7 +220,7 @@ Run the automated prototype test suite (Node.js 20+ built-in test runner):
 
 ```bash
 node --test "prototype/tests/*.test.mjs"
-# Verified: 56 automated tests pass (rules, ripple, client requirements, and status codes)
+# Verified: 57 automated tests pass (rules, ripple, client requirements, and status codes)
 ```
 
 ### 2. Full-Stack Application
