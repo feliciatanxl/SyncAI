@@ -1,101 +1,282 @@
-# SyncAI
+# SyncAI — Smart Work Planner
 
-**Your Work. Your Time. In Sync.**
+**Know what matters. Understand what changes. Choose the safer plan.**
 
-SyncAI is an AI-powered **Smart Work Planner** for Town Council Property Officers and their supervisors. It is Team 24's (IT2134-05) answer to EM Services (EMS) problem statement **12i — Smart Work Planner (Microsoft-based)**, built for the NYP School of IT × SCCCI × EM Services Techno Semester (Oct 2026).
+SyncAI is an AI-enabled **Smart Work Planner** developed for Town Council Property Officers and their supervisory managers. Built by **IT2134 Team 24** for the **EM Services (EMS) Challenge PS 12i — Smart Work Planner (Microsoft-based)** (NYP School of IT × SCCCI × EM Services Techno Semester, October–November 2026).
 
-## What makes it different
+---
 
-**Operationally Aware AI Scheduling:** understand operational priorities, build achievable plans, and explain the changes when work shifts.
+## The Operational Problem
 
-A generic to-do list ranks work by due date. SyncAI ranks it the way EMS told us Property Officers should, then fits it into the time an officer really has:
+Town Council Property Officers operate in high-density residential estates, managing 2,500 to 2,700 housing units each. In their daily operations, officers face heavy, competing demands:
 
-| Factor | What it means |
-| --- | --- |
-| **1. Safety** | Genuine risks to residents, staff and property come first |
-| **2. Mandatory deadlines** | Statutory, compliance and funding-approval dates that cannot be missed |
-| **3. Service impact and long-term consequences** | Real resident needs, disruption to operations, and what happens if the work is delayed. A resident who complains loudly or often does not move up the list for that reason alone |
-| **4. Scheduling feasibility** | Estimated task durations matched against the officer's availability, meetings and capacity |
+- **Genuine public safety hazards:** Lift faults, concrete spalling, exposed electrical wiring, and chute fire risks that demand immediate physical response.
+- **Strict statutory and compliance deadlines:** Periodic inspections, lift certifications (BCA), fire safety compliance (SCDF), and Town Council co-funding claim cut-offs that cannot slip without legal exposure.
+- **Real service impact vs. loudest-voice bias:** Demanding residents frequently escalate complaints; however, complaint frequency alone does not indicate genuine risk or urgency.
+- **Long-term consequences of deferral:** Unaddressed minor defects (such as ceiling seepage) can rapidly penetrate structural rebar, resulting in concrete spalling and major emergency repair expenditures.
+- **Time and capacity bottlenecks:** Officers spend substantial portions of their day on resident communication, contractor inspections, and administrative invoice verification, leaving tight margins when emergencies arise.
 
-These factors are weighed together. They are not an official ranking formula, and the weights are our own proposal, to be checked with EMS. AI recommends; an officer or supervisor approves every change.
+**SyncAI does not replace the Operations Command Centre (OCC).** The OCC provides situational oversight of where officers are and what events are active. SyncAI complements this by providing forward-looking operational planning and impact intelligence: helping officers and managers structure achievable days and understand the ripple effect before schedules change.
 
-## The problem statement
+---
 
-| 12i asks for | How SyncAI answers it |
-| --- | --- |
-| Organise officers' tasks and schedules | My Tasks (list and Kanban), natural-language task entry, meeting-minutes-to-tasks, Smart Planner calendar around Outlook meetings |
-| Prioritise work by deadline and effort | Explainable priority score built on the four factors above, effort estimates, start-by warnings |
-| Suggest a realistic daily or weekly plan | AI time-blocking, a schedule check, alternative schedules and emergency re-planning when urgent work arrives |
+## Flagship USP & Signature Differentiator
 
-Our three proposed AI capabilities:
+### Flagship USP: Operationally Aware AI Scheduling
 
-1. **Smart Priority:** rank tasks by safety, mandatory deadlines, service impact and long-term consequences.
-2. **Realistic Planning:** propose schedules around task durations, availability, meetings and existing commitments.
-3. **Team Rebalancing:** spot capacity problems and evaluate adjustments when an officer is away or urgent work lands (What-If Simulator).
+Unlike generic productivity apps that sort tasks merely by due date or complaint volume, SyncAI plans work around operational reality across three core capabilities:
 
-**Out of scope for 12i:** resident case consolidation (PS 12g Operations Hub), project tracking (PS 12h Project Tracker), HR and medical records, payroll, resident-facing complaint portals, and production access to live EMS systems. The prototype still contains Projects, HQ overview and Data sources pages from earlier exploration; they are demo extras, not part of our 12i proposal.
+1. **Consequence-Aware Prioritisation:** Ranks tasks by evaluating genuine safety hazards (+20 pts), mandatory statutory compliance (+25 / +15 pts), service impact (+8 pts), and long-term consequences of delay (+12 pts). Repeat complaints award **0 priority points**—keeping volume visible without distorting operational focus.
+2. **Capacity-Aware Scheduling:** Validates task duration estimates against an officer's actual working hours, Outlook meetings, lunch breaks, and travel buffers, proactively flagging mathematically impossible conflicts.
+3. **Operational Ripple Intelligence (Signature Proposed Differentiator):** Evaluates how disruptions, delays, or reassignments propagate across multi-level task dependencies, officer capacity, and statutory deadlines before any changes are committed.
 
-## What's in this repository
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      OPERATIONAL RIPPLE INTELLIGENCE                    │
+├───────────────────┬─────────────────────────┬───────────────────────────┤
+│ 1. Disruption     │ 2. Cascade Evaluation   │ 3. Three Alternatives     │
+│    Trigger        │    & Dependencies       │    Side-by-Side           │
+├───────────────────┼─────────────────────────┼───────────────────────────┤
+│ • Urgent safety   │ • Multi-level traversal │ • Alternative A:          │
+│   incident (lift) │   (t103 → t104 → t112)  │   No Action               │
+│ • Officer medical │ • Capacity deficits     │ • Alternative B:          │
+│   leave (MC)      │ • Protected statutory   │   Reschedule Lower-Impact │
+│ • Extra compliance│   deadlines (BCA/SCDF)  │ • Alternative C:          │
+│   assignment      │ • Potential defect risk │   Reassign Eligible Work  │
+└───────────────────┴─────────────────────────┴───────────────────────────┘
+```
 
-| Path | What it is |
-| --- | --- |
-| [`prototype/`](prototype/) | The interactive Smart Work Planner (HTML, CSS, JavaScript; fictional data, no backend). See [prototype/README.md](prototype/README.md). Live at <https://feliciatanxl.github.io/SyncAI/site/index.html>. |
-| [`prototype/site/`](prototype/site/) | The public website that explains SyncAI, with sign-in, forgot-password and reset-password pages that lead into the portal. |
-| [`client/`](client/) | The React (Vite) frontend for the real build: public website, Microsoft sign-in, an admin portal (approve people, assign roles, arrange teams, see who was last active, a read-only activity log, live-updating overview), a member portal for team members and managers (overview, team details, a My team page for managers; tasks and plan marked *Coming soon* until the planning engine lands) an *Ask SyncAI* chat in every portal (preview: help-guide answers, AI to come) and Settings (text size, four languages, light or dark). See [client/README.md](client/README.md). |
-| [`server/`](server/) | The Node.js + Express API: verifies Microsoft sign-in tokens, stores users in PostgreSQL, enforces roles and approvals, and keeps a 12-month audit trail of sign-ins and access changes (PDPA-minded, OWASP Top 10 reviewed). See [server/README.md](server/README.md). |
-| [`docs/architecture.md`](docs/architecture.md) | Proposed architecture, what EMS told us, how the prototype maps onto the build, and open questions. |
-| [`docs/demo-script.md`](docs/demo-script.md) | A 7-minute demo walkthrough with likely questions and answers. |
-| [`prototype/tests/`](prototype/tests/) | Automated tests for the rules engine. |
+### Three-Alternative Scenario Comparison
 
-## Run it
+When an operational disruption occurs, SyncAI evaluates three distinct operational paths:
 
-Prototype (Python 3, standard library only):
+- **Alternative A: No Action (Baseline):** Demonstrates the operational exposure of doing nothing—highlighting unmitigated deadline slips, breached compliance dates, and customer friction.
+- **Alternative B: Reschedule Lower-Impact Work:** Retains work with the assigned officer by deferring routine admin or non-critical inspections to protect mandatory compliance deadlines.
+- **Alternative C: Reassign Eligible Work:** Identifies alternative officers with spare capacity and enforces domain certifications (e.g. lift specialist), flagging unqualified officers even if they have available hours.
+
+> **Human-in-the-Loop Decision Support:** AI generates explainable recommendations, but estate managers and property officers review and approve every schedule adjustment before it takes effect.
+
+---
+
+## Current Implementation Status
+
+SyncAI maintains a strict separation between its interactive proof-of-concept prototype and the production full-stack application:
+
+| Capability / Tier | Static Prototype (`prototype/`) | Full-Stack Application (`client/` & `server/`) | Planned / Roadmap |
+| --- | --- | --- | --- |
+| **User Interface** | HTML5, CSS3, vanilla JavaScript ES modules (Fluent 2 inspired) | React 19, Vite, Microsoft Fluent UI components | Continuous UX refinement |
+| **Authentication** | Simulated role switching (`localStorage` session) | **Implemented:** Microsoft Entra ID (MSAL) with JWT signature validation | Multi-tenant policy configuration |
+| **Data Persistence** | Browser `localStorage` seeded with fictional data | **Implemented:** PostgreSQL with parameterized queries and migrations | Entity tables for tasks and schedules |
+| **Access Control** | Role-based view switching (`team_member`, `manager`, `admin`) | **Implemented:** Admin approval queue, role enforcement (`admin`, `manager`, `member`) | Granular zone/estate permissions |
+| **Team Management** | Hard-coded officer zones and skills | **Implemented:** Admin team management, manager assignment, member placement | Dynamic multi-team assignment |
+| **Audit Logging** | In-memory activity log | **Implemented:** 12-month append-only audit trail in PostgreSQL | Export to external compliance log |
+| **Priority Scoring** | **Implemented:** Deterministic scoring engine (`ai.js`, 0–100 score) | Placeholder page in Member Portal | Migration to Express API planning service |
+| **Schedule Feasibility** | **Implemented:** Time-blocking against meetings and working hours (`planner.js`) | Placeholder page in Member Portal | Migration to Express API planning service |
+| **Ripple Intelligence** | **Implemented:** Multi-level dependency analysis and 3 alternatives (`ripple.js`) | Conceptual preview in How SyncAI Decides | Migration to Express API planning service |
+| **M365 Integration** | Mock Outlook meetings and simulated alerts | Not connected | Microsoft Graph (Outlook, To Do), Power Automate, Teams |
+| **Language Features** | Deterministic keyword and regex extraction | Help-guide Q&A preview (4 languages) | Optional Azure OpenAI assistance |
+
+*Note: The prototype's intelligence is deterministic and rules-based. It is not an unverified black-box predictive ML model, ensuring all scheduling advice is explainable and auditable.*
+
+---
+
+## System Architecture
+
+```mermaid
+flowchart TD
+    subgraph ClientTier["Client Tier (React 19 + Fluent UI)"]
+        Landing["Landing Page /"]
+        AuthUI["Microsoft MSAL Sign-In /login"]
+        AdminUI["Admin Portal /app (Users, Teams, Audit)"]
+        MemberUI["Member Portal /app (Officer & Manager Views)"]
+    end
+
+    subgraph AuthTier["Identity Provider"]
+        Entra["Microsoft Entra ID (OIDC / OAuth 2.0)"]
+    end
+
+    subgraph ServerTier["Backend API Tier (Node.js 22 + Express 5)"]
+        AuthMid["JWT Auth Middleware (jose JWKS)"]
+        RoleCheck["RBAC & Status Enforcement"]
+        RateLimit["Rate Limiting & Security Headers"]
+        UserRoutes["User & Team Management Routes"]
+        AuditRoutes["Audit Log Query Service"]
+        PlannedEngine["[Planned] Planning & Ripple Engine"]
+    end
+
+    subgraph DataTier["Data Tier"]
+        PG[("PostgreSQL Database (Railway / Cloud)")]
+    end
+
+    subgraph PlannedM365["Planned Microsoft 365 Services"]
+        Graph["Microsoft Graph API (Outlook & To Do)"]
+        Flow["Power Automate (Approval Flows)"]
+        Teams["Microsoft Teams (Alerts & Cards)"]
+    end
+
+    AuthUI -->|Authenticate| Entra
+    Entra -->|ID & Access Token| AuthUI
+    AdminUI -->|Bearer Token HTTPS| AuthMid
+    MemberUI -->|Bearer Token HTTPS| AuthMid
+    AuthMid --> RoleCheck
+    RoleCheck --> UserRoutes
+    RoleCheck --> AuditRoutes
+    RoleCheck -.-> PlannedEngine
+    UserRoutes --> PG
+    AuditRoutes --> PG
+    PlannedEngine -.->|Planned Sync| Graph
+    PlannedEngine -.->|Planned Approvals| Flow
+    Flow -.-> Teams
+```
+
+See [docs/architecture.md](docs/architecture.md) for full architectural specifications, security controls, and data schemas.
+
+---
+
+## Role-Based Access Control
+
+SyncAI supports three distinct application roles:
+
+| Application Role | Operational Persona | Key Capabilities |
+| --- | --- | --- |
+| **System Administrator** (`admin`) | Technical Administrator | Approves new accounts, assigns roles, manages team memberships, monitors 12-month audit activity log. Has no access to operational tasks or schedule boards. |
+| **Manager** (`manager`) | Supervisory Manager / Estate Manager | Oversees assigned team members, reviews team capacity, evaluates What-If disruption simulations, approves reassignments, and manages statutory compliance risks. |
+| **Team Member** (`member`) | Property Officer / Front-Line Staff | Manages personal daily schedules, views recommended task priorities with explainable score breakdowns, performs site inspections, and requests emergency schedule adjustments. |
+
+---
+
+## Repository Structure
+
+```text
+SyncAI/
+├── client/                 # Full-stack React 19 + Vite frontend (Fluent UI, MSAL)
+│   ├── src/                # Portals, components, i18n translations, MSAL config
+│   └── README.md           # Client setup, environment variables, and architecture
+├── server/                 # Full-stack Node.js 22 + Express 5 backend API
+│   ├── src/                # Auth middleware, RBAC rules, PostgreSQL models
+│   └── README.md           # Server setup, database migrations, and security
+├── prototype/              # Interactive proof-of-concept prototype (vanilla JS)
+│   ├── js/                 # ai.js, planner.js, simulation.js, ripple.js
+│   ├── site/               # Prototype marketing website and demo sign-in
+│   ├── tests/              # Automated tests for rules and ripple engines
+│   └── README.md           # Prototype user guide and scenario walkthroughs
+├── docs/                   # Engineering and client documentation
+│   ├── architecture.md     # System architecture, security model, and EMS requirements
+│   └── demo-script.md      # 7-minute presentation walkthrough of Ripple Intelligence
+├── CONTRIBUTING.md         # Contribution standards, branch conventions, review checklist
+├── SECURITY.md             # Vulnerability disclosure, PDPA compliance, secret handling
+└── CODE_OF_CONDUCT.md      # Community standards (Contributor Covenant v2.1)
+```
+
+---
+
+## Getting Started
+
+### 1. Interactive Static Prototype
+
+The prototype requires no build steps or external dependencies (Python 3 standard library only):
 
 ```bash
+# Start local prototype web server
 python prototype/serve.py
 ```
 
-| Open | For |
-| --- | --- |
-| <http://localhost:8765/site/> | Public website |
-| <http://localhost:8765/site/login.html> | Sign in (demo accounts are shown on the page) |
-| <http://localhost:8765/> | Portal (sends you to sign in first if you are not signed in) |
+- **Website:** <http://localhost:8765/site/>
+- **Sign-In:** <http://localhost:8765/site/login.html> (Demo accounts provided on page)
+- **Portal:** <http://localhost:8765/>
 
-Rules-engine tests (Node.js 20 or later, no install needed):
+Run the automated prototype test suite (Node.js 20+ built-in test runner):
 
 ```bash
 node --test "prototype/tests/*.test.mjs"
+# Verified: 42 automated tests pass (rules, ripple, and status codes)
 ```
 
-Real build (Node.js 22 or later). Run the API and the client in two terminals, after filling in `server/.env` and `client/.env` as described in [server/README.md](server/README.md) and [client/README.md](client/README.md):
+### 2. Full-Stack Application
+
+Requires **Node.js 22 or later** and an accessible PostgreSQL instance.
+
+#### Backend Setup (`server/`)
 
 ```bash
-cd server && npm install && npm run dev
+cd server
+npm install
+cp .env.example .env
+# Configure DATABASE_URL and ENTRA_CLIENT_ID in server/.env
+npm run dev
+# Starts Express API at http://localhost:3000/api
 ```
+
+Run backend unit and security tests:
 
 ```bash
-cd client && npm install && npm run dev
+npm test
+# Verified: 21 automated tests pass (auth, RBAC, teams, audit)
 ```
 
-Then open <http://localhost:5173>. The client forwards `/api` to the API on port 3000.
+#### Frontend Setup (`client/`)
 
-## Proposed stack
+```bash
+cd client
+npm install
+cp .env.example .env
+# Configure VITE_ENTRA_CLIENT_ID and VITE_ENTRA_TENANT_ID in client/.env
+npm run dev
+# Starts Vite dev server at http://localhost:5173
+```
 
-| Part | Technology | Status |
-| --- | --- | --- |
-| Web app | React (Vite), officer and supervisor dashboards | We build |
-| API and planning engine | Node.js + Express: prioritisation, scheduling, workload calculations | We build |
-| Database | PostgreSQL | We build |
-| Sign-in | Microsoft Entra ID (MSAL) | Proposed, subject to tenant access |
-| Calendar and tasks | Microsoft Graph: Outlook Calendar, Microsoft To Do | Proposed, subject to permissions |
-| Approvals and alerts | Power Automate approval flows, Microsoft Teams notifications | Proposed, subject to licensing |
-| Language features | Azure OpenAI | Optional, later phase |
+Run frontend component and logic tests:
 
-EMS confirmed Microsoft is the baseline at every Town Council (Power Automate and Copilot at least; more varies by council) and said it will handle licences. Tenant access, API permissions and deployment requirements are still to be confirmed. The prototype simulates every Microsoft connection; none is live. We do not claim GCC compliance.
+```bash
+npm test
+# Verified: 16 automated tests pass (help guide, i18n, time, http status)
+```
 
-## Project documents
+---
 
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-- [SECURITY.md](SECURITY.md)
-- [LICENSE](LICENSE)
+## Demonstration Links
+
+- **Main Repository:** <https://github.com/feliciatanxl/SyncAI>
+- **Static Prototype (GitHub Pages):** <https://feliciatanxl.github.io/SyncAI/site/index.html>
+
+*(Note: Live deployment links to cloud-hosted Railway containers remain internal for development and are subject to Azure tenant registration.)*
+
+---
+
+## Scope Boundary & Problem Statement Alignment
+
+SyncAI is specifically engineered for **EM Services Challenge PS 12i — Smart Work Planner (Microsoft-based)**.
+
+- **In Scope (PS 12i):** Property Officer task scheduling, explainable priority scoring, capacity-aware planning, What-If disruption simulations, and Operational Ripple Intelligence.
+- **Out of Scope:**
+  - PS 12g Operations Hub (resident multi-channel complaint intake and case consolidation).
+  - PS 12h Project Tracker (management-level capital project Gantt tracking and contractor procurement).
+  - Payroll, HR records, medical diagnoses (absences record only general categories such as MC or leave).
+  - Production write access to live Town Council Enterprise systems without explicit EMS authorization.
+
+*(Note: Historical prototype exploratory pages `hub.js`, `sources.js`, and `projects.js` have been retired from primary navigation to maintain strict PS 12i focus while preserving foreign-key data integrity.)*
+
+---
+
+## Development Roadmap
+
+```mermaid
+flowchart LR
+    Phase1["Phase 1: Proof of Concept<br/>• Static prototype<br/>• Deterministic rules<br/>• Ripple Intelligence<br/>[Completed]"] --> Phase2["Phase 2: Foundation<br/>• React + Express + PG<br/>• Entra ID Auth<br/>• RBAC & Team Mgmt<br/>• 12M Audit Trail<br/>[Completed]"]
+    Phase2 --> Phase3["Phase 3: Migration<br/>• Port rules to backend<br/>• Real task & schedule DB<br/>• Connect client views<br/>[In Development]"]
+    Phase3 --> Phase4["Phase 4: M365 Integration<br/>• Outlook & To Do sync<br/>• Power Automate flows<br/>• Teams notifications<br/>[Planned]"]
+```
+
+---
+
+## Documentation Navigation
+
+- [System Architecture](docs/architecture.md) — Detailed technical specifications, data models, and security boundaries.
+- [Presentation Demo Script](docs/demo-script.md) — A 7-minute structured walkthrough of Operational Ripple Intelligence.
+- [Prototype Guide](prototype/README.md) — Developer documentation, rules logic, and scenario references.
+- [Client Frontend Guide](client/README.md) — React architecture, MSAL integration, and component library.
+- [Server Backend Guide](server/README.md) — Express API routes, PostgreSQL schema, and security controls.
+- [Contributing Guidelines](CONTRIBUTING.md) — Git workflow, coding standards, and review checklists.
+- [Security Policy](SECURITY.md) — Responsible disclosure, secret management, and PDPA safeguards.
+- [Code of Conduct](CODE_OF_CONDUCT.md) — Community standards and professional expectations.
+- [License](LICENSE) — MIT License.

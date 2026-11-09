@@ -57,11 +57,34 @@ const STALE = "now() - interval '5 minutes'"
 const TODAY_SG = "date_trunc('day', now() AT TIME ZONE 'Asia/Singapore') AT TIME ZONE 'Asia/Singapore'"
 
 export function createPool(connectionString) {
-  return new pg.Pool({ connectionString })
+  const pool = new pg.Pool({
+    connectionString,
+    keepAlive: true,
+    connectionTimeoutMillis: 10000,
+  })
+
+  // Catch errors on idle clients so unexpected connection resets from remote
+  // proxies (such as Railway's TCP proxy) do not crash the Node.js process.
+  pool.on('error', (err) => {
+    console.warn('PostgreSQL idle client connection issue:', err.code || err.message)
+  })
+
+  return pool
 }
 
-export async function migrate(pool) {
-  await pool.query(SCHEMA)
+export async function migrate(pool, { maxRetries = 4, retryDelayMs = 1200 } = {}) {
+  let attempt = 0
+  while (true) {
+    try {
+      await pool.query(SCHEMA)
+      return
+    } catch (err) {
+      attempt++
+      if (attempt >= maxRetries) throw err
+      console.warn(`Database migration attempt ${attempt}/${maxRetries} failed (${err.code || err.message}). Retrying in ${retryDelayMs}ms...`)
+      await new Promise((r) => setTimeout(r, retryDelayMs))
+    }
+  }
 }
 
 // The teams a person belongs to, as [{ id, name, kind }], for the admin's People list.

@@ -1,69 +1,171 @@
-# SyncAI demo script (about 7 minutes)
+# SyncAI — Operational Ripple Intelligence Demo Script
 
-A walkthrough of EMS statement **12i — Smart Work Planner** in the order a Property Officer's day happens: the officer plans the day, an urgent safety task arrives, and the supervisor rebalances the team. The thread through all of it is our USP, **Operationally Aware AI Scheduling**.
+**A 7-minute presentation walkthrough of EM Services Challenge PS 12i — Smart Work Planner (Microsoft-based)**  
+**Team:** IT2134 Team 24 | **Target Audience:** Lecturers, EM Services Representatives, and Solution Architects  
+**Core Message:** *"Know what matters. Understand what changes. Choose the safer plan."*
 
-## Before you start
+---
 
-1. Run `python prototype/serve.py` and open <http://localhost:8765/site/>, or use the live site at <https://feliciatanxl.github.io/SyncAI/site/index.html>.
-2. Sign in as the supervisor and use **Settings → Reset demo data**, so the numbers match this script. Demo data is shared by all accounts in the same browser.
-3. Keep this password handy: `SyncAI-demo1`.
-4. Optional: open the browser at phone width in a second window to show the mobile layout.
+## Demonstration Overview & Timings
 
-| Account | Who | Shows |
-| --- | --- | --- |
-| `officer@syncai.demo` | Aisyah Rahman, Property Officer | Priorities, planning, emergency re-planning |
-| `supervisor@syncai.demo` | Jennifer Ong, Estate Manager | Team workload, reassignment, What-If Simulator |
+| Segment | Speaker Focus | Screen / View | Duration |
+| --- | --- | --- | --- |
+| **0. Opening & Context** | The Town Council Property Officer scheduling dilemma; our USP | Public Landing Page | 0:30 |
+| **1. Property Officer Workflow** | Next task recommendation, explainable score, and capacity time-blocking | Officer Dashboard & Smart Planner | 2:00 |
+| **2. The Signature Disruption** | Emergency lift entrapment arrives at Blk 214 | What-If Simulator Scenario Setup | 1:00 |
+| **3. Operational Ripple Analysis** | Multi-level dependency cascade, statutory risks, and capacity deficits | Disruption Cascade & Dependency Chain | 1:30 |
+| **4. Three Alternatives Compared** | No Action vs. Reschedule vs. Reassign; skill validation and trade-offs | Three Operational Alternatives Grid | 1:30 |
+| **5. Closing & Architecture** | Human approval, OCC complementarity, full-stack roadmap | What-If Commit & Admin Governance | 0:30 |
 
-Say up front: the data is fictional, the "AI" is explainable rules, and every Microsoft connection is simulated. Microsoft integrations are proposed, subject to tenant access, permissions and licensing.
+---
 
-## 0. The pitch (30 s) — public website
+## Preparation Checklist
 
-- Landing page: *"Your Work. Your Time. In Sync."*
-- EMS told us Property Officers should put genuine safety first, never miss statutory or funding deadlines, weigh real service impact over how loudly someone complains, and plan around how long work really takes. SyncAI is built around exactly that.
-- Click **Sign in**.
+1. **Start the local prototype server:**
+   ```bash
+   python prototype/serve.py
+   ```
+   Open **<http://localhost:8765/site/>** in Microsoft Edge or Google Chrome.  
+   *(Fallback URL if running remotely: <https://feliciatanxl.github.io/SyncAI/site/index.html>)*
+2. **Reset Demo State:**
+   Sign in as Estate Manager (`manager@syncai.demo`), navigate to **Settings → Reset demo data**, and confirm. This guarantees consistent dates, tasks, and metrics.
+3. **Demo Credentials:**
+   - Property Officer: `officer@syncai.demo` | Password: `SyncAI-demo1` (Aisyah Rahman, Zone A)
+   - Estate Manager: `manager@syncai.demo` | Password: `SyncAI-demo1` (Jennifer Ong, Estate Manager)
+   - System Administrator: `admin@syncai.demo` | Password: `SyncAI-demo1` (System Admin)
+4. **Presentation Fallback Plan:**
+   If local Python hosting is interrupted, switch immediately to the hosted GitHub Pages prototype link. If browser storage becomes desynchronized, click **Reset demo data** in Settings or reload with `?selftest`.
 
-## 1. Officer: what should I work on first? (2 min)
+---
 
-Sign in as **officer**.
+## 0. Opening: The Problem & Our Flagship USP (0:30)
 
-1. **Dashboard:** the AI Daily Briefing says today's work fits and to start with the Blk 208 lift inspection.
-2. Click an **AI score** to open the breakdown: safety, statutory deadline, service impact, deadline urgency, effort and dependencies. Point out that repeat complaints are listed at **0 points**: visible, but volume alone never raises priority.
-3. **Smart Planner → Generate my plan:** tasks are time-blocked around Outlook meetings and lunch, with a schedule check for anything unrealistic. Accept it.
+**Visual:** Landing page (<http://localhost:8765/site/>).
 
-## 2. Officer: an urgent safety task arrives (2 min) — the USP moment
+**Presenter Speaking Track:**
+> "Good morning. In Singapore's Town Councils, each Property Officer oversees roughly 2,600 residential units. Every day, they face an impossible juggling act: urgent lift faults, statutory compliance deadlines, routine contractor checks, and hundreds of resident complaints.
+>
+> Generic to-do lists sort work simply by deadline or who shouts the loudest. That approach creates operational blindness.
+>
+> For EM Services Challenge PS 12i, Team 24 presents **SyncAI**, built on our flagship USP: **Operationally Aware AI Scheduling**, powered by our signature proposed differentiator: **Operational Ripple Intelligence**.
+>
+> SyncAI's promise is simple: *Know what matters. Understand what changes. Choose the safer plan.* Let's see how this works in a Property Officer's daily shift."
 
-1. Click **Urgent task arrived**, type *"Water leak from ceiling at Blk 210 lift lobby, about 1.5h, today 1pm"* and click **Fill from description**.
-2. **Preview new schedule:** SyncAI shows where the emergency fits, which safety and statutory work stays protected, what moved and what is now at risk, with a reason for each change.
-3. **Approve.** If work became late, a help request goes to the supervisor.
+*Click **Sign in**, select **Property Officer (Aisyah Rahman)**, and enter the portal.*
 
-Talking point: this is a simulated re-planning scenario, not live client data. Nothing changes until a person approves.
+---
 
-## 3. Supervisor: rebalance the team (2.5 min)
+## 1. Property Officer Walkthrough: Consequence-Aware Planning (2:00)
 
-Sign out (bottom of the sidebar) and sign in as **supervisor**.
+**Visual:** Officer Dashboard (<http://localhost:8765/#/dashboard>).
 
-1. **Dashboard:** *"Marcus is overloaded, and Ravi is unavailable today."* The help request from step 2 is in **Alerts**.
-2. **Team Workload:** heatmap and reassignment suggestions. Each one explains why the task is at risk and why the receiving officer fits: skills, free time before the deadline, zone, and a check that their own work won't slip.
-3. **What-If Simulator → Officer on MC:** before, after with no action, after with SyncAI's reassignments. Untick a reassignment you disagree with, then **Discard** (or apply).
+**Key Actions & Talking Points:**
+1. **Explainable AI Recommendation:**
+   - Point to the AI Daily Briefing: SyncAI recommends Aisyah begin her morning with **Lift inspection — Blk 208 (Lifts A & B)** (`t101`), due at 12:00 PM.
+   - Click the task's **AI Score (88 pts)** to open the transparent score breakdown modal:
+     - **Genuine Safety Hazard (+20 pts):** Direct risk of passenger entrapment following reported jerky stops.
+     - **Mandatory Statutory Deadline (+20 pts):** Regulatory inspection window.
+     - **Service Impact (+8 pts):** Major high-traffic lift core.
+     - **Repeat Complaints (0 pts):** Point out explicitly that 6 repeat complaint calls received on a separate cleaning issue (`t106`) awarded exactly **0 priority points**. Volume is visible to the officer, but loudest voices never distort safety priorities.
+2. **Capacity-Aware Smart Planner:**
+   - Navigate to **Smart Planner** (<http://localhost:8765/#/planner>).
+   - Click **Generate my plan**.
+   - Show how tasks are automatically time-blocked around fixed commitments:
+     - Morning inspection scheduled first.
+     - Respects the 14:30 contractor meeting and 15:00 resident engagement call (`m1`, `m2`).
+     - Incorporates travel buffers between estate blocks and protects lunch.
+   - Click **Accept plan**. Aisyah's morning is organized, achievable, and operationally sound.
 
-Talking point: in the build, a reassignment would go out as a Power Automate approval to Teams (proposed).
+---
 
-## 4. Close (30 s)
+## 2. The Signature Disruption: Emergency Lift Breakdown (1:00)
 
-*"Smarter priorities. More realistic plans."* Our next step is validating the priority rules with EMS and replacing our assumed task durations with EMS's Property Officer time study.
+**Visual:** Switch to Estate Manager view (<http://localhost:8765/site/login.html> → `manager@syncai.demo`). Open **What-If Simulator** (<http://localhost:8765/#/simulator>).
 
-## Optional extras (outside 12i scope)
+**Presenter Speaking Track:**
+> "In estate management, no plan survives the morning unchanged. At 11:15 AM, an emergency hits: a lift breakdown with a trapped resident at Blk 214.
+>
+> An emergency physical inspection requires 2.5 hours of urgent effort. When an emergency strikes, what happens to the rest of the schedule?
+>
+> In typical operations, supervisors reassign work by guesswork, inadvertently causing secondary inspections to stall or statutory compliance deadlines to be missed. This is where **Operational Ripple Intelligence** comes in."
 
-The prototype also has **Projects**, **HQ overview** (`hq@syncai.demo`) and **Data sources** pages from an earlier, wider concept covering 12g and 12h. Only show them if asked; they are not part of our 12i proposal.
+**Key Action:**
+- Under Quick Scenarios, click the signature preset: **The Ripple Effect (Urgent Lift Incident)**.
+- Point out the scenario parameters: Incident = Lift breakdown (resident trapped, 2.5h, Blk 214); Target Assignee = Aisyah Rahman (`o1`).
+- Click **Run simulation**.
 
-## Likely questions
+---
 
-| Question | Answer |
+## 3. Operational Ripple Analysis: Tracing the Cascade (1:30)
+
+**Visual:** Step 3: Operational Ripple Analysis card & Dependency Chain.
+
+**Key Actions & Talking Points:**
+1. **The Three-Stage Ripple Grid:**
+   - **Column 1 (Trigger Disruption):** The 2.5-hour emergency absorbs Aisyah's remaining morning capacity, creating an immediate operational deficit.
+   - **Column 2 (Displaced Routine Work):** SyncAI flags that Aisyah's planned morning tasks must be displaced.
+   - **Column 3 (Downstream Dependents):** SyncAI traces how displacing this work cascades into secondary obligations.
+2. **Multi-Level Dependency Cascade:**
+   - Scroll down to the **Multi-Level Dependency Chain**:
+   - Trace the exact 3-level chain:
+     $$\text{Site check: ceiling seepage at Blk 211 } (t103) \longrightarrow \text{Resident follow-up call } (t104) \longrightarrow \text{Contractor work order } (t112)$$
+   - Highlight the operational risks surfaced by the ripple engine:
+     - If `t103` is deferred, resident call `t104` cannot proceed.
+     - Work order `t112` slips past its cutoff, delaying water ingress repairs and risking structural reinforcement rebar corrosion.
+     - Meanwhile, Aisyah's statutory co-funding claim for Blk 214 lighting (`t111`) faces deadline exposure.
+> "SyncAI doesn't just ask 'who is free?'. It asks: 'If I move this task, what downstream obligations break?'"
+
+---
+
+## 4. Three Operational Alternatives Compared (1:30)
+
+**Visual:** Step 4: Three Operational Alternatives Compared card.
+
+**Presenter Speaking Track:**
+> "Rather than forcing an opaque automated schedule change, SyncAI provides transparent decision support by evaluating **Three Meaningful Alternatives** side-by-side."
+
+**Walk Through the Three Alternatives:**
+
+1. **Alternative A: No Action (Status: Infeasible)**
+   - Shows what happens if the team does not intervene: 2 overdue tasks, severe statutory compliance breaches, and cascading resident delays.
+   - *Trade-off:* Zero coordination effort upfront, but severe regulatory and resident dissatisfaction risks.
+2. **Alternative B: Reschedule Lower-Impact Tasks (Status: Feasible)**
+   - Reorganises work within Aisyah's schedule: protects her statutory obligations and the urgent lift incident, while deferring routine admin and non-statutory inspections to later in the week.
+   - *Trade-off:* Keeps work with the primary officer who knows the block, but delays 2 routine reports.
+3. **Alternative C: Reassign Eligible Work (Status: Feasible / Featured)**
+   - SyncAI searches the team for officers who have spare capacity *and* possess the required domain certification.
+   - Point out **Skill Matching & Verification**:
+     - Daniel Lim (`o4`) holds technical lift certifications and has spare capacity; he is recommended for technical tasks.
+     - Point out the **Skill Mismatch Notice**: Priya Nair (`o3`) has available working hours but lacks the required technical lift certification. SyncAI explicitly flags her as ineligible for lift work, preventing compliance breaches.
+4. **Recommendation Banner & Escalation Warning:**
+   - Highlight the SyncAI Recommendation banner recommending Alternative C (or Alternative B depending on team load).
+   - Mention that if total team capacity is exhausted, SyncAI displays an explicit **Manager Escalation Required** warning rather than generating an impossible plan.
+
+---
+
+## 5. Closing & Full-Stack Implementation Roadmap (0:30)
+
+**Key Actions & Conclusion:**
+1. **Human-in-the-Loop Sign-off:**
+   - Scroll to Step 9: **Apply or Discard**.
+   - Emphasize: *The live schedule has not changed.* Nothing is committed until the Estate Manager explicitly reviews the trade-offs and clicks **Apply to live schedule**.
+2. **Complementing Existing Systems:**
+   > "SyncAI does not seek to replace the Operations Command Centre. The OCC tells EMS where officers are right now; SyncAI gives officers and managers the forward-looking intelligence to plan achievable days and navigate disruptions safely."
+3. **Current Build vs. Roadmap Truthfulness:**
+   > "What you have seen in this demonstration is our interactive prototype running deterministic, explainable intelligence.
+   >
+   > In our separate production repository, we have already implemented the full-stack foundation: React 19, Express 5, PostgreSQL, and enterprise Microsoft Entra ID single sign-on with role-based access control and a 12-month audit trail.
+   >
+   > Our active next step is migrating these proven scheduling and ripple intelligence algorithms into the Express backend and connecting with Microsoft Graph."
+
+---
+
+## Anticipated Client Questions & Answers
+
+| Question | Recommended Answer |
 | --- | --- |
-| Is the AI real? | Scoring, scheduling and risk are deterministic rules, so they are explainable and repeatable. Azure OpenAI could later handle language features, but it is not needed for the first prototype. |
-| Where do the priority weights come from? | They are our proposal based on what EMS told us. EMS has not given a formula; we will validate the weights with our account owner. |
-| How does it know how long tasks take? | Today from assumed baselines adjusted by the team's estimated-vs-actual history. We plan to use EMS's Property Officer task-duration analysis once access is arranged. |
-| Doesn't the Operations Command Centre already show this? | It shows where officers are and what they are doing now. SyncAI adds forward-looking planning: what to do next, whether the day is realistic, and what to change when work shifts. |
-| Is it Microsoft-based? | React and Node.js host the planning engine. Entra ID sign-in, Outlook Calendar and To Do through Graph, Power Automate approvals and Teams alerts are the proposed Microsoft integrations, subject to access and licensing. |
-| What happens to medical information? | Absences are stored as MC or leave only. No medical details are recorded. |
-| How is it tested? | `node --test "prototype/tests/*.test.mjs"` runs the rules-engine tests: scoring, risk, scheduling, the timer and grouping. |
+| **Is the AI a machine-learning model?** | No. Priority scoring, scheduling feasibility, and ripple dependency tracing are 100% deterministic, rules-based algorithms. For Town Council compliance and safety, scheduling must be repeatable, auditable, and mathematically explainable. Language models (like Azure OpenAI) are planned strictly for natural-language parsing (e.g. converting meeting notes to draft tasks). |
+| **Did EM Services officially approve the scoring weights (+20 safety, +25 statutory)?** | No. These scoring weights represent our team's proposed baseline formulated directly from EMS kickstart guidance (prioritising genuine safety and statutory cut-offs over complaint volume). The weights are fully configurable and will be calibrated against EMS's Property Officer time studies. |
+| **Does SyncAI duplicate the Operations Command Centre (OCC)?** | Not at all. The OCC provides real-time situational tracking (GPS locations, active incident alerts). SyncAI operates as a personal and team planning layer: forecasting feasibility, building daily schedules, and calculating downstream ripple impacts before work is shifted. |
+| **Are Microsoft 365 services live today?** | In the prototype, M365 interactions (Outlook meetings, Teams alerts, To Do sync) are simulated. In the full-stack app, Microsoft Entra ID authentication is fully implemented with MSAL and JWT signature verification. Microsoft Graph and Power Automate integrations are designed and awaiting EMS tenant permissions. |
+| **How does SyncAI protect resident and staff privacy (PDPA)?** | Minimal data collection. Staff absences record only general categories (MC or annual leave), never medical diagnoses. Audit logs are append-only and record access and governance actions only, with automated 12-month data retention policies. |
