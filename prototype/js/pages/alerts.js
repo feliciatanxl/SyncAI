@@ -2,16 +2,31 @@
 // production (Phase 2). Computed from the same data as every other page.
 
 import { analyseOfficer, assessRisk, meetingConflicts, planSignature, smartReminders, teamAnalysis } from '../planner.js';
-import { getState, getTask, isOpen, isSupervisor, openTasksFor, update, absenceLabel } from '../state.js';
-import { TODAY, NOW, fmtHours, fmtTime, timePart, toMin } from '../time.js';
+import { getState, getTask, isOpen, isSupervisor, openTasksFor, update, absenceLabel, getNotifications, markNotificationRead } from '../state.js';
+import { TODAY, NOW, fmtHours, fmtTime, timePart, toMin, fmtDue } from '../time.js';
 import { html, icon, render } from '../ui.js';
-import { visibleRecs } from './shared.js';
+import { visibleRecs, openApprovalDetail } from './shared.js';
+
+let channelFilter = 'all';
 
 const TONE_ICON = { danger: 'alert', warning: 'clock', info: 'bell' };
 
 export function computeAlerts(s) {
   const out = [];
-  const add = (key, tone, title, body, href) => out.push({ key, tone, title, body, href });
+  const add = (key, tone, title, body, href, extra = {}) => out.push({ key, tone, title, body, href, channel: extra.channel || 'in_app', channelLabel: extra.channelLabel || 'In-App', approvalId: extra.approvalId || null });
+
+  // 1. Structured simulated notifications (WhatsApp, Teams, In-App)
+  const notifs = getNotifications(s);
+  for (const n of notifs) {
+    add(
+      `notif:${n.id}`,
+      n.type === 'urgent_assignment' ? 'danger' : n.type === 'sla_warning' ? 'warning' : 'info',
+      n.title,
+      `${n.summary} [Channel: ${n.channelLabel}]`,
+      n.approvalId ? `#/team` : n.secureLink ? n.secureLink.replace('syncai://', '#/') : '#/dashboard',
+      { channel: n.channel, channelLabel: n.channelLabel, approvalId: n.approvalId },
+    );
+  }
 
   // Mandatory / statutory deadline alerts across open tasks
   const mand = (isSupervisor(s) ? s.tasks : openTasksFor(s, s.currentOfficerId))
@@ -73,29 +88,46 @@ export function unreadCount(s) {
 
 function renderPanel() {
   const s = getState();
-  const alerts = computeAlerts(s);
+  const allAlerts = computeAlerts(s);
+  const alerts = channelFilter === 'all'
+    ? allAlerts
+    : allAlerts.filter((a) => a.channel === channelFilter);
   const read = new Set(s.alertsRead || []);
-  const teamsOn = !!s.integrations?.teams;
+
   render(
     document.getElementById('alerts'),
     html`<div class="assistant-head">
       <span class="stat-icon">${icon('bell', 16)}</span>
-      <div style="flex:1"><h2>Alerts</h2><span class="muted small">${teamsOn ? 'Delivered via Microsoft Teams · simulated' : 'Teams delivery is off — in-app only'}</span></div>
-      <button class="btn btn-subtle btn-sm" data-action="alerts-read-all">Mark all read</button>
+      <div style="flex:1"><h2>Alerts &amp; Notifications</h2><span class="muted small">Auditable multi-channel dispatch · simulated</span></div>
+      <button class="btn btn-subtle btn-sm" data-action="alerts-read-all">Mark read</button>
       <button class="icon-btn" data-action="alerts-close" aria-label="Close alerts">${icon('x')}</button>
+    </div>
+    <div class="row" style="padding:8px 12px;gap:6px;border-bottom:1px solid var(--border);background:var(--surface-2)">
+      <button class="btn btn-sm ${channelFilter === 'all' ? 'btn-primary' : 'btn-subtle'}" data-action="alerts-channel" data-ch="all">All (${allAlerts.length})</button>
+      <button class="btn btn-sm ${channelFilter === 'whatsapp' ? 'btn-primary' : 'btn-subtle'}" data-action="alerts-channel" data-ch="whatsapp">WhatsApp</button>
+      <button class="btn btn-sm ${channelFilter === 'teams' ? 'btn-primary' : 'btn-subtle'}" data-action="alerts-channel" data-ch="teams">Teams</button>
+      <button class="btn btn-sm ${channelFilter === 'in_app' ? 'btn-primary' : 'btn-subtle'}" data-action="alerts-channel" data-ch="in_app">In-App</button>
+    </div>
+    <div class="notice notice-info small" style="margin:8px 12px">
+      ${icon('info', 12)}<span><strong>Auditable Notification Adapter:</strong> Demonstrates proposed WhatsApp and Teams notifications with secure verification links. No Meta credentials or live external APIs are used. Ordinary WhatsApp group chats are not automatically captured by SyncAI.</span>
     </div>
     <ul class="alert-list">
       ${alerts.length
         ? alerts.map(
             (a) => html`<li class="alert-item ${read.has(a.key) ? '' : 'unread'}">
               <span class="stat-icon ${a.tone === 'info' ? 'ai' : a.tone}">${icon(TONE_ICON[a.tone], 14)}</span>
-              <a href="${a.href}" data-action="alert-open" data-key="${a.key}" class="grow">
-                <strong>${a.title}</strong><span>${a.body}</span>
-              </a>
+              <div class="grow" style="cursor:pointer" data-action="alert-open" data-key="${a.key}" data-href="${a.href}" data-approval="${a.approvalId || ''}">
+                <div class="row" style="justify-content:space-between">
+                  <strong>${a.title}</strong>
+                  <span class="badge ${a.channel === 'whatsapp' ? 'badge-success' : a.channel === 'teams' ? 'badge-ai' : 'badge-neutral'}" style="font-size:10px">${a.channelLabel || a.channel}</span>
+                </div>
+                <span>${a.body}</span>
+                ${a.approvalId ? html`<div class="mt-xs"><span class="badge badge-warning" style="font-size:10.5px">${icon('shield', 10)}Tap to view approval record (${a.approvalId})</span></div>` : ''}
+              </div>
               ${read.has(a.key) ? '' : html`<span class="dot-unread" aria-label="Unread"></span>`}
             </li>`,
           )
-        : html`<li class="alert-item"><span class="muted">You're all caught up.</span></li>`}
+        : html`<li class="alert-item"><span class="muted">No alerts in this channel.</span></li>`}
     </ul>`,
   );
 }
@@ -126,10 +158,21 @@ const markRead = (keys) =>
 export const alertActions = {
   'alerts-open': () => (document.getElementById('alerts').hidden ? openAlerts() : closeAlerts()),
   'alerts-close': () => closeAlerts(),
+  'alerts-channel': (el) => {
+    channelFilter = el.dataset.ch;
+    renderPanel();
+  },
   'alerts-read-all': () => markRead(computeAlerts(getState()).map((a) => a.key)),
   'alert-open': (el) => {
-    markRead([el.dataset.key]);
+    const key = el.dataset.key;
+    const approvalId = el.dataset.approval;
+    const href = el.dataset.href;
+    if (key) markRead([key]);
     closeAlerts();
-    location.hash = el.getAttribute('href');
+    if (approvalId) {
+      openApprovalDetail(approvalId);
+    } else if (href) {
+      location.hash = href;
+    }
   },
 };

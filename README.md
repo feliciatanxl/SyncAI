@@ -20,6 +20,36 @@ Town Council Property Officers operate in high-density residential estates, mana
 
 ---
 
+## Latest EM Services Client Feedback & Requirements (November 2026)
+
+Following our latest consultation with EM Services (EMS), the prototype and system architecture have been enhanced around five core operational realities:
+
+1. **Operations Command Centre (OCC) Complementarity:**
+   - EMS noted potential future connectivity with its Operations Command Centre.
+   - SyncAI does **not** claim live OCC integration or duplicate the PS 12g Operations Hub.
+   - The prototype includes clearly labelled fictional mock records (`OCC (Mock)`) to demonstrate how OCC-originated tasks (e.g. lift entrapments or building fault telemetries) seamlessly flow into an officer's daily schedule.
+2. **Client Case Prioritisation Order vs. Operational Model:**
+   - EMS stated the client assessment priority: **1. Service → 2. Safety → 3. Residents' well-being → 4. Actual concern / urgency**.
+   - SyncAI incorporates this four-tier breakdown into task details and explainability views, while maintaining strict adherence to statutory, safety, and operational boundaries:
+     - Routine service requests **never** blindly outrank imminent physical danger (e.g. lift faults or falling concrete).
+     - Statutory and regulatory compliance deadlines (BCA/SCDF) act as non-negotiable hard constraints.
+     - Repeat complaint volume alone continues to award **0 points**, preventing loudest-voice bias.
+     - Clear disclaimers in the UI specify that numerical scoring weights are Team 24's proposed operational model awaiting formal empirical calibration with EMS.
+3. **SLA-Aware Scheduling & Fixed Resident Appointments:**
+   - Property Officers manage strict Service Level Agreement (SLA) cut-offs, fixed repair appointment windows, and compliance obligations.
+   - The prototype evaluates SLA due times (`slaDue`), flags tight buffer windows (<60m), raises high-risk warnings for breached SLAs, and protects fixed resident appointments during disruption rescheduling.
+4. **Hierarchical Management Approval Workflow:**
+   - Schedule adjustments and cross-officer reassignments follow an authorised management hierarchy:
+     $$\text{Team Member proposes change} \longrightarrow \text{Assigned Manager reviews} \longrightarrow \text{Optional escalation} \longrightarrow \text{Audit trail recorded} \longrightarrow \text{Applied to plan}$$
+   - **Self-approval prevention:** Property Officers cannot approve their own restricted schedule change requests.
+   - All approval decisions, rejections, and escalations generate immutable audit records.
+5. **Auditable Simulated Communications (In-App, Teams, WhatsApp):**
+   - EMS relies heavily on WhatsApp alongside Microsoft 365.
+   - SyncAI models simulated notification adapters across **In-App**, **Microsoft Teams (proposed)**, and **WhatsApp (proposed)**.
+   - **Strict Privacy & Architecture Safeguards:** No real WhatsApp Business API or Meta credentials are used. Notification previews contain zero sensitive resident data and provide secure in-app verification links (`syncai://approval/...`) directing users back into SyncAI where decisions are authenticated and audited.
+
+---
+
 ## Flagship USP & Signature Differentiator
 
 ### Flagship USP: Operationally Aware AI Scheduling
@@ -67,13 +97,14 @@ SyncAI maintains a strict separation between its interactive proof-of-concept pr
 | **User Interface** | HTML5, CSS3, vanilla JavaScript ES modules (Fluent 2 inspired) | React 19, Vite, Microsoft Fluent UI components | Continuous UX refinement |
 | **Authentication** | Simulated role switching (`localStorage` session) | **Implemented:** Microsoft Entra ID (MSAL) with JWT signature validation | Multi-tenant policy configuration |
 | **Data Persistence** | Browser `localStorage` seeded with fictional data | **Implemented:** PostgreSQL with parameterized queries and migrations | Entity tables for tasks and schedules |
-| **Access Control** | Role-based view switching (`team_member`, `manager`, `admin`) | **Implemented:** Admin approval queue, role enforcement (`admin`, `manager`, `member`) | Granular zone/estate permissions |
+| **Access Control & Approvals** | **Implemented:** Hierarchical manager approval workflow & self-approval prevention | **Implemented:** Admin approval queue, role enforcement (`admin`, `manager`, `member`) | Granular zone/estate permissions |
 | **Team Management** | Hard-coded officer zones and skills | **Implemented:** Admin team management, manager assignment, member placement | Dynamic multi-team assignment |
-| **Audit Logging** | In-memory activity log | **Implemented:** 12-month append-only audit trail in PostgreSQL | Export to external compliance log |
-| **Priority Scoring** | **Implemented:** Deterministic scoring engine (`ai.js`, 0–100 score) | Placeholder page in Member Portal | Migration to Express API planning service |
-| **Schedule Feasibility** | **Implemented:** Time-blocking against meetings and working hours (`planner.js`) | Placeholder page in Member Portal | Migration to Express API planning service |
-| **Ripple Intelligence** | **Implemented:** Multi-level dependency analysis and 3 alternatives (`ripple.js`) | Conceptual preview in How SyncAI Decides | Migration to Express API planning service |
-| **M365 Integration** | Mock Outlook meetings and simulated alerts | Not connected | Microsoft Graph (Outlook, To Do), Power Automate, Teams |
+| **Audit Logging** | In-memory activity log & approval decision audits | **Implemented:** 12-month append-only audit trail in PostgreSQL | Export to external compliance log |
+| **Priority Scoring** | **Implemented:** Deterministic scoring engine (`ai.js`, 0–100 score, EMS 4-tier criteria breakdown) | Placeholder page in Member Portal | Migration to Express API planning service |
+| **Schedule Feasibility** | **Implemented:** Time-blocking against meetings, buffer, SLAs, and appointments (`planner.js`) | Placeholder page in Member Portal | Migration to Express API planning service |
+| **Ripple Intelligence** | **Implemented:** Multi-level dependency analysis, SLA risk, and 3 alternatives (`ripple.js`) | Conceptual preview in How SyncAI Decides | Migration to Express API planning service |
+| **M365 & Notifications** | Mock Outlook meetings and multi-channel simulated alerts (In-App, Teams, WhatsApp) | Not connected | Microsoft Graph (Outlook, To Do), Power Automate, Teams |
+| **OCC Complementarity** | Fictional mock records labelled `OCC (Mock)` | Not connected | Real-time event ingestion adapter |
 | **Language Features** | Deterministic keyword and regex extraction | Help-guide Q&A preview (4 languages) | Optional Azure OpenAI assistance |
 
 *Note: The prototype's intelligence is deterministic and rules-based. It is not an unverified black-box predictive ML model, ensuring all scheduling advice is explainable and auditable.*
@@ -189,7 +220,7 @@ Run the automated prototype test suite (Node.js 20+ built-in test runner):
 
 ```bash
 node --test "prototype/tests/*.test.mjs"
-# Verified: 42 automated tests pass (rules, ripple, and status codes)
+# Verified: 56 automated tests pass (rules, ripple, client requirements, and status codes)
 ```
 
 ### 2. Full-Stack Application

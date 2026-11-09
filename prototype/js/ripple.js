@@ -211,6 +211,8 @@ export function analyzeScenarioRipple(baseState, scenario) {
   const allDownstream = [];
   const mandatoryAtRisk = [];
   const potentialConsequences = [];
+  const slaAtRisk = [];
+  const appointmentsAtRisk = [];
   const affectedOfficers = new Set(scenario.absent || []);
   let capacityDeficitHours = 0;
 
@@ -279,6 +281,32 @@ export function analyzeScenarioRipple(baseState, scenario) {
     }
   }
 
+  // Check SLA deadlines and fixed appointments for all directly displaced and downstream tasks
+  const allAffectedTaskIds = [...new Set([...directAffectedTaskIds, ...allDownstream.map((d) => d.task.id)])];
+  for (const tid of allAffectedTaskIds) {
+    const t = getTask(baseState, tid);
+    if (!t) continue;
+    if (t.slaDue && !slaAtRisk.some((x) => x.taskId === t.id)) {
+      slaAtRisk.push({
+        taskId: t.id,
+        title: t.title,
+        owner: officerName(baseState, t.ownerId),
+        slaDue: fmtDue(t.slaDue),
+        slaType: t.slaType || 'SLA',
+        warning: `SLA window (${t.slaType || 'SLA'}) at risk due to schedule displacement.`,
+      });
+    }
+    if (t.appointmentTime && !appointmentsAtRisk.some((x) => x.taskId === t.id)) {
+      appointmentsAtRisk.push({
+        taskId: t.id,
+        title: t.title,
+        owner: officerName(baseState, t.ownerId),
+        appointmentTime: t.appointmentTime,
+        warning: `Fixed resident appointment (${t.appointmentTime}) at risk of displacement.`,
+      });
+    }
+  }
+
   // Check downstream mandatory & consequence items
   for (const dep of allDownstream) {
     affectedOfficers.add(dep.task.ownerId);
@@ -311,6 +339,8 @@ export function analyzeScenarioRipple(baseState, scenario) {
     capacityDeficitHours,
     mandatoryAtRisk,
     potentialConsequences,
+    slaAtRisk,
+    appointmentsAtRisk,
     assumptions: [
       'Urgent safety disruptions immediately occupy working capacity, displacing non-safety tasks.',
       'Absences completely remove officer capacity for the configured duration.',
@@ -369,8 +399,10 @@ export function evaluateAlternatives(baseState, scenario, options = {}) {
 
   const snapNoAction = snapshot(simNoAction);
   const noActionBreaches = simNoAction.tasks.filter((t) => isOpen(t) && t.statutory && assessRisk(simNoAction, t).level === 'high');
+  const noActionSlaBreaches = simNoAction.tasks.filter((t) => isOpen(t) && t.slaDue && assessRisk(simNoAction, t).level === 'high');
+  const noActionApptBreaches = simNoAction.tasks.filter((t) => isOpen(t) && t.appointmentTime && assessRisk(simNoAction, t).level === 'high');
   const noActionOverdue = snapNoAction.missing;
-  const noActionStatus = noActionBreaches.length > 0 || (incTask && assessRisk(simNoAction, incTask).level === 'high')
+  const noActionStatus = noActionBreaches.length > 0 || (incTask && assessRisk(simNoAction, incTask).level === 'high') || noActionSlaBreaches.length > 0
     ? 'Infeasible'
     : 'Requires Review';
 
@@ -383,8 +415,10 @@ export function evaluateAlternatives(baseState, scenario, options = {}) {
     highRiskCount: snapNoAction.highRisk.length,
     missingCount: noActionOverdue,
     mandatoryBreaches: noActionBreaches.map((t) => ({ taskId: t.id, title: t.title, owner: officerName(simNoAction, t.ownerId), deadline: fmtDue(t.due) })),
+    slaBreaches: noActionSlaBreaches.map((t) => ({ taskId: t.id, title: t.title, owner: officerName(simNoAction, t.ownerId), slaDue: fmtDue(t.slaDue), slaType: t.slaType || 'SLA' })),
+    appointmentsAtRisk: noActionApptBreaches.map((t) => ({ taskId: t.id, title: t.title, appointmentTime: t.appointmentTime })),
     unresolvedCount: snapNoAction.highRisk.length,
-    tradeOffs: 'Zero coordination effort required upfront, but results in severe compliance exposure, missed deadlines, and unmanaged resident dissatisfaction.',
+    tradeOffs: 'Zero coordination effort required upfront, but results in severe compliance exposure, missed deadlines, broken resident appointments, and unmanaged dissatisfaction.',
     isFeasible: false,
   };
 
@@ -412,9 +446,11 @@ export function evaluateAlternatives(baseState, scenario, options = {}) {
 
   const snapResched = snapshot(simResched);
   const reschedMandatoryRisks = simResched.tasks.filter((t) => isOpen(t) && t.statutory && assessRisk(simResched, t).level === 'high');
+  const reschedSlaRisks = simResched.tasks.filter((t) => isOpen(t) && t.slaDue && assessRisk(simResched, t).level === 'high');
+  const reschedApptRisks = simResched.tasks.filter((t) => isOpen(t) && t.appointmentTime && assessRisk(simResched, t).level === 'high');
   if (reschedMandatoryRisks.length > 0) reschedBreachedMandatory = true;
 
-  const reschedFeasible = !reschedBreachedMandatory && snapResched.missing === 0;
+  const reschedFeasible = !reschedBreachedMandatory && snapResched.missing === 0 && reschedSlaRisks.length === 0;
   const reschedStatus = reschedFeasible
     ? 'Feasible'
     : reschedMandatoryRisks.length > 0
@@ -432,8 +468,10 @@ export function evaluateAlternatives(baseState, scenario, options = {}) {
     highRiskCount: snapResched.highRisk.length,
     missingCount: snapResched.missing,
     mandatoryBreaches: reschedMandatoryRisks.map((t) => ({ taskId: t.id, title: t.title, owner: officerName(simResched, t.ownerId), deadline: fmtDue(t.due) })),
+    slaBreaches: reschedSlaRisks.map((t) => ({ taskId: t.id, title: t.title, owner: officerName(simResched, t.ownerId), slaDue: fmtDue(t.slaDue), slaType: t.slaType || 'SLA' })),
+    appointmentsAtRisk: reschedApptRisks.map((t) => ({ taskId: t.id, title: t.title, appointmentTime: t.appointmentTime })),
     tradeOffs: displacedTasks.length
-      ? `Maintains operational continuity and protects compliance, but delays ${displacedTasks.length} routine task(s) (e.g. routine report drafting, non-critical site checks).`
+      ? `Maintains operational continuity and protects statutory compliance, but delays ${displacedTasks.length} routine task(s) and requires manager review if SLAs are squeezed.`
       : 'Minimal displacement required.',
     isFeasible: reschedFeasible,
   };
@@ -463,9 +501,13 @@ export function evaluateAlternatives(baseState, scenario, options = {}) {
           taskId: t.id,
           title: t.title,
           from: officerName(baseState, offId),
+          fromId: offId,
           to: qualified.officer.name,
+          toId: qualified.officer.id,
           fit: qualified.score,
           reasons: qualified.reasons,
+          appointmentTime: t.appointmentTime || null,
+          slaType: t.slaType || null,
         });
       } else if (unqualifiedWithTime) {
         ineligibleCandidates.push({
@@ -480,7 +522,12 @@ export function evaluateAlternatives(baseState, scenario, options = {}) {
 
   const snapReassign = snapshot(simReassign);
   const reassignMandatoryRisks = simReassign.tasks.filter((t) => isOpen(t) && t.statutory && assessRisk(simReassign, t).level === 'high');
-  const reassignFeasible = reassignMandatoryRisks.length === 0 && snapReassign.overloaded === 0;
+  const reassignSlaRisks = simReassign.tasks.filter((t) => isOpen(t) && t.slaDue && assessRisk(simReassign, t).level === 'high');
+  const appointmentsProtected = simReassign.tasks
+    .filter((t) => isOpen(t) && t.appointmentTime && assessRisk(simReassign, t).level !== 'high')
+    .map((t) => ({ taskId: t.id, title: t.title, appointmentTime: t.appointmentTime, owner: officerName(simReassign, t.ownerId) }));
+
+  const reassignFeasible = reassignMandatoryRisks.length === 0 && reassignSlaRisks.length === 0 && snapReassign.overloaded === 0;
   const reassignStatus = reassignFeasible
     ? 'Feasible'
     : reassignments.length > 0 && reassignMandatoryRisks.length === 0
@@ -490,7 +537,7 @@ export function evaluateAlternatives(baseState, scenario, options = {}) {
   const altC = {
     id: 'reassign',
     label: 'Alternative C: Reassign Eligible Work',
-    summary: 'Transfer tasks to certified officers who possess spare capacity before the deadline.',
+    summary: 'Transfer tasks to certified officers who possess spare capacity before the deadline, protecting SLAs and appointments.',
     status: reassignStatus,
     statusBadge: reassignStatus === 'Feasible' ? 'badge-success' : reassignStatus === 'Infeasible' ? 'badge-danger' : 'badge-warning',
     reassignmentsCount: reassignments.length,
@@ -499,8 +546,18 @@ export function evaluateAlternatives(baseState, scenario, options = {}) {
     highRiskCount: snapReassign.highRisk.length,
     missingCount: snapReassign.missing,
     mandatoryBreaches: reassignMandatoryRisks.map((t) => ({ taskId: t.id, title: t.title, owner: officerName(simReassign, t.ownerId), deadline: fmtDue(t.due) })),
+    slaBreaches: reassignSlaRisks.map((t) => ({ taskId: t.id, title: t.title, owner: officerName(simReassign, t.ownerId), slaDue: fmtDue(t.slaDue), slaType: t.slaType || 'SLA' })),
+    appointmentsProtected,
+    approvalHierarchy: {
+      required: true,
+      requesterRole: 'Team Member',
+      assignedManager: 'Jennifer Ong (Estate Manager)',
+      escalationPath: 'Lim Wei Ling (EMS HQ)',
+      selfApprovalPermitted: false,
+      governanceNotice: 'Reassignments require authorised Estate Manager approval before schedule modification.',
+    },
     tradeOffs: reassignments.length
-      ? `Rebalances team workload across ${reassignments.length} task(s), but requires cross-zone coordination and officer handover.`
+      ? `Rebalances team workload across ${reassignments.length} task(s), protects SLA & resident appointments, but requires cross-zone coordination and authorised manager approval.`
       : 'No qualified candidates with spare capacity available.',
     isFeasible: reassignFeasible,
   };

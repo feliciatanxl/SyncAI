@@ -107,12 +107,18 @@ export function checkTaskFeasibility(s, t) {
 /**
  * Priority score (0–100) with an itemised, explainable breakdown.
  * Considers base priority, deadline urgency, genuine safety risks,
- * mandatory/statutory constraints, long-term operational consequences,
- * task duration, and available capacity.
+ * mandatory/statutory constraints, SLA commitments, fixed appointments,
+ * long-term operational consequences, task duration, and available capacity.
+ *
+ * Separates:
+ * A. Client-stated case-assessment criteria (1. Service, 2. Safety, 3. Well-being, 4. Urgency)
+ * B. Mandatory statutory, safety and SLA constraints
+ * C. Scheduling feasibility
+ * D. Potential downstream operational consequences
  *
  * Prototype assumption note: Numerical scoring weights are illustrative
  * configuration assumptions designed for the EM Services PS 12i prototype,
- * not verified EMS standards.
+ * NOT officially approved EMS standards.
  */
 export function scoreTask(s, t) {
   const reasons = [];
@@ -120,41 +126,56 @@ export function scoreTask(s, t) {
     if (points) reasons.push({ points, label, ...meta });
   };
 
-  add(PRIORITY_POINTS[t.priority] ?? 18, `${t.priority} priority`);
+  add(PRIORITY_POINTS[t.priority] ?? 18, `${t.priority} priority`, { clientFocus: 'Service' });
 
   if (isOpen(t)) {
     const days = workDaysUntil(t.due);
-    if (t.due < NOW) add(35, `Overdue since ${relDay(t.due).toLowerCase()} ${fmtTime(timePart(t.due))}`);
-    else if (days === 0) add(timePart(t.due) <= '13:00' ? 32 : 28, `Due today at ${fmtTime(timePart(t.due))}`);
-    else if (days === 1) add(20, 'Due tomorrow');
-    else if (days <= 3) add(12, `Due in ${days} working days`);
-    else if (days <= 5) add(6, 'Due this week');
+    if (t.due < NOW) add(35, `Overdue since ${relDay(t.due).toLowerCase()} ${fmtTime(timePart(t.due))}`, { clientFocus: 'Urgency' });
+    else if (days === 0) add(timePart(t.due) <= '13:00' ? 32 : 28, `Due today at ${fmtTime(timePart(t.due))}`, { clientFocus: 'Urgency' });
+    else if (days === 1) add(20, 'Due tomorrow', { clientFocus: 'Urgency' });
+    else if (days <= 3) add(12, `Due in ${days} working days`, { clientFocus: 'Urgency' });
+    else if (days <= 5) add(6, 'Due this week', { clientFocus: 'Urgency' });
   }
 
-  // 1. Genuine safety risks explicitly identified
+  // 1. Genuine safety risks explicitly identified (Immediate physical protection)
   if (t.safety) {
-    add(20, 'Genuine safety risk — direct hazard to residents or public safety (immediate operational priority)', { type: 'safety' });
+    add(20, 'Genuine safety risk — direct hazard to residents or public safety (immediate operational priority)', { type: 'safety', clientFocus: 'Safety' });
   }
 
   // 2. Mandatory / statutory deadlines treated as non-negotiable scheduling constraints
   if (t.statutory) {
     const isImminent = isOpen(t) && workDaysUntil(t.due) <= 3;
-    add(isImminent ? 25 : 15, 'Mandatory / statutory deadline — non-negotiable compliance constraint (cannot slip)', { type: 'statutory' });
+    add(isImminent ? 25 : 15, 'Mandatory / statutory deadline — non-negotiable compliance constraint (cannot slip)', { type: 'statutory', clientFocus: 'Service' });
   }
 
-  // 3. Long-term operational consequences represented and explained
+  // 3. Service Level Agreements (SLA) & Fixed Appointment Commitments
+  if (t.appointmentTime) {
+    add(8, `Fixed appointment / commitment window: ${t.appointmentTime} (requires schedule coordination)`, { type: 'appointment', clientFocus: 'Residents’ well-being' });
+  }
+  if (t.slaDue && t.slaDue <= NOW && isOpen(t)) {
+    add(10, `SLA breached: ${t.slaType || 'SLA'} expired ${fmtDue(t.slaDue)}`, { type: 'sla', clientFocus: 'Service' });
+  } else if (t.slaDue && isOpen(t) && workDaysUntil(t.slaDue) === 0) {
+    add(6, `SLA window active: ${t.slaType || 'SLA'} due today (${fmtDue(t.slaDue)})`, { type: 'sla', clientFocus: 'Service' });
+  }
+
+  // 4. Long-term operational consequences represented and explained
   if (t.consequence) {
-    add(12, `Long-term consequence if deferred: ${t.consequence}`, { type: 'consequence' });
+    add(12, `Long-term consequence if deferred: ${t.consequence}`, { type: 'consequence', clientFocus: 'Residents’ well-being' });
   } else if (t.impact === 'high') {
-    add(8, 'High operational & service impact on residents or Town Council operations', { type: 'impact' });
+    add(8, 'High operational & service impact on residents or Town Council operations', { type: 'impact', clientFocus: 'Service' });
   }
 
-  // 4. Repeat complaints volume alone does not increase priority
+  // 5. Residents' well-being consideration (amenities, environment, water/sanitation)
+  if (['Resident Feedback', 'Cleaning', 'Horticulture'].includes(t.category)) {
+    add(4, `Residents' well-being: ${t.category} maintenance directly impacts estate living conditions`, { type: 'wellbeing', clientFocus: 'Residents’ well-being' });
+  }
+
+  // 6. Repeat complaints volume alone does not increase priority
   if (t.complaints > 1) {
-    reasons.push({ points: 0, label: `${t.complaints} repeat complaints recorded — volume alone adds 0 points (priority is governed by safety and statutory constraints, not noise)` });
+    reasons.push({ points: 0, label: `${t.complaints} repeat complaints recorded — volume alone adds 0 points (priority is governed by safety and statutory constraints, not noise)`, clientFocus: 'Urgency' });
   }
 
-  // 5. Task duration and scheduling feasibility
+  // 7. Task duration and scheduling feasibility
   let feas = { feasible: true, impossible: false, tight: false, freeHours: 8 };
   if (isOpen(t) && t.due >= NOW) {
     feas = checkTaskFeasibility(s, t);
@@ -177,6 +198,16 @@ export function scoreTask(s, t) {
 
   const score = Math.max(0, Math.min(100, reasons.reduce((n, r) => n + r.points, 0)));
 
+  // Client-stated criteria assessment breakdown
+  const clientCriteria = {
+    service: t.category === 'Maintenance' || t.statutory || t.priority === 'Critical' ? 'High Service Priority' : 'Standard Service',
+    safety: t.safety ? 'Direct Hazard (Imminent Safety Risk)' : 'No Direct Hazard Flagged',
+    residentsWellBeing: t.appointmentTime || t.consequence || ['Resident Feedback', 'Cleaning'].includes(t.category) ? 'Elevated Resident Impact' : 'Standard Impact',
+    urgency: t.due < NOW ? 'Overdue' : workDaysUntil(t.due) === 0 ? 'Due Today' : 'Scheduled',
+    clientOrder: '1. Service · 2. Safety · 3. Residents’ well-being · 4. Actual concern / urgency',
+    validationNote: 'Client-stated criteria order is under operational validation with EM Services. Routine service never outranks imminent physical danger or mandatory compliance constraints.',
+  };
+
   return {
     score,
     band: band(score),
@@ -185,12 +216,17 @@ export function scoreTask(s, t) {
     hasSafetyRisk: !!t.safety,
     hasLongTermConsequence: !!t.consequence,
     consequence: t.consequence || null,
+    slaDue: t.slaDue || null,
+    slaType: t.slaType || null,
+    appointmentTime: t.appointmentTime || null,
     feasibility: feas,
     impossibleConflict: feas.impossible ? feas.conflictReason : null,
+    clientCriteria,
     assumptions: [
       'Configurable prototype assumptions — illustrative weights to be calibrated with EM Services operations',
-      'Assumes standard 08:30–17:30 working hours with 60-minute lunch break',
-      'Assumes 10-minute travel/buffer after meetings and site visits',
+      'Client-stated criteria order: Service > Safety > Residents’ well-being > Urgency (operational interpretation under EMS review)',
+      'Team 24 decision model enforces statutory deadlines and imminent safety as non-negotiable boundaries',
+      'Assumes standard 08:30–17:30 working hours with 60-minute lunch break and 10-minute travel buffer',
     ],
   };
 }

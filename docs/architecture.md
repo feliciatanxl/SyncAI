@@ -155,27 +155,45 @@ The production foundation is fully functional in `client/` and `server/`:
 
 ### 3.2 Implemented Static Prototype Intelligence
 
-Demonstrated in `prototype/` with 42 passing automated tests:
+Demonstrated in `prototype/` with **56 passing automated tests**:
 
-1. **Deterministic Priority Scoring (`prototype/js/ai.js`):**
+1. **Deterministic Priority Scoring & Client-Criteria Alignment (`prototype/js/ai.js`):**
    - Scores tasks on a 0–100 scale:
-     $$\text{Score} = \text{Base Priority} + \text{Deadline Urgency} + \text{Safety} + \text{Statutory} + \text{Consequence} + \text{Feasibility Margin} + \text{Unblocks Others}$$
-   - **Safety Hazards (+20 pts):** Direct risks to life, limb, or property outrank routine work.
-   - **Mandatory Statutory Deadlines (+25 / +15 pts):** Hard constraints (e.g. BCA lift certifications, SCDF compliance) that cannot slip.
-   - **Service Impact (+8 pts) & Long-Term Consequences (+12 pts):** Evaluates compounding defects (e.g. seepage corroding rebar).
-   - **Repeat Complaints (0 pts):** Explicitly awards 0 priority points, insulating officers from loudest-voice bias.
-2. **Capacity & Schedule Feasibility (`prototype/js/planner.js`):**
+     $$\text{Score} = \text{Base Priority} + \text{Deadline Urgency} + \text{Safety} + \text{Statutory} + \text{Consequence} + \text{Feasibility Margin} + \text{Unblocks Others} + \text{SLA Urgency}$$
+   - **Client 4-Tier Assessment Breakdown:** Maps tasks to EM Services' stated priorities:
+     - *1. Service Focus:* Routine service requests, estate cleanliness, and public communications.
+     - *2. Safety Focus:* Structural integrity, lift operations, fire risks, and electrical hazards.
+     - *3. Residents' Well-Being:* Habitability, noise mitigation, environmental health, and water supply.
+     - *4. Actual Concern / Urgency:* SLA response targets and time-critical operational escalations.
+   - **Operational Safeguards:** Routine service requests **never** automatically outrank genuine imminent physical danger or statutory compliance obligations.
+   - **Repeat Complaints (0 pts):** Resident complaint volume awards 0 points to prevent loudest-voice bias.
+   - **Explicit Disclaimer:** Explanations clearly state that scoring weights represent Team 24's proposed operational model awaiting formal validation with EMS.
+2. **SLA-Aware Scheduling & Fixed Appointment Feasibility (`prototype/js/planner.js`):**
    - Calculates working hours against Outlook meetings, lunch breaks, and travel buffers.
-   - Detects mathematically impossible deadlines where task effort exceeds available free hours before due date.
-   - Generates start-by warnings and smart reminders.
+   - **SLA Deadline Engine:** Monitors `slaDue` cut-offs, raising high-risk alerts for breached SLAs and medium warnings for tight margins (<60m).
+   - **Fixed Resident Appointments:** Protects specific site appointment windows (`appointmentTime`, `commitmentWindow`), ensuring disruption re-plans do not displace committed resident appointments.
+   - Proactively flags mathematically impossible deadlines where task effort exceeds available free hours before deadline.
 3. **Operational Ripple Intelligence (`prototype/js/ripple.js`):**
    - Multi-level dependency traversal with cycle detection (e.g. `t103` → `t104` → `t112`).
    - Assesses capacity deficits resulting from emergency incidents or staff medical leave.
-   - Identifies exposed statutory deadlines and long-term defect risks across the downstream cascade.
+   - Identifies exposed statutory deadlines, SLA breach risks, and long-term defect risks across the downstream cascade.
 4. **Three-Alternative Scenario Evaluation (`prototype/js/ripple.js`):**
-   - Side-by-side evaluation of **No Action**, **Reschedule Lower-Impact Work**, and **Reassign Eligible Work**.
+   - Side-by-side evaluation of **Alternative A: No Action**, **Alternative B: Reschedule Lower-Impact Work**, and **Alternative C: Reassign Eligible Work**.
    - Validates candidate officer qualifications against category requirements (e.g., lift specialist certifications), flagging officers who have free time but lack required domain qualifications.
-   - Generates human-in-the-loop recommendations and manager escalation warnings if team capacity cannot satisfy statutory commitments.
+   - Evaluates SLA protection and appointment protection across all three options.
+   - Enforces hierarchical management governance: highlights when reassignments or schedule slips require authorised supervisory sign-off.
+5. **Hierarchical Management Approval Engine (`prototype/js/state.js`):**
+   - Implements structured operational change governance:
+     $$\text{Team Member proposes} \longrightarrow \text{Assigned Manager reviews} \longrightarrow \text{Escalate / Approve / Reject} \longrightarrow \text{Immutable audit record}$$
+   - **Self-Approval Guardrail:** A Property Officer (`team_member`) cannot self-approve restricted schedule changes or cross-officer reassignments.
+   - Full audit trail captured in state with requester, approver, reason, operational impact, and decision timestamp.
+6. **Multi-Channel Simulated Notification Adapter Architecture (`prototype/js/state.js` & `pages/alerts.js`):**
+   - Models external notification dispatch across **In-App**, **Microsoft Teams (proposed)**, and **WhatsApp (proposed)**.
+   - **Zero External API / Meta Dependencies:** Operates strictly as a local simulated adapter—no real WhatsApp Business API, Meta credentials, or external network requests.
+   - **Privacy & Security Safeguards:** Previews contain zero sensitive resident personal data. Notifications contain deep links (`syncai://approval/...`) directing users into SyncAI for authenticated in-app approval and audit recording.
+7. **Operations Command Centre (OCC) Data Integration Boundary:**
+   - Complements OCC situational visibility rather than duplicating PS 12g Operations Hub.
+   - Ingests mock emergency telemetries and incident reports clearly labelled as `OCC (Mock)`.
 
 ### 3.3 Planned Backend Migrations & Microsoft Integrations
 
@@ -205,6 +223,8 @@ The security model is aligned with OWASP Top 10 guidelines and Singapore Persona
 | **HTTP Security Headers** | Express responses include `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and `Cache-Control: no-store`. | Verified in `server/test/api.test.js` |
 | **Privacy & Minimisation (PDPA)** | Minimal personal data stored (name, email, Microsoft OID). Absence data is recorded only as categorical "MC" or "leave"; medical details are strictly prohibited. | Verified in data model & tests |
 | **Append-Only Audit Trail** | Security-relevant events (sign-ins, role changes, approvals, team adjustments) are recorded in an append-only database table within the same transaction as the change. | Verified in `server/test/activity.test.js` |
+| **Notification Privacy & In-App Approvals** | Simulated notification adapters (In-App, Teams, WhatsApp) expose zero sensitive resident data. Previews contain generic summaries and deep links (`syncai://approval/...`) to enforce that all decisions occur inside SyncAI under full authentication and audit logging. | Verified in `prototype/tests/client-requirements.test.mjs` |
+| **Hierarchical Self-Approval Prevention** | Users cannot approve their own restricted schedule changes or reassignment requests. Approval requests enforce manager authorization before plan updates apply. | Verified in `prototype/tests/client-requirements.test.mjs` |
 
 ---
 
@@ -224,12 +244,14 @@ A critical architectural principle of SyncAI is the deliberate separation betwee
 
 ## 6. Client Requirements & EMS Feedback Integration
 
-The architecture directly addresses feedback obtained during EM Services project kickstart sessions:
+The architecture directly addresses feedback obtained during EM Services project kickstart sessions and subsequent consultation:
 
-1. **Safety & Statutory Priority:** EMS affirmed that genuine physical safety risks and statutory compliance dates must always take precedence over resident complaint volume.
-2. **Property Officer Workload Baselines:** EMS noted that Property Officers manage 2,500–2,700 units each, spending high proportions of time on resident interactions and contractor invoicing. SyncAI's feasibility engine incorporates these operational friction points.
-3. **OCC Complementarity:** EMS confirmed that the Operations Command Centre monitors real-time staff locations. SyncAI complements this by providing forward-looking schedule optimisation rather than real-time tracking.
-4. **Microsoft Alignment:** EMS established Microsoft 365 as the standard enterprise environment across Town Councils. SyncAI's technical design bridges custom high-performance scheduling logic with standard M365 authentication and communication channels.
+1. **Safety & Statutory Priority vs. Stated Client Criteria:** EMS stated an assessment order of Service → Safety → Residents' Well-Being → Urgency. The architecture maps this transparently in explanations while ensuring statutory non-negotiables and genuine physical danger remain hard constraints that cannot be outranked by routine service work.
+2. **Property Officer Workload Baselines & SLAs:** EMS noted that Property Officers manage 2,500–2,700 units each, with heavy commitments to contractor appointments and SLA turnaround times. SyncAI's feasibility engine tracks SLA cut-offs and locks in fixed resident appointments.
+3. **OCC Complementarity:** EMS confirmed that the Operations Command Centre monitors real-time staff locations and incident streams. SyncAI ingests mock OCC feeds (`OCC (Mock)`) to complement situational awareness with forward-looking schedule optimisation rather than real-time tracking.
+4. **Authorised Management Hierarchy:** Work adjustments require approval from the assigned manager in the hierarchy. SyncAI prevents self-approval and logs all decisions to an audit trail.
+5. **Auditable Multi-Channel Communications:** EMS primarily communicates via WhatsApp and Microsoft 365. SyncAI models simulated notification adapters (In-App, Teams, WhatsApp) with secure in-app verification links, keeping decisions and audit trails strictly inside SyncAI without third-party API exposure.
+6. **Microsoft Alignment:** EMS established Microsoft 365 as the standard enterprise environment across Town Councils. SyncAI's technical design bridges custom high-performance scheduling logic with standard M365 authentication and communication channels.
 
 ---
 
