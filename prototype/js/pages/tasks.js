@@ -84,6 +84,9 @@ function listView(s, rows) {
               ${sourceTag(t.source)}
               ${t.safety ? html`<span class="badge badge-danger" style="padding:0 6px">${icon('shield', 11)}Safety</span>` : ''}
               ${t.statutory ? html`<span class="badge badge-warning" style="padding:0 6px" title="Statutory or compliance deadline">${icon('calendar', 11)}Statutory</span>` : ''}
+              ${t.slaDue ? html`<span class="badge badge-warning" style="padding:0 6px" title="${t.slaType || 'SLA'} due ${fmtDue(t.slaDue)}">${icon('clock', 11)}SLA: ${fmtTime(timePart(t.slaDue))}</span>` : ''}
+              ${t.appointmentTime ? html`<span class="badge badge-info" style="padding:0 6px" title="Fixed commitment">${icon('calendar', 11)}Appt</span>` : ''}
+              ${t.source === 'OCC (Mock)' ? html`<span class="badge badge-ai" style="padding:0 6px">${icon('zap', 11)}OCC</span>` : ''}
               ${t.dependsOn.length ? html`<span title="Has dependencies">${icon('link', 12)}${t.dependsOn.length}</span>` : ''}
               ${t.status === 'in_progress' ? html`<span class="badge badge-info" style="padding:0 6px">In progress</span>` : ''}
               ${t.status === 'review' ? html`<span class="badge badge-neutral" style="padding:0 6px">In review</span>` : ''}

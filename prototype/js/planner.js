@@ -372,6 +372,30 @@ export function assessRisk(s, t) {
   const late = sch.warnings.find((w) => w.taskId === t.id && (w.type === 'late' || w.type === 'mandatory_breach'));
   if (late) raise('high', late.message);
 
+  // SLA deadline assessment
+  if (t.slaDue) {
+    if (t.slaDue < NOW) {
+      raise('high', `SLA deadline breached: ${t.slaType || 'SLA'} expired ${fmtDue(t.slaDue)}.`);
+    } else {
+      const fin = plannedFinish(s, t);
+      if (fin && fin > t.slaDue) {
+        raise('high', `Projected schedule exceeds SLA cut-off (${fmtDue(t.slaDue)}) for ${t.slaType || 'SLA'}.`);
+      } else if (fin && datePart(fin) === datePart(t.slaDue)) {
+        const slaSlack = toMin(timePart(t.slaDue)) - toMin(timePart(fin));
+        if (slaSlack < 60) raise('medium', `Tight SLA window: only ${slaSlack}m buffer before ${t.slaType || 'SLA'} deadline (${fmtTime(timePart(t.slaDue))}).`);
+      }
+    }
+  }
+
+  // Fixed appointment assessment
+  if (t.appointmentTime) {
+    if (owner && isUnavailable(owner, datePart(t.due))) {
+      raise('high', `Fixed appointment (${t.appointmentTime}) at risk: ${owner.name} is unavailable.`);
+    } else {
+      reasons.push(`Commitment window: ${t.appointmentTime} requires timely site attendance.`);
+    }
+  }
+
   if (t.statutory && level !== 'none') {
     reasons.unshift('Statutory compliance obligation — mandatory deadline cannot slip.');
   }
@@ -389,7 +413,7 @@ export function assessRisk(s, t) {
       raise('medium', `Not started yet — must start by ${fmtTime(timePart(ls))} to finish on time.`);
   }
 
-  const blockers = t.dependsOn.map((id) => getTask(s, id)).filter((d) => d && isOpen(d));
+  const blockers = (t.dependsOn || []).map((id) => getTask(s, id)).filter((d) => d && isOpen(d));
   if (blockers.length) raise('medium', `Waiting on “${blockers[0].title}”.`);
 
   if (!reasons.length) reasons.push('Fits comfortably in the current plan.');

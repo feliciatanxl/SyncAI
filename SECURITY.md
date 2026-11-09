@@ -86,6 +86,12 @@ SyncAI is an AI-enabled Smart Work Planner for Town Council officers (EMS Challe
   - Strict Content Security Policy (CSP) and security headers are enforced in both prototype shell and Express API middleware.
 - **Rate Limiting:** Express API enforces rate limiting (300 requests per 15 minutes per IP) to mitigate automated probing.
 
+### 5. Notification Adapters & Approval Verification
+- **Simulated Notification Channels:** Multi-channel notification adapters (In-App, Teams, WhatsApp) are simulated locally. No real WhatsApp Business API or Meta credentials are used, eliminating third-party data transmission risks.
+- **Privacy-Safe Notification Payloads:** Notification previews must never transmit sensitive resident data, personal identifiers, or unencrypted approval tokens.
+- **Authenticated In-App Decisions:** Notification links (`syncai://approval/...`) act as deep links routing the user into SyncAI. Decisions (approvals, rejections, escalations) can only be executed by authenticated, authorized managers within the application shell and are committed to the audit log.
+- **Hierarchical Self-Approval Prevention:** Front-line officers cannot self-approve restricted schedule changes, preventing unauthorized privilege escalation.
+
 ---
 
 Thank you for helping keep SyncAI and its users safe.

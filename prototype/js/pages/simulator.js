@@ -260,6 +260,19 @@ function rippleCascadeCard(r, s) {
         </div>
       </div>
 
+      ${rip.slaAtRisk?.length
+        ? html`<div class="notice notice-warning small mt-sm">
+            <strong>${icon('clock', 14)} SLA Deadlines Threatened:</strong>
+            <span>${rip.slaAtRisk.map((x) => `${x.title} (${x.slaType || 'SLA'} due ${x.slaDue})`).join('; ')}</span>
+          </div>`
+        : ''}
+      ${rip.appointmentsAtRisk?.length
+        ? html`<div class="notice notice-danger small mt-xs">
+            <strong>${icon('calendar', 14)} Fixed Appointments Displaced:</strong>
+            <span>${rip.appointmentsAtRisk.map((a) => `${a.title} (${a.appointmentTime})`).join('; ')}</span>
+          </div>`
+        : ''}
+
       ${rip.allDownstream && rip.allDownstream.length
         ? html`<div class="mt-sm">
             <h4 style="font-size:13px;margin-bottom:8px">Multi-Level Dependency Chain</h4>
@@ -294,6 +307,9 @@ function alternativesComparisonCard(r) {
       <span class="badge badge-neutral">Client-informed decision support</span>
     </div>
     <div class="card-body stack">
+      <div class="notice notice-info small" style="margin-bottom:8px">
+        ${icon('info', 14)}<span><strong>Client Prioritisation Criteria:</strong> 1. Service · 2. Safety · 3. Residents’ well-being · 4. Actual concern / urgency (operational interpretation requires validation with EMS). Team 24 model enforces statutory obligations and imminent physical hazards as non-negotiable boundaries.</span>
+      </div>
       <div class="alts-grid">
         ${alts.map(
           (a) => html`<div class="alt-card ${rec.preferredId === a.id ? 'featured-alt' : ''}">
@@ -306,6 +322,9 @@ function alternativesComparisonCard(r) {
               <div class="alt-metric-row"><span>High-risk deadlines:</span><strong>${a.highRiskCount}</strong></div>
               <div class="alt-metric-row"><span>Overdue / slipped:</span><strong class="${a.missingCount ? 'delta-bad' : ''}">${a.missingCount}</strong></div>
               <div class="alt-metric-row"><span>Mandatory breaches:</span><strong class="${a.mandatoryBreaches?.length ? 'delta-bad' : ''}">${a.mandatoryBreaches?.length || 0}</strong></div>
+              ${a.slaBreaches?.length ? html`<div class="alt-metric-row"><span>SLA breaches:</span><strong class="delta-bad">${a.slaBreaches.length}</strong></div>` : ''}
+              ${a.appointmentsAtRisk?.length ? html`<div class="alt-metric-row"><span>Appointments at risk:</span><strong class="delta-bad">${a.appointmentsAtRisk.length}</strong></div>` : ''}
+              ${a.appointmentsProtected?.length ? html`<div class="alt-metric-row"><span>Appointments protected:</span><strong class="delta-good">${a.appointmentsProtected.length}</strong></div>` : ''}
               ${a.displacedCount != null ? html`<div class="alt-metric-row"><span>Displaced tasks:</span><strong>${a.displacedCount}</strong></div>` : ''}
               ${a.reassignmentsCount != null ? html`<div class="alt-metric-row"><span>Reassignments:</span><strong>${a.reassignmentsCount}</strong></div>` : ''}
             </div>
@@ -313,6 +332,12 @@ function alternativesComparisonCard(r) {
               <strong style="font-size:12px;color:var(--text-muted)">Operational Trade-off:</strong>
               <p class="small mt-xs">${a.tradeOffs}</p>
             </div>
+            ${a.approvalHierarchy
+              ? html`<div class="notice notice-info small mt-xs">
+                  <strong>${icon('shield', 12)} Management Approval:</strong>
+                  <span>Authorised Approver: <strong>${a.approvalHierarchy.assignedManager}</strong>. Team member self-approval restricted.</span>
+                </div>`
+              : ''}
             ${a.ineligibleCandidates?.length
               ? html`<div class="notice notice-warning small mt-xs">
                   <strong>Skill mismatch detected:</strong>

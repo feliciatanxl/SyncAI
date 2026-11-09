@@ -3,7 +3,7 @@
 
 import { TODAY, workDay, horizonDays, dt } from './time.js';
 
-export const DATA_VERSION = 10;
+export const DATA_VERSION = 11;
 
 export const CATEGORIES = [
   'Inspection',
@@ -24,7 +24,7 @@ export const STATUSES = [
   { id: 'done', label: 'Done' },
 ];
 
-export const SOURCES = ['SyncAI', 'Outlook', 'To Do', 'Planner', 'SharePoint'];
+export const SOURCES = ['SyncAI', 'Outlook', 'To Do', 'Planner', 'SharePoint', 'OCC (Mock)'];
 
 /** Skill required by each category, used for reassignment matching. */
 export const CATEGORY_SKILL = {
@@ -148,6 +148,10 @@ function tasks() {
       consequence: extra.consequence || null,
       complaints: extra.complaints || 0,
       impact: extra.impact || 'medium',
+      slaDue: extra.slaDue || dt(dueDay, dueTime),
+      slaType: extra.slaType || (extra.statutory ? 'Statutory SLA' : extra.safety ? 'Safety SLA (BCA standard)' : 'Service SLA (Town Council standard)'),
+      appointmentTime: extra.appointmentTime || null,
+      commitmentWindow: extra.commitmentWindow || null,
       createdAt: extra.createdAt || dt(workDay(-2), '09:00'),
       completedAt: extra.completedAt || null,
       actual: extra.actual || null,
@@ -156,22 +160,84 @@ function tasks() {
     });
 
   // Aisyah Rahman (o1) — the demo officer
-  T('t101', 'o1', 'Lift inspection — Blk 208 (Lifts A & B)', 'Inspection', 'High', TODAY, '12:00', 1.5, { safety: true, location: 'Blk 208', source: 'Planner', impact: 'high', consequence: 'Deferred inspection risks passenger entrapment and regulatory stop-work notice under BCA lift regulations.', description: 'Quarterly safety inspection following two resident reports of jerky stops.' });
-  T('t102', 'o1', 'Review CleanPro monthly contractor report', 'Contractor', 'Medium', TODAY, '17:00', 1.5, { source: 'To Do', location: 'Office', description: 'Check KPI attainment and penalty items before the coordination meeting.' });
-  T('t103', 'o1', 'Site check: ceiling seepage at Blk 211 #05-12', 'Inspection', 'High', TODAY, '17:00', 1, { source: 'Outlook', location: 'Blk 211', impact: 'high', consequence: 'Unchecked ceiling seepage penetrates structural slab causing concrete spalling and costly emergency repair.', description: 'Flagged email from resident. Determine if the source is the unit above or common pipe.' });
-  T('t104', 'o1', 'Resident follow-up call: Blk 211 seepage', 'Resident Feedback', 'Medium', workDay(1), '12:00', 0.75, { dependsOn: ['t103'], location: 'Phone', impact: 'high' });
-  T('t112', 'o1', 'Submit contractor rectification work-order: Blk 211 seepage', 'Contractor', 'Medium', workDay(2), '17:00', 1.5, { dependsOn: ['t104'], location: 'Office', consequence: 'Delayed work-order postpones water ingress repairs causing progressive structural reinforcement corrosion.', description: 'Prepared after resident inspection and follow-up call are concluded.' });
+  T('t101', 'o1', 'Lift inspection — Blk 208 (Lifts A & B)', 'Inspection', 'High', TODAY, '12:00', 1.5, {
+    safety: true,
+    location: 'Blk 208',
+    source: 'Planner',
+    impact: 'high',
+    slaDue: dt(TODAY, '12:00'),
+    slaType: 'Safety SLA (4h BCA compliance)',
+    appointmentTime: '10:30–12:00 (Lift technician joint check)',
+    consequence: 'Deferred inspection risks passenger entrapment and regulatory stop-work notice under BCA lift regulations.',
+    description: 'Quarterly safety inspection following two resident reports of jerky stops.',
+  });
+  T('t102', 'o1', 'Review CleanPro monthly contractor report', 'Contractor', 'Medium', TODAY, '17:00', 1.5, {
+    source: 'To Do',
+    location: 'Office',
+    slaDue: dt(TODAY, '17:00'),
+    slaType: 'Contractor Review SLA (monthly close)',
+    description: 'Check KPI attainment and penalty items before the coordination meeting.',
+  });
+  T('t103', 'o1', 'Site check: ceiling seepage at Blk 211 #05-12', 'Inspection', 'High', TODAY, '17:00', 1, {
+    source: 'Outlook',
+    location: 'Blk 211',
+    impact: 'high',
+    slaDue: dt(TODAY, '17:00'),
+    slaType: 'Resident Feedback SLA (24h response window)',
+    appointmentTime: '16:00–17:00 (Resident site visit booked)',
+    commitmentWindow: 'Fixed resident appointment at #05-12',
+    consequence: 'Unchecked ceiling seepage penetrates structural slab causing concrete spalling and costly emergency repair.',
+    description: 'Flagged email from resident. Determine if the source is the unit above or common pipe.',
+  });
+  T('t104', 'o1', 'Resident follow-up call: Blk 211 seepage', 'Resident Feedback', 'Medium', workDay(1), '12:00', 0.75, {
+    dependsOn: ['t103'],
+    location: 'Phone',
+    impact: 'high',
+    slaDue: dt(workDay(1), '12:00'),
+    slaType: 'Resident Follow-up SLA (next working day)',
+  });
+  T('t112', 'o1', 'Submit contractor rectification work-order: Blk 211 seepage', 'Contractor', 'Medium', workDay(2), '17:00', 1.5, {
+    dependsOn: ['t104'],
+    location: 'Office',
+    slaDue: dt(workDay(2), '17:00'),
+    slaType: 'Contractor Work-Order SLA',
+    consequence: 'Delayed work-order postpones water ingress repairs causing progressive structural reinforcement corrosion.',
+    description: 'Prepared after resident inspection and follow-up call are concluded.',
+  });
   T('t105', 'o1', 'Inspect playground equipment — Blk 215', 'Inspection', 'Medium', workDay(1), '17:00', 2, { safety: true, source: 'Planner', location: 'Blk 215 playground' });
   T('t106', 'o1', 'Verify corridor cleaning complaint — Blk 209', 'Cleaning', 'Medium', workDay(2), '17:00', 0.75, { location: 'Blk 209', complaints: 6, description: 'Six calls this week, mostly from one resident. Verify on site; the number of calls alone does not make it urgent.' });
   T('t107', 'o1', 'Compile common-area lighting defect summary', 'Admin', 'Low', workDay(3), '17:00', 2, { source: 'To Do', location: 'Office' });
   T('t108', 'o1', 'Update estate maintenance log on SharePoint', 'Admin', 'Low', workDay(4), '17:00', 1, { location: 'Office' });
-  T('t111', 'o1', 'Submit funding claim — Blk 214 lighting upgrade', 'Admin', 'Medium', workDay(2), '12:00', 1.5, { statutory: true, source: 'SharePoint', location: 'Office', consequence: 'Missed cut-off date causes permanent forfeiture of Town Council co-funding grant.', description: 'Approved project funding lapses if the claim misses the submission cut-off.' });
+  T('t111', 'o1', 'Submit funding claim — Blk 214 lighting upgrade', 'Admin', 'Medium', workDay(2), '12:00', 1.5, {
+    statutory: true,
+    source: 'SharePoint',
+    location: 'Office',
+    slaDue: dt(workDay(2), '12:00'),
+    slaType: 'Statutory Grant Cut-Off SLA',
+    commitmentWindow: 'Strict Town Council funding submission cutoff',
+    consequence: 'Missed cut-off date causes permanent forfeiture of Town Council co-funding grant.',
+    description: 'Approved project funding lapses if the claim misses the submission cut-off.',
+  });
   T('t109', 'o1', 'Lift inspection — Blk 212 (Lift C)', 'Inspection', 'High', workDay(3), '17:00', 1.5, { safety: true, location: 'Blk 212', source: 'Planner' });
   T('t110', 'o1', 'Inspect lift motor room access — Blk 213', 'Inspection', 'Medium', workDay(4), '17:00', 1, { safety: true, location: 'Blk 213', source: 'Planner' });
+  T('t113', 'o1', 'OCC Alert: Fire alarm false trigger reset check — Blk 207', 'Inspection', 'High', TODAY, '15:00', 1, {
+    safety: true,
+    location: 'Blk 207',
+    source: 'OCC (Mock)',
+    slaDue: dt(TODAY, '15:00'),
+    slaType: 'OCC Dispatch SLA (3h response)',
+    description: 'Dispatched via EM Services Operations Command Centre mock feed. Verify fire alarm panel reset after reported surge.',
+  });
 
   // Marcus Tan (o2) — overloaded
   T('t201', 'o2', 'Submit defect rectification report — Blk 305', 'Admin', 'High', workDay(-1), '17:00', 1.5, { status: 'in_progress', spent: 0.5, location: 'Office', source: 'Planner' });
-  T('t202', 'o2', 'Inspect refuse chute hopper — Blk 310', 'Inspection', 'High', TODAY, '17:00', 1.5, { safety: true, location: 'Blk 310', consequence: 'Defective refuse hopper allows smoke and toxic fumes to draft upward into residential corridors during chute fires.' });
+  T('t202', 'o2', 'Inspect refuse chute hopper — Blk 310', 'Inspection', 'High', TODAY, '17:00', 1.5, {
+    safety: true,
+    location: 'Blk 310',
+    slaDue: dt(TODAY, '17:00'),
+    slaType: 'Fire Safety Response SLA',
+    consequence: 'Defective refuse hopper allows smoke and toxic fumes to draft upward into residential corridors during chute fires.',
+  });
   T('t209', 'o2', 'Verify handover defects list — Blk 315', 'Inspection', 'Medium', TODAY, '17:00', 1, { location: 'Blk 315', source: 'Planner' });
   T('t203', 'o2', 'Contractor site walk — repainting works Blk 312', 'Contractor', 'Medium', TODAY, '17:00', 2, { location: 'Blk 312', source: 'Outlook' });
   T('t204', 'o2', 'Respond to resident petition on car park lighting', 'Resident Feedback', 'Medium', workDay(1), '12:00', 1.5, { impact: 'high', location: 'Office' });
@@ -188,9 +254,27 @@ function tasks() {
   T('t305', 'o3', 'Corridor obstruction check — Blk 206', 'Inspection', 'Medium', workDay(3), '12:00', 1, { safety: true, location: 'Blk 206' });
 
   // Daniel Lim (o4) — technical, busy
-  T('t401', 'o4', 'Lift fault investigation — Blk 322 Lift C', 'Maintenance', 'Critical', TODAY, '13:00', 2.5, { safety: true, status: 'in_progress', spent: 0.5, location: 'Blk 322', impact: 'high', consequence: 'Unresolved recurring lift fault leads to passenger entrapment escalation and statutory safety audit penalty.' });
+  T('t401', 'o4', 'Lift fault investigation — Blk 322 Lift C', 'Maintenance', 'Critical', TODAY, '13:00', 2.5, {
+    safety: true,
+    status: 'in_progress',
+    spent: 0.5,
+    location: 'Blk 322',
+    impact: 'high',
+    slaDue: dt(TODAY, '13:00'),
+    slaType: 'Emergency Lift SLA (2h response)',
+    consequence: 'Unresolved recurring lift fault leads to passenger entrapment escalation and statutory safety audit penalty.',
+  });
   T('t402', 'o4', 'Review lift maintenance contractor logs', 'Contractor', 'Medium', TODAY, '17:00', 2.5, { location: 'Office', source: 'Planner' });
-  T('t403', 'o4', 'Electrical DB inspection — Blk 325', 'Inspection', 'High', workDay(1), '17:00', 2, { safety: true, statutory: true, location: 'Blk 325', consequence: 'Expired electrical compliance certificate invalidates building fire insurance and violates EMA regulations.', description: 'Periodic electrical inspection required for compliance; the certificate expires at the end of the week.' });
+  T('t403', 'o4', 'Electrical DB inspection — Blk 325', 'Inspection', 'High', workDay(1), '17:00', 2, {
+    safety: true,
+    statutory: true,
+    location: 'Blk 325',
+    slaDue: dt(workDay(1), '17:00'),
+    slaType: 'EMA Statutory Compliance SLA',
+    commitmentWindow: 'Periodic electrical compliance certificate expires this week',
+    consequence: 'Expired electrical compliance certificate invalidates building fire insurance and violates EMA regulations.',
+    description: 'Periodic electrical inspection required for compliance; the certificate expires at the end of the week.',
+  });
   T('t404', 'o4', 'Water pump servicing follow-up — Blk 330', 'Maintenance', 'Medium', workDay(2), '17:00', 1.5, { location: 'Blk 330' });
   T('t405', 'o4', 'Joint inspection preparation pack', 'Admin', 'Low', workDay(2), '12:00', 1, { location: 'Office' });
 
@@ -308,6 +392,162 @@ function linkProjects(list) {
   return list;
 }
 
+function seedApprovals() {
+  return [
+    {
+      id: 'appr-101',
+      requestType: 'reassignment',
+      taskId: 't103',
+      taskTitle: 'Site check: ceiling seepage at Blk 211 #05-12',
+      requesterId: 'o1',
+      requesterName: 'Aisyah Rahman',
+      requesterRole: 'team_member',
+      assignedManagerId: 's1',
+      assignedManagerName: 'Jennifer Ong',
+      escalationManagerId: 'h1',
+      escalationManagerName: 'Lim Wei Ling',
+      originalOwnerId: 'o1',
+      originalSchedule: `${TODAY} 16:00 (Aisyah Rahman)`,
+      proposedOwnerId: 'o3',
+      proposedSchedule: `${TODAY} 16:00 (Priya Nair)`,
+      reason: 'Displaced by urgent Blk 214 lift breakdown with trapped resident. Need handover to protect 16:00 resident appointment.',
+      slaImpact: 'Protects 24h Resident Feedback SLA (would breach by 18h if deferred without handover).',
+      operationalImpact: 'Priya Nair is qualified in Zone A inspection and has 3.5h spare capacity today.',
+      status: 'pending',
+      createdAt: dt(TODAY, '11:30'),
+      decidedAt: null,
+      decidedBy: null,
+      decision: null,
+      auditTrail: [
+        { at: dt(TODAY, '11:30'), actor: 'Aisyah Rahman', action: 'SUBMITTED', channel: 'In-App', details: 'Submitted reassignment request for manager approval.' },
+        { at: dt(TODAY, '11:31'), actor: 'SyncAI Notification Adapter', action: 'DISPATCHED', channel: 'Teams (Proposed)', details: 'Sent approval card to Jennifer Ong with secure link.' },
+        { at: dt(TODAY, '11:31'), actor: 'SyncAI Notification Adapter', action: 'DISPATCHED', channel: 'WhatsApp (Proposed)', details: 'Simulated WhatsApp dispatch to Jennifer Ong: [SyncAI] Reassignment Approval Request (Ref: appr-101).' },
+      ],
+    },
+    {
+      id: 'appr-100',
+      requestType: 'schedule_adjustment',
+      taskId: 't102',
+      taskTitle: 'Review CleanPro monthly contractor report',
+      requesterId: 'o1',
+      requesterName: 'Aisyah Rahman',
+      requesterRole: 'team_member',
+      assignedManagerId: 's1',
+      assignedManagerName: 'Jennifer Ong',
+      escalationManagerId: 'h1',
+      escalationManagerName: 'Lim Wei Ling',
+      originalOwnerId: 'o1',
+      originalSchedule: `${TODAY} 17:00 (Aisyah Rahman)`,
+      proposedOwnerId: 'o1',
+      proposedSchedule: `${workDay(1)} 10:00 (Aisyah Rahman)`,
+      reason: 'Rescheduled routine contractor KPI review to accommodate urgent lift coordination.',
+      slaImpact: 'Within monthly contractor review cycle window; no contractual penalty.',
+      operationalImpact: 'Routine admin postponed by 1 working day; no downstream task blocked.',
+      status: 'approved',
+      createdAt: dt(TODAY, '10:15'),
+      decidedAt: dt(TODAY, '10:25'),
+      decidedBy: 'Jennifer Ong',
+      decision: 'Approved routine review postponement; contractor coordination meeting is tomorrow afternoon.',
+      auditTrail: [
+        { at: dt(TODAY, '10:15'), actor: 'Aisyah Rahman', action: 'SUBMITTED', channel: 'In-App', details: 'Requested schedule adjustment for CleanPro report.' },
+        { at: dt(TODAY, '10:25'), actor: 'Jennifer Ong', action: 'APPROVED', channel: 'In-App', details: 'Approved postponement to tomorrow 10:00.' },
+      ],
+    },
+  ];
+}
+
+function seedNotifications() {
+  return [
+    {
+      id: 'notif-1',
+      type: 'urgent_assignment',
+      channel: 'whatsapp',
+      channelLabel: 'WhatsApp (Proposed)',
+      recipientId: 'o1',
+      recipientName: 'Aisyah Rahman',
+      recipientRole: 'team_member',
+      title: 'Urgent Disruption: Lift Breakdown with Trapped Resident',
+      summary: 'Urgent response required at Blk 214 Lift B. Immediate safety protocol activated. Review adjusted schedule in SyncAI.',
+      taskId: 'sim_inc',
+      secureLink: 'syncai://planner/o1',
+      timestamp: dt(TODAY, '11:15'),
+      read: false,
+      privacySafe: true,
+      auditId: 'aud-notif-01',
+    },
+    {
+      id: 'notif-2',
+      type: 'sla_warning',
+      channel: 'teams',
+      channelLabel: 'Microsoft Teams (Proposed)',
+      recipientId: 'o1',
+      recipientName: 'Aisyah Rahman',
+      recipientRole: 'team_member',
+      title: 'SLA Warning: Blk 208 Lift Safety Inspection',
+      summary: 'BCA 4h inspection deadline due at 12:00. Time block remaining: 45 minutes.',
+      taskId: 't101',
+      secureLink: 'syncai://tasks/t101',
+      timestamp: dt(TODAY, '11:00'),
+      read: false,
+      privacySafe: true,
+      auditId: 'aud-notif-02',
+    },
+    {
+      id: 'notif-3',
+      type: 'approval_request',
+      channel: 'whatsapp',
+      channelLabel: 'WhatsApp (Proposed)',
+      recipientId: 's1',
+      recipientName: 'Jennifer Ong',
+      recipientRole: 'manager',
+      title: 'Approval Required: Reassign Blk 211 Seepage Check',
+      summary: 'Aisyah Rahman requested reassigning Case #211-512 to Priya Nair to protect 16:00 resident appointment. Tap to review.',
+      taskId: 't103',
+      approvalId: 'appr-101',
+      secureLink: 'syncai://approval/appr-101',
+      timestamp: dt(TODAY, '11:31'),
+      read: false,
+      privacySafe: true,
+      auditId: 'aud-notif-03',
+    },
+    {
+      id: 'notif-4',
+      type: 'reassignment_approved',
+      channel: 'in_app',
+      channelLabel: 'In-App',
+      recipientId: 'o1',
+      recipientName: 'Aisyah Rahman',
+      recipientRole: 'team_member',
+      title: 'Schedule Change Approved: CleanPro Monthly Report',
+      summary: 'Jennifer Ong approved rescheduling CleanPro review to tomorrow 10:00.',
+      taskId: 't102',
+      approvalId: 'appr-100',
+      secureLink: 'syncai://tasks/t102',
+      timestamp: dt(TODAY, '10:25'),
+      read: true,
+      privacySafe: true,
+      auditId: 'aud-notif-04',
+    },
+    {
+      id: 'notif-5',
+      type: 'escalation',
+      channel: 'teams',
+      channelLabel: 'Microsoft Teams (Proposed)',
+      recipientId: 'h1',
+      recipientName: 'Lim Wei Ling',
+      recipientRole: 'hq',
+      title: 'Compliance Escalation: Electrical DB Statutory Inspection',
+      summary: 'Technical Officer Daniel Lim has tight capacity before Blk 325 EMA compliance expiry. Standby contractor alerted.',
+      taskId: 't403',
+      secureLink: 'syncai://insights',
+      timestamp: dt(TODAY, '09:30'),
+      read: false,
+      privacySafe: true,
+      auditId: 'aud-notif-05',
+    },
+  ];
+}
+
 export function createSeedState() {
   return {
     version: DATA_VERSION,
@@ -333,7 +573,10 @@ export function createSeedState() {
     plans: {},
     activity: [
       { at: dt(workDay(-1), '17:42'), actor: 'SyncAI', text: 'Synced 4 tasks from Microsoft To Do and Planner (simulated).' },
+      { at: dt(TODAY, '10:25'), actor: 'Jennifer Ong', text: 'Approved schedule adjustment for CleanPro monthly contractor report (appr-100).' },
     ],
+    approvals: seedApprovals(),
+    notifications: seedNotifications(),
     dismissed: [],
     integrations: Object.fromEntries(INTEGRATIONS.map((i) => [i.id, true])),
     alertsRead: [],

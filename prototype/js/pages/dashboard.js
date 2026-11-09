@@ -1,6 +1,6 @@
 import { explainScore, scoreTask } from '../ai.js';
 import { analyseOfficer, assessRisk, meetingConflicts, schedule, smartReminders, teamAnalysis } from '../planner.js';
-import { getOfficer, getTask, isOpen, isSupervisor, isAdmin, openTasksFor, officerName, update, absenceLabel } from '../state.js';
+import { getOfficer, getTask, isOpen, isSupervisor, isManager, isAdmin, openTasksFor, officerName, update, absenceLabel, getPendingApprovals, getApprovals } from '../state.js';
 import { TODAY, NOW, datePart, fmtDay, fmtDue, fmtHours, fmtTime, fmtLongDay, relDay, timePart, toMin } from '../time.js';
 import { html, icon, avatar, priorityBadge, riskBadge, capacityBadge, meter, pct, emptyState, sourceTag, toast, limitTo, showMore } from '../ui.js';
 import { ctx } from '../ctx.js';
@@ -209,7 +209,69 @@ function officerView(s) {
       ${remindersCard(s, me)}
     </div>
 
+    ${commitmentsCardOfficer(s, me)}
+    ${approvalsCardOfficer(s, me)}
     ${mandatoryCardOfficer(s, me)}`;
+}
+
+function commitmentsCardOfficer(s, me) {
+  const commitments = openTasksFor(s, me).filter((t) => t.slaDue || t.appointmentTime);
+  if (!commitments.length) return '';
+  return html`<section class="card mt" aria-labelledby="comm-h">
+    <div class="card-head">
+      <h2 id="comm-h">${icon('clock', 16)}My SLA &amp; Appointment Commitments <span class="tab-count">${commitments.length}</span></h2>
+      <span class="badge badge-neutral">Fixed Operational Commitments</span>
+    </div>
+    <div class="card-body flush"><ul class="list">
+      ${commitments.map((t) => {
+        const r = assessRisk(s, t);
+        return html`<li class="list-item">
+          <span class="stat-icon ${r.level === 'high' ? 'danger' : 'info'}">${icon(t.appointmentTime ? 'calendar' : 'clock', 14)}</span>
+          <div class="grow">
+            <button class="task-title title" data-action="task-view" data-id="${t.id}">${t.title}</button>
+            <div class="meta">
+              ${t.appointmentTime ? html`<span class="badge badge-info">${t.appointmentTime}</span>` : ''}
+              ${t.slaDue ? html`<span class="badge badge-warning">${t.slaType || 'SLA'}: Due ${fmtDue(t.slaDue)}</span>` : ''}
+              <span>${fmtHours(t.effort)} effort</span>
+              ${riskBadge(r.level)}
+            </div>
+          </div>
+          <button class="btn btn-sm btn-subtle" data-action="task-view" data-id="${t.id}">View</button>
+        </li>`;
+      })}
+    </ul></div>
+  </section>`;
+}
+
+function approvalsCardOfficer(s, me) {
+  const myApprovals = getApprovals(s).filter((a) => a.requesterId === me);
+  if (!myApprovals.length) return '';
+  return html`<section class="card mt" aria-labelledby="my-appr-h">
+    <div class="card-head">
+      <h2 id="my-appr-h">${icon('shield', 16)}My Change Requests &amp; Approvals <span class="tab-count">${myApprovals.length}</span></h2>
+      <span class="badge badge-ai">Hierarchical Management Flow</span>
+    </div>
+    <div class="card-body flush">
+      <p class="notice notice-info small" style="margin:10px 16px 6px">
+        ${icon('info', 14)}<span><strong>Governance Rule:</strong> Schedule postponements and reassignments are submitted to your assigned manager (<strong>${s.supervisor.name}</strong>). Self-approval is restricted.</span>
+      </p>
+      <ul class="list">
+        ${myApprovals.slice(0, 4).map((a) => html`<li class="list-item">
+          <span class="stat-icon ${a.status === 'approved' ? 'success' : a.status === 'rejected' ? 'danger' : 'warning'}">${icon(a.status === 'approved' ? 'check' : 'clock', 14)}</span>
+          <div class="grow">
+            <button class="task-title title" data-action="approval-view" data-id="${a.id}">${a.taskTitle}</button>
+            <div class="meta">
+              <span class="badge ${a.status === 'approved' ? 'badge-success' : a.status === 'rejected' ? 'badge-danger' : 'badge-warning'}">${a.status.toUpperCase()}</span>
+              <span>Approver: <strong>${a.assignedManagerName}</strong></span>
+              <span>Submitted ${fmtDue(a.createdAt)}</span>
+            </div>
+            <p class="small muted mt-xs">${a.reason}</p>
+          </div>
+          <button class="btn btn-sm" data-action="approval-view" data-id="${a.id}">Audit Trail</button>
+        </li>`)}
+      </ul>
+    </div>
+  </section>`;
 }
 
 function mandatoryCardOfficer(s, me) {
@@ -312,12 +374,86 @@ function supervisorView(s) {
         </section>
 
     ${statutoryCardSupervisor(s)}
+    ${approvalQueueCard(s)}
+    ${occAlertsCard(s)}
         <section class="card mt" aria-labelledby="act-h">
           <div class="card-head"><h2 id="act-h">Recent activity &amp; approvals</h2></div>
           <div class="card-body flush">
             <ul class="activity">${s.activity.slice(0, 5).map((x) => html`<li><time>${fmtTime(x.at.slice(11, 16))}</time><span><strong>${x.actor}</strong> · ${x.text}</span></li>`)}</ul>
           </div>
         </section>`;
+}
+
+function approvalQueueCard(s) {
+  const pending = getPendingApprovals(s);
+  return html`<section class="card mt" aria-labelledby="appr-q-h">
+    <div class="card-head">
+      <h2 id="appr-q-h">${icon('shield', 16)}Manager Approval Queue <span class="tab-count">${pending.length}</span></h2>
+      <span class="badge badge-warning">Hierarchical Authorisation Required</span>
+    </div>
+    <div class="card-body flush">
+      ${pending.length
+        ? html`<ul class="list">
+            ${pending.map(
+              (a) => html`<li class="list-item" style="align-items:flex-start">
+                <span class="stat-icon warning">${icon('clock', 14)}</span>
+                <div class="grow">
+                  <div class="row wrap" style="justify-content:space-between">
+                    <button class="task-title title" data-action="approval-view" data-id="${a.id}">${a.taskTitle}</button>
+                    <span class="badge badge-ai" style="text-transform:capitalize">${a.requestType.replace('_', ' ')}</span>
+                  </div>
+                  <div class="meta mt-xs">
+                    <span>Requester: <strong>${a.requesterName}</strong> (${a.requesterRole})</span>
+                    <span>Proposed: <strong>${a.proposedSchedule}</strong></span>
+                    <span>Submitted: ${fmtDue(a.createdAt)}</span>
+                  </div>
+                  <p class="small mt-xs"><strong>Reason:</strong> ${a.reason}</p>
+                  <p class="small muted mt-xs"><strong>SLA Impact:</strong> ${a.slaImpact} · ${a.operationalImpact}</p>
+                  <div class="row wrap mt-sm">
+                    <button class="btn btn-sm btn-primary" data-action="approval-approve" data-id="${a.id}">${icon('check', 14)}Approve &amp; Apply</button>
+                    <button class="btn btn-sm btn-subtle" data-action="approval-reject" data-id="${a.id}">${icon('x', 14)}Decline</button>
+                    <button class="btn btn-sm btn-ai" data-action="approval-escalate" data-id="${a.id}">${icon('arrow', 14)}Escalate to HQ</button>
+                    <button class="btn btn-sm btn-subtle" data-action="approval-view" data-id="${a.id}">Audit Trail</button>
+                  </div>
+                </div>
+              </li>`,
+            )}
+          </ul>`
+        : html`<p class="notice notice-success" style="margin:12px 16px">${icon('check', 16)}All change requests are up to date. No pending approvals in the manager queue.</p>`}
+    </div>
+  </section>`;
+}
+
+function occAlertsCard(s) {
+  const occTasks = s.tasks.filter((t) => t.source === 'OCC (Mock)' && isOpen(t));
+  if (!occTasks.length) return '';
+  return html`<section class="card mt" aria-labelledby="occ-h" style="border-left:4px solid var(--brand)">
+    <div class="card-head">
+      <h2 id="occ-h">${icon('zap', 16)}Operations Command Centre Feed <span class="tab-count">${occTasks.length}</span></h2>
+      <span class="badge badge-ai">Fictional Mock OCC Dispatch</span>
+    </div>
+    <div class="card-body flush">
+      <p class="notice notice-info small" style="margin:10px 16px 6px">
+        ${icon('info', 14)}<span>SyncAI complements EMS Operations Command Centre visibility. Tasks below represent simulated OCC auto-dispatch items requiring field inspection.</span>
+      </p>
+      <ul class="list">
+        ${occTasks.map((t) => html`<li class="list-item">
+          <span class="stat-icon ai">${icon('zap', 14)}</span>
+          <div class="grow">
+            <button class="task-title title" data-action="task-view" data-id="${t.id}">${t.title}</button>
+            <div class="meta">
+              <span>Assigned: <strong>${officerName(s, t.ownerId)}</strong></span>
+              <span>Due: ${fmtDue(t.due)}</span>
+              ${t.slaDue ? html`<span class="badge badge-warning">${t.slaType || 'OCC SLA'}</span>` : ''}
+              <span>${t.location}</span>
+            </div>
+            ${t.description ? html`<p class="small muted mt-xs">${t.description}</p>` : ''}
+          </div>
+          <button class="btn btn-sm btn-subtle" data-action="task-view" data-id="${t.id}">Inspect</button>
+        </li>`)}
+      </ul>
+    </div>
+  </section>`;
 }
 
 function statutoryCardSupervisor(s) {

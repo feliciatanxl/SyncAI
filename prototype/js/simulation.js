@@ -253,6 +253,34 @@ export function runSimulation(base, sc) {
       };
     });
 
+  // Protected SLA commitments & fixed appointments
+  const protectedSlas = base.tasks
+    .filter((t) => t.slaDue && isOpen(t))
+    .map((t) => {
+      const riskAfter = assessRisk(withActions, t);
+      return {
+        task: t,
+        officer: officerName(withActions, t.ownerId),
+        protected: riskAfter.level !== 'high',
+        slaDue: fmtDue(t.slaDue),
+        slaType: t.slaType || 'SLA',
+        status: riskAfter.level === 'high' ? 'At risk' : 'Protected',
+      };
+    });
+
+  const protectedAppointments = base.tasks
+    .filter((t) => t.appointmentTime && isOpen(t))
+    .map((t) => {
+      const riskAfter = assessRisk(withActions, t);
+      return {
+        task: t,
+        officer: officerName(withActions, t.ownerId),
+        protected: riskAfter.level !== 'high',
+        appointmentTime: t.appointmentTime,
+        status: riskAfter.level === 'high' ? 'Clash / Displaced' : 'Protected on schedule',
+      };
+    });
+
   // 2. Mitigated long-term consequences
   const consequencesMitigated = [];
   for (const t of sim.tasks.filter((x) => x.consequence && isOpen(x))) {
@@ -338,6 +366,8 @@ export function runSimulation(base, sc) {
     afterState: withActions,
     moved: movedTasks(base, withActions),
     protectedMandatory,
+    protectedSlas,
+    protectedAppointments,
     consequencesMitigated,
     unresolvedConflicts,
     taskDecisions,

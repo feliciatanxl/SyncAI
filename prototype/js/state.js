@@ -134,7 +134,7 @@ export function meetingsFor(s, officerId, date) {
 }
 
 export function availabilityOn(officer, date) {
-  return officer.availability?.[date] || null;
+  return officer?.availability?.[date] || null;
 }
 
 export const isUnavailable = (officer, date) => !!availabilityOn(officer, date);
@@ -158,3 +158,264 @@ export function initials(name) {
 export const remainingHours = (t) => Math.max(t.effort - (t.spent || 0), 0.25);
 
 export const isOverdue = (t) => isOpen(t) && t.due < NOW;
+
+// ----- Hierarchical Approvals & Auditability -----
+
+export function getApprovals(s) {
+  return s.approvals || [];
+}
+
+export function getPendingApprovals(s) {
+  return (s.approvals || []).filter((a) => a.status === 'pending');
+}
+
+export function getApproval(s, id) {
+  return (s.approvals || []).find((a) => a.id === id);
+}
+
+/**
+ * Check if the active user is authorised to approve this request.
+ * Hierarchy Rule: Requesters CANNOT approve their own request.
+ * Approver must be an authorised Manager (Estate Manager / HQ / Admin).
+ */
+export function canApprove(s, approval, actorId = null) {
+  if (!approval) return false;
+  const currentActor = actorId || (isManager(s) ? s.supervisor?.id : s.currentOfficerId);
+  // Self-approval restriction
+  if (approval.requesterId && approval.requesterId === currentActor) return false;
+  // Role check: Only manager, hq, or admin can approve restricted workflows
+  return isManager(s) || isHQ(s) || isAdmin(s);
+}
+
+export function createApprovalRequest(s, req) {
+  s.approvals ||= [];
+  const id = `appr-${nextId(s, '')}`;
+  const approval = {
+    id,
+    requestType: req.requestType || 'schedule_adjustment',
+    taskId: req.taskId,
+    taskTitle: req.taskTitle || getTask(s, req.taskId)?.title || 'Task',
+    requesterId: req.requesterId || s.currentOfficerId,
+    requesterName: req.requesterName || officerName(s, req.requesterId || s.currentOfficerId),
+    requesterRole: req.requesterRole || (isManager(s) ? 'manager' : 'team_member'),
+    assignedManagerId: req.assignedManagerId || s.supervisor?.id || 's1',
+    assignedManagerName: req.assignedManagerName || s.supervisor?.name || 'Jennifer Ong',
+    escalationManagerId: req.escalationManagerId || s.hq?.id || 'h1',
+    escalationManagerName: req.escalationManagerName || s.hq?.name || 'Lim Wei Ling',
+    originalOwnerId: req.originalOwnerId || getTask(s, req.taskId)?.ownerId,
+    originalSchedule: req.originalSchedule || 'Original schedule',
+    proposedOwnerId: req.proposedOwnerId || req.originalOwnerId,
+    proposedSchedule: req.proposedSchedule || 'Proposed schedule',
+    reason: req.reason || 'Operational schedule adjustment',
+    slaImpact: req.slaImpact || 'Within operational SLA margin',
+    operationalImpact: req.operationalImpact || 'Rebalances officer workload',
+    status: 'pending',
+    createdAt: NOW,
+    decidedAt: null,
+    decidedBy: null,
+    decision: null,
+    auditTrail: [
+      {
+        at: NOW,
+        actor: req.requesterName || officerName(s, req.requesterId || s.currentOfficerId),
+        action: 'SUBMITTED',
+        channel: 'In-App',
+        details: req.reason || 'Submitted for manager review under platform hierarchy.',
+      },
+      {
+        at: NOW,
+        actor: 'SyncAI Notification Adapter',
+        action: 'DISPATCHED',
+        channel: 'Teams (Proposed)',
+        details: `Sent approval card to ${req.assignedManagerName || s.supervisor?.name || 'Jennifer Ong'} with secure review link.`,
+      },
+      {
+        at: NOW,
+        actor: 'SyncAI Notification Adapter',
+        action: 'DISPATCHED',
+        channel: 'WhatsApp (Proposed)',
+        details: `Simulated WhatsApp message dispatched: [SyncAI] Approval Request ${id} for ${req.taskTitle || 'Task'}.`,
+      },
+    ],
+  };
+  s.approvals.unshift(approval);
+  logActivity(s, `Submitted approval request (${id}): ${approval.taskTitle} [${approval.requestType}]`, approval.requesterName);
+
+  // Add simulated manager notification
+  addNotification(s, {
+    type: 'approval_request',
+    channel: 'whatsapp',
+    channelLabel: 'WhatsApp (Proposed)',
+    recipientId: approval.assignedManagerId,
+    recipientName: approval.assignedManagerName,
+    recipientRole: 'manager',
+    title: `Approval Required: ${approval.taskTitle}`,
+    summary: `${approval.requesterName} requested ${approval.requestType.replace('_', ' ')}. Tap to review auditable record.`,
+    taskId: approval.taskId,
+    approvalId: id,
+    secureLink: `syncai://approval/${id}`,
+  });
+
+  return approval;
+}
+
+export function decideApproval(s, approvalId, decision, reviewerName = null, note = '') {
+  const approval = getApproval(s, approvalId);
+  if (!approval) return { success: false, error: 'Approval request not found.' };
+
+  const reviewer = reviewerName || actorName(s);
+  const currentActor = isManager(s) ? s.supervisor?.id : s.currentOfficerId;
+
+  if (!canApprove(s, approval, currentActor)) {
+    return { success: false, error: 'Unauthorized: Requesters cannot self-approve restricted changes; only assigned managers are authorised.' };
+  }
+
+  if (decision === 'approved') {
+    approval.status = 'approved';
+    approval.decidedAt = NOW;
+    approval.decidedBy = reviewer;
+    approval.decision = note || 'Approved by authorised manager.';
+    approval.auditTrail.push({
+      at: NOW,
+      actor: reviewer,
+      action: 'APPROVED',
+      channel: 'In-App',
+      details: note || 'Change approved and applied to schedule.',
+    });
+
+    // Apply approved change
+    const t = getTask(s, approval.taskId);
+    if (t) {
+      if (approval.proposedOwnerId && approval.proposedOwnerId !== t.ownerId) {
+        t.ownerId = approval.proposedOwnerId;
+      }
+      if (approval.newDue) {
+        t.due = approval.newDue;
+      }
+    }
+
+    logActivity(s, `Approved request (${approval.id}) for ${approval.taskTitle}: ${approval.decision}`, reviewer);
+
+    addNotification(s, {
+      type: 'reassignment_approved',
+      channel: 'in_app',
+      channelLabel: 'In-App',
+      recipientId: approval.requesterId,
+      recipientName: approval.requesterName,
+      recipientRole: approval.requesterRole,
+      title: `Change Approved: ${approval.taskTitle}`,
+      summary: `${reviewer} approved your ${approval.requestType.replace('_', ' ')} request. Schedule updated.`,
+      taskId: approval.taskId,
+      approvalId: approval.id,
+      secureLink: `syncai://tasks/${approval.taskId}`,
+    });
+
+    return { success: true, status: 'approved' };
+  }
+
+  if (decision === 'rejected') {
+    approval.status = 'rejected';
+    approval.decidedAt = NOW;
+    approval.decidedBy = reviewer;
+    approval.decision = note || 'Rejected by manager.';
+    approval.auditTrail.push({
+      at: NOW,
+      actor: reviewer,
+      action: 'REJECTED',
+      channel: 'In-App',
+      details: note || 'Request declined.',
+    });
+
+    logActivity(s, `Declined request (${approval.id}) for ${approval.taskTitle}: ${approval.decision}`, reviewer);
+
+    addNotification(s, {
+      type: 'approval_request',
+      channel: 'in_app',
+      channelLabel: 'In-App',
+      recipientId: approval.requesterId,
+      recipientName: approval.requesterName,
+      recipientRole: approval.requesterRole,
+      title: `Request Declined: ${approval.taskTitle}`,
+      summary: `${reviewer} declined request: ${approval.decision}. Please consult manager.`,
+      taskId: approval.taskId,
+      approvalId: approval.id,
+      secureLink: `syncai://tasks/${approval.taskId}`,
+    });
+
+    return { success: true, status: 'rejected' };
+  }
+
+  if (decision === 'escalated') {
+    approval.status = 'escalated';
+    approval.decidedAt = NOW;
+    approval.decidedBy = reviewer;
+    approval.decision = note || `Escalated to ${approval.escalationManagerName} (EMS HQ).`;
+    approval.auditTrail.push({
+      at: NOW,
+      actor: reviewer,
+      action: 'ESCALATED',
+      channel: 'Teams (Proposed)',
+      details: note || `Escalated to higher management hierarchy tier: ${approval.escalationManagerName}.`,
+    });
+
+    logActivity(s, `Escalated request (${approval.id}) to ${approval.escalationManagerName}: ${approval.taskTitle}`, reviewer);
+
+    addNotification(s, {
+      type: 'escalation',
+      channel: 'teams',
+      channelLabel: 'Microsoft Teams (Proposed)',
+      recipientId: approval.escalationManagerId,
+      recipientName: approval.escalationManagerName,
+      recipientRole: 'hq',
+      title: `Escalation Notice: ${approval.taskTitle}`,
+      summary: `Estate Manager ${reviewer} escalated request ${approval.id} for higher-tier review.`,
+      taskId: approval.taskId,
+      approvalId: approval.id,
+      secureLink: `syncai://approval/${approval.id}`,
+    });
+
+    return { success: true, status: 'escalated' };
+  }
+
+  return { success: false, error: 'Unknown decision type.' };
+}
+
+// ----- Notifications & Channels -----
+
+export function getNotifications(s) {
+  return s.notifications || [];
+}
+
+export function getUnreadNotifications(s) {
+  return (s.notifications || []).filter((n) => !n.read);
+}
+
+export function addNotification(s, notif) {
+  s.notifications ||= [];
+  const record = {
+    id: notif.id || `notif-${nextId(s, '')}`,
+    type: notif.type || 'urgent_assignment',
+    channel: notif.channel || 'in_app',
+    channelLabel: notif.channelLabel || (notif.channel === 'whatsapp' ? 'WhatsApp (Proposed)' : notif.channel === 'teams' ? 'Microsoft Teams (Proposed)' : 'In-App'),
+    recipientId: notif.recipientId,
+    recipientName: notif.recipientName || officerName(s, notif.recipientId),
+    recipientRole: notif.recipientRole || 'team_member',
+    title: notif.title,
+    summary: notif.summary,
+    taskId: notif.taskId || null,
+    approvalId: notif.approvalId || null,
+    secureLink: notif.secureLink || '#/dashboard',
+    timestamp: notif.timestamp || NOW,
+    read: Boolean(notif.read),
+    privacySafe: true,
+    auditId: notif.auditId || `aud-${nextId(s, '')}`,
+  };
+  s.notifications.unshift(record);
+  s.notifications = s.notifications.slice(0, 50);
+  return record;
+}
+
+export function markNotificationRead(s, id) {
+  const notif = (s.notifications || []).find((n) => n.id === id);
+  if (notif) notif.read = true;
+}

@@ -50,15 +50,20 @@ Capabilities identified as overlapping with other problem statements have been c
 - **PS 12g overlaps retired from primary navigation:** Cross-council roll-up hub (`pages/hub.js`) and data sources monitor (`pages/sources.js`).
 - **PS 12h overlap retired from primary navigation:** Project portfolio tracking, Gantt timelines, and templates (`pages/projects.js`). Tasks belonging to estate initiatives retain their contextual project name without broken links.
 
-## Priority & Feasibility Engine
+## Priority, SLA & Feasibility Engine
 
-All scoring in `prototype/js/ai.js` is explainable and deterministic:
-- **Genuine Safety Hazards (+20 pts):** Direct hazards to resident or public safety (falling concrete, lift entrapments, exposed wiring) are explicitly identified and prioritised above routine work.
+All scoring in `prototype/js/ai.js` and scheduling in `planner.js` is explainable, transparent, and deterministic:
+- **Client 4-Tier Assessment Breakdown:** Maps tasks to EM Services' stated criteria (1. Service Focus, 2. Safety Focus, 3. Residents' Well-Being, 4. Actual Concern / Urgency).
+- **Operational Non-Negotiables:** Imminent physical danger (lift entrapments, exposed wiring) and statutory deadlines (BCA/SCDF) represent hard constraints that cannot be outranked by routine service requests.
+- **SLA & Commitment Window Tracking:** Evaluates `slaDue` and `appointmentTime` attributes. Breached SLAs produce immediate high-risk alerts (+18 pts); tight SLA windows (<60m) raise medium-risk warnings (+8 pts). Resident appointment windows are protected during schedule re-planning.
+- **Genuine Safety Hazards (+20 pts):** Direct hazards to resident or public safety are explicitly identified and prioritised above routine work.
 - **Mandatory Statutory Deadlines (+25 / +15 pts):** BCA annual lift certifications and SCDF compliance deadlines are treated as hard scheduling constraints that cannot slip.
 - **Long-Term Operational Consequences (+12 pts):** Evaluates severe structural risks (e.g., ceiling seepage penetrating rebar) or regulatory stop-work orders if work is deferred.
 - **Repeat Complaints = 0 Points:** Resident complaint volume alone awards 0 priority points, protecting officers from loudest-voice bias while maintaining professional service.
 - **Scheduling Feasibility & Impossible Conflict Detection:** `checkTaskFeasibility(s, t)` computes remaining task effort against Outlook meetings, lunch, and working hours before deadline. Mathematically impossible deadlines are flagged with warning badges rather than silently ignored.
 - **Configurable Prototype Assumptions:** All scoring rules are clearly labeled in the UI as illustrative prototype configuration assumptions, not EMS-approved corporate standards.
+- **Hierarchical Approvals & Self-Approval Prevention:** Property Officers cannot self-approve restricted schedule changes. The prototype includes an interactive approval workflow routing change requests to assigned managers.
+- **Multi-Channel Simulated Notifications:** In-app, Microsoft Teams (proposed), and WhatsApp (proposed) notifications with privacy-safe summaries and direct in-app verification links (`syncai://approval/...`). Zero external Meta API integration.
 
 ## Public website
 
@@ -192,7 +197,7 @@ All logic is deterministic. The same data always gives the same result.
 
 | Capability | Where | Rule summary |
 | --- | --- | --- |
-| Priority score (0–100) | `js/ai.js` `scoreTask` | Priority (8–40) + deadline urgency (6–35) + genuine safety hazard (+20) + mandatory/statutory compliance (+25 within 3 working days, otherwise +15) + long-term consequence (+12) or high service impact (+8) + tight feasibility margin / effort (+5 to +6) + unblocks others (+6 each, max 12) + in progress (+5) − waiting on dependency (−10). Repeat complaints award 0 points. Proactively flags impossible scheduling conflicts when free hours before deadline are insufficient. Recalculated on every change. Bands: Do now ≥ 70, Do next ≥ 50, Plan ≥ 30. |
+| Priority score (0–100) | `js/ai.js` `scoreTask` | Priority (8–40) + deadline urgency (6–35) + genuine safety hazard (+20) + mandatory/statutory compliance (+25 within 3 working days, otherwise +15) + long-term consequence (+12) or high service impact (+8) + tight feasibility margin / effort (+5 to +6) + unblocks others (+6 each, max 12) + in progress (+5) − waiting on dependency (−10) + breached SLA (+18) + tight SLA window (+8). Explains client 4-tier criteria (Service, Safety, Well-being, Urgency). Repeat complaints award 0 points. Proactively flags impossible scheduling conflicts when free hours before deadline are insufficient. Recalculated on every change. Bands: Do now ≥ 70, Do next ≥ 50, Plan ≥ 30. |
 | Feasibility check | `js/ai.js` `checkTaskFeasibility` | Calculates net working hours against Outlook meetings, lunch, and scheduled absences before the deadline. Flags impossible conflicts and tight buffers. |
 | Start-by deadline | `planner.js` `latestStart` | Works backwards from the deadline through the officer's free time to find the latest start. Raises a warning within 2 hours of it, and high risk if it has already passed. |
 | Smart reminders | `planner.js` `smartReminders` | Latest start minus a lead time: 60 min for safety work, 45 for “Do now”, 30 for “Do next”, otherwise 15. |
@@ -207,10 +212,12 @@ All logic is deterministic. The same data always gives the same result.
 | Natural-language parsing | `ai.js` `parseNaturalTask` | Keyword and regex extraction for priority, category, block number, date, time, duration, owner and safety. |
 | Scheduling | `js/planner.js` `buildSchedule` | "Do now" tasks first, then earliest deadline day, then score. Dependencies go first. Fills free slots around working hours, lunch, meetings and buffers, with a minimum block length. Flags late and unschedulable tasks. |
 | Capacity | `planner.js` `analyseOfficer` | (Meetings + remaining effort due) ÷ working time, per day and per week. Status: Unavailable, Overloaded, Near capacity, Balanced or Spare. |
-| Deadline risk | `planner.js` `assessRisk` | High if overdue, owner away until the deadline, unschedulable, or finishing late. Medium if less than 90 minutes of buffer, owner away on the due date, or waiting on another task. |
-| Reassignment | `js/simulation.js` | Ranks officers by skills, free time before the deadline, overload and zone. Safety work prefers skilled officers. Each move is checked against the receiver's re-planned schedule. |
-| What-If | `simulation.js` `runSimulation` | Runs on a cloned state: applies absences and new work, compares snapshots, and proposes reassignments. Commits only on approval. |
-| Operational Ripple Intelligence | `js/ripple.js` | Traces multi-level downstream and upstream dependency chains with cycle detection. Evaluates capacity deficits, mandatory compliance exposures, and compares Three Meaningful Alternatives (No Action, Reschedule, Reassign). Generates calibrated risk advisories and manager escalation warnings. |
+| Deadline & SLA risk | `planner.js` `assessRisk` | High if overdue, breached SLA, owner away until deadline, unschedulable, or finishing late. Medium if tight SLA buffer (<60m), owner away on due date, or waiting on another task. Flags fixed appointment commitment windows. |
+| Reassignment | `js/simulation.js` | Ranks officers by skills, free time before deadline, overload and zone. Safety work prefers skilled officers. Each move is checked against receiver's re-planned schedule. |
+| What-If | `simulation.js` `runSimulation` | Runs on cloned state: applies absences and new work, compares snapshots, and proposes reassignments. Commits only on approval. |
+| Operational Ripple Intelligence | `js/ripple.js` | Traces multi-level downstream and upstream dependency chains with cycle detection. Evaluates capacity deficits, mandatory compliance exposures, SLA risks, and compares Three Meaningful Alternatives (No Action, Reschedule, Reassign). Enforces hierarchical management approval rules. |
+| Hierarchical Approvals | `js/state.js` | Full workflow: request, review, approve, reject, escalate with immutable audit trail. Strictly enforces self-approval prevention for Property Officers. |
+| Notification Adapters | `js/state.js` & `pages/alerts.js` | Multi-channel simulated alerts (In-App, Teams, WhatsApp) with privacy-safe payloads and secure deep links (`syncai://approval/...`). No external API or Meta credentials. |
 
 ## Tests
 
@@ -220,20 +227,11 @@ The rules and ripple engines have automated tests that run with Node's built-in 
 node --test "prototype/tests/*.test.mjs"
 ```
 
-The test suite contains **42 automated tests** across `rules.test.mjs` (19 tests), `ripple.test.mjs` (20 tests), and `status-codes.test.mjs` (3 tests):
-- Seed data integrity and foreign keys
-- Explainable priority scoring and hard statutory constraints
-- Scheduling feasibility and meeting avoidance
-- Multi-level dependency traversal (`t103` → `t104` → `t112`)
-- Circular dependency handling and safe cycle termination
-- Safe handling of missing or deleted task references
-- Mandatory deadline protection under disruption
-- Urgent safety incident and absence capacity deficit calculation
-- Skill-based reassignment restrictions and mismatch flagging
-- Three Alternatives evaluation (No Action, Reschedule, Reassign)
-- Non-destructive simulation state isolation and explicit commit verification
-- Calibrated language enforcement (no uncalibrated guarantee claims)
-- HTTP status code mapping and error presentation
+The test suite contains **56 automated tests** across four test suites:
+- `prototype/tests/rules.test.mjs` (19 tests): Seed data integrity, foreign keys, explainable priority scoring, hard statutory constraints, scheduling feasibility, meeting avoidance, project health, timers, and role alignment.
+- `prototype/tests/ripple.test.mjs` (20 tests): Multi-level dependency cascades (`t103` → `t104` → `t112`), circular dependency termination, missing task resilience, urgent safety incidents, capacity deficits, officer unavailability, skill-based reassignment restrictions, Three Alternatives evaluation, state isolation, explicit commit verification, and calibrated language enforcement.
+- `prototype/tests/client-requirements.test.mjs` (14 tests): Client prioritisation 4-tier criteria, conflicting priorities resolution, repeat complaint handling, SLA deadlines and breach risks, fixed resident appointments, downstream cascade tracing, Three Alternatives SLA protection, hierarchical approval workflow, unauthorized self-approval prevention, multi-channel notification audit events, simulation isolation, seed reset behavior, role boundaries, and missing data resilience.
+- `prototype/tests/status-codes.test.mjs` (3 tests): HTTP status code definitions, query-string text lookups, and presentation consistency.
 
 ## Project structure
 
