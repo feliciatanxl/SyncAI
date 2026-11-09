@@ -1,87 +1,91 @@
 # Security Policy
 
-SyncAI is an AI-powered Smart Work Planner for Town Council officers (EMS Challenge 12i). It is designed to connect to Microsoft 365 and will eventually handle staff schedules, task records and resident-related information, so we treat security and data protection as requirements from day one.
+SyncAI is an AI-enabled Smart Work Planner for Town Council officers (EMS Challenge PS 12i). Because the system manages staff schedules, operational tasks, and potentially sensitive estate records, security, access governance, and data protection are core architectural priorities.
 
-## Supported versions
+> **Disclaimer:** SyncAI is an academic and client-driven proof-of-concept under active development. While security controls are implemented following OWASP Top 10 guidelines and Singapore Personal Data Protection Act (PDPA) principles, we do not claim formal third-party regulatory certification. Do not connect SyncAI to live Town Council production tenants or real resident datasets without written client authorization.
 
-| Component | Status | Security fixes |
+---
+
+## Supported Versions
+
+| Component | Status | Security Fixes |
 | --- | --- | --- |
-| `main` branch | Active development | ✅ |
-| `prototype/` (HTML/CSS/JS demo) | Design prototype with fictional data only | ✅ Best effort |
-| Feature branches / forks | Not supported | ❌ |
+| `main` branch | Release branch | Supported |
+| `feature/frontend-design` | Active development branch | Supported |
+| `prototype/` | Static design prototype (fictional data only) | Best effort |
+| Stale forks / legacy branches | Archived exploration | Unsupported |
 
-There is no production deployment yet. Please do not run SyncAI against real Town Council tenants or real resident data until a release is marked production-ready.
+---
 
-## Reporting a vulnerability
+## Reporting a Vulnerability
 
-**Please do not report security issues in public GitHub issues, pull requests or discussions.**
+**Please do not report security vulnerabilities in public GitHub issues, pull requests, or public channels.**
 
-1. Go to the repository's **Security** tab and choose **Report a vulnerability** (GitHub private vulnerability reporting). Maintainers: enable this under *Settings → Code security → Private vulnerability reporting*.
-2. If that option is unavailable, contact a maintainer privately through GitHub and ask for a private channel. Do not include exploit details in the first message.
+1. Open the repository's **Security** tab and select **Report a vulnerability** (GitHub Private Vulnerability Reporting).
+2. Alternatively, contact a repository maintainer privately through GitHub to arrange a secure communication channel. Do not include exploit payloads in the initial contact.
 
-Please include:
+### Required Details
 
-- A description of the issue and its potential impact
-- Steps to reproduce, or a proof of concept
-- Affected files, pages, branches or commits
-- Any suggested fix or mitigation
+- Summary of the vulnerability and potential operational impact.
+- Clear steps to reproduce or a minimal proof of concept.
+- Specific affected files, routes, components, or commits.
+- Any suggested remediation or mitigation.
 
-### What to expect
+### Response Targets
 
-| Step | Target |
+| Stage | Target Timeline |
 | --- | --- |
-| Acknowledge your report | Within 3 working days |
-| Initial assessment and severity | Within 7 working days |
-| Fix or mitigation plan for confirmed issues | Agreed with you, based on severity |
-| Credit in release notes (if you want it) | When the fix is published |
+| Initial acknowledgement | Within 3 working days |
+| Triage and severity assessment | Within 7 working days |
+| Remediation and patch release | Coordinated with reporter based on severity |
+| Public credit in release notes | Upon publication of patch (optional) |
 
-We ask that you give us reasonable time to fix confirmed issues before any public disclosure, and that you avoid accessing, modifying or deleting data that is not your own while investigating.
+---
 
 ## Scope
 
-In scope:
+### In Scope
+- Code hosted in this repository (`prototype/`, `client/`, `server/`).
+- Authentication and authorization flows (Microsoft Entra ID token verification, role enforcement).
+- Session management, HTTP security headers, and rate limiting.
+- Cross-site scripting (XSS), SQL injection, and broken access controls.
+- Exposure of secrets, private tokens, or personal identifiers.
 
-- Code in this repository, including `prototype/`
-- Authentication and authorisation flows (Microsoft Entra ID, role checks)
-- Handling of Microsoft Graph data (Outlook, To Do, Planner, Teams, SharePoint)
-- Azure OpenAI prompts and outputs (prompt injection, data leakage between users)
-- Cross-site scripting, injection and access-control issues
-- Exposure of secrets, tokens or personal data
+### Out of Scope
+- Infrastructure vulnerabilities in Microsoft Azure, Microsoft 365, or Railway platform services.
+- Distributed denial-of-service (DDoS) testing against hosted endpoints.
+- Social engineering attacks targeting students, lecturers, or EM Services staff.
+- Attacks requiring physical access to a compromised client machine or browser.
 
-Out of scope:
+---
 
-- Vulnerabilities in Microsoft 365, Azure or other third-party services themselves (report those to the vendor)
-- Denial-of-service or load testing against any environment
-- Social engineering of team members, clients or Town Council staff
-- Issues that require a compromised device or browser
+## Security Controls & Contributor Guidelines
 
-## Security practices for contributors
+### 1. Secret & Credential Handling
+- **Never commit secrets:** API keys, database connection strings, JWT signing secrets, client secrets, or private certificates must never enter version control.
+- Git-ignored `.env` files must be used for local development. Never commit `.env` files.
+- If a secret is committed accidentally, **rotate it immediately**, then scrub it from Git history using `git-filter-repo` or BFG. Simply deleting the file in a subsequent commit leaves the secret in the commit history.
 
-### Secrets
+### 2. Token Handling & Server-Side Authorization
+- The client acquires Microsoft Entra ID tokens via MSAL (PKCE flow). Tokens must never be stored in persistent unencrypted cookies.
+- The Express server cryptographically validates access tokens on every request using `jose` against Microsoft's public JWKS endpoints.
+- Role and account approval status are queried directly from the PostgreSQL database on every request; client-provided role claims are never trusted for authorization.
+- System administrators cannot participate in operational teams, enforcing separation of duties.
 
-- Never commit secrets: client secrets, API keys, connection strings, access or refresh tokens, certificates or `.env` files.
-- Use `.env` files locally (they are git-ignored) and Azure Key Vault or GitHub Actions secrets for shared environments.
-- If a secret is committed by mistake, **rotate it immediately**, then remove it from history. Deleting the file in a later commit is not enough.
+### 3. Personal Data Protection (PDPA) & Privacy
+- **Fictional Datasets Only:** Use strictly fictional data in code, tests, documentation, and screenshots. Never commit real resident names, unit numbers, telephone numbers, NRIC/FIN identifiers, or case notes.
+- **Absence Minimization:** Staff absences must be recorded solely as categorical "MC" or "leave". Storing medical diagnoses, clinic names, or doctor notes is strictly prohibited.
+- **Append-Only Audit Logging:** Security-sensitive administrative operations (approvals, role adjustments, team changes) are logged to an append-only audit trail with automated 12-month data retention.
+- **No Behavioral Tracking:** No mouse tracking, keystroke logging, or IP fingerprinting is stored in database records.
 
-### Personal data (PDPA)
+### 4. Code & Injection Safeguards
+- **SQL Injection Defense:** 100% of SQL queries executed through `pg` must use parameterized statements (`$1, $2`). Dynamic SQL string concatenation is strictly forbidden.
+- **Cross-Site Scripting (XSS):**
+  - In `prototype/`, all dynamic text is escaped using the `html` tagged template in `js/ui.js`.
+  - In `client/`, React JSX handles string escaping automatically; never bypass this with `dangerouslySetInnerHTML`.
+  - Strict Content Security Policy (CSP) and security headers are enforced in both prototype shell and Express API middleware.
+- **Rate Limiting:** Express API enforces rate limiting (300 requests per 15 minutes per IP) to mitigate automated probing.
 
-- Use **fictional data only** in code, tests, screenshots and demos. Never copy real resident names, unit numbers, phone numbers, NRIC/FIN numbers or case details into the repository.
-- Record staff absence only as a category (for example MC or leave). Never store diagnoses or medical details.
-- Collect and display the minimum data needed. Officers should only see their own tasks; team workload is restricted to supervisors.
-- Handle personal data in line with Singapore's Personal Data Protection Act (PDPA) and the client's data policies.
-
-### Microsoft 365 and Azure
-
-- Request the **least-privilege** Microsoft Graph permissions. Prefer delegated permissions over application permissions.
-- Validate tokens and roles on the server. Never trust role or user IDs sent from the browser.
-- Keep AI-generated plans and reassignments behind **human approval**. SyncAI must not silently change official calendars or task owners.
-- Treat all model output and all content from emails, tasks and documents as untrusted input. Defend against prompt injection, and never let model output trigger actions without validation.
-
-### Code
-
-- Escape all dynamic content before rendering it as HTML. In the prototype, use the `html` tagged template in `prototype/js/ui.js`. Never assign untrusted strings to `innerHTML`.
-- Keep the Content Security Policy in `prototype/index.html` strict. Do not add inline scripts or unvetted third-party CDNs.
-- Validate input on the client for usability and on the server for security.
-- Keep dependencies minimal and up to date, and review Dependabot alerts promptly.
+---
 
 Thank you for helping keep SyncAI and its users safe.

@@ -220,7 +220,7 @@ The rules and ripple engines have automated tests that run with Node's built-in 
 node --test "prototype/tests/*.test.mjs"
 ```
 
-The test suite contains **42 automated tests** across `rules.test.mjs` and `ripple.test.mjs`:
+The test suite contains **42 automated tests** across `rules.test.mjs` (19 tests), `ripple.test.mjs` (20 tests), and `status-codes.test.mjs` (3 tests):
 - Seed data integrity and foreign keys
 - Explainable priority scoring and hard statutory constraints
 - Scheduling feasibility and meeting avoidance
@@ -233,6 +233,7 @@ The test suite contains **42 automated tests** across `rules.test.mjs` and `ripp
 - Three Alternatives evaluation (No Action, Reschedule, Reassign)
 - Non-destructive simulation state isolation and explicit commit verification
 - Calibrated language enforcement (no uncalibrated guarantee claims)
+- HTTP status code mapping and error presentation
 
 ## Project structure
 
@@ -270,11 +271,12 @@ prototype/
 ## Known limitations
 
 - **One live council:** only Northvale is computed from the demo data. The other Town Councils in the HQ overview are fixed sample figures, and every data source connection is simulated.
-- **Mock sign-in:** the website's login checks a demo password in the browser and stores only the role in `sessionStorage` / `localStorage` (key `syncai.session`). The portal refuses to open without it, but this is not real access control: anyone can set that value in the browser's developer tools. Production would use Entra ID role claims.
-- **Simulated only:** no Microsoft Entra ID sign-in, Microsoft Graph, Teams notifications or Azure OpenAI. "Accept plan" and notifications are mock.
+- **Mock prototype sign-in:** the prototype website's login checks a demo password in the browser and stores only the role in `sessionStorage` / `localStorage` (key `syncai.session`). The portal refuses to open without it, but this is a browser-only demonstration mechanism. In contrast, the full-stack application (`client/` and `server/`) implements real Microsoft Entra ID authentication and database role checks.
+- **Simulated integrations in prototype:** within this static prototype, Microsoft Graph, Outlook Calendar, Teams notifications, and Power Automate are simulated using mock data and local browser dialogs.
 - **Fixed demo clock:** "now" is 08:30 on the current working day. Data is re-seeded automatically on a new day, which discards earlier changes.
-- **Single browser:** state lives in `localStorage` per browser and is not shared between users or devices.
-- **Rule-based "AI":** natural-language parsing and minutes extraction handle common phrasings only, and the assistant answers a fixed set of question types.
+- **Single browser:** prototype state lives in `localStorage` per browser and is not shared between users or devices.
+- **Deterministic rules vs. predictive ML:** natural-language parsing and minutes extraction handle common phrasings via regex and keyword matching, and the assistant answers a fixed set of question types. No trained black-box model is used; priority scoring and ripple logic are deterministic and auditable.
+- **Configurable scoring assumptions:** scoring weights (+20 safety, +25 statutory, +12 consequence) are proposed baselines derived from EMS qualitative guidance, to be calibrated against EMS time-study data.
 - **Travel estimate:** the field visit optimiser uses block numbers as a proxy for distance, not real maps or routes.
 - **Greedy scheduler:** fast and explainable, but not mathematically optimal. A production version could use a constraint solver.
 - **Demand-based capacity:** utilisation counts work *due* in a period, so later days look lighter until more work is known.

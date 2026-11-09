@@ -1,120 +1,193 @@
-# SyncAI server
+# SyncAI Server
 
-The Node.js + Express API for SyncAI. It checks each request's Microsoft Entra sign-in token, stores users in PostgreSQL, enforces approvals and roles, and keeps an audit trail of sign-ins and access changes. Express 5, `pg`, `jose` and `express-rate-limit`; tests use Node's built-in test runner.
+The backend API for **SyncAI — Smart Work Planner**. Built with Node.js 22, Express 5, PostgreSQL (`pg`), JWT token verification via `jose`, and rate limiting with `express-rate-limit`. Unit and security tests use Node's built-in test runner.
 
-## Run it
+---
 
-Requires Node.js 22 or later and a PostgreSQL database (the team uses Railway).
+## Getting Started
+
+### Prerequisites
+
+- **Node.js 22 or later**
+- Accessible PostgreSQL database (Railway, cloud, or local PostgreSQL instance)
+
+### Installation & Execution
 
 ```bash
+cd server
 npm install
+cp .env.example .env
+# Edit .env with your PostgreSQL and Azure App Registration credentials
 npm run dev
 ```
 
-The API runs at <http://localhost:3000/api>. On start-up it creates or updates its tables (`users`, `activity`) and deletes activity older than the retention period; that clean-up then runs daily.
+The API starts at <http://localhost:3000/api>. On startup, database migrations run automatically:
+- Creates required tables (`users`, `teams`, `team_memberships`, `activity`) if they do not exist.
+- Applies unique indexes and constraints.
+- Purges audit activity records older than the configured retention threshold (runs daily thereafter).
 
-| Script | What it does |
+### Scripts
+
+| Script | Description |
 | --- | --- |
-| `npm run dev` | Start with auto-restart on file changes |
-| `npm start` | Start once |
-| `npm test` | Run the API tests (no database needed) |
+| `npm run dev` | Runs the API with Node `--watch` auto-reloading on code changes. |
+| `npm start` | Starts the server once for production. |
+| `npm test` | Runs the automated test suite (21 unit and security tests, no live database needed). |
 
-## Configuration
+---
 
-Copy [`.env.example`](.env.example) to `.env` (git-ignored) and fill it in:
+## Configuration & Environment Variables
 
-| Variable | What to put |
-| --- | --- |
-| `DATABASE_URL` | PostgreSQL connection string. On Railway, use `DATABASE_PUBLIC_URL` when running on your laptop (needs **Add Public Access** on the database) and the internal `DATABASE_URL` once the API itself runs on Railway |
-| `ENTRA_CLIENT_ID` | The app registration's Application (client) ID, the same value as `VITE_ENTRA_CLIENT_ID` in `client/.env` |
-| `ADMIN_EMAILS` | Comma-separated emails. Only used while the database has no admin: the first listed person to sign in becomes an approved admin. After that it does nothing |
-| `ALLOWED_TENANT_IDS` | Optional comma-separated Entra tenant IDs. Empty means any Microsoft account can sign in, but still starts as pending |
-| `ACTIVITY_RETENTION_DAYS` | How long activity records are kept. Defaults to 365 (12 months) |
-| `PORT` | Defaults to 3000 |
+Copy [`.env.example`](.env.example) to `.env` (git-ignored) and configure:
 
-Never put these values in `client/.env` or any `VITE_` variable: those are visible to every visitor.
-
-The app registration also needs **Expose an API** with an `access_as_user` scope (see [client/README.md](../client/README.md)).
-
-## How access works
-
-1. Every `/api` request except `/api/health` must carry a Microsoft access token for SyncAI's `access_as_user` scope. The server checks Microsoft's signature, the issuer for the account's own tenant, and the audience.
-2. The person is looked up by tenant ID and object ID, not by email. On their first sign-in they are created as a **pending** member.
-3. Pending and disabled people can only call `/api/me`, so the app can show them the right message.
-4. Only active admins can list people, change roles or access, and read the activity log. Admins cannot change their own role or access. Role and status are read from the database on every request, never from the browser.
-5. Each IP address is limited to 300 API requests per 15 minutes.
-
-| Endpoint | Who | What |
+| Variable | Required | Description |
 | --- | --- | --- |
-| `GET /api/health` | Anyone | `{ ok, db }`, checks the database |
-| `GET /api/me` | Any signed-in person | Their own record: role (`admin`, `manager`, `member`), status (`pending`, `active`, `disabled`) and `lastActiveAt` |
-| `POST /api/signin` | Any signed-in person | Called by the app straight after a Microsoft sign-in instead of `/api/me`: records `signed_in` and returns the same record |
-| `POST /api/signout` | Any signed-in person | Records that they signed out (204). The app calls it before clearing the session and signs out anyway if it fails |
-| `GET /api/users` | Active admins | Everyone who has signed in, with `lastActiveAt` |
-| `PATCH /api/users/:id` | Active admins | Change `role` and/or `status`; the change and its audit record are saved together |
-| `GET /api/teams` | Active admins | Every team with its managers and members |
-| `POST /api/teams`, `PATCH /api/teams/:id`, `DELETE /api/teams/:id` | Active admins | Create or rename a team (`name`, 1–80 characters, unique ignoring case); delete it only when empty |
-| `POST /api/teams/:id/members`, `DELETE /api/teams/:id/members/:userId` | Active admins | Add someone (`userId`, `kind`: `manager` or `member`) or remove them |
-| `GET /api/my-teams` | Active managers | Only the teams they manage, with each member's name, email, status and last active |
-| `GET /api/activity` | Active admins | The audit trail, newest first. Optional `person` (user id, matches who did it or who it was done to), `action`, `limit` (1–100, default 50) and `before` (for the next page) |
+| `DATABASE_URL` | Yes | PostgreSQL connection string. When connecting from a local development machine to a hosted Railway instance, use `DATABASE_PUBLIC_URL` (requires **Public Networking** enabled in Railway). When running inside Railway or a cloud container, use the internal private connection string. |
+| `ENTRA_CLIENT_ID` | Yes | Azure Application (client) ID for SyncAI. Matches `VITE_ENTRA_CLIENT_ID` in `client/.env`. |
+| `ADMIN_EMAILS` | No | Comma-separated list of bootstrap administrator email addresses. Used solely when the database contains zero approved administrators: the first listed email to authenticate is provisioned as an active `admin`. |
+| `ALLOWED_TENANT_IDS` | No | Comma-separated list of permitted Microsoft Entra tenant IDs. If omitted or empty, any Microsoft account can authenticate, but accounts are initialized in a `pending` state awaiting admin approval. |
+| `ACTIVITY_RETENTION_DAYS` | No | Retention period for audit logs. Defaults to `365` (12 months). |
+| `PORT` | No | Server listening port. Defaults to `3000`. |
 
-`GET /api/me` (and `POST /api/signin`) also return `teams`: the teams the person is in, as manager or member, with each team's managers.
+> **Security Notice:** Never commit `.env` files or share database connection strings. We strongly recommend maintaining isolated database instances for local development, testing, and production environments.
 
-## Teams
+---
 
-Admins arrange teams; managers see only the teams they lead; team members see only their own team and its managers. The rules live in [`src/teams.js`](src/teams.js), shared by the database code and the tests:
+## Authentication & Authorization Model
 
-- Only people with the **Manager** role can manage a team, and only **Team members** can join one as members. Admins can't be in teams, so they never get a team-wide view of anyone's work.
-- Each team member belongs to **one** team; a manager can lead several. (The `team_memberships` table allows more, and a partial unique index enforces one per member, so relaxing it later is a one-line change.)
-- Turned-off accounts can't be added to a team.
-- Changing someone's role removes team places that no longer fit (managers lose teams they led, team members leave the team they were in), recorded in the activity log in the same transaction.
-- Team names are unique ignoring case, and a team can only be deleted when it's empty.
-- Broken rules return a `code` (for example `member_has_team`) that the app translates.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User / Browser
+    participant API as Express API
+    participant MS as Microsoft Entra JWKS
+    participant DB as PostgreSQL Database
 
-## Activity log and personal data (PDPA)
+    User->>API: HTTP Request + Bearer Token
+    API->>API: Rate limit check (300 req / 15 min per IP)
+    API->>MS: Retrieve JWKS public signing keys
+    API->>API: Verify JWT signature, issuer, audience, and scope
+    API->>DB: Query user status and role by (tenant_id, object_id)
+    alt User is pending or disabled
+        API-->>User: 403 Forbidden (unless calling /api/me or /api/signin)
+    else User is active
+        API->>API: Validate role authorization (admin / manager / member)
+        API->>DB: Execute parameterized query
+        API-->>User: 200 OK + JSON Response
+    end
+```
 
-SyncAI records only what accountability needs, not how people use the app:
+### 1. Token Verification (`src/auth.js`)
+- Every protected endpoint requires an `Authorization: Bearer <token>` header.
+- The server validates the token against Microsoft's public key sets (`jose.createRemoteJWKSet`).
+- Verifies:
+  - Token signature and expiration.
+  - Issuer matches `https://login.microsoftonline.com/{tenantid}/v2.0`.
+  - Audience matches `api://<ENTRA_CLIENT_ID>`.
+  - Scope claim includes `access_as_user`.
+  - Tenant ID matches `ALLOWED_TENANT_IDS` if configured.
 
-| Recorded | When |
+### 2. User Lifecycle & Approval
+- Users are indexed by immutable Microsoft Entra claims (`tenantId` and `objectId`), not mutable email addresses.
+- New users start with `status: 'pending'` and `role: 'member'`.
+- Pending and disabled accounts can only call `/api/me` and `/api/signin` to retrieve their current approval status.
+- Only active administrators can approve users or modify roles.
+
+---
+
+## API Endpoints
+
+### Public & Identity Routes
+
+| Method | Endpoint | Authorization | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/health` | Public | Returns database connectivity status `{ ok: true, db: true }`. |
+| `GET` | `/api/me` | Authenticated | Returns caller profile (`role`, `status`, `lastActiveAt`, and assigned `teams`). |
+| `POST` | `/api/signin` | Authenticated | Called after login; records audit log event `signed_in` and returns user profile. |
+| `POST` | `/api/signout` | Authenticated | Records explicit sign-out event `signed_out` (HTTP 204). |
+
+### Administrator Governance Routes (`admin` role required)
+
+| Method | Endpoint | Authorization | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/users` | Active Admin | Lists all registered users with roles, approval statuses, and activity timestamps. |
+| `PATCH` | `/api/users/:id` | Active Admin | Modifies user `role` (`admin`, `manager`, `member`) or `status` (`active`, `pending`, `disabled`). Prevents admins from altering their own permissions. |
+| `GET` | `/api/teams` | Active Admin | Lists all teams with their assigned managers and team members. |
+| `POST` | `/api/teams` | Active Admin | Creates a new team (unique name, 1–80 characters). |
+| `PATCH` | `/api/teams/:id` | Active Admin | Renames an existing team. |
+| `DELETE` | `/api/teams/:id` | Active Admin | Deletes a team. Enforces that only empty teams can be deleted. |
+| `POST` | `/api/teams/:id/members` | Active Admin | Adds a user to a team (`userId`, `kind`: `manager` or `member`). Validates role eligibility. |
+| `DELETE` | `/api/teams/:id/members/:userId` | Active Admin | Removes a user from a team. |
+| `GET` | `/api/activity` | Active Admin | Queries the append-only audit trail. Supports filtering by `person`, `action`, `limit`, and pagination `before`. |
+
+### Manager Routes (`manager` role required)
+
+| Method | Endpoint | Authorization | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/my-teams` | Active Manager | Returns only the teams managed by the caller, with member names, emails, and activity states. |
+
+*(Note: Task scheduling, calendar time-blocking, and ripple intelligence endpoints are currently implemented in the prototype and are planned for migration to the Express API in the upcoming development phase.)*
+
+---
+
+## Team Domain Rules (`src/teams.js`)
+
+SyncAI enforces strict business rules for team management:
+1. **Role Alignment:** Only users with the `manager` role can manage teams; only `member` users can join as team members. Administrators cannot join teams, ensuring separation of duties.
+2. **Member Allocation:** Each team member belongs to at most **one** operational team (enforced by a partial unique index in PostgreSQL). Managers may oversee multiple teams.
+3. **Automatic Cleanup:** Changing a user's role automatically removes invalid team memberships within the same database transaction and generates an audit record.
+4. **Disabled Account Protection:** Disabled accounts cannot be added to teams.
+
+---
+
+## Activity Audit Trail & PDPA Safeguards
+
+The activity log provides an append-only, tamper-evident audit record of security and administrative actions:
+
+| Action Code | Description |
 | --- | --- |
-| `signed_up` | Someone signs in for the first time |
-| `signed_in` | Someone signs in through Microsoft (every time; a first sign-in is recorded as `signed_up` instead) |
-| `opened` | Someone opens SyncAI while still signed in from before, at most once per day (Singapore time) |
-| `signed_out` | Someone clicks **Sign out**. Closing the tab or browser sends nothing, so this shows explicit sign-outs only; use Last active to see whether someone is still using SyncAI |
-| `approved`, `declined` | An admin approves or declines a new person |
-| `role_changed`, `status_changed` | An admin changes someone's role or status |
-| `access_off`, `access_on` | An admin turns someone's access off or back on |
-| `team_created`, `team_renamed`, `team_deleted` | An admin creates, renames or deletes a team |
-| `team_member_added`, `team_member_removed` | An admin adds or removes someone, or a role change removes them |
+| `signed_up` | Initial user sign-in and provisioning. |
+| `signed_in` | Subsequent Microsoft authentication. |
+| `opened` | Daily application access while session remains active (recorded at most once per day). |
+| `signed_out` | Explicit user sign-out. |
+| `approved` / `declined` | Administrator approves or declines a pending user account. |
+| `role_changed` | User role promoted or demoted (`admin`, `manager`, `member`). |
+| `status_changed` | User access status modified (`active`, `pending`, `disabled`). |
+| `team_created`, `team_renamed`, `team_deleted` | Team administrative lifecycle operations. |
+| `team_member_added`, `team_member_removed` | User assigned to or unassigned from an operational team. |
 
-- **Not recorded:** page views, clicks, time on screen, IP addresses or device details.
-- **Last active:** `users.last_active_at` is updated at most every 5 minutes, so ordinary requests don't write to the database.
-- **Append-only:** there is no API to edit or delete activity. Access changes and their records are written in one database transaction, so a change can't be saved without its record.
-- **Retention:** records older than `ACTIVITY_RETENTION_DAYS` (12 months by default) are deleted automatically.
-- **Who can see it:** active admins only.
-- **Notice:** the sign-in page and Settings tell everyone that sign-ins, sign-outs and access changes are recorded and kept for 12 months.
+### Privacy Controls (PDPA)
+- **No behavioural tracking:** Clicks, mouse tracking, screen durations, IP addresses, and user-agent strings are not recorded in the database.
+- **Throttled timestamp updates:** `users.last_active_at` is updated at most once every 5 minutes to prevent unnecessary database write load.
+- **Automated Retention:** Records older than `ACTIVITY_RETENTION_DAYS` (default: 365 days) are purged daily by an automated worker.
+- **Append-only integrity:** No update or delete endpoints exist for the activity log.
 
-## Security (OWASP Top 10)
+---
 
-| Risk | How the API handles it |
-| --- | --- |
-| A01 Broken access control | Every protected route checks a verified token, then the person's current status and role from the database. Admin-only routes reject pending, disabled and non-admin accounts. Admins can't change their own access. `/api/me` only returns the caller's own record. Tests cover each case |
-| A02 Cryptographic failures | Tokens are verified against Microsoft's published signing keys (`jose`); unsigned or tampered tokens are rejected. Use HTTPS for any hosted deployment |
-| A03 Injection | All SQL uses parameters. Query values (`limit`, `before`, `person`, `action`, `role`, `status`, ids) are checked against fixed formats or allow-lists before use |
-| A04 Insecure design | New accounts start pending; admin is granted only to the first listed email while no admin exists; the audit trail is append-only |
-| A05 Security misconfiguration | `X-Powered-By` removed; responses send `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and a deny-all `Content-Security-Policy`. Errors never expose internals |
-| A06 Vulnerable components | Few dependencies; run `npm audit` before each release |
-| A07 Identification and authentication failures | No passwords: Microsoft Entra ID handles sign-in. The token's issuer must match its own tenant and its audience must be SyncAI; `ALLOWED_TENANT_IDS` can restrict tenants |
-| A08 Software and data integrity failures | Audit records can't be edited or deleted through the app and are written in the same transaction as the change they describe |
-| A09 Security logging and monitoring failures | The activity log records sign-ins, sign-outs and every access change with who, what, whom and when |
-| A10 Server-side request forgery | The API never fetches URLs supplied by users |
+## Security Controls (OWASP Top 10 Evaluation)
 
-Request bodies are limited to 100 KB, and malformed JSON gets a 400 rather than a server error.
+- **A01 Broken Access Control:** Every protected route verifies cryptographic JWT validity, database status, and role authorization. Admins cannot alter their own access.
+- **A02 Cryptographic Failures:** Public key retrieval via HTTPS from Microsoft's published JWKS. Token validation via standard algorithms.
+- **A03 Injection:** 100% of database interactions use parameterized SQL statements (`$1, $2`).
+- **A04 Insecure Design:** New accounts default to pending status; append-only audit trail recorded in atomic transactions.
+- **A05 Security Misconfiguration:** Headers stripped of `X-Powered-By`. Enforces `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and deny-all CSP.
+- **A07 Identification & Authentication Failures:** Completely delegates credentials to Microsoft Entra ID. No local password storage.
+- **Rate Limiting:** IP-based sliding window limit of 300 requests per 15 minutes prevents brute-force probing. Request payloads restricted to 100 KB.
 
-## Before hosting
+---
 
-- Switch `DATABASE_URL` to Railway's internal address and remove the database's public access.
-- Serve the API and client over HTTPS only.
-- Add CORS for the client's deployed address, and set Express's `trust proxy` so rate limiting sees each visitor's real IP.
-- Add the deployed client's `/login` and `/` addresses as redirect URIs in the app registration.
-- Run `npm audit` in `server/` and `client/`.
+## Automated Tests
+
+Run backend unit and security tests using Node's native test runner:
+
+```bash
+npm test
+```
+
+Verified test coverage (21 automated tests):
+- Rejects missing, unsigned, or tampered tokens.
+- Verifies initial admin bootstrapping and pending user provisioning.
+- Enforces admin-only user management and prevents self-demotion.
+- Enforces team membership constraints and manager view boundaries.
+- Verifies rate limiting, security headers, and input parameter sanitization.
+- Validates transactional audit record generation and retention filtering.

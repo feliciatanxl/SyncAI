@@ -1,219 +1,241 @@
-# SyncAI architecture
+# SyncAI Architecture Specification
 
-SyncAI is a Smart Work Planner for Town Council Property Officers (EMS problem statement **12i**, Team 24, IT2134-05). This document describes the proposed architecture, what EM Services told us, and how the current prototype maps onto the build.
+SyncAI is an AI-enabled **Smart Work Planner** developed for Town Council Property Officers and their supervisory managers. Built for **EM Services (EMS) Challenge PS 12i — Smart Work Planner (Microsoft-based)** (IT2134 Team 24, November 2026).
 
-> **Status:** Week 5 proposal (Nov 2026). Everything on the Microsoft side is **proposed**: tenant access, API permissions, licensing and deployment requirements still need confirming with EMS. The prototype uses mock Microsoft 365 connections. We do not claim GCC compliance.
+This document details the architectural design of SyncAI, separating the **implemented full-stack foundation**, the **implemented static prototype intelligence**, and the **planned Microsoft 365 and backend integrations**.
 
-## 1. Goals from the brief
+---
 
-| 12i asks for | How the architecture answers it |
-| --- | --- |
-| Organise officers' tasks and schedules | Tasks stored in SyncAI, with Outlook Calendar and Microsoft To Do read through Microsoft Graph where permitted |
-| Prioritise work by deadline and effort | A rules-based planning engine in the API scores each task on safety, mandatory deadlines, service impact and long-term consequences, and scheduling feasibility, and explains every score |
-| Suggest a realistic daily or weekly plan | The engine time-blocks tasks around meetings, working hours and estimated durations; a person reviews and approves the plan |
+## 1. Architectural Objectives & Problem Statement Alignment
 
-**USP: Operationally Aware AI Scheduling.** Understand operational priorities, build achievable plans, explain necessary adjustments.
+| PS 12i Requirement | Architectural Solution | Implementation Status |
+| --- | --- | --- |
+| **Organise tasks and schedules** | Centralised task management with time-blocking around calendar commitments, meetings, and travel buffers. | • Static Prototype: Implemented (`prototype/js/planner.js`)<br/>• Full-Stack: Team and user foundation built; task engine migration in development. |
+| **Prioritise work by deadline and effort** | Explainable, deterministic priority scoring evaluating safety, statutory compliance, service impact, and long-term consequences. | • Static Prototype: Implemented (`prototype/js/ai.js`)<br/>• Full-Stack: Logic documented and tested; API port planned. |
+| **Suggest realistic daily or weekly plans** | Capacity-aware scheduling engine detecting overbooked days, meeting conflicts, and mathematically impossible deadlines. | • Static Prototype: Implemented (`prototype/js/planner.js`)<br/>• Full-Stack: API port planned. |
+| **Operational Ripple Intelligence (USP Differentiator)** | Multi-level dependency cascade analysis evaluating the downstream effect of disruptions and comparing 3 operational alternatives. | • Static Prototype: Implemented (`prototype/js/ripple.js`)<br/>• Full-Stack: API port planned. |
+| **Enterprise Identity & Governance** | Microsoft Entra ID single sign-on, role-based access control, admin approval workflows, and append-only audit logging. | • Full-Stack: **Implemented** in React (`client/`) and Express (`server/`) with PostgreSQL. |
 
-## 2. Proposed architecture
+### Core Differentiators
+
+- **Flagship USP — Operationally Aware AI Scheduling:** Unlike traditional schedulers that blindly sort by due date or complaint frequency, SyncAI plans around operational consequence, statutory non-negotiables, and physical capacity.
+- **Signature Differentiator — Operational Ripple Intelligence:** Understands how delaying an inspection or shifting an officer cascades across secondary inspections, contractor work orders, and compliance certificates, providing a 3-alternative decision matrix.
+
+---
+
+## 2. System Architecture
+
+To maintain clarity and engineering truthfulness, SyncAI distinguishes between the **currently implemented full-stack application** and the **target smart planning architecture**.
+
+### Diagram 1: Implemented Full-Stack Architecture
+
+The live full-stack system provides enterprise identity, role governance, team management, and audit logging.
 
 ```mermaid
-flowchart LR
-  subgraph Core["SyncAI core · we build"]
-    WEB["React web app<br/>Officer and supervisor dashboards"]
-    API["Node.js + Express API<br/>Planning and prioritisation engine"]
-    DB[("PostgreSQL<br/>Tasks, plans, audit log")]
-  end
-  subgraph M365["Microsoft 365 · proposed, subject to access"]
-    ENTRA["Microsoft Entra ID<br/>Sign-in (MSAL)"]
-    GRAPH["Microsoft Graph API"]
-    CAL["Outlook Calendar<br/>Meetings and availability"]
-    TODO["Microsoft To Do<br/>Tasks and due dates"]
-    PA["Power Automate<br/>Approval workflows"]
-    TEAMS["Microsoft Teams<br/>Alerts and notifications"]
-  end
-  WEB <-->|"HTTPS API"| API
-  WEB -->|"Sign-in (MSAL)"| ENTRA
-  API --> DB
-  API -->|"Graph API calls"| GRAPH
-  GRAPH --> CAL
-  GRAPH --> TODO
-  API -.->|"Approval request"| PA
-  PA -.-> TEAMS
+flowchart TD
+    subgraph Browser["User Browser (Single Page Application)"]
+        ReactApp["React 19 + Vite + Fluent UI<br/>(Portals: Admin, Manager, Team Member)"]
+        MSALClient["@azure/msal-browser<br/>Authentication Client"]
+    end
+
+    subgraph IdentityProvider["Identity Provider"]
+        EntraID["Microsoft Entra ID<br/>(Personal & Work/School Accounts)"]
+    end
+
+    subgraph BackendAPI["Backend API Service (Express 5 on Node.js 22)"]
+        RateLimiter["express-rate-limit<br/>(300 req / 15 min per IP)"]
+        SecurityHeaders["Security Headers Middleware<br/>(CSP, HSTS, no-store, nosniff)"]
+        JWTMiddleware["JWT Validation Middleware (jose)<br/>• Microsoft JWKS signature check<br/>• Issuer & Tenant validation<br/>• Audience: api://<client-id><br/>• Scope: access_as_user"]
+        RBACMiddleware["RBAC & Status Enforcement<br/>• Check active status in DB<br/>• Check admin/manager role<br/>• Reject pending/disabled"]
+        RouteControllers["API Route Handlers<br/>• /api/me & /api/signin<br/>• /api/users (Admin approvals)<br/>• /api/teams (Team placement)<br/>• /api/activity (12M Audit log)"]
+    end
+
+    subgraph DataStorage["Relational Database Tier"]
+        PostgreSQL[("PostgreSQL Database (Hosted on Railway)<br/>• users (auth & roles)<br/>• teams & team_memberships<br/>• activity (append-only audit trail)")]
+    end
+
+    ReactApp -->|1. Trigger Sign-In| MSALClient
+    MSALClient -->|2. OAuth 2.0 / OIDC Flow| EntraID
+    EntraID -->|3. Issue JWT Access Token| MSALClient
+    MSALClient -->|4. Return Bearer Token| ReactApp
+    ReactApp -->|5. HTTPS API Request + Bearer Token| RateLimiter
+    RateLimiter --> SecurityHeaders
+    SecurityHeaders --> JWTMiddleware
+    JWTMiddleware --> RBACMiddleware
+    RBACMiddleware --> RouteControllers
+    RouteControllers -->|6. Parameterized SQL Queries (pg)| PostgreSQL
 ```
 
-| Component | Role |
-| --- | --- |
-| **React web app** | Task management, daily planning and workload visibility for officers and supervisors |
-| **Node.js + Express API** | Scheduling logic, priority scoring, workload calculations and the backend APIs. The backend makes the Graph calls, so the browser never reaches organisational data directly |
-| **PostgreSQL** | Tasks, plans, settings and the audit log of recommendations, approvals and overrides |
-| **Microsoft Entra ID** | Proposed organisational sign-in using MSAL |
-| **Microsoft Graph** | Authorised access to Outlook Calendar (meetings, free/busy) and Microsoft To Do (tasks, due dates), synced where permitted |
-| **Power Automate** | Proposed approval flows for schedule or assignment changes |
-| **Microsoft Teams** | Proposed alerts to officers and supervisors |
-| **Azure OpenAI** | Optional, later phase, for language features such as turning text into tasks. Not needed for the first working prototype |
+### Diagram 2: Target Smart Planning Architecture
 
-**Why these choices**
-
-- **Rules first, LLM second.** Priority scores, schedules and risk come from deterministic rules, so every result is explainable and repeatable. A language model would only read and write text.
-- **React + Node.js rather than Power Apps.** The drag-and-drop board, planner calendar and What-If comparisons are hard to build well in Power Apps. "Microsoft-based" is met by integrating Microsoft 365 (Entra ID, Graph, Power Automate, Teams) rather than rebuilding everything on Power Platform.
-- **Power Automate for approvals, not for the planner.** Scoring and scheduling stay in the API, where they can be tested and explained. Calling our own API from a flow may need a premium or custom connector; EMS said it will handle licences.
-- **Earlier lift-inspection prototypes (PS 12b)** reportedly had workable logic but struggled to fit the Microsoft ecosystem. That is why Microsoft integration is designed in from the start.
-- **Ready for a restricted environment, not GCC-compliant.** A clean API boundary, environment-based configuration, role-based authorisation, audit logging and secret management keep a later move to a government cloud possible without claiming compliance now.
-
-## 3. Priority logic
-
-Four operational factors, weighed together. These are decision factors, not an officially approved four-step ranking; the weights below are our proposal and will be validated with EMS.
-
-| Factor | What the planner considers | Prototype today (`js/ai.js` `scoreTask`) |
-| --- | --- | --- |
-| **Safety** | Genuine risks to residents, staff and property | Safety flag +15, the largest single flag |
-| **Mandatory deadlines** | Statutory, compliance and funding-approval obligations | Statutory flag: +20 within 3 working days, +10 otherwise; kept in place during emergency re-planning |
-| **Service impact and long-term consequences** | Real resident needs, operational disruption, and the cost of delaying the task. Not how vocal a resident is | High service impact +8; repeat complaints shown at **0 points** so volume is visible but never raises priority. Long-term consequences are not scored separately yet |
-| **Scheduling feasibility** | Estimated durations against availability, meetings and capacity | Effort estimates, start-by deadlines, capacity checks and the schedule check |
-
-## 4. Data model
+The target architecture incorporates the port of the prototype's deterministic rules and ripple engine into the Express API, integrated with Microsoft Graph and Power Automate.
 
 ```mermaid
-erDiagram
-  OFFICER ||--o{ TASK : owns
-  OFFICER ||--o{ ABSENCE : has
-  OFFICER ||--o{ MEETING : attends
-  TASK }o--o{ TASK : depends_on
-  TASK ||--o{ CHECKLIST_ITEM : has
-  OFFICER ||--o{ PLAN : has
-  PLAN ||--o{ PLAN_BLOCK : contains
-  PLAN_BLOCK }o--|| TASK : schedules
-  TASK ||--o{ AUDIT_ENTRY : logs
+flowchart TD
+    subgraph Client["React Client Application"]
+        UI_Dash["Property Officer Daily View"]
+        UI_Plan["Smart Planner & Calendar"]
+        UI_Sim["What-If Disruption Simulator"]
+        UI_Audit["Admin Governance & Audit"]
+    end
+
+    subgraph CoreBackend["SyncAI Express API (Planned Engine Migration)"]
+        AuthModule["Entra ID Token Verification (Implemented)"]
+        TeamModule["User & Team Management (Implemented)"]
+        AuditModule["12-Month Audit Service (Implemented)"]
+        
+        subgraph PlanningService["Planning & Intelligence Engine (In Development)"]
+            ScoreEngine["Consequence-Aware Priority Scorer<br/>(Ported from prototype ai.js)"]
+            FeasibilityEngine["Capacity & Calendar Feasibility Engine<br/>(Ported from prototype planner.js)"]
+            RippleEngine["Operational Ripple Intelligence Service<br/>(Ported from prototype ripple.js)"]
+            AlternativeEngine["Three-Alternative Scenario Evaluator<br/>(Ported from prototype ripple.js)"]
+        end
+    end
+
+    subgraph Storage["PostgreSQL Database"]
+        DB_Users[("users & teams (Implemented)")]
+        DB_Audit[("activity audit log (Implemented)")]
+        DB_Tasks[("tasks & dependencies (Planned)")]
+        DB_Plans[("schedules & overrides (Planned)")]
+    end
+
+    subgraph M365["Microsoft 365 Cloud (Planned / Subject to EMS Access)"]
+        GraphAPI["Microsoft Graph API"]
+        OutlookCal["Outlook Calendar (Meetings & Free/Busy)"]
+        ToDoTasks["Microsoft To Do (Tasks & Due Dates)"]
+        PowerAutomate["Power Automate Approval Flows"]
+        TeamsClient["Microsoft Teams (Adaptive Cards & Alerts)"]
+    end
+
+    Client <-->|HTTPS + Bearer Token| AuthModule
+    AuthModule --> TeamModule
+    AuthModule --> AuditModule
+    AuthModule --> PlanningService
+    
+    TeamModule --> DB_Users
+    AuditModule --> DB_Audit
+    PlanningService --> DB_Tasks
+    PlanningService --> DB_Plans
+
+    PlanningService -.->|Sync Availability| GraphAPI
+    GraphAPI -.-> OutlookCal
+    GraphAPI -.-> ToDoTasks
+    PlanningService -.->|Trigger Reassignment Approval| PowerAutomate
+    PowerAutomate -.->|Post Approval Card| TeamsClient
 ```
 
-| Entity | Source | Notes |
+---
+
+## 3. Component Breakdown & Implementation State
+
+### 3.1 Implemented Full-Stack Foundation
+
+The production foundation is fully functional in `client/` and `server/`:
+
+1. **Authentication & Token Handling:**
+   - Single Sign-On powered by Microsoft Entra ID via `@azure/msal-browser` and `@azure/msal-react`.
+   - The frontend acquires delegated access tokens for the custom scope `api://<client-id>/access_as_user`.
+   - The Express server validates tokens cryptographically using `jose`, retrieving public keys dynamically from Microsoft's JWKS endpoint (`https://login.microsoftonline.com/common/discovery/v2.0/keys`).
+   - Validates audience (`aud`), token issuer (`iss`), and tenant ID (`tid`).
+2. **Access Control & User Approval Flow:**
+   - First-time authenticated users are provisioned in PostgreSQL with a `pending` status.
+   - An initial administrator is bootstrapped via `ADMIN_EMAILS` configuration; subsequent admin and manager promotions require explicit administrator action.
+   - Active administrators approve users as either **Manager** or **Team Member** via `/api/users/:id`.
+   - Disabled or pending accounts are blocked from accessing operational endpoints.
+3. **Team Governance:**
+   - Strict team domain rules implemented in `server/src/teams.js`:
+     - Managers manage teams; Team Members join teams.
+     - Administrators cannot join operational teams, enforcing separation of duties.
+     - Each member belongs to at most one team; managers may lead multiple teams.
+     - Role demotions automatically remove invalid team assignments within a single database transaction.
+4. **Append-Only Audit Activity Logging:**
+   - All access changes (approvals, role adjustments, status changes, team creations, member assignments) and sign-ins are recorded to PostgreSQL.
+   - Records are append-only (no update or delete endpoints).
+   - Automated retention cleanup purges records older than `ACTIVITY_RETENTION_DAYS` (default: 365 days) daily.
+
+### 3.2 Implemented Static Prototype Intelligence
+
+Demonstrated in `prototype/` with 42 passing automated tests:
+
+1. **Deterministic Priority Scoring (`prototype/js/ai.js`):**
+   - Scores tasks on a 0–100 scale:
+     $$\text{Score} = \text{Base Priority} + \text{Deadline Urgency} + \text{Safety} + \text{Statutory} + \text{Consequence} + \text{Feasibility Margin} + \text{Unblocks Others}$$
+   - **Safety Hazards (+20 pts):** Direct risks to life, limb, or property outrank routine work.
+   - **Mandatory Statutory Deadlines (+25 / +15 pts):** Hard constraints (e.g. BCA lift certifications, SCDF compliance) that cannot slip.
+   - **Service Impact (+8 pts) & Long-Term Consequences (+12 pts):** Evaluates compounding defects (e.g. seepage corroding rebar).
+   - **Repeat Complaints (0 pts):** Explicitly awards 0 priority points, insulating officers from loudest-voice bias.
+2. **Capacity & Schedule Feasibility (`prototype/js/planner.js`):**
+   - Calculates working hours against Outlook meetings, lunch breaks, and travel buffers.
+   - Detects mathematically impossible deadlines where task effort exceeds available free hours before due date.
+   - Generates start-by warnings and smart reminders.
+3. **Operational Ripple Intelligence (`prototype/js/ripple.js`):**
+   - Multi-level dependency traversal with cycle detection (e.g. `t103` → `t104` → `t112`).
+   - Assesses capacity deficits resulting from emergency incidents or staff medical leave.
+   - Identifies exposed statutory deadlines and long-term defect risks across the downstream cascade.
+4. **Three-Alternative Scenario Evaluation (`prototype/js/ripple.js`):**
+   - Side-by-side evaluation of **No Action**, **Reschedule Lower-Impact Work**, and **Reassign Eligible Work**.
+   - Validates candidate officer qualifications against category requirements (e.g., lift specialist certifications), flagging officers who have free time but lack required domain qualifications.
+   - Generates human-in-the-loop recommendations and manager escalation warnings if team capacity cannot satisfy statutory commitments.
+
+### 3.3 Planned Backend Migrations & Microsoft Integrations
+
+1. **Migration of Intelligence Engine to Express:**
+   - Migrate scoring, scheduling, and ripple logic from client-side prototype JavaScript into modular Node.js services.
+   - Persist tasks, dependencies, officer availability, and generated plans into PostgreSQL tables.
+2. **Microsoft Graph API Integration:**
+   - Delegated Graph permissions (`Calendars.Read`, `Tasks.ReadWrite`) to read real Outlook free/busy slots and sync tasks with Microsoft To Do.
+3. **Power Automate & Microsoft Teams:**
+   - Dispatch Adaptive Cards to Microsoft Teams via Power Automate when supervisory reassignments or emergency re-plans require manager sign-off.
+4. **Optional Language Model Services:**
+   - Azure OpenAI integration evaluated strictly as a convenience layer for natural-language task creation and meeting minutes parsing. Core scheduling, constraint checking, and ripple intelligence remain strictly deterministic.
+
+---
+
+## 4. Security Architecture & Threat Mitigation
+
+The security model is aligned with OWASP Top 10 guidelines and Singapore Personal Data Protection Act (PDPA) principles.
+
+| Security Control | Implementation in SyncAI | Verification |
 | --- | --- | --- |
-| Officer, role | Entra ID (proposed) or seeded test accounts | Officer and supervisor roles |
-| Task | SyncAI, To Do via Graph (proposed) | `sourceSystem` + `sourceId` keep a link back to the original record. Which system is the source of truth is an open question |
-| Meeting, free/busy | Outlook via Graph (proposed) | Read only; approved plan blocks could be written back as calendar events |
-| Absence | Entered by supervisors | Stored as "MC" or "leave" only, never medical details |
-| Task-duration baselines | EMS's Property Officer time study (to be arranged) | Replaces the prototype's assumed effort baselines |
-| Audit entry | SyncAI | Every recommendation, approval and manual override |
+| **Token Validation** | Validates Microsoft Entra ID JWTs using `jose` with published Microsoft JWKS keys. Verifies signature, expiry, issuer (`https://login.microsoftonline.com/{tenantid}/v2.0`), and audience (`api://<client-id>`). | Verified in `server/test/api.test.js` |
+| **Server-Side Authorization** | User role and approval status are queried from the database on every request. Client claims are never trusted for authorization decisions. | Verified in `server/test/api.test.js` |
+| **Database Security** | All SQL queries utilize parameterized inputs (`$1, $2`) via `pg` to prevent SQL injection. Migrations enforce relational integrity and unique constraints. | Parameterized across `server/src/db.js` |
+| **Separation of Duties** | Administrators cannot join operational teams or view officer schedules. Managers only see their assigned teams. Team members only see their own team and manager. | Verified in `server/test/teams.test.js` |
+| **Rate Limiting & DoS Defense** | `express-rate-limit` enforces a maximum of 300 requests per 15 minutes per IP address. Request body payloads are capped at 100 KB. | Verified in `server/test/api.test.js` |
+| **HTTP Security Headers** | Express responses include `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and `Cache-Control: no-store`. | Verified in `server/test/api.test.js` |
+| **Privacy & Minimisation (PDPA)** | Minimal personal data stored (name, email, Microsoft OID). Absence data is recorded only as categorical "MC" or "leave"; medical details are strictly prohibited. | Verified in data model & tests |
+| **Append-Only Audit Trail** | Security-relevant events (sign-ins, role changes, approvals, team adjustments) are recorded in an append-only database table within the same transaction as the change. | Verified in `server/test/activity.test.js` |
 
-## 5. Roles
+---
 
-| Role | Sees | Can change |
-| --- | --- | --- |
-| **Officer** | Own tasks, own plan, why each task is ranked where it is | Own tasks and plan; accepts or rejects suggestions |
-| **Supervisor** | Team workload, availability, scheduling risks, simulations | Assign and reassign work, approve important changes |
+## 5. Deterministic AI vs. Language Models
 
-Changes to SLAs or how long a category of case should take are **manager** decisions, not officer ones (see §8). Role checks run in every API route, not only in the screen.
+A critical architectural principle of SyncAI is the deliberate separation between **deterministic decision logic** and **generative language models**:
 
-**How the build names these roles.** The application uses three roles: **Admin**, **Manager** and **Team member** (stored as `admin`, `manager`, `member`). Manager corresponds to the supervisor workflow above and Team member to the Property Officer workflow. Admin is a technical role for approving accounts, assigning roles, arranging teams and reading the audit log; it does not get a team-wide view of anyone's work.
+- **Why Scheduling Must Be Deterministic:**
+  - Town Council operations govern public safety and statutory regulations under the Town Council Act.
+  - Schedulers must guarantee hard constraints: a statutory lift inspection due today cannot be hallucinated away or deprioritised by a stochastic temperature setting.
+  - Every priority score and alternative recommendation must be fully explainable to officers, managers, and external auditors.
+- **The Role of Generative AI (Planned / Optional):**
+  - Generative models (e.g. Azure OpenAI) are considered solely for unstructured language tasks: turning natural-language emails or meeting minutes into structured candidate task fields.
+  - Model outputs are treated as untrusted inputs and must pass schema validation and human confirmation before entering the scheduling pipeline.
 
-### Assumptions to confirm with EMS
+---
 
-For the PoC we made these decisions where the brief is silent. Each is easy to change later:
+## 6. Client Requirements & EMS Feedback Integration
 
-| Assumption | Why | If EMS says otherwise |
-| --- | --- | --- |
-| Each Property Officer (Team member) belongs to **one** team; a Manager can lead several | Mirrors an officer reporting to one supervisor, and keeps "who manages this person?" unambiguous | The membership table already allows several teams per person; only one rule changes |
-| System administrators **don't** run teams | Keeps access administration separate from operational data, as the RBAC brief asks | Allow an admin to also be a team's manager, with the extra access audited |
-| Availability for the Smart Planner is **entered manually** (working hours and blocked time) | Works without extra Microsoft permissions or real calendar data during the PoC | Read Outlook free/busy through Microsoft Graph once access is approved |
+The architecture directly addresses feedback obtained during EM Services project kickstart sessions:
 
-## 6. Key flows
+1. **Safety & Statutory Priority:** EMS affirmed that genuine physical safety risks and statutory compliance dates must always take precedence over resident complaint volume.
+2. **Property Officer Workload Baselines:** EMS noted that Property Officers manage 2,500–2,700 units each, spending high proportions of time on resident interactions and contractor invoicing. SyncAI's feasibility engine incorporates these operational friction points.
+3. **OCC Complementarity:** EMS confirmed that the Operations Command Centre monitors real-time staff locations. SyncAI complements this by providing forward-looking schedule optimisation rather than real-time tracking.
+4. **Microsoft Alignment:** EMS established Microsoft 365 as the standard enterprise environment across Town Councils. SyncAI's technical design bridges custom high-performance scheduling logic with standard M365 authentication and communication channels.
 
-**Generate a daily plan**
+---
 
-```mermaid
-sequenceDiagram
-  actor Officer
-  participant App as React app
-  participant API as Node.js API
-  participant DB as PostgreSQL
-  participant G as Microsoft Graph
-  Officer->>App: Generate my plan
-  App->>API: POST /plans
-  API->>G: Read calendar free/busy (proposed)
-  API->>DB: Read open tasks, absences, settings
-  API->>API: Score, schedule, check risk (rules)
-  API-->>App: Draft plan + reasons
-  Officer->>App: Review, edit, accept
-  App->>API: POST /plans/{id}/accept
-  API->>DB: Save plan, log approval
-```
+## 7. Open Technical Questions & Deployment Prerequisites
 
-**Urgent safety task arrives**
-
-```mermaid
-sequenceDiagram
-  actor Officer
-  participant API as Node.js API
-  participant PA as Power Automate
-  actor Supervisor
-  Officer->>API: New urgent safety task
-  API->>API: Re-score and re-plan; protect safety and statutory work
-  API-->>Officer: Revised plan: what moved, what is now late
-  API->>PA: Approval request if work must be reassigned (proposed)
-  PA->>Supervisor: Teams approval card
-  Supervisor-->>PA: Approve or reject
-  PA-->>API: Decision, logged
-```
-
-## 7. Security and privacy
-
-- **Identity:** Entra ID single sign-on if EMS provides a tenant; mock accounts until then. The prototype's email and password page is a mock.
-- **Least privilege:** Graph scopes limited to calendar and task access for the signed-in user; secrets in environment configuration, never in code.
-- **AI safety:** every output is a suggestion a person approves; all approvals and overrides are audited; prompts never include medical details.
-- **PDPA:** minimal personal data; absences recorded as MC or leave only; EMS said shared data will have personal details anonymised.
-
-## 8. What EMS told us (client kickstart and written answers, Nov 2026)
-
-| Client said | What it means for SyncAI |
-| --- | --- |
-| Property Officers should act first on genuine safety concerns. A resident who is particularly vocal is not, by itself, a reason for higher priority | Safety is the largest flag. Repeat complaints show in the score breakdown at 0 points |
-| Statutory and compliance deadlines must be met, such as project funding-approval dates and compliance dates under the Town Council Act | Statutory flag on tasks; emergency re-planning keeps statutory work due today in place |
-| Service needs and potential long-term consequences matter | "High service impact" covers residents and operations. Long-term consequences are named in the priority logic and should get their own scoring factor in the build |
-| EMS will guide teams on prioritisation rules; there is no agreed formula | Our weights are a proposal to validate with EMS |
-| The Operations Command Centre already sees where officers are and what they are working on | SyncAI adds forward-looking planning on top of that visibility. Access is not confirmed; the prototype uses simulated availability |
-| EMS has an analysis of how long Property Officers spend on tasks, available through Albert | Planned replacement for our assumed effort baselines. Not received yet |
-| EMS is reviewing Property Officers' job design and welcomes ideas | SyncAI is designed around actual Property Officer responsibilities and realistic task durations |
-| Each Property Officer manages 2,500–2,700 units. Most time goes on talking to residents and on admin: matching contractor claims to site work and the term contract before payment | Admin and resident-feedback effort feed the overload and "falling behind" checks; the time study will show where to automate |
-| Microsoft is the baseline: every Town Council has Power Automate and Copilot; more depends on each council. EMS will handle licences | Power Automate approvals and Teams alerts are in the proposed stack; licensing is not treated as a blocker |
-| Feedback data is real time; admin and analysis extracts are pulled monthly or bi-monthly | Scheduling uses live task data; workload trends can use periodic extracts |
-| When repairs overrun the SLA, whether the SLA is realistic is a manager decision. EMS wants to know how long each category of case really takes | Re-plans need approval; estimated-vs-actual effort by category on **AI Insights** gives managers the evidence |
-| 12i works at the operations level: officers' business-as-usual, day-to-day tasks. 12h works at the management level and tracks one-off initiatives | SyncAI stays on daily work for officers and their supervisors. Project tracking is out of scope |
-| Each problem statement has a dedicated account owner; teams are encouraged to propose approaches and get feedback | Validate priority rules and demo scenarios with our account owner |
-| Contractor communication over calls and WhatsApp should become trackable for audits | Noted for a later phase |
-
-**From other EMS problem statements:** PS 12g covers consolidating multichannel resident feedback, so SyncAI does not duplicate case consolidation. PS 12h described a hierarchy of officers, managers/account owners and senior management, which informs our officer and supervisor views.
-
-## 9. Prototype mapping
-
-The prototype in [`prototype/`](../prototype/) is a browser-only slice with fictional data. Each part maps to a piece of the build.
-
-| Build | Prototype |
-| --- | --- |
-| React web app ([`client/`](../client/)) | Vanilla HTML / CSS / JavaScript with a Fluent 2-inspired design (`prototype/js/pages`) |
-| Entra ID sign-in | Mock sign-in page storing the role in browser storage (`prototype/site/login.html`) |
-| Planning engine (Node.js API) | `js/ai.js`, `js/planner.js`, `js/simulation.js` |
-| PostgreSQL | `localStorage` state seeded from `js/data.js` |
-| Graph, Power Automate, Teams | Mock Outlook meetings, simulated alerts and approvals |
-| Azure OpenAI | Keyword and pattern rules in `js/ai.js` |
-
-The prototype also has **Projects**, **HQ overview** and **Data sources** pages from an earlier, wider concept that covered 12g and 12h. They are outside our 12i scope and are not part of the proposed build.
-
-## 10. Roadmap
-
-| Stage | When | Scope |
-| --- | --- | --- |
-| **1. Proposal and discovery** | Week 5 (current) | Confirm scope, roles, client priorities and prototype direction |
-| **2. Core planning engine** | Date TBC | Build and test prioritisation, task-duration estimates and realistic schedule generation; validate priority rules with EMS |
-| **3. Integration and workflow validation** | Date TBC | Explore authorised Microsoft 365 integration, try approvals and notifications, test scheduling scenarios |
-| **4. Evaluation and final demonstration** | Date TBC | Usability testing, refine explanations, evaluate recommendations (with the time-study data if available), documentation |
-
-**Team workstreams:** (1) task intelligence and officer experience, (2) smart scheduling and workload planning, (3) Microsoft integration and supervisor workflow. Architecture, testing, documentation and the presentation are shared.
-
-## 11. Open questions for EMS
-
-1. Is GCC compatibility a future consideration for this proof of concept, or is deployment within GCC expected?
-2. Is there an approved Microsoft 365 tenant and app-registration process we can use to test Graph, or should we demonstrate integrations with simulated data?
-3. Are there data-classification, security, network-access or deployment restrictions we should design for?
-4. Should SyncAI keep its own task records or act as a planning layer over To Do and Outlook, and which system is the source of truth when they differ?
-5. What can we receive from the task-duration analysis (categories, average times, differences between officers), and when?
-6. Can the Operations Command Centre provide task assignments or availability for the prototype, or should we keep simulated data?
+1. **Tenant App Registration:** Confirmation of designated EMS / Town Council Azure tenant for configuring multi-tenant or single-tenant Graph API application permissions.
+2. **Graph Permission Approval:** Securing administrative consent for `Calendars.Read` (delegated) and `Tasks.ReadWrite` to synchronise real Outlook calendar slots and To Do items.
+3. **Power Automate Custom Connector:** Establishing whether Power Automate flows can call SyncAI API webhooks over HTTPS or if direct Teams webhooks should be used.
+4. **Task-Duration Empirical Data:** Incorporating EMS Property Officer time-study figures to replace prototype baseline duration heuristics with verified empirical distributions.
