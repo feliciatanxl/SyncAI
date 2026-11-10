@@ -16,6 +16,8 @@ import HowItDecides from '../components/HowItDecides.jsx'
 import PageHeader, { HeroStat } from '../components/PageHeader.jsx'
 import PortalShell from '../components/PortalShell.jsx'
 import SettingsPanel from '../components/SettingsPanel.jsx'
+import { GraphConnectionTest } from '../components/OutlookCalendar.jsx'
+import { clearReturnSection, returnSection } from '../auth/msal.js'
 import { apiRequest } from '../lib/api.js'
 import { useLocale, useT } from '../lib/i18n.js'
 import { greetingKey, greetingName, relativeTime, useNow } from '../lib/time.js'
@@ -45,7 +47,8 @@ function updatedLabel(t, locale, updatedAt, now) {
 
 export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSignOut, onSwitchAccount }) {
   const t = useT()
-  const [section, setSection] = useState('overview')
+  const [section, setSection] = useState(() => returnSection('overview'))
+  useEffect(clearReturnSection, [])
   const [users, setUsers] = useState(null)
   const [loadError, setLoadError] = useState(null)
   const [busyId, setBusyId] = useState(null)
@@ -141,7 +144,10 @@ export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSig
     >
       <Toaster toasterId={toasterId} />
       {section === 'settings' ? (
-        <SettingsPanel onReset={() => notify(t('settings.resetDone'))} />
+        <>
+          <SettingsPanel onReset={() => notify(t('settings.resetDone'))} />
+          <GraphConnectionTest />
+        </>
       ) : loadError ? (
         <MessageBar intent="error" className="portal-error">
           <MessageBarBody>

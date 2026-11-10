@@ -470,6 +470,7 @@ code { font-size: 0.9em; }
 .plan-row:nth-child(2) .plan-bar { width: 56%; }
 .plan-row:nth-child(3) .plan-bar { width: 84%; }
 .plan-row:nth-child(4) .plan-bar { width: 48%; }
+.member-today .plan-preview { flex: 1; }
 .today-note { display: flex; gap: 12px; align-items: flex-start; }
 .today-note svg { flex: none; color: var(--colorBrandForeground1); margin-top: 2px; }
 .today-note p { margin: 0; }
@@ -1344,4 +1345,36 @@ code { font-size: 0.9em; }
   color: var(--colorNeutralForeground3);
   max-width: 420px;
   line-height: 1.4;
+}
+
+/* Outlook calendar (live Microsoft Graph data) */
+.cal-panel { margin-bottom: 16px; }
+.graph-test { margin-top: 16px; }
+.cal-head { display: flex; align-items: flex-start; gap: 16px; }
+.cal-head .card-icon { flex: none; margin: 0; }
+.cal-head-text { flex: 1; min-width: 0; }
+.cal-head-text h2 { margin: 0 0 4px; }
+.cal-head-text p { margin: 0; max-width: 72ch; }
+.cal-head > .fui-Badge { flex: none; white-space: nowrap; }
+.cal-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 16px; padding: 12px 16px; border-radius: 10px; background: var(--colorNeutralBackground2); }
+.cal-bar-text { flex: 1; min-width: min(100%, 16rem); display: flex; align-items: flex-start; gap: 8px; }
+.cal-bar-text svg { flex: none; color: var(--colorBrandForeground1); }
+.cal-bar button { flex: none; white-space: nowrap; }
+.cal-empty { margin: 12px 0 0; padding: 24px 16px; text-align: center; }
+.cal-foot { margin: 12px 0 0; }
+.cal-error { margin: 12px 0 0; }
+.cal-error-detail { display: block; margin-top: 6px; overflow-wrap: anywhere; }
+.cal-error-detail span { display: block; }
+.cal-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.cal-item:first-child { border-top: none; }
+.cal-item { display: grid; grid-template-columns: minmax(9.5rem, auto) minmax(0, 1fr) auto; align-items: center; gap: 4px 16px; padding: 10px 0; border-top: 1px solid var(--colorNeutralStroke2); }
+.cal-when { font-variant-numeric: tabular-nums; }
+.cal-when span, .cal-what span { display: block; }
+.cal-when span { font-size: 0.8125rem; color: var(--colorNeutralForeground3); }
+.cal-what { overflow-wrap: anywhere; }
+.cal-meta { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+@media (max-width: 640px) {
+  .cal-item { grid-template-columns: minmax(0, 1fr); }
+  .cal-head { flex-wrap: wrap; }
+  .cal-head-text { flex-basis: calc(100% - 60px); }
 }

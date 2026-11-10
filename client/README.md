@@ -59,6 +59,43 @@ SyncAI uses passwordless, single-tenant or multi-tenant authentication via Micro
 
 ---
 
+## Microsoft Graph & Outlook Calendar (read-only)
+
+Active members and managers see **My Outlook Calendar** inside **My Plan**: their own Outlook events for the next 7 days, read live from Microsoft Graph in the browser. Admins get a **Microsoft Graph connection** test at the bottom of **Settings** (profile only). Pending and disabled accounts get neither.
+
+| Delegated scope | Requested when | Used for |
+| :--- | :--- | :--- |
+| `User.Read` | Sign-in (already the case) | `GET /v1.0/me` connection status and profile, profile photo |
+| `Calendars.Read` | The person clicks **Connect calendar** | `GET /v1.0/me/calendarView` (read-only) |
+
+- **Incremental consent:** sign-in is unchanged. `getGraphToken()` in `src/auth/msal.js` tries `acquireTokenSilent()` and only sends the person to Microsoft's consent screen from a button click. No other Graph scope registered on the app is requested, and nothing asks for `.default` or any write scope.
+- **Two kinds of token:** `getApiToken()` (scope `api://<client-id>/access_as_user`) is the only token sent to the Express API. `getGraphToken()` tokens go only to `https://graph.microsoft.com` (`src/lib/graph.js`). They are never interchangeable, stored by SyncAI, or logged.
+- **No extra configuration:** the existing `VITE_ENTRA_*` variables are enough. The app registration must list `Calendars.Read` under *API permissions → Microsoft Graph → Delegated*. Tenant-wide admin consent is not needed unless your tenant blocks user consent.
+- **What SyncAI reads:** subject, start, end, all-day flag, show-as (busy, tentative, away, free) and location. `Calendars.Read` would also allow body, attendees and attachments, but SyncAI never requests those fields. It cannot create, change or delete events.
+- **Timezones:** events are requested in UTC and displayed in the browser's timezone. All-day events keep their calendar date.
+- **Account compatibility:** needs a work or school account with an Exchange Online mailbox. Guest accounts, and personal Microsoft accounts without an Outlook.com mailbox, get a clear "no mailbox" message. A tenant that disables user consent shows the permission message until an administrator approves the scope.
+- **Access control limit:** the calendar only renders after the Express API reports the account as `active`, but Graph calls go from the browser straight to Microsoft with the person's own delegated token, so the SyncAI backend does not sit in that path. A signed-in person can always read their own calendar from Microsoft directly; SyncAI never shows anyone else's.
+- **Not the planner:** this is real calendar data shown next to the My Plan placeholder. SyncAI does not yet schedule around it, write to Outlook, or save events in PostgreSQL. Scheduling remains simulated in `/prototype` only.
+
+### Troubleshooting a 403
+
+The error box shows what Microsoft answered: HTTP status, Graph error code, its message and a request ID. SyncAI checks that Microsoft granted `Calendars.Read` before calling Graph, and asks for consent again if it was left out, so a 403 that still appears is Microsoft refusing the request for that account or mailbox.
+
+- **Why `Calendars.Read` and not `Calendars.ReadBasic`:** Microsoft documents `ReadBasic` for `calendarView`, but in testing a personal Outlook account got `403 ErrorAccessDenied` with it, while `Calendars.Read` returned 200 in Graph Explorer. `Calendars.Read` is still read-only.
+- If a 403 persists, repeat the call in [Graph Explorer](https://developer.microsoft.com/graph/graph-explorer) with the same account and only `Calendars.Read` consented, and compare the error code.
+- One refused request is sent once per page load. Only **Connect calendar** or **Refresh** sends another.
+
+### Manual test
+
+1. Start the server and client (see below) and sign in.
+2. **Member / Manager (active):** open **My Plan** → **Connect calendar** → accept Microsoft's prompt (it should list only reading your calendar). You return to My Plan with the badge *Live from Microsoft Graph* and your events; **Refresh** reloads them. Managers: **Team** still works and shows no calendars.
+3. **Cancel path:** click **Connect calendar** and cancel at Microsoft. You return unconnected, with nothing shown.
+4. **Admin:** **Settings** → **Test connection** shows your Microsoft name and email. No My Plan or calendar appears.
+5. **Pending / disabled:** sign in with such an account: there is no My Plan section.
+6. To repeat the consent step, remove SyncAI at <https://myapps.microsoft.com> (work) or <https://account.live.com/consent/Manage> (personal), then sign in again.
+
+---
+
 ## Application Structure & Routes
 
 ```

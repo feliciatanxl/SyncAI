@@ -103,7 +103,7 @@ SyncAI maintains a strict separation between its interactive proof-of-concept pr
 | **Priority Scoring** | **Implemented:** Deterministic scoring engine (`ai.js`, 0–100 score, EMS 4-tier criteria breakdown) | Placeholder page in Member Portal | Migration to Express API planning service |
 | **Schedule Feasibility** | **Implemented:** Time-blocking against meetings, buffer, SLAs, and appointments (`planner.js`) | Placeholder page in Member Portal | Migration to Express API planning service |
 | **Ripple Intelligence** | **Implemented:** Multi-level dependency analysis, SLA risk, and 3 alternatives (`ripple.js`) | Conceptual preview in How SyncAI Decides | Migration to Express API planning service |
-| **M365 & Notifications** | Mock Outlook meetings and multi-channel simulated alerts (In-App, Teams, WhatsApp) | Not connected | Microsoft Graph (Outlook, To Do), Power Automate, Teams |
+| **M365 & Notifications** | Mock Outlook meetings and multi-channel simulated alerts (In-App, Teams, WhatsApp) | **Implemented (read-only):** each active member or manager can connect and view their own Outlook calendar via Microsoft Graph (`Calendars.Read`); not yet used for planning, nothing written or stored | Microsoft Graph (To Do, calendar-aware planning), Power Automate, Teams |
 | **OCC Complementarity** | Fictional mock records labelled `OCC (Mock)` | Not connected | Real-time event ingestion adapter |
 | **Language Features** | Deterministic keyword and regex extraction | Help-guide Q&A preview (4 languages) | Optional Azure OpenAI assistance |
 

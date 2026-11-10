@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Badge, Button } from '@fluentui/react-components'
 import {
   ArrowRight16Regular, BrainCircuit24Regular, ChatSparkle20Regular, CalendarLtr20Regular, CalendarLtr24Regular, Grid20Regular, PeopleTeam20Regular,
@@ -8,10 +8,13 @@ import {
 import AssistantChat from '../components/AssistantChat.jsx'
 import HowItDecides from '../components/HowItDecides.jsx'
 import MyTeam from '../components/MyTeam.jsx'
+import OutlookCalendar from '../components/OutlookCalendar.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import PortalShell from '../components/PortalShell.jsx'
 import SettingsPanel from '../components/SettingsPanel.jsx'
+import { clearReturnSection, returnSection } from '../auth/msal.js'
 import { useLocale, useT } from '../lib/i18n.js'
+import { memberSections } from '../lib/sections.js'
 import { greetingKey, greetingName, useNow } from '../lib/time.js'
 
 const ICONS = {
@@ -25,19 +28,14 @@ const ICONS = {
 }
 const FACTOR_NUMBERS = [1, 2, 3, 4]
 
-// What each person sees depends on their status and role: pending and disabled people get only what
-// doesn't need approval; managers also get Team workload.
-function sectionsFor(me) {
-  if (me.status !== 'active') return ['overview', 'assistant', 'decides', 'settings']
-  return ['overview', 'assistant', 'tasks', 'plan', ...(me.role === 'manager' ? ['team'] : []), 'decides', 'settings']
-}
-
 // Portal for team members and managers. Tasks, plans and team workload arrive with the planning engine,
 // so those pages explain what's coming instead of showing made-up data.
 export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSignOut, onSwitchAccount }) {
   const t = useT()
-  const [section, setSection] = useState('overview')
-  const ids = sectionsFor(me)
+  // Back from Microsoft's consent screen: reopen the section that asked (cleared once read).
+  const [section, setSection] = useState(() => returnSection('overview'))
+  useEffect(clearReturnSection, [])
+  const ids = memberSections(me)
   const current = ids.includes(section) ? section : 'overview'
   const active = me.status === 'active'
   const name = me.displayName || me.email || t('app.unnamed')
@@ -55,7 +53,9 @@ export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSi
       ) : current === 'tasks' ? (
         <ComingSoon icon={<TaskListLtr24Regular />} title={t('nav.tasks')} heading={t('member.tasks.heading')} text={t('member.tasks.text')} goTo={setSection} />
       ) : current === 'plan' ? (
-        <ComingSoon icon={<CalendarLtr24Regular />} title={t('nav.plan')} heading={t('member.plan.heading')} text={t('member.plan.text')} goTo={setSection} />
+        <ComingSoon icon={<CalendarLtr24Regular />} title={t('nav.plan')} heading={t('member.plan.heading')} text={t('member.plan.text')} goTo={setSection}>
+          <OutlookCalendar me={me} />
+        </ComingSoon>
       ) : current === 'team' ? (
         <MyTeam getToken={getToken} />
       ) : current === 'assistant' ? (
@@ -220,11 +220,12 @@ function TeamLines({ me }) {
   )
 }
 
-function ComingSoon({ icon, title, heading, text, goTo }) {
+function ComingSoon({ icon, title, heading, text, goTo, children }) {
   const t = useT()
   return (
     <>
       <PageHeader icon={icon} title={title} badge={<span className="hero-badge">{t('member.soon')}</span>} description={heading} />
+      {children}
       <section className="panel coming-soon">
         <span className="coming-icon" aria-hidden="true">{icon}</span>
         <p className="muted">{text}</p>
