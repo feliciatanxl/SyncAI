@@ -1345,3 +1345,20 @@ code { font-size: 0.9em; }
   max-width: 420px;
   line-height: 1.4;
 }
+
+/* Outlook calendar (live Microsoft Graph data) */
+.cal-panel { margin-bottom: 16px; }
+.graph-test { margin-top: 16px; }
+.cal-panel > p { margin: 8px 0; max-width: 70ch; }
+.cal-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0 4px; }
+.cal-error { margin: 12px 0; }
+.cal-list { list-style: none; margin: 12px 0; padding: 0; }
+.cal-item { display: grid; grid-template-columns: minmax(9.5rem, auto) minmax(0, 1fr) auto; align-items: center; gap: 4px 16px; padding: 10px 0; border-top: 1px solid var(--colorNeutralStroke2); }
+.cal-when { font-variant-numeric: tabular-nums; }
+.cal-when span, .cal-what span { display: block; }
+.cal-when span { font-size: 0.8125rem; color: var(--colorNeutralForeground3); }
+.cal-what { overflow-wrap: anywhere; }
+.cal-meta { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+@media (max-width: 640px) {
+  .cal-item { grid-template-columns: minmax(0, 1fr); }
+}

@@ -153,7 +153,17 @@ The production foundation is fully functional in `client/` and `server/`:
    - Records are append-only (no update or delete endpoints).
    - Automated retention cleanup purges records older than `ACTIVITY_RETENTION_DAYS` (default: 365 days) daily.
 
-### 3.2 Implemented Static Prototype Intelligence
+### 3.2 Implemented Microsoft Graph Read-Only Calendar
+
+The React client (not the Express API) calls Microsoft Graph with the signed-in person's own delegated token:
+
+- **Scopes:** `User.Read` at sign-in; `Calendars.ReadBasic` by incremental consent when the person clicks *Connect calendar*. No write scope, no `.default`, no application permissions, no client secret.
+- **Calls:** `GET /v1.0/me` (connection status and profile) and `GET /v1.0/me/calendarView` (next 7 days, UTC, paged via `@odata.nextLink`).
+- **Token separation:** Graph tokens go only to `graph.microsoft.com`; the Express API continues to accept only `api://<client-id>/access_as_user` tokens.
+- **Where it shows:** *My Plan* for active members and managers (own calendar only); a profile-only connection test in Admin *Settings*. Pending and disabled accounts have no *My Plan*.
+- **Limits:** nothing is written to Outlook or stored in PostgreSQL, there is no team or organisation-wide calendar view, and the planning engine does not consume these events yet. Because the browser talks to Graph directly, the backend's `active` check gates the SyncAI screen, not Microsoft's own API. See `client/README.md` for account compatibility and the manual test.
+
+### 3.3 Implemented Static Prototype Intelligence
 
 Demonstrated in `prototype/` with **57 passing automated tests**:
 
@@ -195,13 +205,13 @@ Demonstrated in `prototype/` with **57 passing automated tests**:
    - Complements OCC situational visibility rather than duplicating PS 12g Operations Hub.
    - Ingests mock emergency telemetries and incident reports clearly labelled as `OCC (Mock)`.
 
-### 3.3 Planned Backend Migrations & Microsoft Integrations
+### 3.4 Planned Backend Migrations & Microsoft Integrations
 
 1. **Migration of Intelligence Engine to Express:**
    - Migrate scoring, scheduling, and ripple logic from client-side prototype JavaScript into modular Node.js services.
    - Persist tasks, dependencies, officer availability, and generated plans into PostgreSQL tables.
 2. **Microsoft Graph API Integration:**
-   - Delegated Graph permissions (`Calendars.Read`, `Tasks.ReadWrite`) to read real Outlook free/busy slots and sync tasks with Microsoft To Do.
+   - Read-only calendar display is implemented in the client (section 3.2). Still planned: feeding those events into server-side planning, and `Tasks.ReadWrite` to sync tasks with Microsoft To Do.
 3. **Power Automate & Microsoft Teams:**
    - Dispatch Adaptive Cards to Microsoft Teams via Power Automate when supervisory reassignments or emergency re-plans require manager sign-off.
 4. **Optional Language Model Services:**

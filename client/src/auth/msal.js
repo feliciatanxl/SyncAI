@@ -32,6 +32,29 @@ export async function getApiToken(instance, account) {
   }
 }
 
+// Microsoft Graph scopes, asked for one feature at a time (incremental consent) and never at sign-in beyond
+// User.Read. Read-only by design: nothing here may end in .ReadWrite, .Send or .default.
+export const GRAPH_SCOPES = {
+  profile: ['User.Read'],
+  calendar: ['Calendars.ReadBasic'],
+}
+
+// Returns an access token for Microsoft Graph. This is NOT a SyncAI API token: use getApiToken for Express.
+// Silent by default; pass { interactive: true } only from a click handler, which sends the user to Microsoft
+// to consent to exactly `scopes`. A silent failure that needs the user is thrown for the caller to explain.
+export async function getGraphToken(instance, account, scopes, { interactive = false } = {}) {
+  if (!account) throw Object.assign(new Error('No signed-in Microsoft account.'), { errorCode: 'no_account_error' })
+  // loginHint keeps the consent screen on the signed-in account rather than offering another one.
+  const request = { scopes, account, loginHint: account.username }
+  try {
+    return (await instance.acquireTokenSilent(request)).accessToken
+  } catch (err) {
+    const needsUser = err instanceof InteractionRequiredAuthError || NEEDS_REDIRECT.has(err?.errorCode)
+    if (needsUser && interactive) await instance.acquireTokenRedirect(request)
+    throw err
+  }
+}
+
 // The signed-in person's Microsoft profile photo as an object URL, or null when they have none or Microsoft
 // won't share it. Uses the User.Read consent from sign-in and never redirects: initials are a fine fallback.
 export async function getProfilePhoto(instance, account) {
@@ -91,4 +114,17 @@ export function takeSignedIn() {
   } catch {
     return false
   }
+}
+
+// Consent sends the browser to Microsoft and back, which resets the portal to Overview. The section that asked
+// is remembered for that one round trip so the person lands where they clicked Connect.
+const RETURN_SECTION = 'syncai.returnSection'
+export function markReturnSection(section) {
+  try { sessionStorage.setItem(RETURN_SECTION, section) } catch { /* storage blocked: they land on Overview */ }
+}
+export function returnSection(fallback) {
+  try { return sessionStorage.getItem(RETURN_SECTION) || fallback } catch { return fallback }
+}
+export function clearReturnSection() {
+  try { sessionStorage.removeItem(RETURN_SECTION) } catch {}
 }
