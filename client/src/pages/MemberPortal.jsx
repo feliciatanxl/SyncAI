@@ -7,6 +7,7 @@ import {
 } from '@fluentui/react-icons'
 import AssistantChat from '../components/AssistantChat.jsx'
 import HowItDecides from '../components/HowItDecides.jsx'
+import MicrosoftToDo from '../components/MicrosoftToDo.jsx'
 import MyTeam from '../components/MyTeam.jsx'
 import OutlookCalendar from '../components/OutlookCalendar.jsx'
 import PageHeader from '../components/PageHeader.jsx'
@@ -51,7 +52,9 @@ export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSi
       {current === 'overview' ? (
         <Overview me={me} name={name} goTo={setSection} />
       ) : current === 'tasks' ? (
-        <ComingSoon icon={<TaskListLtr24Regular />} title={t('nav.tasks')} heading={t('member.tasks.heading')} text={t('member.tasks.text')} goTo={setSection} />
+        <ComingSoon icon={<TaskListLtr24Regular />} title={t('nav.tasks')} heading={t('member.tasks.heading')} text={t('member.tasks.text')} goTo={setSection}>
+          <MicrosoftToDo me={me} />
+        </ComingSoon>
       ) : current === 'plan' ? (
         <ComingSoon icon={<CalendarLtr24Regular />} title={t('nav.plan')} heading={t('member.plan.heading')} text={t('member.plan.text')} goTo={setSection}>
           <OutlookCalendar me={me} />

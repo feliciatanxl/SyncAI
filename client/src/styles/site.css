@@ -1372,6 +1372,8 @@ code { font-size: 0.9em; }
 .cal-when span, .cal-what span { display: block; }
 .cal-when span { font-size: 0.8125rem; color: var(--colorNeutralForeground3); }
 .cal-what { overflow-wrap: anywhere; }
+.cal-bar-text .fui-Select { max-width: 22rem; }
+.todo-done .cal-what strong { font-weight: 400; text-decoration: line-through; color: var(--colorNeutralForeground3); }
 .cal-meta { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 @media (max-width: 640px) {
   .cal-item { grid-template-columns: minmax(0, 1fr); }
