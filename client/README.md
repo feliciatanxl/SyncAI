@@ -77,6 +77,14 @@ Active members and managers see **My Outlook Calendar** inside **My Plan**: thei
 - **Access control limit:** the calendar only renders after the Express API reports the account as `active`, but Graph calls go from the browser straight to Microsoft with the person's own delegated token, so the SyncAI backend does not sit in that path. A signed-in person can always read their own calendar from Microsoft directly; SyncAI never shows anyone else's.
 - **Not the planner:** this is real calendar data shown next to the My Plan placeholder. SyncAI does not yet schedule around it, write to Outlook, or save events in PostgreSQL. Scheduling remains simulated in `/prototype` only.
 
+### Troubleshooting a 403
+
+The error box shows what Microsoft answered: HTTP status, Graph error code, its message and a request ID. SyncAI checks that Microsoft granted `Calendars.ReadBasic` before calling Graph, and asks for consent again if it was left out, so a 403 that still appears is Microsoft refusing the request for that account or mailbox.
+
+- `ErrorAccessDenied` on a personal account: Microsoft documents `Calendars.ReadBasic` as supported for personal accounts on `calendarView`, so first confirm the Graph call itself in [Graph Explorer](https://developer.microsoft.com/graph/graph-explorer) with the same account and only `Calendars.ReadBasic` consented.
+- Optional diagnostic, only if you choose to: temporarily change `GRAPH_SCOPES.calendar` in `src/auth/msal.js` to `['Calendars.Read']` and reconnect. If that works where `ReadBasic` does not, the limit is on Microsoft's side for that account type. SyncAI never makes this change by itself.
+- One refused request is sent once per page load. Only **Connect calendar** or **Refresh** sends another.
+
 ### Manual test
 
 1. Start the server and client (see below) and sign in.

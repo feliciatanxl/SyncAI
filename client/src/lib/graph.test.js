@@ -92,7 +92,7 @@ describe('graphRequest', () => {
   })
 
   it.each([
-    [403, 'ErrorAccessDenied', 'permission'],
+    [403, 'ErrorAccessDenied', 'denied'],
     [401, 'InvalidAuthenticationToken', 'token'],
     [404, 'MailboxNotEnabledForRESTAPI', 'unsupported'],
     [400, 'MailboxNotSupportedForRESTAPI', 'unsupported'],
@@ -191,9 +191,11 @@ describe('listEvents', () => {
     expect(await listEvents({ getToken, start, end, maxPages: 2 })).toMatchObject({ truncated: true, events: [{ id: 'c' }, { id: 'c' }] })
   })
 
-  it('surfaces permission denial', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => json({ error: { code: 'ErrorAccessDenied' } }, 403)))
-    await expect(listEvents({ getToken, start, end })).rejects.toMatchObject({ kind: 'permission' })
+  it('surfaces a refused calendar after a single request', async () => {
+    const fetchMock = vi.fn(async () => json({ error: { code: 'ErrorAccessDenied' } }, 403))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(listEvents({ getToken, start, end })).rejects.toMatchObject({ kind: 'denied', status: 403 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
 

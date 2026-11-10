@@ -1362,7 +1362,9 @@ code { font-size: 0.9em; }
 .cal-bar button { flex: none; white-space: nowrap; }
 .cal-empty { margin: 12px 0 0; padding: 24px 16px; text-align: center; }
 .cal-foot { margin: 12px 0 0; }
-.cal-error { margin: 12px 0; }
+.cal-error { margin: 12px 0 0; }
+.cal-error-detail { display: block; margin-top: 6px; overflow-wrap: anywhere; }
+.cal-error-detail span { display: block; }
 .cal-list { list-style: none; margin: 8px 0 0; padding: 0; }
 .cal-item:first-child { border-top: none; }
 .cal-item { display: grid; grid-template-columns: minmax(9.5rem, auto) minmax(0, 1fr) auto; align-items: center; gap: 4px 16px; padding: 10px 0; border-top: 1px solid var(--colorNeutralStroke2); }

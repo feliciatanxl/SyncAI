@@ -1,4 +1,5 @@
 import { EventType, InteractionRequiredAuthError, PublicClientApplication } from '@azure/msal-browser'
+import { errorKind } from '../lib/graph.js'
 
 const env = import.meta.env
 const clientId = env.VITE_ENTRA_CLIENT_ID
@@ -46,13 +47,28 @@ export async function getGraphToken(instance, account, scopes, { interactive = f
   if (!account) throw Object.assign(new Error('No signed-in Microsoft account.'), { errorCode: 'no_account_error' })
   // loginHint keeps the consent screen on the signed-in account rather than offering another one.
   const request = { scopes, account, loginHint: account.username }
+  let missing = false
   try {
-    return (await instance.acquireTokenSilent(request)).accessToken
+    const result = await instance.acquireTokenSilent(request)
+    // Microsoft can answer silently with a token for what was consented earlier, leaving the new scope out.
+    // Graph would refuse that token with a 403, so it counts as "consent still needed" instead.
+    missing = !hasScopes(result.scopes, scopes)
+    if (missing) throw new InteractionRequiredAuthError('consent_required', 'Microsoft did not grant the requested permission.')
+    return result.accessToken
   } catch (err) {
     const needsUser = err instanceof InteractionRequiredAuthError || NEEDS_REDIRECT.has(err?.errorCode)
-    if (needsUser && interactive) await instance.acquireTokenRedirect(request)
+    // prompt=consent only when Microsoft skipped the scope silently: a plain redirect would skip it again.
+    if (needsUser && interactive) await instance.acquireTokenRedirect(missing ? { ...request, prompt: 'consent' } : request)
     throw err
   }
+}
+
+// Whether every wanted scope is in the list Microsoft says it granted (short or full-URL form, any case).
+// A response without a scope list is taken at its word.
+export function hasScopes(granted, wanted) {
+  if (!Array.isArray(granted)) return true
+  const have = granted.map((s) => s.toLowerCase())
+  return wanted.every((w) => have.some((s) => s === w.toLowerCase() || s.endsWith(`/${w.toLowerCase()}`)))
 }
 
 // The signed-in person's Microsoft profile photo as an object URL, or null when they have none or Microsoft
@@ -79,7 +95,11 @@ export async function createMsalInstance() {
     cache: { cacheLocation: 'sessionStorage' },
   })
   await instance.initialize()
-  const redirectResponse = await instance.handleRedirectPromise().catch(() => null)
+  // A failed return from Microsoft still lands signed in; a refused Graph consent is kept for the panel that asked.
+  const redirectResponse = await instance.handleRedirectPromise().catch((err) => {
+    if (returnSection(null)) noteGraphError(errorKind(err))
+    return null
+  })
   if (redirectResponse?.account) {
     instance.setActiveAccount(redirectResponse.account)
     markSignedIn()
@@ -127,4 +147,16 @@ export function returnSection(fallback) {
 }
 export function clearReturnSection() {
   try { sessionStorage.removeItem(RETURN_SECTION) } catch {}
+}
+
+// Why the last Graph consent round trip failed (a kind from errorKind, never a token), shown once on return.
+const GRAPH_ERROR = 'syncai.graphError'
+function noteGraphError(kind) {
+  try { sessionStorage.setItem(GRAPH_ERROR, kind) } catch {}
+}
+export function graphReturnError() {
+  try { return sessionStorage.getItem(GRAPH_ERROR) } catch { return null }
+}
+export function clearGraphReturnError() {
+  try { sessionStorage.removeItem(GRAPH_ERROR) } catch {}
 }

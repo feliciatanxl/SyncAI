@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useMsal } from '@azure/msal-react'
 import { Badge, Button, MessageBar, MessageBarBody, Spinner } from '@fluentui/react-components'
 import { ArrowSync20Regular, CalendarLtr20Regular, CalendarLtr24Regular, PlugConnected20Regular, ShieldKeyhole20Regular } from '@fluentui/react-icons'
-import { GRAPH_SCOPES, getGraphToken, markReturnSection, clearReturnSection } from '../auth/msal.js'
-import { calendarWindow, errorKind, formatDuration, formatWhen, getProfile, listEvents } from '../lib/graph.js'
+import { GRAPH_SCOPES, clearGraphReturnError, clearReturnSection, getGraphToken, graphReturnError, markReturnSection } from '../auth/msal.js'
+import { calendarWindow, errorInfo, formatDuration, formatWhen, getProfile, listEvents, remembered } from '../lib/graph.js'
 import { useLocale, useT } from '../lib/i18n.js'
 
 const SHOW_AS_COLOR = { busy: 'danger', oof: 'severe', tentative: 'warning', workingElsewhere: 'informative', free: 'success' }
@@ -12,10 +12,31 @@ const SHOW_AS_COLOR = { busy: 'danger', oof: 'severe', tentative: 'warning', wor
 function useGraph() {
   const { instance } = useMsal()
   const accountId = (instance.getActiveAccount() ?? instance.getAllAccounts()[0])?.homeAccountId
-  return useCallback(
+  const tokenFor = useCallback(
     (scopes, interactive = false) => () =>
       getGraphToken(instance, accountId ? instance.getAccount({ homeAccountId: accountId }) : null, scopes, { interactive }),
     [instance, accountId],
+  )
+  return { tokenFor, accountId }
+}
+
+// The friendly message, then exactly what Microsoft answered (status, code, its own words, request ID) so a
+// failure can be diagnosed or reported. Never contains a token.
+function GraphErrorBar({ error }) {
+  const t = useT()
+  const facts = [error.status && `HTTP ${error.status}`, error.code, error.requestId && t('graph.err.requestId', { id: error.requestId })].filter(Boolean)
+  return (
+    <MessageBar intent={error.kind === 'cancelled' ? 'warning' : 'error'} className="cal-error" layout="multiline">
+      <MessageBarBody>
+        {t(`graph.err.${error.kind}`)}
+        {(facts.length > 0 || error.detail) && (
+          <span className="cal-error-detail small">
+            {facts.length > 0 && <span>{t('graph.err.details')} {facts.join(' · ')}</span>}
+            {error.detail && <span lang="en">{error.detail}</span>}
+          </span>
+        )}
+      </MessageBarBody>
+    </MessageBar>
   )
 }
 
@@ -26,8 +47,13 @@ const who = (profile) => profile?.displayName || profile?.mail || profile?.userP
 export default function OutlookCalendar({ me }) {
   const t = useT()
   const locale = useLocale()
-  const tokenFor = useGraph()
-  const [state, setState] = useState({ phase: 'loading', events: null, profile: null, truncated: false, error: null })
+  const { tokenFor, accountId } = useGraph()
+  // A consent round trip that Microsoft refused (cancelled, admin approval needed) is reported once on return.
+  const [state, setState] = useState(() => {
+    const kind = graphReturnError()
+    return { phase: 'loading', events: null, profile: null, truncated: false, error: kind ? { kind } : null }
+  })
+  useEffect(clearGraphReturnError, [])
 
   // Resolves with the next state (as a setState updater) rather than setting it, so callers decide when.
   const fetchEvents = useCallback(async (interactive = false) => {
@@ -41,17 +67,18 @@ export default function OutlookCalendar({ me }) {
       clearReturnSection()
       return () => ({ phase: 'ready', ...result, profile, error: null })
     } catch (err) {
-      const kind = errorKind(err)
+      const error = errorInfo(err)
       // Consent needed after a click means the browser is already on its way to Microsoft: keep the spinner.
-      if (kind === 'consent' && interactive) return (s) => s
+      if (error.kind === 'consent' && interactive) return (s) => s
       clearReturnSection()
-      // Not yet connected is a normal starting state, not an error.
-      return (s) => ({ ...s, phase: s.events ? 'ready' : 'idle', error: kind === 'consent' ? null : kind })
+      // Not yet connected is a normal starting state, not an error (a refused consent stays on screen).
+      return (s) => ({ ...s, phase: s.events ? 'ready' : 'idle', error: error.kind === 'consent' ? s.error : error })
     }
   }, [tokenFor])
+  // A click always asks Microsoft again; nothing else does (see `remembered`).
   const load = (interactive) => {
     setState((s) => ({ ...s, phase: 'loading', error: null }))
-    fetchEvents(interactive).then(setState)
+    remembered(`calendar:${accountId}`, () => fetchEvents(interactive), true).then(setState)
   }
 
   // Silent check on arrival: shows the calendar straight away for people who already connected it.
@@ -59,9 +86,9 @@ export default function OutlookCalendar({ me }) {
   useEffect(() => {
     if (!active) return undefined
     let live = true
-    fetchEvents().then((next) => live && setState(next))
+    remembered(`calendar:${accountId}`, () => fetchEvents()).then((next) => live && setState(next))
     return () => { live = false }
-  }, [active, fetchEvents])
+  }, [active, accountId, fetchEvents])
 
   if (!active) return null
   const { phase, events, profile, truncated, error } = state
@@ -80,11 +107,7 @@ export default function OutlookCalendar({ me }) {
         </Badge>
       </div>
 
-      {error && (
-        <MessageBar intent={error === 'cancelled' ? 'warning' : 'error'} className="cal-error">
-          <MessageBarBody>{t(`graph.err.${error}`)}</MessageBarBody>
-        </MessageBar>
-      )}
+      {error && <GraphErrorBar error={error} />}
 
       <div className="cal-bar">
         {connected ? (
@@ -136,7 +159,7 @@ export default function OutlookCalendar({ me }) {
 // Admin Settings: checks that Microsoft Graph answers for the admin's own account. Profile only, no calendar.
 export function GraphConnectionTest() {
   const t = useT()
-  const tokenFor = useGraph()
+  const { tokenFor } = useGraph()
   const [state, setState] = useState({ busy: false, profile: null, error: null })
 
   async function run() {
@@ -147,10 +170,10 @@ export function GraphConnectionTest() {
       clearReturnSection()
       setState({ busy: false, profile, error: null })
     } catch (err) {
-      const kind = errorKind(err)
-      if (kind === 'consent') return
+      const error = errorInfo(err)
+      if (error.kind === 'consent') return
       clearReturnSection()
-      setState({ busy: false, profile: null, error: kind })
+      setState({ busy: false, profile: null, error })
     }
   }
 
@@ -168,11 +191,7 @@ export function GraphConnectionTest() {
         <span className="cal-bar-text">{state.busy && <Spinner size="tiny" label={t('app.loading')} />}</span>
         <Button icon={<PlugConnected20Regular />} disabled={state.busy} onClick={run}>{t('graph.test.run')}</Button>
       </div>
-      {state.error && (
-        <MessageBar intent={state.error === 'cancelled' ? 'warning' : 'error'} className="cal-error">
-          <MessageBarBody>{t(`graph.err.${state.error}`)}</MessageBarBody>
-        </MessageBar>
-      )}
+      {state.error && <GraphErrorBar error={state.error} />}
       {state.profile && (
         <p role="status" className="cal-foot">
           <strong>{t('graph.test.ok')}</strong><br />
