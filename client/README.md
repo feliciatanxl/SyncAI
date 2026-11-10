@@ -67,6 +67,7 @@ Active members and managers see **My Outlook Calendar** inside **My Plan**: thei
 | :--- | :--- | :--- |
 | `User.Read` | Sign-in (already the case) | `GET /v1.0/me` connection status and profile, profile photo |
 | `Calendars.Read` | The person clicks **Connect calendar** | `GET /v1.0/me/calendarView` (read-only) |
+| `Tasks.Read` | The person clicks **Connect Microsoft To Do** | `GET /v1.0/me/todo/lists`, `GET /v1.0/me/todo/lists/{id}/tasks` (read-only) |
 
 - **Incremental consent:** sign-in is unchanged. `getGraphToken()` in `src/auth/msal.js` tries `acquireTokenSilent()` and only sends the person to Microsoft's consent screen from a button click. No other Graph scope registered on the app is requested, and nothing asks for `.default` or any write scope.
 - **Two kinds of token:** `getApiToken()` (scope `api://<client-id>/access_as_user`) is the only token sent to the Express API. `getGraphToken()` tokens go only to `https://graph.microsoft.com` (`src/lib/graph.js`). They are never interchangeable, stored by SyncAI, or logged.
@@ -76,6 +77,18 @@ Active members and managers see **My Outlook Calendar** inside **My Plan**: thei
 - **Account compatibility:** needs a work or school account with an Exchange Online mailbox. Guest accounts, and personal Microsoft accounts without an Outlook.com mailbox, get a clear "no mailbox" message. A tenant that disables user consent shows the permission message until an administrator approves the scope.
 - **Access control limit:** the calendar only renders after the Express API reports the account as `active`, but Graph calls go from the browser straight to Microsoft with the person's own delegated token, so the SyncAI backend does not sit in that path. A signed-in person can always read their own calendar from Microsoft directly; SyncAI never shows anyone else's.
 - **Not the planner:** this is real calendar data shown next to the My Plan placeholder. SyncAI does not yet schedule around it, write to Outlook, or save events in PostgreSQL. Scheduling remains simulated in `/prototype` only.
+
+### Microsoft To Do (read-only)
+
+Active members and managers see **My Microsoft To Do** inside **My Tasks**: their own To Do lists, with a list picker, and each task's title, due date (if it has one), importance and status. Admins, pending and disabled accounts do not get it.
+
+- **Consent is separate from the calendar.** `Tasks.Read` is requested only from **Connect Microsoft To Do**. Connecting the calendar does not connect To Do, and the app checks that Microsoft granted `Tasks.Read` before calling Graph.
+- **Read-only.** SyncAI never requests `Tasks.ReadWrite` and never creates, edits, completes or deletes a To Do task. A task shows as completed only when Microsoft says it is.
+- **Own tasks only.** Every call is to `/me/todo/...`. Managers see their own lists, never their team's.
+- **Not SyncAI tasks.** These are external Microsoft tasks shown as they are. They are not stored in PostgreSQL, not scored, not scheduled, and not mixed with the fictional tasks in `/prototype`. The "Coming soon" card under the panel is still the future SyncAI task list.
+- **Limits:** up to 500 tasks per list are loaded; due dates are shown in the browser's timezone; tasks with no due date are listed after dated ones; reminders, notes, steps and attachments are not shown. The app registration must list `Tasks.Read` under *API permissions → Microsoft Graph → Delegated*.
+
+**Manual test:** sign in as an active member or manager → **My Tasks** → **Connect Microsoft To Do** → accept Microsoft's prompt (it should ask only to read your tasks) → you return to My Tasks with your default list shown. Switch lists with the picker, add a task in Microsoft To Do and press **Refresh**, and check that a task without a due date shows "No due date". Then confirm **My Plan** still shows your calendar, an admin has no My Tasks section, and a pending account has none either.
 
 ### Troubleshooting a 403
 

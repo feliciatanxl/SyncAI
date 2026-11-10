@@ -103,6 +103,17 @@ export function remembered(key, run, fresh = false) {
   return attempts.get(key)
 }
 
+// Every item of a paged Graph collection, following @odata.nextLink for at most maxPages requests.
+async function graphPages(url, options, maxPages) {
+  const items = []
+  for (let page = 0; url && page < maxPages; page++) {
+    const data = await graphRequest(url, options)
+    items.push(...(data?.value ?? []))
+    url = data?.['@odata.nextLink']
+  }
+  return { items, truncated: Boolean(url) }
+}
+
 export const getProfile = (getToken, signal) =>
   graphRequest('/me?$select=displayName,mail,userPrincipalName,jobTitle', { getToken, signal })
 
@@ -150,14 +161,8 @@ export async function listEvents({ getToken, start, end, signal, maxPages = 4 })
     $orderby: 'start/dateTime',
     $top: '50',
   })
-  let url = `/me/calendarView?${query}`
-  const events = []
-  for (let page = 0; url && page < maxPages; page++) {
-    const data = await graphRequest(url, { getToken, signal, headers: { Prefer: 'outlook.timezone="UTC"' } })
-    events.push(...(data?.value ?? []).map(toEvent).filter(Boolean))
-    url = data?.['@odata.nextLink']
-  }
-  return { events, truncated: Boolean(url) }
+  const { items, truncated } = await graphPages(`/me/calendarView?${query}`, { getToken, signal, headers: { Prefer: 'outlook.timezone="UTC"' } }, maxPages)
+  return { events: items.map(toEvent).filter(Boolean), truncated }
 }
 
 // Date and time range in the viewer's own timezone (or `timeZone`, for tests). All-day events are calendar
@@ -174,4 +179,49 @@ export function formatDuration(minutes, locale) {
   const hours = Math.floor(minutes / 60)
   const rest = minutes % 60
   return [hours > 0 && part(hours, 'hour'), (rest > 0 || hours === 0) && part(rest, 'minute')].filter(Boolean).join(' ')
+}
+
+// ---- Microsoft To Do (read-only, Tasks.Read) ----
+
+const TASK_STATUS = new Set(['notStarted', 'inProgress', 'completed', 'waitingOnOthers', 'deferred'])
+const IMPORTANCE = new Set(['low', 'normal', 'high'])
+
+// The signed-in person's own To Do lists, their default list first.
+export async function listTaskLists({ getToken, signal, maxPages = 4 }) {
+  const { items } = await graphPages('/me/todo/lists', { getToken, signal }, maxPages)
+  return items
+    .map((raw) => ({ id: raw.id, name: raw.displayName?.trim() || null, isDefault: raw.wellknownListName === 'defaultList' }))
+    .sort((a, b) => b.isDefault - a.isDefault)
+}
+
+// One Graph todoTask as the UI needs it. Most tasks have no due date, so `due` is often null.
+// shortcut: due times are read as UTC, which is what To Do sends; honour dueDateTime.timeZone if that changes.
+export function toTask(raw) {
+  const status = TASK_STATUS.has(raw.status) ? raw.status : 'notStarted'
+  return {
+    id: raw.id,
+    title: raw.title?.trim() || null,
+    status,
+    done: status === 'completed',
+    importance: IMPORTANCE.has(raw.importance) ? raw.importance : 'normal',
+    due: toDate(raw.dueDateTime),
+  }
+}
+
+// Open tasks before completed ones; within each, soonest due first and tasks without a due date last.
+function byOpenThenDue(a, b) {
+  return a.done - b.done || (a.due ?? Infinity) - (b.due ?? Infinity)
+}
+
+// The tasks of one of the person's own lists, following Graph's paging.
+// shortcut: stops after maxPages x 100 tasks and reports `truncated`, raise maxPages for longer lists.
+export async function listTasks({ getToken, listId, signal, maxPages = 5 }) {
+  const { items, truncated } = await graphPages(`/me/todo/lists/${encodeURIComponent(listId)}/tasks?$top=100`, { getToken, signal }, maxPages)
+  return { tasks: items.map(toTask).sort(byOpenThenDue), truncated }
+}
+
+// A due date in the viewer's own timezone (or `timeZone`, for tests): To Do stores "due on the 12th" as
+// midnight where the person set it, so the local date is the one they meant.
+export function formatDue(task, locale, timeZone) {
+  return task.due ? task.due.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone }) : null
 }

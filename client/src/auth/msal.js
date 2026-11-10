@@ -39,6 +39,7 @@ export const GRAPH_SCOPES = {
   profile: ['User.Read'],
   // Calendars.ReadBasic was refused (403 ErrorAccessDenied) for personal Outlook accounts, so plain read it is.
   calendar: ['Calendars.Read'],
+  tasks: ['Tasks.Read'],
 }
 
 // Returns an access token for Microsoft Graph. This is NOT a SyncAI API token: use getApiToken for Express.

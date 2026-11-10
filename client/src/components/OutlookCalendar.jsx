@@ -1,97 +1,36 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useMsal } from '@azure/msal-react'
-import { Badge, Button, MessageBar, MessageBarBody, Spinner } from '@fluentui/react-components'
+import { useState } from 'react'
+import { Badge, Button, Spinner } from '@fluentui/react-components'
 import { ArrowSync20Regular, CalendarLtr20Regular, CalendarLtr24Regular, PlugConnected20Regular, ShieldKeyhole20Regular } from '@fluentui/react-icons'
-import { GRAPH_SCOPES, clearGraphReturnError, clearReturnSection, getGraphToken, graphReturnError, markReturnSection } from '../auth/msal.js'
-import { calendarWindow, errorInfo, formatDuration, formatWhen, getProfile, listEvents, remembered } from '../lib/graph.js'
+import { GRAPH_SCOPES, clearReturnSection, markReturnSection } from '../auth/msal.js'
+import { calendarWindow, errorInfo, formatDuration, formatWhen, getProfile, listEvents } from '../lib/graph.js'
 import { useLocale, useT } from '../lib/i18n.js'
+import { useGraph, useGraphData } from '../auth/useGraph.js'
+import GraphErrorBar from './GraphErrorBar.jsx'
 
 const SHOW_AS_COLOR = { busy: 'danger', oof: 'severe', tentative: 'warning', workingElsewhere: 'informative', free: 'success' }
 
-// Graph token getters for the signed-in account. Only `interactive` ones may send the person to Microsoft.
-function useGraph() {
-  const { instance } = useMsal()
-  const accountId = (instance.getActiveAccount() ?? instance.getAllAccounts()[0])?.homeAccountId
-  const tokenFor = useCallback(
-    (scopes, interactive = false) => () =>
-      getGraphToken(instance, accountId ? instance.getAccount({ homeAccountId: accountId }) : null, scopes, { interactive }),
-    [instance, accountId],
-  )
-  return { tokenFor, accountId }
-}
-
-// The friendly message, then exactly what Microsoft answered (status, code, its own words, request ID) so a
-// failure can be diagnosed or reported. Never contains a token.
-function GraphErrorBar({ error }) {
-  const t = useT()
-  const facts = [error.status && `HTTP ${error.status}`, error.code, error.requestId && t('graph.err.requestId', { id: error.requestId })].filter(Boolean)
-  return (
-    <MessageBar intent={error.kind === 'cancelled' ? 'warning' : 'error'} className="cal-error" layout="multiline">
-      <MessageBarBody>
-        {t(`graph.err.${error.kind}`)}
-        {(facts.length > 0 || error.detail) && (
-          <span className="cal-error-detail small">
-            {facts.length > 0 && <span>{t('graph.err.details')} {facts.join(' · ')}</span>}
-            {error.detail && <span lang="en">{error.detail}</span>}
-          </span>
-        )}
-      </MessageBarBody>
-    </MessageBar>
-  )
-}
-
 const who = (profile) => profile?.displayName || profile?.mail || profile?.userPrincipalName
+
+// The next 7 days of events, plus the profile for "Connected as". The profile never triggers consent.
+async function fetchCalendar(tokenFor, interactive) {
+  const { start, end } = calendarWindow(new Date())
+  const [result, profile] = await Promise.all([
+    listEvents({ getToken: tokenFor(GRAPH_SCOPES.calendar, interactive), start, end }),
+    getProfile(tokenFor(GRAPH_SCOPES.profile)).catch(() => null),
+  ])
+  return { ...result, profile }
+}
 
 // The signed-in person's own Outlook calendar for the next 7 days, read live from Microsoft Graph.
 // Read-only and never saved by SyncAI. Rendered only for active accounts (see memberSections).
 export default function OutlookCalendar({ me }) {
   const t = useT()
   const locale = useLocale()
-  const { tokenFor, accountId } = useGraph()
-  // A consent round trip that Microsoft refused (cancelled, admin approval needed) is reported once on return.
-  const [state, setState] = useState(() => {
-    const kind = graphReturnError()
-    return { phase: 'loading', events: null, profile: null, truncated: false, error: kind ? { kind } : null }
-  })
-  useEffect(clearGraphReturnError, [])
-
-  // Resolves with the next state (as a setState updater) rather than setting it, so callers decide when.
-  const fetchEvents = useCallback(async (interactive = false) => {
-    if (interactive) markReturnSection('plan')
-    try {
-      const { start, end } = calendarWindow(new Date())
-      const [result, profile] = await Promise.all([
-        listEvents({ getToken: tokenFor(GRAPH_SCOPES.calendar, interactive), start, end }),
-        getProfile(tokenFor(GRAPH_SCOPES.profile)).catch(() => null),
-      ])
-      clearReturnSection()
-      return () => ({ phase: 'ready', ...result, profile, error: null })
-    } catch (err) {
-      const error = errorInfo(err)
-      // Consent needed after a click means the browser is already on its way to Microsoft: keep the spinner.
-      if (error.kind === 'consent' && interactive) return (s) => s
-      clearReturnSection()
-      // Not yet connected is a normal starting state, not an error (a refused consent stays on screen).
-      return (s) => ({ ...s, phase: s.events ? 'ready' : 'idle', error: error.kind === 'consent' ? s.error : error })
-    }
-  }, [tokenFor])
-  // A click always asks Microsoft again; nothing else does (see `remembered`).
-  const load = (interactive) => {
-    setState((s) => ({ ...s, phase: 'loading', error: null }))
-    remembered(`calendar:${accountId}`, () => fetchEvents(interactive), true).then(setState)
-  }
-
-  // Silent check on arrival: shows the calendar straight away for people who already connected it.
   const active = me.status === 'active'
-  useEffect(() => {
-    if (!active) return undefined
-    let live = true
-    remembered(`calendar:${accountId}`, () => fetchEvents()).then((next) => live && setState(next))
-    return () => { live = false }
-  }, [active, accountId, fetchEvents])
+  const { phase, data, error, load } = useGraphData('calendar', 'plan', active, fetchCalendar)
 
   if (!active) return null
-  const { phase, events, profile, truncated, error } = state
+  const { events, profile, truncated } = data ?? {}
   const connected = Boolean(events)
 
   return (

@@ -153,7 +153,7 @@ The production foundation is fully functional in `client/` and `server/`:
    - Records are append-only (no update or delete endpoints).
    - Automated retention cleanup purges records older than `ACTIVITY_RETENTION_DAYS` (default: 365 days) daily.
 
-### 3.2 Implemented Microsoft Graph Read-Only Calendar
+### 3.2 Implemented Microsoft Graph Read-Only Calendar & To Do
 
 The React client (not the Express API) calls Microsoft Graph with the signed-in person's own delegated token:
 
@@ -161,7 +161,8 @@ The React client (not the Express API) calls Microsoft Graph with the signed-in 
 - **Calls:** `GET /v1.0/me` (connection status and profile) and `GET /v1.0/me/calendarView` (next 7 days, UTC, paged via `@odata.nextLink`).
 - **Token separation:** Graph tokens go only to `graph.microsoft.com`; the Express API continues to accept only `api://<client-id>/access_as_user` tokens.
 - **Where it shows:** *My Plan* for active members and managers (own calendar only); a profile-only connection test in Admin *Settings*. Pending and disabled accounts have no *My Plan*.
-- **Limits:** nothing is written to Outlook or stored in PostgreSQL, there is no team or organisation-wide calendar view, and the planning engine does not consume these events yet. Because the browser talks to Graph directly, the backend's `active` check gates the SyncAI screen, not Microsoft's own API. See `client/README.md` for account compatibility and the manual test.
+- **Microsoft To Do:** `Tasks.Read` by its own incremental consent (*Connect Microsoft To Do* in *My Tasks*), calling `GET /v1.0/me/todo/lists` and `GET /v1.0/me/todo/lists/{id}/tasks`. Active members and managers see their own lists only; nothing is created, completed, edited or deleted.
+- **Limits:** nothing is written to Outlook or To Do, or stored in PostgreSQL, there is no team or organisation-wide calendar view, and the planning engine does not consume these events yet. Because the browser talks to Graph directly, the backend's `active` check gates the SyncAI screen, not Microsoft's own API. See `client/README.md` for account compatibility and the manual test.
 
 ### 3.3 Implemented Static Prototype Intelligence
 
@@ -211,7 +212,7 @@ Demonstrated in `prototype/` with **57 passing automated tests**:
    - Migrate scoring, scheduling, and ripple logic from client-side prototype JavaScript into modular Node.js services.
    - Persist tasks, dependencies, officer availability, and generated plans into PostgreSQL tables.
 2. **Microsoft Graph API Integration:**
-   - Read-only calendar display is implemented in the client (section 3.2). Still planned: feeding those events into server-side planning, and `Tasks.ReadWrite` to sync tasks with Microsoft To Do.
+   - Read-only calendar display is implemented in the client (section 3.2). Read-only To Do display is implemented too. Still planned: feeding calendar events and tasks into server-side planning, and (only if EMS wants write-back) `Tasks.ReadWrite`.
 3. **Power Automate & Microsoft Teams:**
    - Dispatch Adaptive Cards to Microsoft Teams via Power Automate when supervisory reassignments or emergency re-plans require manager sign-off.
 4. **Optional Language Model Services:**
@@ -271,3 +272,38 @@ The architecture directly addresses feedback obtained during EM Services project
 2. **Graph Permission Approval:** Securing administrative consent for `Calendars.Read` (delegated) and `Tasks.ReadWrite` to synchronise real Outlook calendar slots and To Do items.
 3. **Power Automate Custom Connector:** Establishing whether Power Automate flows can call SyncAI API webhooks over HTTPS or if direct Teams webhooks should be used.
 4. **Task-Duration Empirical Data:** Incorporating EMS Property Officer time-study figures to replace prototype baseline duration heuristics with verified empirical distributions.
+
+---
+
+## 8. Development Handoff
+
+A starting point for splitting the next phase of work. The workstreams are proposals, not final ownership.
+
+### Three kinds of data, kept separate
+
+| | What it is | Where it lives today | State |
+| :--- | :--- | :--- | :--- |
+| **1. External Microsoft Graph data** | A person's own Outlook events and Microsoft To Do tasks | Fetched by the browser with the person's delegated token (`client/src/lib/graph.js`, `client/src/auth/useGraph.js`). Never sent to Express, never stored | Implemented, read-only |
+| **2. SyncAI's own tasks** | Town Council work items with SLA, priority, assignee and approval state | Not built in the full-stack app. PostgreSQL holds only users, teams and audit activity. `/prototype` uses fictional in-browser data | Planned |
+| **3. Scheduling and Ripple Intelligence** | Priority scoring, capacity-aware plans, what-if and ripple analysis | Deterministic JavaScript in `/prototype` only (`ai.js`, `planner.js`, `ripple.js`) | Planned migration to Express |
+
+Rules worth keeping: Graph data is input, not SyncAI's record. Importing an Outlook event or To Do task into (2) must be an explicit, audited step, and server-side use of Graph data needs its own design (the server holds no Graph token today). The Express API keeps accepting only `api://<client-id>/access_as_user` tokens.
+
+### Proposed workstreams
+
+**A — Task management, SLA rules and PostgreSQL APIs**
+- Schema and migrations for tasks (owner, team, category, SLA deadline, status, dependencies) in `server/src/db.js`.
+- Express endpoints with the existing role and status checks (`server/src/app.js`): members see their own tasks, managers their teams', admins none.
+- Replace the *My Tasks* "Coming soon" card with the real list; keep the Microsoft To Do panel separate from it.
+- Port the SLA and priority rules from `prototype/js/ai.js` with tests.
+
+**B — Calendar-aware scheduling, capacity planning and Ripple Intelligence**
+- Port `planner.js` and `ripple.js` into server modules that take tasks (A) plus busy periods as input.
+- Decide how calendar busy time reaches the planner: sent by the client per request, or fetched server-side with an on-behalf-of flow. The second needs a new consent and security review.
+- Replace the *My Plan* placeholder and the manager *Team* workload view with real output.
+
+**C — Hierarchical approvals, audit events and notification integration research**
+- Approval requests for reassignments and re-plans, enforcing the manager hierarchy and no self-approval, recorded through the existing append-only activity log (`server/src/activity.js`).
+- Research only, no build yet: Teams and Power Automate notifications, WhatsApp options, and what each needs from the EMS tenant (see section 7).
+
+**Dependencies:** A defines the task model that B and C both read, so agree its shape first. B and C can then proceed in parallel against it.

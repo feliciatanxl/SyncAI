@@ -14,7 +14,7 @@ afterEach(() => vi.unstubAllGlobals())
 describe('Graph scopes', () => {
   it('are read-only and never use .default', () => {
     const all = Object.values(GRAPH_SCOPES).flat()
-    expect(all).toEqual(['User.Read', 'Calendars.Read'])
+    expect(all).toEqual(['User.Read', 'Calendars.Read', 'Tasks.Read'])
     for (const scope of all) expect(scope).not.toMatch(/Write|Send|Manage|\.default/)
   })
 
