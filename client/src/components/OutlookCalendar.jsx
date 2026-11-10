@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useMsal } from '@azure/msal-react'
 import { Badge, Button, MessageBar, MessageBarBody, Spinner } from '@fluentui/react-components'
-import { ArrowSync20Regular, CalendarLtr20Regular, PlugConnected20Regular } from '@fluentui/react-icons'
+import { ArrowSync20Regular, CalendarLtr20Regular, CalendarLtr24Regular, PlugConnected20Regular, ShieldKeyhole20Regular } from '@fluentui/react-icons'
 import { GRAPH_SCOPES, getGraphToken, markReturnSection, clearReturnSection } from '../auth/msal.js'
 import { calendarWindow, errorKind, formatDuration, formatWhen, getProfile, listEvents } from '../lib/graph.js'
 import { useLocale, useT } from '../lib/i18n.js'
@@ -69,13 +69,16 @@ export default function OutlookCalendar({ me }) {
 
   return (
     <section className="panel cal-panel" aria-labelledby="cal-h" aria-busy={phase === 'loading'}>
-      <div className="panel-head">
-        <h2 id="cal-h">{t('cal.title')}</h2>
+      <div className="cal-head">
+        <span className="card-icon" aria-hidden="true"><CalendarLtr24Regular /></span>
+        <div className="cal-head-text">
+          <h2 id="cal-h">{t('cal.title')}</h2>
+          <p className="muted">{t('cal.lead')}</p>
+        </div>
         <Badge appearance="tint" color={connected ? 'success' : 'informative'} icon={<PlugConnected20Regular />}>
           {connected ? t('cal.live') : t('cal.notConnected')}
         </Badge>
       </div>
-      <p className="muted">{t('cal.lead')}</p>
 
       {error && (
         <MessageBar intent={error === 'cancelled' ? 'warning' : 'error'} className="cal-error">
@@ -83,18 +86,22 @@ export default function OutlookCalendar({ me }) {
         </MessageBar>
       )}
 
-      <div className="cal-actions">
+      <div className="cal-bar">
         {connected ? (
-          <Button icon={<ArrowSync20Regular />} disabled={phase === 'loading'} onClick={() => load()}>{t('cal.refresh')}</Button>
+          <>
+            <span className="cal-bar-text small muted">{who(profile) && t('cal.connectedAs', { name: who(profile) })}</span>
+            {phase === 'loading' && <Spinner size="tiny" label={t('cal.loading')} />}
+            <Button icon={<ArrowSync20Regular />} disabled={phase === 'loading'} onClick={() => load()}>{t('cal.refresh')}</Button>
+          </>
+        ) : phase === 'loading' ? (
+          <Spinner size="tiny" label={t('cal.loading')} />
         ) : (
-          <Button appearance="primary" icon={<CalendarLtr20Regular />} disabled={phase === 'loading'} onClick={() => load(true)}>
-            {t('cal.connect')}
-          </Button>
+          <>
+            <span className="cal-bar-text small"><ShieldKeyhole20Regular aria-hidden="true" />{t('cal.connectHint')}</span>
+            <Button appearance="primary" icon={<CalendarLtr20Regular />} onClick={() => load(true)}>{t('cal.connect')}</Button>
+          </>
         )}
-        {phase === 'loading' && <Spinner size="tiny" label={t('cal.loading')} />}
-        {connected && who(profile) && <span className="small muted">{t('cal.connectedAs', { name: who(profile) })}</span>}
       </div>
-      {!connected && phase !== 'loading' && <p className="small muted">{t('cal.connectHint')}</p>}
 
       {connected && events.length === 0 && <p className="cal-empty muted">{t('cal.empty')}</p>}
       {connected && events.length > 0 && (
@@ -120,8 +127,8 @@ export default function OutlookCalendar({ me }) {
           })}
         </ol>
       )}
-      {truncated && <p className="small muted">{t('cal.truncated', { count: events.length })}</p>}
-      {connected && <p className="small muted">{t('cal.planNote')}</p>}
+      {truncated && <p className="cal-foot small muted">{t('cal.truncated', { count: events.length })}</p>}
+      {connected && <p className="cal-foot small muted">{t('cal.planNote')}</p>}
     </section>
   )
 }
@@ -149,14 +156,17 @@ export function GraphConnectionTest() {
 
   return (
     <section className="panel cal-panel graph-test" aria-labelledby="graph-test-h">
-      <div className="panel-head">
-        <h2 id="graph-test-h">{t('graph.test.title')}</h2>
+      <div className="cal-head">
+        <span className="card-icon" aria-hidden="true"><PlugConnected20Regular /></span>
+        <div className="cal-head-text">
+          <h2 id="graph-test-h">{t('graph.test.title')}</h2>
+          <p className="muted">{t('graph.test.lead')}</p>
+        </div>
         {state.profile && <Badge appearance="tint" color="success" icon={<PlugConnected20Regular />}>{t('cal.live')}</Badge>}
       </div>
-      <p className="muted">{t('graph.test.lead')}</p>
-      <div className="cal-actions">
+      <div className="cal-bar">
+        <span className="cal-bar-text">{state.busy && <Spinner size="tiny" label={t('app.loading')} />}</span>
         <Button icon={<PlugConnected20Regular />} disabled={state.busy} onClick={run}>{t('graph.test.run')}</Button>
-        {state.busy && <Spinner size="tiny" label={t('app.loading')} />}
       </div>
       {state.error && (
         <MessageBar intent={state.error === 'cancelled' ? 'warning' : 'error'} className="cal-error">
@@ -164,7 +174,7 @@ export function GraphConnectionTest() {
         </MessageBar>
       )}
       {state.profile && (
-        <p role="status">
+        <p role="status" className="cal-foot">
           <strong>{t('graph.test.ok')}</strong><br />
           <span className="muted">
             {[state.profile.displayName, state.profile.mail || state.profile.userPrincipalName, state.profile.jobTitle].filter(Boolean).join(' · ')}
