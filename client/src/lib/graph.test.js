@@ -14,8 +14,8 @@ afterEach(() => vi.unstubAllGlobals())
 describe('Graph scopes', () => {
   it('are read-only and never use .default', () => {
     const all = Object.values(GRAPH_SCOPES).flat()
-    expect(all).toEqual(['User.Read', 'Calendars.ReadBasic'])
-    for (const scope of all) expect(scope).not.toMatch(/Write|Send|Manage|\.default|Calendars\.Read$/)
+    expect(all).toEqual(['User.Read', 'Calendars.Read'])
+    for (const scope of all) expect(scope).not.toMatch(/Write|Send|Manage|\.default/)
   })
 
   it('are not asked for at sign-in beyond User.Read', () => {
@@ -28,8 +28,8 @@ describe('Graph scopes', () => {
     const api = await getApiToken(instance, account)
     const graph = await getGraphToken(instance, account, GRAPH_SCOPES.calendar)
     expect(api).toMatch(/^api:\/\/.*\/access_as_user$/)
-    expect(graph).toBe('Calendars.ReadBasic')
-    expect(instance.acquireTokenSilent.mock.calls[1][0].scopes).toEqual(['Calendars.ReadBasic'])
+    expect(graph).toBe('Calendars.Read')
+    expect(instance.acquireTokenSilent.mock.calls[1][0].scopes).toEqual(['Calendars.Read'])
   })
 })
 
@@ -50,7 +50,7 @@ describe('getGraphToken', () => {
     const err = await getGraphToken(instance, account, GRAPH_SCOPES.calendar, { interactive: true }).catch((e) => e)
     expect(errorKind(err)).toBe('consent')
     expect(instance.acquireTokenRedirect).toHaveBeenCalledTimes(1)
-    expect(instance.acquireTokenRedirect.mock.calls[0][0]).toMatchObject({ scopes: ['Calendars.ReadBasic'], account, loginHint: account.username })
+    expect(instance.acquireTokenRedirect.mock.calls[0][0]).toMatchObject({ scopes: ['Calendars.Read'], account, loginHint: account.username })
   })
 
   it('does not redirect for errors that consent cannot fix', async () => {
@@ -135,7 +135,7 @@ describe('calendar events', () => {
     })
   })
 
-  it('omits what Calendars.ReadBasic did not return, and drops cancelled or broken events', () => {
+  it('omits what Microsoft did not return, and drops cancelled or broken events', () => {
     expect(toEvent({ id: 'x', start: raw.start, end: raw.end })).toMatchObject({ subject: null, showAs: null, location: null })
     expect(toEvent({ ...raw, isCancelled: true })).toBe(null)
     expect(toEvent({ ...raw, start: null })).toBe(null)

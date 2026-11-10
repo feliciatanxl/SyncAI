@@ -74,11 +74,11 @@ describe('Graph error diagnostics', () => {
 
 describe('granted scopes', () => {
   it('matches short and full-URL scope names in any case', () => {
-    expect(hasScopes(['User.Read', 'calendars.readbasic'], ['Calendars.ReadBasic'])).toBe(true)
-    expect(hasScopes(['https://graph.microsoft.com/Calendars.ReadBasic'], ['Calendars.ReadBasic'])).toBe(true)
-    expect(hasScopes(['User.Read', 'openid'], ['Calendars.ReadBasic'])).toBe(false)
-    expect(hasScopes(['Calendars.Read'], ['Calendars.ReadBasic'])).toBe(false)
-    expect(hasScopes(undefined, ['Calendars.ReadBasic'])).toBe(true)
+    expect(hasScopes(['User.Read', 'calendars.read'], ['Calendars.Read'])).toBe(true)
+    expect(hasScopes(['https://graph.microsoft.com/Calendars.Read'], ['Calendars.Read'])).toBe(true)
+    expect(hasScopes(['User.Read', 'openid'], ['Calendars.Read'])).toBe(false)
+    expect(hasScopes(['Calendars.ReadBasic'], ['Calendars.Read'])).toBe(false)
+    expect(hasScopes(undefined, ['Calendars.Read'])).toBe(true)
   })
 
   it('treats a silent token without the calendar scope as consent still needed', async () => {
@@ -91,11 +91,11 @@ describe('granted scopes', () => {
 
     await getGraphToken(instance, account, GRAPH_SCOPES.calendar, { interactive: true }).catch(() => null)
     expect(instance.acquireTokenRedirect).toHaveBeenCalledTimes(1)
-    expect(instance.acquireTokenRedirect.mock.calls[0][0]).toMatchObject({ scopes: ['Calendars.ReadBasic'], prompt: 'consent' })
+    expect(instance.acquireTokenRedirect.mock.calls[0][0]).toMatchObject({ scopes: ['Calendars.Read'], prompt: 'consent' })
   })
 
   it('returns the token when the scope was granted', async () => {
-    const instance = { acquireTokenSilent: vi.fn(async () => ({ accessToken: 'ok', scopes: ['Calendars.ReadBasic', 'User.Read'] })) }
+    const instance = { acquireTokenSilent: vi.fn(async () => ({ accessToken: 'ok', scopes: ['Calendars.Read', 'User.Read'] })) }
     expect(await getGraphToken(instance, account, GRAPH_SCOPES.calendar)).toBe('ok')
   })
 })

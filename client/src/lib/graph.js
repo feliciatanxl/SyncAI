@@ -106,8 +106,8 @@ export function remembered(key, run, fresh = false) {
 export const getProfile = (getToken, signal) =>
   graphRequest('/me?$select=displayName,mail,userPrincipalName,jobTitle', { getToken, signal })
 
-// Only fields Calendars.ReadBasic returns. Body, attendees and attachments need Calendars.Read, so they are
-// left out rather than asking for more permission.
+// Only what the list shows. Calendars.Read would also allow body, attendees and attachments, but SyncAI
+// has no use for them, so they are never requested.
 const EVENT_FIELDS = 'id,subject,start,end,isAllDay,showAs,isCancelled,location'
 const SHOW_AS = new Set(['free', 'tentative', 'busy', 'oof', 'workingElsewhere'])
 

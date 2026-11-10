@@ -157,7 +157,7 @@ The production foundation is fully functional in `client/` and `server/`:
 
 The React client (not the Express API) calls Microsoft Graph with the signed-in person's own delegated token:
 
-- **Scopes:** `User.Read` at sign-in; `Calendars.ReadBasic` by incremental consent when the person clicks *Connect calendar*. No write scope, no `.default`, no application permissions, no client secret.
+- **Scopes:** `User.Read` at sign-in; `Calendars.Read` (read-only) by incremental consent when the person clicks *Connect calendar*. No write scope, no `.default`, no application permissions, no client secret.
 - **Calls:** `GET /v1.0/me` (connection status and profile) and `GET /v1.0/me/calendarView` (next 7 days, UTC, paged via `@odata.nextLink`).
 - **Token separation:** Graph tokens go only to `graph.microsoft.com`; the Express API continues to accept only `api://<client-id>/access_as_user` tokens.
 - **Where it shows:** *My Plan* for active members and managers (own calendar only); a profile-only connection test in Admin *Settings*. Pending and disabled accounts have no *My Plan*.
