@@ -550,7 +550,7 @@ function seedNotifications() {
 
 export function defaultUsers() {
   return [
-    { id: 'a1', displayName: 'TAN XIU LI, FELICIA', email: '254381c@mymail.nyp.edu.sg', role: 'admin', status: 'active', teams: [] },
+    { id: 'a1', displayName: 'TAN, ALEX', email: 'alex.tan@syncai.demo', role: 'admin', status: 'active', teams: [] },
     { id: 's1', displayName: 'Jennifer Ong', email: 'jennifer.ong@towncouncil.gov.sg', role: 'manager', status: 'active', teams: [{ id: 'team-1', name: 'Zone A Operations', kind: 'manager' }, { id: 'team-2', name: 'Zone B Technical', kind: 'manager' }, { id: 'team-3', name: 'Zone C Conservancy', kind: 'manager' }] },
     { id: 'o1', displayName: 'Aisyah Rahman', email: 'aisyah.rahman@towncouncil.gov.sg', role: 'member', status: 'active', teams: [{ id: 'team-1', name: 'Zone A Operations', kind: 'member' }] },
     { id: 'o2', displayName: 'Marcus Tan', email: 'marcus.tan@towncouncil.gov.sg', role: 'member', status: 'active', teams: [{ id: 'team-2', name: 'Zone B Technical', kind: 'member' }] },
@@ -625,28 +625,93 @@ export function addDemoCases(state) {
   if (Array.isArray(state.cases)) return state;
   state.cases = [
     {
-      id: 'case-001', number: 'DEMO-001', title: 'Ceiling seepage at Blk 211', category: 'Resident Feedback',
-      status: 'In progress', ownerId: 'o1', location: 'Blk 211',
+      id: 'case-001', number: 'DEMO-001', caseNumber: 'DEMO-001', title: 'Ceiling seepage at Blk 211', category: 'Resident Feedback',
+      status: 'In progress', ownerId: 'o1', location: 'Blk 211', estate: 'Zone A — Blk 211', block: 'Blk 211', unit: '#05-12',
+      urgency: 'High', priority: 'High',
       description: 'A resident reported ceiling seepage. Inspect the affected unit, follow up with the resident and prepare the rectification work order.',
-      responseDue: dt(TODAY, '17:00'), followUpDue: dt(workDay(1), '12:00'),
+      summary: 'A resident reported ceiling seepage. Inspect the affected unit, follow up with the resident and prepare the rectification work order.',
+      responseDue: dt(TODAY, '17:00'), followUpDue: dt(workDay(1), '12:00'), slaDue: dt(TODAY, '17:00'), slaType: 'Resident Follow-up SLA (next working day)',
+      resident: { name: 'Mdm Tan Siew Lan', contact: '9123 4567', email: 'tan.sl@resident.demo', unit: '#05-12' },
+      taskIds: ['t103', 't104', 't112'],
+      blockers: [{ id: 'b-001-1', title: 'Upper unit resident (#06-12) unreachable by phone', recordedAt: dt(TODAY, '11:30'), resolved: false, suggestedAction: 'Dispatch physical inspection notice letter under door' }],
+      checkpoints: [
+        { id: 'cp-001-1', title: 'Unit #05-12 ceiling moisture & thermography inspection', completed: true, completedAt: dt(TODAY, '10:00'), actor: 'Aisyah Rahman', requiredForClosure: true },
+        { id: 'cp-001-2', title: 'Resident follow-up call & acknowledgment', completed: false, due: dt(workDay(1), '12:00'), actor: 'Aisyah Rahman', requiredForClosure: true, looseEndReason: 'Resident follow-up promised on workDay(1) but outcome not recorded' },
+        { id: 'cp-001-3', title: 'Upper unit #06-12 joint plumbing inspection', completed: false, due: dt(workDay(2), '17:00'), actor: 'Aisyah Rahman', requiredForClosure: true },
+        { id: 'cp-001-4', title: 'Contractor rectification work-order sign-off', completed: false, due: dt(workDay(3), '17:00'), actor: 'Jennifer Ong', requiresManager: true, requiredForClosure: true },
+      ],
+      evidence: [
+        { id: 'evi-001-1', title: 'Ceiling seepage photographic evidence', type: 'photo', uploadedAt: dt(TODAY, '10:15'), verified: true, sourceRef: 'IMG_20261111_1002.jpg' },
+        { id: 'evi-001-2', title: 'Upper unit joint inspection notice copy', type: 'document', uploadedAt: null, verified: false, missing: true, sourceRef: 'Notice Ref #211-0612' },
+      ],
+      timeline: [
+        { id: 'ev-001-1', at: dt(workDay(-1), '14:30'), type: 'reported', title: 'Resident Seepage Feedback Lodged', summary: 'Resident reported persistent water stains and paint peeling above master bedroom toilet.', source: 'OneService Portal / CRM', actor: 'OneService Connector' },
+        { id: 'ev-001-2', at: dt(workDay(-1), '16:00'), type: 'assigned', title: 'Assigned to Zone A Property Officer', summary: 'Assigned to Aisyah Rahman for priority on-site inspection.', source: 'SyncAI Engine', actor: 'Jennifer Ong' },
+        { id: 'ev-001-3', at: dt(TODAY, '10:00'), type: 'inspection', title: 'On-site moisture assessment completed', summary: 'Moisture level recorded at 78%. Suspected defective waterproof membrane or floor trap seal from #06-12.', source: 'Mobile Inspection Form', actor: 'Aisyah Rahman' },
+      ],
+      requiresManagerApprovalForClosure: true,
     },
     {
-      id: 'case-002', number: 'DEMO-002', title: 'Refuse chute hopper fault at Blk 310', category: 'Maintenance',
-      status: 'Open', ownerId: 'o2', location: 'Blk 310',
+      id: 'case-002', number: 'DEMO-002', caseNumber: 'DEMO-002', title: 'Refuse chute hopper fault at Blk 310', category: 'Maintenance',
+      status: 'Open', ownerId: 'o2', location: 'Blk 310', estate: 'Zone B — Blk 310', block: 'Blk 310', unit: '#02 Common Lobby',
+      urgency: 'High', priority: 'High',
       description: 'The refuse chute hopper was reported faulty. Inspect the hopper and record the findings.',
-      responseDue: dt(TODAY, '17:00'), followUpDue: null,
+      summary: 'The refuse chute hopper was reported faulty. Inspect the hopper and record the findings.',
+      responseDue: dt(TODAY, '17:00'), followUpDue: null, slaDue: dt(TODAY, '17:00'), slaType: 'Estate Maintenance SLA',
+      resident: { name: 'Resident Committee Zone B', contact: '6338 ****', email: 'rc.zoneb@estate.demo', unit: 'RC Centre' },
+      taskIds: ['t202'],
+      blockers: [],
+      checkpoints: [
+        { id: 'cp-002-1', title: 'Hopper latch mechanical inspection', completed: true, completedAt: dt(TODAY, '11:00'), actor: 'Marcus Tan', requiredForClosure: true },
+        { id: 'cp-002-2', title: 'Conservancy contractor hinge replacement', completed: false, due: dt(TODAY, '16:45'), actor: 'Marcus Tan', requiredForClosure: true, looseEndReason: 'Contractor repair appointment scheduled today without confirmed attendance' },
+      ],
+      evidence: [
+        { id: 'evi-002-1', title: 'Hopper latch misalignment photo', type: 'photo', uploadedAt: dt(TODAY, '11:10'), verified: true, sourceRef: 'IMG_20261111_1105.jpg' },
+      ],
+      timeline: [
+        { id: 'ev-002-1', at: dt(TODAY, '09:00'), type: 'reported', title: 'Hopper Fault Reported', summary: 'Hopper door jammed ajar, causing odor in common lobby.', source: 'Hotline', actor: 'Hotline Operator' },
+      ],
+      requiresManagerApprovalForClosure: false,
     },
     {
-      id: 'case-003', number: 'DEMO-003', title: 'Drain obstruction at Blk 405', category: 'Cleaning',
-      status: 'Open', ownerId: 'o5', location: 'Blk 405',
+      id: 'case-003', number: 'DEMO-003', caseNumber: 'DEMO-003', title: 'Drain obstruction at Blk 405', category: 'Cleaning',
+      status: 'Open', ownerId: 'o5', location: 'Blk 405', estate: 'Zone C — Blk 405', block: 'Blk 405', unit: 'Perimeter Drain',
+      urgency: 'Medium', priority: 'Medium',
       description: 'A possible drain obstruction was reported near the block. Confirm the location and extent during the site check.',
-      responseDue: null, followUpDue: null,
+      summary: 'A possible drain obstruction was reported near the block. Confirm the location and extent during the site check.',
+      responseDue: null, followUpDue: null, slaDue: dt(workDay(2), '12:00'), slaType: 'Public Cleanliness SLA',
+      resident: { name: 'Estate Conservancy Patrol', contact: '6555 ****', email: 'conservancy@towncouncil.gov.sg', unit: 'Zone C Office' },
+      taskIds: ['t503'],
+      blockers: [],
+      checkpoints: [
+        { id: 'cp-003-1', title: 'Perimeter drain inspection', completed: false, due: dt(workDay(2), '12:00'), actor: 'Chua Hui Min', requiredForClosure: true },
+      ],
+      evidence: [],
+      timeline: [
+        { id: 'ev-003-1', at: dt(workDay(-1), '08:45'), type: 'reported', title: 'Drain Choke Report Lodged', summary: 'Leaves and silt accumulation reported near perimeter drain.', source: 'OneService', actor: 'OneService Connector' },
+      ],
+      requiresManagerApprovalForClosure: false,
     },
     {
-      id: 'case-004', number: 'DEMO-004', title: 'Reported lift jolts at Blk 208', category: 'Maintenance',
-      status: 'Open', ownerId: 'o1', location: 'Blk 208',
+      id: 'case-004', number: 'DEMO-004', caseNumber: 'DEMO-004', title: 'Reported lift jolts at Blk 208', category: 'Maintenance',
+      status: 'Open', ownerId: 'o1', location: 'Blk 208', estate: 'Zone A — Blk 208', block: 'Blk 208', unit: 'Lifts A & B',
+      urgency: 'Critical', priority: 'Critical',
       description: 'Residents reported jolts during lift travel. The officer will inspect the lifts with the technician.',
-      responseDue: dt(TODAY, '12:00'), followUpDue: null,
+      summary: 'Residents reported jolts during lift travel. The officer will inspect the lifts with the technician.',
+      responseDue: dt(TODAY, '12:00'), followUpDue: null, slaDue: dt(TODAY, '12:00'), slaType: 'BCA Lift Safety SLA (4h response)',
+      resident: { name: 'Emergency Hotline', contact: '1800-***-****', email: 'ems.hotline@towncouncil.gov.sg', unit: 'Hotline Escalation' },
+      taskIds: ['t101'],
+      blockers: [],
+      checkpoints: [
+        { id: 'cp-004-1', title: 'Joint technical inspection with Lift Contractor', completed: false, due: dt(TODAY, '12:00'), actor: 'Aisyah Rahman', requiredForClosure: true, looseEndReason: 'BCA safety inspection appointment pending technician outcome sign-off' },
+      ],
+      evidence: [
+        { id: 'evi-004-1', title: 'Preliminary vibration meter readout', type: 'log', uploadedAt: dt(TODAY, '10:45'), verified: true, sourceRef: 'VIB_LOG_208A.csv' },
+      ],
+      timeline: [
+        { id: 'ev-004-1', at: dt(TODAY, '08:00'), type: 'reported', title: 'Lift Jolt Alert Logged', summary: 'Hotline dispatch received multiple resident calls regarding Lift A jolts between 8th and 10th floors.', source: 'Hotline', actor: 'Dispatch Operator' },
+      ],
+      requiresManagerApprovalForClosure: true,
     },
   ];
   const caseByTask = {
@@ -686,7 +751,7 @@ export function createSeedState() {
     status: 'active',
     currentOfficerId: 'o1',
     supervisor: { id: 's1', name: 'Jennifer Ong', title: 'Estate Manager' },
-    admin: { id: 'a1', name: 'TAN XIU LI, FELICIA', title: 'Town Council Administrator', email: '254381c@mymail.nyp.edu.sg' },
+    admin: { id: 'a1', name: 'TAN, ALEX', displayName: 'TAN, ALEX', title: 'Town Council Administrator', email: 'alex.tan@syncai.demo' },
     hq: { id: 'h1', name: 'Lim Wei Ling', title: 'EMS HQ · Estate Operations' },
     council: 'nv',
     settings: {

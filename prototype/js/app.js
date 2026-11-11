@@ -22,9 +22,12 @@ import {
   createApprovalRequest,
   decideApproval,
   isOpen,
-  officerName,
   logActivity,
   actorName,
+  getCase,
+  closeCase,
+  requestCaseReassignment,
+  officerName,
 } from './state.js';
 import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog } from './ui.js';
 import { accessibleTask, changeTaskStatus, deleteCapturedTask, taskDateInput, taskDuration } from './taskCapture.js';
@@ -35,7 +38,7 @@ import { calendarDay, singaporeInstant, TODAY } from './time.js';
 
 // Page modules
 import overviewPage from './pages/overview.js';
-import casesPage from './pages/cases.js';
+import casesPage, { caseView } from './pages/cases.js';
 import tasksPage, { tasksView } from './pages/tasks.js';
 import { openTaskCapture } from './pages/taskCaptureDialog.js';
 import planPage, { planView } from './pages/plan.js';
@@ -53,8 +56,8 @@ import assistantPage from './pages/assistant.js';
 const SECTIONS = {
   overview: { id: 'overview', label: 'Overview', icon: 'grid', page: overviewPage },
   assistant: { id: 'assistant', label: 'Ask SyncAI', icon: 'sparkle', page: assistantPage },
-  cases: { id: 'cases', label: 'Cases', icon: 'folder', page: casesPage },
   tasks: { id: 'tasks', label: 'My tasks', icon: 'tasks', page: tasksPage },
+  cases: { id: 'cases', label: 'Case Action Centre', icon: 'cases', page: casesPage },
   plan: { id: 'plan', label: 'My plan', icon: 'calendar', page: planPage },
   team: { id: 'team', label: 'My team', icon: 'team', page: teamPage },
   people: { id: 'people', label: 'People', icon: 'users', page: peoplePage },
@@ -74,13 +77,13 @@ function allowedSections(s) {
     return ['overview', 'assistant', 'decides', 'settings'];
   }
   if (isAdmin(s)) {
-    return ['overview', 'assistant', 'people', 'teams', 'activity', 'decides', 'settings'];
+    return ['overview', 'assistant', 'cases', 'people', 'teams', 'activity', 'decides', 'settings'];
   }
   if (isManager(s)) {
-    return ['overview', 'assistant', 'cases', 'tasks', 'plan', 'team', 'decides', 'settings'];
+    return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'team', 'decides', 'settings'];
   }
   // Member
-  return ['overview', 'assistant', 'cases', 'tasks', 'plan', 'decides', 'settings'];
+  return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'decides', 'settings'];
 }
 
 function readPortalRoute(s) {
@@ -701,6 +704,126 @@ function setupEvents() {
       }
       return;
     }
+
+    // 13. Case Action Centre events
+    const caseTabBtn = e.target.closest('[data-action="case-tab"]');
+    if (caseTabBtn) {
+      caseView.activeTab = caseTabBtn.dataset.tab;
+      renderApp();
+      return;
+    }
+
+    const caseViewModeBtn = e.target.closest('[data-action="case-view-mode"]');
+    if (caseViewModeBtn) {
+      caseView.viewMode = caseViewModeBtn.dataset.mode;
+      renderApp();
+      return;
+    }
+
+    const caseInspectBtn = e.target.closest('[data-action="case-inspect"]');
+    if (caseInspectBtn) {
+      const cid = caseInspectBtn.dataset.id;
+      caseView.selectedCaseId = cid;
+      if (caseInspectBtn.dataset.tab) {
+        caseView.journeyTab = caseInspectBtn.dataset.tab;
+      } else {
+        caseView.journeyTab = 'timeline';
+      }
+      renderApp();
+      return;
+    }
+
+    const caseModalClose = e.target.closest('[data-action="case-modal-close"]');
+    if (caseModalClose) {
+      caseView.selectedCaseId = null;
+      renderApp();
+      return;
+    }
+
+    const journeyTabBtn = e.target.closest('[data-action="case-journey-tab"]');
+    if (journeyTabBtn) {
+      caseView.journeyTab = journeyTabBtn.dataset.tab;
+      renderApp();
+      return;
+    }
+
+    if (e.target.closest('[data-action="case-clear-filters"]')) {
+      caseView.searchQuery = '';
+      caseView.estateFilter = 'all';
+      caseView.urgencyFilter = 'all';
+      renderApp();
+      return;
+    }
+
+    const casePlanNav = e.target.closest('[data-action="case-plan-nav"]');
+    if (casePlanNav) {
+      caseView.selectedCaseId = null;
+      currentSection = 'plan';
+      window.location.hash = '#plan';
+      toast('Navigated to Smart Planner for scheduled case commitments.', 'info');
+      renderApp();
+      return;
+    }
+
+    const caseRippleNav = e.target.closest('[data-action="case-ripple-nav"]');
+    if (caseRippleNav) {
+      caseView.selectedCaseId = null;
+      currentSection = 'plan';
+      window.location.hash = '#plan';
+      toast('Opened What-If Simulator & Ripple Intelligence for case task.', 'info');
+      renderApp();
+      return;
+    }
+
+    const navToCaseBtn = e.target.closest('[data-action="nav-to-case"]');
+    if (navToCaseBtn) {
+      closeModal();
+      const cid = navToCaseBtn.dataset.case;
+      currentSection = 'cases';
+      window.location.hash = '#cases';
+      caseView.selectedCaseId = cid;
+      caseView.journeyTab = 'timeline';
+      renderApp();
+      return;
+    }
+
+    const caseCloseBtn = e.target.closest('[data-action="case-close-action"]');
+    if (caseCloseBtn) {
+      const cid = caseCloseBtn.dataset.case;
+      update((s) => {
+        const res = closeCase(s, cid);
+        if (!res.success) {
+          toast(res.error, 'error');
+        } else {
+          toast(`Case ${res.case.caseNumber} closed successfully.`, 'success');
+        }
+      });
+      renderApp();
+      return;
+    }
+
+    const caseReassignBtn = e.target.closest('[data-action="case-reassign-dialog"]');
+    if (caseReassignBtn) {
+      const cid = caseReassignBtn.dataset.case || caseView.selectedCaseId;
+      showCaseReassignModal(getState(), cid);
+      return;
+    }
+
+    const caseCopyBriefBtn = e.target.closest('[data-action="case-copy-brief"]');
+    if (caseCopyBriefBtn) {
+      const el = document.getElementById('case-brief-text');
+      if (el) {
+        navigator.clipboard?.writeText(el.innerText);
+        toast('Case Brief copied to clipboard.', 'success');
+      }
+      return;
+    }
+
+    const quickRoleBtn = e.target.closest('[data-action="quick-switch-role"]');
+    if (quickRoleBtn) {
+      switchDemoRole(quickRoleBtn.dataset.role);
+      return;
+    }
   });
 
   // Role select dropdown change
@@ -781,6 +904,16 @@ function setupEvents() {
       else document.documentElement.setAttribute('data-text-size', val);
       toast(`Text size set to ${val}.`, 'info');
     }
+
+    if (e.target.dataset.action === 'case-filter-estate') {
+      caseView.estateFilter = e.target.value;
+      renderApp();
+    }
+
+    if (e.target.dataset.action === 'case-filter-urgency') {
+      caseView.urgencyFilter = e.target.value;
+      renderApp();
+    }
   });
 
   // Search input events
@@ -798,6 +931,10 @@ function setupEvents() {
       const pv = peoplePage.peopleView || peoplePage.view || {};
       pv.q = e.target.value;
       pv.page = 1;
+      renderApp();
+    }
+    if (e.target.dataset.action === 'case-search') {
+      caseView.searchQuery = e.target.value;
       renderApp();
     }
   });
@@ -851,7 +988,7 @@ function showAccountSwitchModal() {
       </button>
       <button type="button" class="btn-secondary" style="justify-content: flex-start; text-align: left; padding: 12px 14px;" data-action="pick-role-modal" data-role="admin">
         <div>
-          <strong>TAN XIU LI, FELICIA (Admin)</strong>
+          <strong>TAN, ALEX (Admin)</strong>
           <span class="small muted" style="display: block;">Town Council Administrator. User directory, pending account approval, team setup.</span>
         </div>
       </button>
@@ -916,6 +1053,22 @@ function showTaskDetailModal(s, t) {
       ${t.remarks ? html`<div class="capture-text"><strong>Remarks:</strong> ${t.remarks}</div>` : ''}
       ${t.appointmentTime
         ? html`<div><strong>Resident Commitment:</strong> <span class="tag tag-brand">${t.appointmentTime}</span></div>`
+        : ''}
+      ${t.caseId
+        ? html`
+            <div>
+              <strong>Linked Case:</strong>
+              <button
+                type="button"
+                class="tag tag-brand"
+                data-action="nav-to-case"
+                data-case="${t.caseId}"
+                style="cursor: pointer; border: 1px solid var(--colorBrandStroke2); background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-family: monospace; font-weight: 700; margin-left: 6px;"
+              >
+                ${icon('cases', 12)} ${t.caseId} → Open in Case Action Centre
+              </button>
+            </div>
+          `
         : ''}
       ${t.consequence
         ? html`<div><strong>Long-term Consequence Risk:</strong> <span class="muted">${t.consequence}</span></div>`
@@ -1036,6 +1189,78 @@ function showCreateTeamModal(s) {
     toast(`Team "${name}" created.`, 'success');
     renderApp();
   });
+}
+
+function showCaseReassignModal(s, caseId) {
+  const c = getCase(s, caseId);
+  if (!c) return;
+
+  const currentOwner = officerName(s, c.ownerId);
+  const eligibleOfficers = (s.users || [])
+    .filter((u) => u.status === 'active' && u.role !== 'admin' && u.id !== c.ownerId);
+
+  const content = html`
+    <h2 class="modal-title">Request Case Reassignment</h2>
+    <p class="muted small" style="margin-bottom: 14px;">
+      Reassign <strong>${c.caseNumber}</strong> (${c.title}). This will submit a formal handover request to Estate Manager Jennifer Ong.
+    </p>
+
+    <form id="case-reassign-form">
+      <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+        <div>
+          <label style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Current Case Officer</label>
+          <input type="text" value="${currentOwner}" readonly style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground2); box-sizing: border-box;" />
+        </div>
+
+        <div>
+          <label for="reassign-target-officer" style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Assign To</label>
+          <select id="reassign-target-officer" required style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); box-sizing: border-box;">
+            <option value="">Select receiving officer...</option>
+            ${eligibleOfficers.map(
+              (o) => html`<option value="${o.id}">${o.displayName} (${o.role === 'manager' ? 'Estate Manager' : 'Property Officer'})</option>`,
+            )}
+          </select>
+        </div>
+
+        <div>
+          <label for="reassign-reason-input" style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Operational Handover Reason</label>
+          <textarea id="reassign-reason-input" rows="3" required placeholder="e.g. Zone boundary re-alignment / site inspection capacity overload..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.875rem; box-sizing: border-box;"></textarea>
+        </div>
+
+        <div style="padding: 10px 12px; border-radius: 6px; background: var(--colorNeutralBackground2); font-size: 0.75rem; color: var(--colorNeutralForeground3);">
+          ${icon('info', 14)} Connected to Approvals & Audit: Estate Manager Jennifer Ong must approve before ownership and task assignments update.
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Cancel</button>
+        <button type="submit" class="btn-primary btn-sm">Submit Request</button>
+      </div>
+    </form>
+  `;
+
+  openModal(content);
+
+  const form = document.getElementById('case-reassign-form');
+  if (form) {
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const targetOfficerId = document.getElementById('reassign-target-officer')?.value;
+      const reason = document.getElementById('reassign-reason-input')?.value;
+
+      if (!targetOfficerId) {
+        toast('Please select an active officer.', 'error');
+        return;
+      }
+
+      closeModal();
+      update((stateObj) => {
+        requestCaseReassignment(stateObj, caseId, targetOfficerId, reason);
+      });
+      toast(`Reassignment request for ${c.caseNumber} submitted for manager review.`, 'success');
+      renderApp();
+    });
+  }
 }
 
 // Start application when DOM is ready

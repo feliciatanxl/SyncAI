@@ -703,47 +703,77 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
 .data-table tbody tr:hover { background: var(--colorNeutralBackground1Hover); }
 
 /* Circular Checkbox (Microsoft To Do / Fluent UI check circles) */
+input[type="checkbox"].circular-checkbox,
 .data-table input[type="checkbox"],
 .todo-check input[type="checkbox"],
 .circular-checkbox {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
   border-radius: 50% !important;
-  border: 1.5px solid var(--colorNeutralStroke1);
-  background: var(--colorNeutralBackground1);
-  cursor: pointer;
-  position: relative;
-  display: inline-grid;
-  place-content: center;
-  margin: 0;
-  vertical-align: middle;
-  outline: none;
-  transition: all 0.15s ease-in-out;
+  border: 1.5px solid #8a8886 !important;
+  background-color: var(--colorNeutralBackground1, #ffffff) !important;
+  cursor: pointer !important;
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  outline: none !important;
+  transition: all 0.15s ease-in-out !important;
 }
+input[type="checkbox"].circular-checkbox:hover,
 .data-table input[type="checkbox"]:hover,
 .todo-check input[type="checkbox"]:hover,
 .circular-checkbox:hover {
-  border-color: var(--colorBrandStroke1);
-  background: var(--colorNeutralBackground1Hover);
+  border-color: #0f6cbd !important;
+  background-color: #ebf3fc !important;
 }
+input[type="checkbox"].circular-checkbox:checked,
 .data-table input[type="checkbox"]:checked,
 .todo-check input[type="checkbox"]:checked,
 .circular-checkbox:checked {
-  background: var(--colorPaletteGreenBackground1);
-  border-color: var(--colorPaletteGreenBorderActive);
+  background-color: #107c41 !important;
+  border-color: #107c41 !important;
 }
+input[type="checkbox"].circular-checkbox:checked::after,
 .data-table input[type="checkbox"]:checked::after,
 .todo-check input[type="checkbox"]:checked::after,
 .circular-checkbox:checked::after {
-  content: '';
-  width: 4px;
-  height: 8px;
-  border: solid var(--colorPaletteGreenForeground1);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-  margin-top: -2px;
+  content: '' !important;
+  display: block !important;
+  width: 5px !important;
+  height: 9px !important;
+  border: solid #ffffff !important;
+  border-width: 0 2px 2px 0 !important;
+  transform: rotate(45deg) !important;
+  margin-top: -2px !important;
+}
+
+/* Ensure risk badge and cell stay strictly on 1 line */
+.cell-risk,
+td.cell-risk,
+.data-table td.cell-risk {
+  white-space: nowrap !important;
+  min-width: 125px !important;
+}
+
+.badge, .tag, .fui-Badge {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 5px !important;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  line-height: 1.35 !important;
 }
 
 /* Task title button & cells inside table */
@@ -798,7 +828,7 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
 .teams-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .teams-toolbar-left { display: flex; align-items: center; gap: 12px; flex: 1 1 320px; }
 .teams-search { flex: 1 1 240px; max-width: 360px; }
-.teams-list { display: flex; flex-direction: column; gap: 8px; }
+.teams-list { display: flex; flex-direction: column; gap: 6px; }
 .team-card {
   margin-bottom: 0 !important;
   padding: 0; border-radius: 12px; background: var(--colorNeutralBackground1);
@@ -808,20 +838,20 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
 .team-card.is-expanded { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); }
 .team-card-header {
   display: flex; align-items: center; justify-content: space-between; gap: 14px;
-  padding: 16px 20px; background: var(--colorNeutralBackground1); cursor: pointer; user-select: none; transition: background 0.15s ease;
+  padding: 12px 18px; background: var(--colorNeutralBackground1); cursor: pointer; user-select: none; transition: background 0.15s ease;
 }
 .team-card-header:hover { background: var(--colorNeutralBackground1Hover); }
-.team-card-main { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
+.team-card-main { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
 .team-card-icon {
-  display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 10px;
+  display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 10px;
   background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); flex: none;
 }
-.team-card-info { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.team-card-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .team-card-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.team-card-title-row h2 { margin: 0; font-size: 1.125rem; font-weight: 600; color: var(--colorNeutralForeground1); }
-.team-badges-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.team-card-title-row h2 { margin: 0; font-size: 1.0625rem; font-weight: 600; color: var(--colorNeutralForeground1); }
+.team-badges-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .team-badge {
-  display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 14px;
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 14px;
   font-size: 0.75rem; font-weight: 600; background: var(--colorNeutralBackground3); color: var(--colorNeutralForeground2);
 }
 .team-badge.is-manager { background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); }
@@ -831,12 +861,12 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
 .team-avatar-stack .fui-Avatar:first-child { margin-left: 0; }
 .team-card-controls { display: flex; align-items: center; gap: 6px; flex: none; }
 .team-card-content {
-  padding: 20px 24px 24px; border-top: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground2);
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 16px;
+  padding: 14px 18px 18px; border-top: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground2);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 14px;
 }
 .team-section-box {
   background: var(--colorNeutralBackground1); border: 1px solid var(--colorNeutralStroke2); border-radius: 10px;
-  padding: 16px 18px; display: flex; flex-direction: column; gap: 12px;
+  padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;
 }
 .team-section-header { display: flex; align-items: center; justify-content: space-between; }
 .team-section-header h3 { margin: 0; font-size: 0.9375rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
@@ -1173,6 +1203,120 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
 .scroll-to-top svg {
   width: 20px;
   height: 20px;
+}
+
+/* ==========================================================================
+   Case Action Centre & Operational Loose-End Detector Styles
+   ========================================================================== */
+
+.view-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: var(--colorNeutralBackground3);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.view-toggle .btn-icon {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--colorNeutralForeground2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.view-toggle .btn-icon:hover {
+  background: var(--colorNeutralBackground1Hover);
+  color: var(--colorNeutralForeground1);
+}
+
+.view-toggle .btn-icon.is-active {
+  background: var(--colorNeutralBackground1);
+  color: var(--colorBrandForeground1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.radar-panel {
+  border-left: 4px solid var(--colorPaletteMarigoldBorderActive) !important;
+  background: var(--colorNeutralBackground1);
+}
+
+.radar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 14px;
+}
+
+.loose-end-card {
+  border: 1px solid var(--colorPaletteMarigoldBorderActive);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--colorNeutralBackground1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.loose-end-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: var(--colorPaletteMarigoldForeground2);
+}
+
+.loose-end-card.is-critical {
+  border-color: var(--colorPaletteRedBorderActive);
+  background: #fffdfd;
+}
+
+.loose-end-card.is-critical:hover {
+  border-color: var(--colorPaletteRedForeground1);
+}
+
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.kanban-col {
+  background: var(--colorNeutralBackground2);
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 380px;
+}
+
+.kanban-case-card {
+  background: var(--colorNeutralBackground1);
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--shadow8);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.kanban-case-card:hover,
+.kanban-case-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--colorBrandStroke1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  outline: none;
 }
 
 /* ==========================================================================
