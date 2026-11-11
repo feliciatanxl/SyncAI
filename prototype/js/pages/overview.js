@@ -99,19 +99,23 @@ function renderAdminOverview(s, user) {
             `}
       </section>
 
-      <section class="panel" aria-labelledby="invite-h">
+      <section class="panel panel-invite" aria-labelledby="invite-h">
         <div class="panel-head">
-          <h2 id="invite-h">Team Sign-in Link</h2>
+          <h2 id="invite-h">Invite your team</h2>
         </div>
-        <p class="muted small">Team members and managers sign in with their Microsoft account. Direct them to the demo portal:</p>
-        <div style="margin: 12px 0;">
-          <code style="display: block; padding: 10px 14px; background: var(--colorNeutralBackground3); border-radius: 8px; font-size: 0.8125rem;">
-            https://syncai.towncouncil.internal/site/login.html
-          </code>
+        <ol class="steps-list">
+          <li>Send them this link.</li>
+          <li>They sign in with their own Microsoft account.</li>
+          <li>They appear under “Needs your attention” for you to approve.</li>
+        </ol>
+        <div class="invite">
+          <div class="invite-box">
+            <code id="invite-link-code">${typeof window !== 'undefined' && window.location ? `${window.location.origin}${window.location.pathname.replace(/\/index\.html.*|\/?$/, '')}/site/login.html` : 'https://syncai.towncouncil.internal/site/login.html'}</code>
+          </div>
+          <button type="button" class="btn-secondary btn-sm" data-action="copy-invite">
+            ${icon('copy', 14)} Copy link
+          </button>
         </div>
-        <button type="button" class="btn-secondary btn-sm" data-action="copy-invite">
-          ${icon('link', 14)} Copy demo invite link
-        </button>
       </section>
     </div>
 

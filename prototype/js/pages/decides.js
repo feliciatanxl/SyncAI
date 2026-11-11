@@ -7,10 +7,10 @@ export default {
       <header class="page-hero">
         <span class="page-hero-icon" aria-hidden="true">${icon('sparkle', 28)}</span>
         <div class="page-hero-text">
-          <p class="page-hero-eyebrow">Operationally aware AI scheduling</p>
-          <h1>How SyncAI decides</h1>
+          <p class="page-hero-eyebrow">Our difference</p>
+          <h1>Operationally aware AI scheduling</h1>
           <p>
-            The four operational factors and responsible AI principles that guide every priority score, feasibility estimate and schedule recommendation.
+            A generic to-do list sorts by due date. SyncAI weighs four operational factors together, then builds a plan that fits the time each person really has.
           </p>
         </div>
       </header>
@@ -21,9 +21,7 @@ export default {
           <span class="factor-n" aria-hidden="true">1</span>
           <div>
             <h2>Safety</h2>
-            <p class="muted">
-              Genuine risks to residents, staff and public property outrank routine requests. Emergencies like passenger lift entrapments and exposed live wires receive top priority and +20 score weight.
-            </p>
+            <p class="muted">Genuine risks to people, staff and property.</p>
           </div>
         </li>
 
@@ -31,9 +29,7 @@ export default {
           <span class="factor-n" aria-hidden="true">2</span>
           <div>
             <h2>Mandatory deadlines</h2>
-            <p class="muted">
-              Statutory deadlines (BCA lift compliance, EMA electrical inspections, SCDF fire certificates) and strict funding cut-off dates cannot slip. Missing them incurs permanent grant forfeiture or regulatory sanctions.
-            </p>
+            <p class="muted">Statutory, regulatory, contractual and funding-approval dates that cannot slip.</p>
           </div>
         </li>
 
@@ -41,9 +37,7 @@ export default {
           <span class="factor-n" aria-hidden="true">3</span>
           <div>
             <h2>Service impact & long-term consequences</h2>
-            <p class="muted">
-              Evaluates what happens if the work waits: concrete spalling, rebar corrosion, water seepage escalation. Focuses on actual resident needs, not who calls or complains loudest.
-            </p>
+            <p class="muted">Real customer needs and what happens if the work waits. Not who complains loudest.</p>
           </div>
         </li>
 
@@ -51,9 +45,7 @@ export default {
           <span class="factor-n" aria-hidden="true">4</span>
           <div>
             <h2>Scheduling feasibility</h2>
-            <p class="muted">
-              Estimated task durations matched to each officer’s free time, travel buffers and Outlook appointments. Flags impossible capacity constraints early instead of overcommitting the team.
-            </p>
+            <p class="muted">Estimated task durations matched to each person’s free time and capacity.</p>
           </div>
         </li>
       </ol>
@@ -61,26 +53,26 @@ export default {
       <!-- 3 Principles Grid -->
       <div class="principles" aria-label="Responsible AI principles">
         <div class="panel">
-          <span class="card-icon" aria-hidden="true">${icon('sparkle', 24)}</span>
-          <h2>Explainable</h2>
+          <span class="card-icon" aria-hidden="true">${icon('eye', 24)}</span>
+          <h2>Explained, every time</h2>
           <p class="muted">
-            Every score, estimate and suggestion lists the reasons behind it in plain, calibrated language without opaque black-box scoring.
+            Each score and suggestion lists the reasons behind it, in plain language.
           </p>
         </div>
 
         <div class="panel">
           <span class="card-icon" aria-hidden="true">${icon('check', 24)}</span>
-          <h2>Human approval</h2>
+          <h2>People approve</h2>
           <p class="muted">
-            AI recommends, humans decide. A team member or authorised manager must review and approve schedule changes before they take effect.
+            SyncAI recommends. A team member or manager accepts every change before it happens.
           </p>
         </div>
 
         <div class="panel">
           <span class="card-icon" aria-hidden="true">${icon('shield', 24)}</span>
-          <h2>Private by design</h2>
+          <h2>Safety and deadlines protected</h2>
           <p class="muted">
-            Role-based access through Microsoft Entra ID. Absences are recorded as MC or leave only, never medical details, protecting officer dignity.
+            When urgent work lands, safety and mandatory work stay in place. Other work moves first.
           </p>
         </div>
       </div>

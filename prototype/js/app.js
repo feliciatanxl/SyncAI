@@ -427,8 +427,75 @@ function setupEvents() {
     const teamExpand = e.target.closest('[data-action="team-toggle-expand"]');
     if (teamExpand) {
       const teamId = teamExpand.dataset.team;
-      teamPage.expandedTeamId = teamPage.expandedTeamId === teamId ? null : teamId;
+      teamPage.teamView.expandedTeamId = teamPage.teamView.expandedTeamId === teamId ? null : teamId;
       renderApp();
+      return;
+    }
+
+    // Admin Teams Accordion & Members
+    const adminTeamToggle = e.target.closest('[data-action="admin-team-toggle"]');
+    if (adminTeamToggle) {
+      const teamId = adminTeamToggle.dataset.team;
+      if (teamsAdminPage.teamsAdminView.expandedIds.has(teamId)) {
+        teamsAdminPage.teamsAdminView.expandedIds.delete(teamId);
+      } else {
+        teamsAdminPage.teamsAdminView.expandedIds.add(teamId);
+      }
+      renderApp();
+      return;
+    }
+
+    const adminTeamsToggleAll = e.target.closest('[data-action="admin-teams-toggle-all"]');
+    if (adminTeamsToggleAll) {
+      const s = getState();
+      const teams = getTeams(s);
+      const allExp = teams.length > 0 && teams.every((t) => teamsAdminPage.teamsAdminView.expandedIds.has(t.id));
+      if (allExp) {
+        teamsAdminPage.teamsAdminView.expandedIds.clear();
+      } else {
+        teams.forEach((t) => teamsAdminPage.teamsAdminView.expandedIds.add(t.id));
+      }
+      renderApp();
+      return;
+    }
+
+    const adminAddMember = e.target.closest('[data-action="admin-add-team-member"]');
+    if (adminAddMember) {
+      const teamId = adminAddMember.dataset.team;
+      const selectId = adminAddMember.dataset.select;
+      const selectEl = document.getElementById(selectId);
+      const userId = selectEl ? selectEl.value : null;
+      if (!userId) {
+        toast('Please select an active officer from the dropdown.', 'error');
+        return;
+      }
+      update((s) => {
+        addTeamMember(s, teamId, userId);
+        const user = getUser(s, userId);
+        logActivity(s, `Added ${user ? user.displayName : userId} to team`, actorName(s));
+      });
+      toast('Officer successfully added to team.', 'success');
+      renderApp();
+      return;
+    }
+
+    const adminRemoveMember = e.target.closest('[data-action="admin-remove-team-member"]');
+    if (adminRemoveMember) {
+      const teamId = adminRemoveMember.dataset.team;
+      const userId = adminRemoveMember.dataset.user;
+      update((s) => {
+        removeTeamMember(s, teamId, userId);
+        const user = getUser(s, userId);
+        logActivity(s, `Removed ${user ? user.displayName : userId} from team`, actorName(s));
+      });
+      toast('Officer removed from team.', 'info');
+      renderApp();
+      return;
+    }
+
+    const adminCreateTeam = e.target.closest('[data-action="admin-create-team-dialog"]');
+    if (adminCreateTeam) {
+      showCreateTeamModal(getState());
       return;
     }
 
@@ -468,7 +535,9 @@ function setupEvents() {
 
     const copyInvite = e.target.closest('[data-action="copy-invite"]');
     if (copyInvite) {
-      navigator.clipboard?.writeText(window.location.origin + '/prototype/site/login.html');
+      const codeEl = document.getElementById('invite-link-code');
+      const textToCopy = codeEl ? codeEl.innerText.trim() : (window.location.origin + '/prototype/site/login.html');
+      navigator.clipboard?.writeText(textToCopy);
       toast('Demo invite link copied to clipboard.', 'success');
       return;
     }
@@ -852,6 +921,56 @@ function showCreateTaskModal(s) {
       logActivity(stateObj, `Created task: ${title}`, actorName(stateObj));
     });
     toast('New operational task created.', 'success');
+    renderApp();
+  });
+}
+
+function showCreateTeamModal(s) {
+  const content = html`
+    <h2 class="modal-title">Create Operational Team</h2>
+    <form id="create-team-form" style="display: grid; gap: 14px; margin-top: 14px;">
+      <div>
+        <label for="team-name-input" class="small" style="font-weight: 600; display: block; margin-bottom: 4px;">Team Name</label>
+        <input
+          type="text"
+          id="team-name-input"
+          class="search-input"
+          style="width: 100%; box-sizing: border-box;"
+          placeholder="e.g. Zone C Facilities"
+          required
+        />
+      </div>
+      <div>
+        <label for="team-manager-input" class="small" style="font-weight: 600; display: block; margin-bottom: 4px;">Supervising Manager</label>
+        <input
+          type="text"
+          id="team-manager-input"
+          class="search-input"
+          style="width: 100%; box-sizing: border-box;"
+          value="Jennifer Ong"
+          readonly
+        />
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Cancel</button>
+        <button type="submit" class="btn-primary btn-sm">Create Team</button>
+      </div>
+    </form>
+  `;
+
+  openModal(content);
+
+  document.getElementById('create-team-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = document.getElementById('team-name-input').value.trim();
+    if (!name) return;
+    closeModal();
+    update((stateObj) => {
+      const newTeam = createTeam(stateObj, name, 's1');
+      teamsAdminPage.teamsAdminView.expandedIds.add(newTeam.id);
+      logActivity(stateObj, `Created team: ${name}`, actorName(stateObj));
+    });
+    toast(`Team "${name}" created.`, 'success');
     renderApp();
   });
 }

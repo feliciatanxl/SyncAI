@@ -15,12 +15,13 @@ import {
 import { dayCapacity, assessRisk } from '../planner.js';
 import { TODAY, fmtDue } from '../time.js';
 
-const teamView = {
+export const teamView = {
   q: '',
   expandedTeamId: 'team-1',
 };
 
 export default {
+  teamView,
   render(s) {
     const user = getCurrentUser(s);
     const teams = getTeams(s);
