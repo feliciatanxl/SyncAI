@@ -24,7 +24,7 @@ import {
 } from '../state.js';
 import { TODAY, NOW, fmtDue, fmtHours, dt, workDay } from '../time.js';
 
-const view = {
+export const tasksView = {
   q: '',
   status: 'all',
   priority: 'all',
@@ -32,7 +32,10 @@ const view = {
   owner: 'all',
   selectedToDoList: 'l1',
   toDoBusy: false,
+  page: 1,
+  pageSize: 5,
 };
+const view = tasksView;
 
 export function mountKanban() {}
 export function setStatus() {}
@@ -74,8 +77,12 @@ export default {
     const dueToday = baseTasks.filter((t) => isOpen(t) && t.due.slice(0, 10) === TODAY).length;
     const highRisk = baseTasks.filter((t) => isOpen(t) && assessRisk(s, t).level === 'high').length;
 
-    // Filter tasks
+    // Filter tasks & pagination
     const filtered = filterTasks(s, baseTasks);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / view.pageSize));
+    if (view.page > totalPages) view.page = totalPages;
+    const startIndex = (view.page - 1) * view.pageSize;
+    const paged = filtered.slice(startIndex, startIndex + view.pageSize);
 
     return html`
       <header class="page-hero">
@@ -198,21 +205,62 @@ export default {
                 <table class="data-table" aria-label="Operational tasks">
                   <thead>
                     <tr>
-                      <th style="width: 38px;">Done</th>
-                      <th>Task title & Location</th>
-                      ${mgr ? html`<th>Owner</th>` : ''}
-                      <th>Category</th>
-                      <th>Priority</th>
-                      <th title="SyncAI Consequence-Aware Priority Score (0–100)">AI Score</th>
-                      <th>Deadline & SLA</th>
-                      <th>Risk</th>
-                      <th style="text-align: right;">Actions</th>
+                      <th style="width: 44px; text-align: center;">Done</th>
+                      <th>Task Details & Location</th>
+                      ${mgr ? html`<th style="width: 140px;">Owner</th>` : ''}
+                      <th style="width: 160px;">Priority & AI Score</th>
+                      <th style="width: 170px;">Deadline & SLA</th>
+                      <th style="width: 90px; text-align: right;">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    ${filtered.map((t) => renderTaskRow(s, t, mgr))}
+                    ${paged.map((t) => renderTaskRow(s, t, mgr))}
                   </tbody>
                 </table>
+                <div class="pagination-bar">
+                  <span class="pagination-info">
+                    Showing ${filtered.length === 0 ? 0 : startIndex + 1}–${Math.min(startIndex + view.pageSize, filtered.length)} of ${filtered.length} tasks
+                  </span>
+                  ${totalPages > 1
+                    ? html`
+                        <div class="pagination-controls" role="navigation" aria-label="Tasks pagination">
+                          <button
+                            type="button"
+                            class="pagination-btn"
+                            data-action="tasks-page"
+                            data-page="${view.page - 1}"
+                            ${view.page <= 1 ? 'disabled' : ''}
+                            aria-label="Previous page"
+                          >
+                            ‹ Prev
+                          </button>
+                          ${Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                            (p) => html`
+                              <button
+                                type="button"
+                                class="pagination-btn ${p === view.page ? 'active' : ''}"
+                                data-action="tasks-page"
+                                data-page="${p}"
+                                aria-current="${p === view.page ? 'page' : 'false'}"
+                              >
+                                ${p}
+                              </button>
+                            `,
+                          )}
+                          <button
+                            type="button"
+                            class="pagination-btn"
+                            data-action="tasks-page"
+                            data-page="${view.page + 1}"
+                            ${view.page >= totalPages ? 'disabled' : ''}
+                            aria-label="Next page"
+                          >
+                            Next ›
+                          </button>
+                        </div>
+                      `
+                    : ''}
+                </div>
               </div>
             `}
       </section>
@@ -252,7 +300,7 @@ function renderTaskRow(s, t, mgr) {
 
   return html`
     <tr class="${done ? 'done-row' : ''}">
-      <td>
+      <td style="text-align: center;">
         <input
           type="checkbox"
           ${done ? 'checked' : ''}
@@ -262,42 +310,44 @@ function renderTaskRow(s, t, mgr) {
         />
       </td>
       <td>
-        <button type="button" class="task-link-btn" data-action="task-inspect" data-id="${t.id}">
-          ${t.title}
-        </button>
-        ${t.location
-          ? html`<span class="small muted" style="display: block;">${icon('pin', 12)} ${t.location}</span>`
-          : ''}
-        ${t.appointmentTime
-          ? html`<span class="tag tag-brand" style="margin-top: 4px;">${t.appointmentTime}</span>`
-          : ''}
+        <div class="task-title-cell">
+          <button type="button" class="task-link-btn" data-action="task-inspect" data-id="${t.id}">
+            ${t.title}
+          </button>
+          <div class="task-meta-row">
+            <span class="tag tag-neutral small">${t.category}</span>
+            ${t.location
+              ? html`<span class="small muted loc-tag">${icon('pin', 12)} ${t.location}</span>`
+              : ''}
+            ${t.appointmentTime
+              ? html`<span class="tag tag-brand small">${t.appointmentTime}</span>`
+              : ''}
+          </div>
+        </div>
       </td>
       ${mgr
         ? html`
             <td>
-              <span class="small">${officerName(s, t.ownerId)}</span>
+              <span class="small" style="font-weight: 500;">${officerName(s, t.ownerId)}</span>
             </td>
           `
         : ''}
       <td>
-        <span class="tag tag-neutral">${t.category}</span>
+        <div class="priority-score-cell">
+          ${priorityBadge(t.priority)}
+          <span class="score-pill ${scoreClass}" title="AI Priority Score: ${scored.score}/100">
+            ${scored.score}
+          </span>
+          ${t.safety ? html`<span class="tag tag-danger small">Safety</span>` : ''}
+          ${t.statutory ? html`<span class="tag tag-warning small">Statutory</span>` : ''}
+        </div>
       </td>
       <td>
-        ${priorityBadge(t.priority)}
-        ${t.safety ? html`<span class="tag tag-danger" style="margin-left: 4px;">Safety</span>` : ''}
-        ${t.statutory ? html`<span class="tag tag-warning" style="margin-left: 4px;">Statutory</span>` : ''}
-      </td>
-      <td>
-        <span class="score-pill ${scoreClass}">
-          ${scored.score}
-        </span>
-      </td>
-      <td>
-        <span class="small">${fmtDue(t.due)}</span>
-        ${t.slaType ? html`<span class="small muted" style="display: block;">${t.slaType}</span>` : ''}
-      </td>
-      <td>
-        ${riskBadge(risk.level)}
+        <div class="deadline-sla-cell">
+          <span class="due-text">${fmtDue(t.due)}</span>
+          ${t.slaType ? html`<span class="sla-label">${t.slaType}</span>` : ''}
+          ${risk.level !== 'none' ? riskBadge(risk.level) : ''}
+        </div>
       </td>
       <td style="text-align: right; white-space: nowrap;">
         <button

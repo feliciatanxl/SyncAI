@@ -337,6 +337,59 @@ function setupEvents() {
       return;
     }
 
+    const tasksFilterStatus = e.target.closest('[data-action="tasks-filter-status"]');
+    if (tasksFilterStatus) {
+      const status = tasksFilterStatus.dataset.status;
+      const targetView = tasksPage.tasksView || tasksPage.view || {};
+      targetView.status = status;
+      targetView.page = 1;
+      renderApp();
+      return;
+    }
+
+    const tasksPageBtn = e.target.closest('[data-action="tasks-page"]');
+    if (tasksPageBtn) {
+      const p = parseInt(tasksPageBtn.dataset.page, 10);
+      if (!isNaN(p) && p >= 1) {
+        const targetView = tasksPage.tasksView || tasksPage.view || {};
+        targetView.page = p;
+        renderApp();
+      }
+      return;
+    }
+
+    const peopleFilterBtn = e.target.closest('[data-action="people-filter"]');
+    if (peopleFilterBtn) {
+      const filter = peopleFilterBtn.dataset.filter;
+      const targetView = peoplePage.peopleView || peoplePage.view || {};
+      targetView.filter = filter;
+      targetView.page = 1;
+      renderApp();
+      return;
+    }
+
+    const peoplePageBtn = e.target.closest('[data-action="people-page"]');
+    if (peoplePageBtn) {
+      const p = parseInt(peoplePageBtn.dataset.page, 10);
+      if (!isNaN(p) && p >= 1) {
+        const targetView = peoplePage.peopleView || peoplePage.view || {};
+        targetView.page = p;
+        renderApp();
+      }
+      return;
+    }
+
+    const activityPageBtn = e.target.closest('[data-action="activity-page"]');
+    if (activityPageBtn) {
+      const p = parseInt(activityPageBtn.dataset.page, 10);
+      if (!isNaN(p) && p >= 1) {
+        const targetView = activityPage.activityView || activityPage.view || {};
+        targetView.page = p;
+        renderApp();
+      }
+      return;
+    }
+
     const taskCreateDialog = e.target.closest('[data-action="task-create-dialog"]');
     if (taskCreateDialog) {
       showCreateTaskModal(getState());
@@ -596,20 +649,22 @@ function setupEvents() {
     }
 
     if (e.target.dataset.action === 'tasks-filter-category') {
-      tasksPage.view ||= {};
-      tasksPage.view.category = e.target.value;
+      const tv = tasksPage.tasksView || tasksPage.view || {};
+      tv.category = e.target.value;
+      tv.page = 1;
       renderApp();
     }
 
     if (e.target.dataset.action === 'tasks-filter-owner') {
-      tasksPage.view ||= {};
-      tasksPage.view.owner = e.target.value;
+      const tv = tasksPage.tasksView || tasksPage.view || {};
+      tv.owner = e.target.value;
+      tv.page = 1;
       renderApp();
     }
 
     if (e.target.dataset.action === 'todo-select-list') {
-      tasksPage.view ||= {};
-      tasksPage.view.selectedToDoList = e.target.value;
+      const tv = tasksPage.tasksView || tasksPage.view || {};
+      tv.selectedToDoList = e.target.value;
       renderApp();
     }
 
@@ -633,13 +688,15 @@ function setupEvents() {
   // Search input events
   document.addEventListener('input', (e) => {
     if (e.target.dataset.action === 'tasks-search') {
-      tasksPage.view ||= {};
-      tasksPage.view.q = e.target.value;
+      const tv = tasksPage.tasksView || tasksPage.view || {};
+      tv.q = e.target.value;
+      tv.page = 1;
       renderApp();
     }
     if (e.target.dataset.action === 'people-search') {
-      peoplePage.view ||= {};
-      peoplePage.view.q = e.target.value;
+      const pv = peoplePage.peopleView || peoplePage.view || {};
+      pv.q = e.target.value;
+      pv.page = 1;
       renderApp();
     }
   });

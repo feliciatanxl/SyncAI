@@ -117,9 +117,9 @@ function renderAdminOverview(s, user) {
           </button>
         </div>
       </section>
-    </div>
 
-    ${renderUspCard()}
+      ${renderUspCard(true)}
+    </div>
   `;
 }
 
@@ -222,9 +222,9 @@ function renderManagerOverview(s, user) {
           })}
         </ul>
       </section>
-    </div>
 
-    ${renderUspCard()}
+      ${renderUspCard(true)}
+    </div>
   `;
 }
 
@@ -254,26 +254,46 @@ function renderMemberOverview(s, user) {
           <h2 id="today-h">Today's plan overview</h2>
           <span class="tag tag-brand">Fits your day</span>
         </div>
-        <div class="plan-preview" aria-hidden="true">
-          <div class="plan-row safety">
-            <span class="plan-time">08:30</span>
-            <span class="plan-bar"></span>
-            <span class="plan-tag tag tag-danger">Safety</span>
+        <div class="plan-timeline" aria-label="Today's scheduled plan">
+          <div class="plan-slot safety">
+            <span class="slot-time">08:30 – 10:00</span>
+            <div class="slot-main">
+              <strong class="slot-title">Lift inspection — Blk 208</strong>
+              <span class="slot-meta">Lifts A & B · 4h BCA Safety SLA</span>
+            </div>
+            <span class="slot-badge tag-danger">Safety</span>
           </div>
-          <div class="plan-row deadline">
-            <span class="plan-time">10:00</span>
-            <span class="plan-bar"></span>
-            <span class="plan-tag tag tag-warning">Statutory</span>
+          <div class="plan-slot deadline">
+            <span class="slot-time">10:30 – 11:30</span>
+            <div class="slot-main">
+              <strong class="slot-title">Fire safety cert verification</strong>
+              <span class="slot-meta">SCDF statutory compliance check</span>
+            </div>
+            <span class="slot-badge tag-warning">Statutory</span>
           </div>
-          <div class="plan-row service">
-            <span class="plan-time">11:30</span>
-            <span class="plan-bar"></span>
-            <span class="plan-tag tag tag-brand">Service</span>
+          <div class="plan-slot buffer">
+            <span class="slot-time">12:00 – 13:00</span>
+            <div class="slot-main">
+              <strong class="slot-title">Protected lunch & transit buffer</strong>
+              <span class="slot-meta">Outlook calendar hold protected</span>
+            </div>
+            <span class="slot-badge tag-neutral">Protected</span>
           </div>
-          <div class="plan-row admin">
-            <span class="plan-time">14:00</span>
-            <span class="plan-bar"></span>
-            <span class="plan-tag tag tag-neutral">Admin</span>
+          <div class="plan-slot service">
+            <span class="slot-time">14:00 – 15:30</span>
+            <div class="slot-main">
+              <strong class="slot-title">Site check: ceiling seepage</strong>
+              <span class="slot-meta">Blk 211 #05-12 · Resident visit</span>
+            </div>
+            <span class="slot-badge tag-brand">Service</span>
+          </div>
+          <div class="plan-slot admin">
+            <span class="slot-time">16:00 – 17:00</span>
+            <div class="slot-main">
+              <strong class="slot-title">CleanPro contractor report review</strong>
+              <span class="slot-meta">Monthly estate operations review</span>
+            </div>
+            <span class="slot-badge tag-neutral">Admin</span>
           </div>
         </div>
         <div class="today-note">

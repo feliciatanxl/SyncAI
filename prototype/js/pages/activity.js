@@ -3,14 +3,21 @@ import { html, raw, icon } from '../ui.js';
 import { getState, getCurrentUser } from '../state.js';
 import { TODAY, fmtDue } from '../time.js';
 
-const activityView = {
+export const activityView = {
   filter: 'all',
+  page: 1,
+  pageSize: 8,
 };
 
 export default {
   render(s) {
     const activity = s.activity || [];
     const notifications = s.notifications || [];
+
+    const totalPages = Math.max(1, Math.ceil(activity.length / activityView.pageSize));
+    if (activityView.page > totalPages) activityView.page = totalPages;
+    const startIndex = (activityView.page - 1) * activityView.pageSize;
+    const paged = activity.slice(startIndex, startIndex + activityView.pageSize);
 
     return html`
       <header class="page-hero">
@@ -31,7 +38,7 @@ export default {
         </div>
 
         <ol class="activity-list" aria-label="Activity timeline">
-          ${activity.map((item, idx) => {
+          ${paged.map((item, idx) => {
             const isApproval = item.text.includes('Approved') || item.text.includes('Declined');
             const isReassign = item.text.includes('reassign') || item.text.includes('schedule');
             const tone = isApproval ? 'tone-good' : isReassign ? 'tone-info' : '';
@@ -50,6 +57,51 @@ export default {
             `;
           })}
         </ol>
+
+        <div class="pagination-bar" style="margin-top: 14px; border-radius: 8px;">
+          <span class="pagination-info">
+            Showing ${activity.length === 0 ? 0 : startIndex + 1}–${Math.min(startIndex + activityView.pageSize, activity.length)} of ${activity.length} records
+          </span>
+          ${totalPages > 1
+            ? html`
+                <div class="pagination-controls" role="navigation" aria-label="Activity pagination">
+                  <button
+                    type="button"
+                    class="pagination-btn"
+                    data-action="activity-page"
+                    data-page="${activityView.page - 1}"
+                    ${activityView.page <= 1 ? 'disabled' : ''}
+                    aria-label="Previous page"
+                  >
+                    ‹ Prev
+                  </button>
+                  ${Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (p) => html`
+                      <button
+                        type="button"
+                        class="pagination-btn ${p === activityView.page ? 'active' : ''}"
+                        data-action="activity-page"
+                        data-page="${p}"
+                        aria-current="${p === activityView.page ? 'page' : 'false'}"
+                      >
+                        ${p}
+                      </button>
+                    `,
+                  )}
+                  <button
+                    type="button"
+                    class="pagination-btn"
+                    data-action="activity-page"
+                    data-page="${activityView.page + 1}"
+                    ${activityView.page >= totalPages ? 'disabled' : ''}
+                    aria-label="Next page"
+                  >
+                    Next ›
+                  </button>
+                </div>
+              `
+            : ''}
+        </div>
 
         <div class="privacy-note small muted" style="margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--colorNeutralStroke3); display: flex; gap: 8px;">
           ${icon('shield', 18)}

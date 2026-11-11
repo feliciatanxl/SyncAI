@@ -8,9 +8,11 @@ import {
   setUserStatus,
 } from '../state.js';
 
-const peopleView = {
+export const peopleView = {
   q: '',
   filter: 'all',
+  page: 1,
+  pageSize: 6,
 };
 
 export default {
@@ -32,6 +34,11 @@ export default {
       }
       return true;
     });
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / peopleView.pageSize));
+    if (peopleView.page > totalPages) peopleView.page = totalPages;
+    const startIndex = (peopleView.page - 1) * peopleView.pageSize;
+    const paged = filtered.slice(startIndex, startIndex + peopleView.pageSize);
 
     return html`
       <header class="page-hero">
@@ -114,9 +121,53 @@ export default {
               </tr>
             </thead>
             <tbody>
-              ${filtered.map((u) => renderPersonRow(u))}
+              ${paged.map((u) => renderPersonRow(u))}
             </tbody>
           </table>
+          <div class="pagination-bar">
+            <span class="pagination-info">
+              Showing ${filtered.length === 0 ? 0 : startIndex + 1}–${Math.min(startIndex + peopleView.pageSize, filtered.length)} of ${filtered.length} people
+            </span>
+            ${totalPages > 1
+              ? html`
+                  <div class="pagination-controls" role="navigation" aria-label="People pagination">
+                    <button
+                      type="button"
+                      class="pagination-btn"
+                      data-action="people-page"
+                      data-page="${peopleView.page - 1}"
+                      ${peopleView.page <= 1 ? 'disabled' : ''}
+                      aria-label="Previous page"
+                    >
+                      ‹ Prev
+                    </button>
+                    ${Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                      (p) => html`
+                        <button
+                          type="button"
+                          class="pagination-btn ${p === peopleView.page ? 'active' : ''}"
+                          data-action="people-page"
+                          data-page="${p}"
+                          aria-current="${p === peopleView.page ? 'page' : 'false'}"
+                        >
+                          ${p}
+                        </button>
+                      `,
+                    )}
+                    <button
+                      type="button"
+                      class="pagination-btn"
+                      data-action="people-page"
+                      data-page="${peopleView.page + 1}"
+                      ${peopleView.page >= totalPages ? 'disabled' : ''}
+                      aria-label="Next page"
+                    >
+                      Next ›
+                    </button>
+                  </div>
+                `
+              : ''}
+          </div>
         </div>
       </section>
 

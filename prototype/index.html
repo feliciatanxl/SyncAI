@@ -51,27 +51,42 @@
             </button>
 
             <!-- Microsoft 365 Style Account Popover Card -->
-            <div class="account-popover" id="account-popover" hidden aria-label="Account card">
+            <div class="account-popover account-card" id="account-popover" hidden aria-label="Account card">
               <div class="account-card-top">
                 <span class="account-card-brand">SyncAI</span>
-                <button type="button" class="btn-subtle btn-sm" id="btn-signout">
+                <button type="button" class="account-card-signout-btn" id="btn-signout" aria-label="Sign out">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M3 4.5A2.5 2.5 0 0 1 5.5 2h5a.5.5 0 0 1 0 1h-5A1.5 1.5 0 0 0 4 4.5v11A1.5 1.5 0 0 0 5.5 17h5a.5.5 0 0 1 0 1h-5A2.5 2.5 0 0 1 3 15.5v-11ZM12.854 6.146a.5.5 0 0 1 .708 0l3.5 3.5a.5.5 0 0 1 0 .708l-3.5 3.5a.5.5 0 0 1-.708-.708L15.293 10.5H7.5a.5.5 0 0 1 0-1h7.793l-2.439-2.646a.5.5 0 0 1 0-.708Z" />
+                  </svg>
                   Sign out
                 </button>
               </div>
               <div class="account-card-who">
-                <div class="account-avatar lg" id="account-avatar-card">AR</div>
-                <div>
-                  <strong id="account-name-card">Aisyah Rahman</strong>
-                  <span class="muted" id="account-email-card">aisyah@towncouncil.gov.sg</span>
-                  <span class="role-text" id="account-role-card">Property Officer</span>
+                <div class="account-avatar lg" id="account-avatar-card">AT</div>
+                <div class="account-card-details">
+                  <strong id="account-name-card">Alex Tan</strong>
+                  <span class="muted" id="account-email-card">alex.tan@towncouncil.gov.sg</span>
+                  <a href="https://myaccount.microsoft.com/" target="_blank" rel="noreferrer" class="account-manage-link">
+                    Manage Microsoft account
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path d="M4.5 3A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17h11a1.5 1.5 0 0 0 1.5-1.5v-5a.5.5 0 0 0-1 0v5a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5h5a.5.5 0 0 0 0-1h-5ZM11.5 3a.5.5 0 0 0 0 1h3.793L8.146 11.146a.5.5 0 0 0 .708.708L16 4.707V8.5a.5.5 0 0 0 1 0V3.5A.5.5 0 0 0 16.5 3h-5Z" />
+                    </svg>
+                  </a>
+                  <span class="role-text" id="account-role-card">Admin</span>
                 </div>
               </div>
               <div class="account-card-actions">
-                <button type="button" class="account-card-action-btn" id="btn-switch-account">
-                  <span>⇄</span> Switch demo account
+                <button type="button" class="account-card-switch" id="btn-switch-account">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M6 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM2.5 13a3.5 3.5 0 0 1 7 0v1a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5v-1Zm11-9.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM11 13a3 3 0 0 1 5.414-1.78.5.5 0 0 1-.828.56A2 2 0 0 0 12 13.5v.5a.5.5 0 0 1-.5.5h-.5a.5.5 0 0 1-.5-.5v-1Z" />
+                  </svg>
+                  Switch demo account
                 </button>
-                <button type="button" class="account-card-action-btn" id="btn-reset-demo-card">
-                  <span>↺</span> Reset all demo state
+                <button type="button" class="account-card-switch" id="btn-reset-demo-card">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M10 3a7 7 0 1 0 6.93 6H15.9a6 6 0 1 1-1.68-4.24l-1.51 1.51A.5.5 0 0 0 13.06 7H17a.5.5 0 0 0 .5-.5V2.56a.5.5 0 0 0-.85-.35l-1.57 1.57A6.97 6.97 0 0 0 10 3Z" />
+                  </svg>
+                  Reset all demo state
                 </button>
               </div>
             </div>
