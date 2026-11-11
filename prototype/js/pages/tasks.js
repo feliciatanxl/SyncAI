@@ -146,7 +146,7 @@ export default {
             )}
           </div>
 
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <div class="toolbar-actions">
             ${mgr
               ? html`
                   <select

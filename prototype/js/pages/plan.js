@@ -114,11 +114,10 @@ export default {
         <div style="display: grid; gap: 8px; margin-top: 14px;">
           ${sched.blocks.length === 0
             ? html`<p class="muted">No scheduled task blocks for today.</p>`
-            : sched.blocks.map(
-                (b) => html`
-                  <div
-                    style="display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 8px; background: var(--colorNeutralBackground2); border-left: 4px solid ${b.kind === 'meeting' ? 'var(--colorBrandBackground)' : b.task?.safety ? 'var(--colorPaletteRedBorderActive)' : b.task?.statutory ? 'var(--colorPaletteMarigoldBorderActive)' : 'var(--colorNeutralStroke1)'};"
-                  >
+            : sched.blocks.map((b) => {
+                const blockClass = b.kind === 'meeting' ? 'is-meeting' : b.task?.safety ? 'is-safety' : b.task?.statutory ? 'is-statutory' : '';
+                return html`
+                  <div class="timeline-block ${blockClass}">
                     <span class="small muted" style="font-variant-numeric: tabular-nums; font-weight: 600;">
                       ${b.start} – ${b.end}
                     </span>
@@ -134,8 +133,8 @@ export default {
                       </span>
                     </div>
                   </div>
-                `,
-              )}
+                `;
+              })}
         </div>
       </section>
 
