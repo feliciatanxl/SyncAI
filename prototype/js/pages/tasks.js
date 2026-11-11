@@ -206,11 +206,14 @@ export default {
                   <thead>
                     <tr>
                       <th style="width: 44px; text-align: center;">Done</th>
-                      <th>Task Details & Location</th>
-                      ${mgr ? html`<th style="width: 140px;">Owner</th>` : ''}
-                      <th style="width: 160px;">Priority & AI Score</th>
-                      <th style="width: 170px;">Deadline & SLA</th>
-                      <th style="width: 90px; text-align: right;">Action</th>
+                      <th>Task title & Location</th>
+                      ${mgr ? html`<th style="width: 130px;">Owner</th>` : ''}
+                      <th style="width: 100px;">Category</th>
+                      <th style="width: 120px;">Priority</th>
+                      <th style="width: 80px; text-align: center;">AI Score</th>
+                      <th style="width: 150px;">Deadline & SLA</th>
+                      <th style="width: 125px; white-space: nowrap;">Risk</th>
+                      <th style="text-align: right; width: 80px;">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -310,20 +313,15 @@ function renderTaskRow(s, t, mgr) {
         />
       </td>
       <td>
-        <div class="task-title-cell">
-          <button type="button" class="task-link-btn" data-action="task-inspect" data-id="${t.id}">
-            ${t.title}
-          </button>
-          <div class="task-meta-row">
-            <span class="tag tag-neutral small">${t.category}</span>
-            ${t.location
-              ? html`<span class="small muted loc-tag">${icon('pin', 12)} ${t.location}</span>`
-              : ''}
-            ${t.appointmentTime
-              ? html`<span class="tag tag-brand small">${t.appointmentTime}</span>`
-              : ''}
-          </div>
-        </div>
+        <button type="button" class="task-link-btn" data-action="task-inspect" data-id="${t.id}">
+          ${t.title}
+        </button>
+        ${t.location
+          ? html`<span class="small muted" style="display: flex; align-items: center; gap: 4px; margin-top: 3px;">${icon('pin', 12)} ${t.location}</span>`
+          : ''}
+        ${t.appointmentTime
+          ? html`<span class="tag tag-brand small" style="margin-top: 4px;">${t.appointmentTime}</span>`
+          : ''}
       </td>
       ${mgr
         ? html`
@@ -333,21 +331,26 @@ function renderTaskRow(s, t, mgr) {
           `
         : ''}
       <td>
-        <div class="priority-score-cell">
+        <span class="tag tag-neutral">${t.category}</span>
+      </td>
+      <td>
+        <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
           ${priorityBadge(t.priority)}
-          <span class="score-pill ${scoreClass}" title="AI Priority Score: ${scored.score}/100">
-            ${scored.score}
-          </span>
           ${t.safety ? html`<span class="tag tag-danger small">Safety</span>` : ''}
           ${t.statutory ? html`<span class="tag tag-warning small">Statutory</span>` : ''}
         </div>
       </td>
+      <td style="text-align: center;">
+        <span class="score-pill ${scoreClass}" title="AI Priority Score: ${scored.score}/100">
+          ${scored.score}
+        </span>
+      </td>
       <td>
-        <div class="deadline-sla-cell">
-          <span class="due-text">${fmtDue(t.due)}</span>
-          ${t.slaType ? html`<span class="sla-label">${t.slaType}</span>` : ''}
-          ${risk.level !== 'none' ? riskBadge(risk.level) : ''}
-        </div>
+        <span class="due-text" style="display: block;">${fmtDue(t.due)}</span>
+        ${t.slaType ? html`<span class="sla-label muted small" style="display: block; margin-top: 2px;">${t.slaType}</span>` : ''}
+      </td>
+      <td style="white-space: nowrap;">
+        ${riskBadge(risk.level)}
       </td>
       <td style="text-align: right; white-space: nowrap;">
         <button

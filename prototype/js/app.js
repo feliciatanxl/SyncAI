@@ -185,20 +185,33 @@ function updateHeader(s, user) {
     roleSelect.value = currentRoleKey;
   }
 
-  const initials = user.displayName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase();
+  const initials = user.displayName.includes(',')
+    ? user.displayName.split(',')[0].trim().charAt(0).toUpperCase()
+    : user.displayName
+        .split(' ')
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
+
+  const isGreenAvatar = user.role === 'admin' || user.displayName.includes('TAN') || initials === 'T';
 
   if (nameHeader) nameHeader.textContent = user.displayName;
   if (emailHeader) emailHeader.textContent = user.email;
-  if (avatarHeader) avatarHeader.textContent = initials;
+  if (avatarHeader) {
+    avatarHeader.textContent = initials;
+    if (isGreenAvatar) avatarHeader.classList.add('avatar-green');
+    else avatarHeader.classList.remove('avatar-green');
+  }
 
   if (nameCard) nameCard.textContent = user.displayName;
   if (emailCard) emailCard.textContent = user.email;
   if (roleCard) roleCard.textContent = roleLabels[user.role];
-  if (avatarCard) avatarCard.textContent = initials;
+  if (avatarCard) {
+    avatarCard.textContent = initials;
+    if (isGreenAvatar) avatarCard.classList.add('avatar-green');
+    else avatarCard.classList.remove('avatar-green');
+  }
 }
 
 function renderNav(s, user, allowed) {
@@ -755,8 +768,8 @@ function showAccountSwitchModal() {
       </button>
       <button type="button" class="btn-secondary" style="justify-content: flex-start; text-align: left; padding: 12px 14px;" data-action="pick-role-modal" data-role="admin">
         <div>
-          <strong>Alex Tan (Admin)</strong>
-          <span class="small muted" style="display: block;">System Administrator. User directory, pending account approval, team setup.</span>
+          <strong>TAN XIU LI, FELICIA (Admin)</strong>
+          <span class="small muted" style="display: block;">Town Council Administrator. User directory, pending account approval, team setup.</span>
         </div>
       </button>
       <button type="button" class="btn-secondary" style="justify-content: flex-start; text-align: left; padding: 12px 14px;" data-action="pick-role-modal" data-role="pending">

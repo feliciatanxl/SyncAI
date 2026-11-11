@@ -102,8 +102,8 @@ export function getCurrentUser(s) {
   if (isAdmin(s)) {
     return {
       id: 'a1',
-      displayName: s.admin?.name || 'Alex Tan',
-      email: 'alex.tan@towncouncil.gov.sg',
+      displayName: s.admin?.displayName || s.admin?.name || 'TAN XIU LI, FELICIA',
+      email: s.admin?.email || '254381c@mymail.nyp.edu.sg',
       role: 'admin',
       status: s.status || 'active',
       teams: [],

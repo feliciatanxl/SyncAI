@@ -245,7 +245,7 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
 .fui-Avatar[data-size="72"], .fui-Avatar.lg, .account-avatar.lg { width: 72px; height: 72px; font-size: 1.5rem; }
 
 /* Badges and Tags */
-.fui-Badge, .tag {
+.fui-Badge, .tag, .badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -253,10 +253,11 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 999px;
-  white-space: nowrap;
+  white-space: nowrap !important;
   line-height: 1.4;
   vertical-align: middle;
 }
+.badge svg { flex: none; }
 .tag-danger, .badge-danger, .fui-Badge[data-color="danger"] { background: var(--colorPaletteRedBackground1); color: var(--colorPaletteRedForeground1); border: 1px solid var(--colorPaletteRedBorderActive); }
 .tag-warning, .badge-warning, .fui-Badge[data-color="warning"] { background: var(--colorPaletteMarigoldBackground1); color: var(--colorPaletteMarigoldForeground2); border: 1px solid var(--colorPaletteMarigoldBorderActive); }
 .tag-brand, .badge-brand, .fui-Badge[data-color="brand"] { background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); border: 1px solid var(--colorBrandStroke2); }
@@ -323,17 +324,22 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
 }
 .account-card-brand { font-weight: 700; font-size: 0.9375rem; color: var(--colorBrandForeground1); }
 .account-card-signout-btn {
-  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px;
-  background: transparent; border: 0; color: var(--colorNeutralForeground1); font: inherit; font-size: 0.8125rem;
-  font-weight: 500; cursor: pointer; transition: background 0.15s;
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 4px;
+  background: var(--colorNeutralBackground1); border: 1.5px solid var(--colorNeutralForeground1); color: var(--colorNeutralForeground1);
+  font: inherit; font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: background 0.15s, border-color 0.15s;
 }
 .account-card-signout-btn:hover { background: var(--colorNeutralBackground1Hover); }
-.account-card-signout-btn svg { color: var(--colorNeutralForeground2); }
+.account-card-signout-btn svg { color: var(--colorNeutralForeground1); }
 
 .account-card-who { display: flex; gap: 16px; align-items: center; padding: 16px; }
 .account-avatar.lg {
   width: 64px; height: 64px; border-radius: 50%; font-size: 1.375rem; font-weight: 700;
   display: grid; place-items: center; background: var(--colorBrandBackground); color: #fff; flex: none;
+}
+.account-avatar.avatar-green, .avatar-green {
+  background: #a8d08d !important;
+  color: #1a3812 !important;
+  font-weight: 600 !important;
 }
 .account-card-details { display: grid; gap: 2px; min-width: 0; justify-items: start; line-height: 1.35; }
 .account-card-details strong { font-size: 1.0625rem; color: var(--colorNeutralForeground1); }
@@ -638,6 +644,50 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tbody tr:hover { background: var(--colorNeutralBackground1Hover); }
 
+/* Circular Checkbox (Microsoft To Do / Fluent UI check circles) */
+.data-table input[type="checkbox"],
+.todo-check input[type="checkbox"],
+.circular-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50% !important;
+  border: 1.5px solid var(--colorNeutralStroke1);
+  background: var(--colorNeutralBackground1);
+  cursor: pointer;
+  position: relative;
+  display: inline-grid;
+  place-content: center;
+  margin: 0;
+  vertical-align: middle;
+  outline: none;
+  transition: all 0.15s ease-in-out;
+}
+.data-table input[type="checkbox"]:hover,
+.todo-check input[type="checkbox"]:hover,
+.circular-checkbox:hover {
+  border-color: var(--colorBrandStroke1);
+  background: var(--colorNeutralBackground1Hover);
+}
+.data-table input[type="checkbox"]:checked,
+.todo-check input[type="checkbox"]:checked,
+.circular-checkbox:checked {
+  background: var(--colorPaletteGreenBackground1);
+  border-color: var(--colorPaletteGreenBorderActive);
+}
+.data-table input[type="checkbox"]:checked::after,
+.todo-check input[type="checkbox"]:checked::after,
+.circular-checkbox:checked::after {
+  content: '';
+  width: 4px;
+  height: 8px;
+  border: solid var(--colorPaletteGreenForeground1);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-top: -2px;
+}
+
 /* Task title button & cells inside table */
 .task-title-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .task-meta-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
@@ -685,18 +735,14 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
   border-color: var(--colorBrandStroke1); font-weight: 700;
 }
 .pagination-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-  font-weight: 700; font-size: 0.8125rem; font-variant-numeric: tabular-nums;
-}
-.score-pill.hi { background: var(--colorPaletteRedBackground1); color: var(--colorPaletteRedForeground1); border: 1px solid var(--colorPaletteRedBorderActive); }
-.score-pill.md { background: var(--colorPaletteMarigoldBackground1); color: var(--colorPaletteMarigoldForeground2); border: 1px solid var(--colorPaletteMarigoldBorderActive); }
-.score-pill.lo { background: var(--colorNeutralBackground4); color: var(--colorNeutralForeground2); }
 
 /* Teams Directory & Cards */
 .teams-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .teams-toolbar-left { display: flex; align-items: center; gap: 12px; flex: 1 1 320px; }
 .teams-search { flex: 1 1 240px; max-width: 360px; }
-.teams-list { display: flex; flex-direction: column; gap: 12px; }
+.teams-list { display: flex; flex-direction: column; gap: 8px; }
 .team-card {
+  margin-bottom: 0 !important;
   padding: 0; border-radius: 12px; background: var(--colorNeutralBackground1);
   border: 1px solid var(--colorNeutralStroke2); overflow: hidden; transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }

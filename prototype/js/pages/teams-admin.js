@@ -53,7 +53,7 @@ function renderAdminTeamCard(s, team, eligibleUsers) {
   const availableToAssign = eligibleUsers.filter((u) => !assignedIds.has(u.id));
 
   return html`
-    <section class="team-card ${isExpanded ? 'is-expanded' : ''}" aria-labelledby="team-${team.id}-h" style="margin-bottom: 20px;">
+    <section class="team-card ${isExpanded ? 'is-expanded' : ''}" aria-labelledby="team-${team.id}-h">
       <div
         class="team-card-header"
         data-action="admin-team-toggle"
