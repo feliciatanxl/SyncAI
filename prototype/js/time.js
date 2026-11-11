@@ -66,6 +66,30 @@ export const dt = (date, time) => `${date}T${time}`;
 export const datePart = (s) => s.slice(0, 10);
 export const timePart = (s) => s.slice(11, 16);
 
+export function singaporeInstant(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/.test(value) || value.startsWith('0000-')) return null;
+  const wall = new Date(value + ':00Z');
+  if (!Number.isFinite(+wall) || wall.toISOString().slice(0, 16) !== value) return null;
+  return new Date(+wall - 8 * 60 * 60 * 1000).toISOString();
+}
+
+export function singaporeDateInput(value) {
+  if (!value) return '';
+  if (singaporeInstant(value)) return value;
+  if (!/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)) return '';
+  const instant = Date.parse(value);
+  return Number.isFinite(instant) ? new Date(instant + 8 * 60 * 60 * 1000).toISOString().slice(0, 16) : '';
+}
+
+export function calendarDay(date, offset) {
+  const day = new Date(date + 'T00:00:00Z');
+  day.setUTCDate(day.getUTCDate() + offset);
+  return day.toISOString().slice(0, 10);
+}
+
+export const weekday = (date) => new Date(date + 'T00:00:00Z').getUTCDay() || 7;
+export const calendarWeek = (date) => Array.from({ length: 7 }, (_, index) => calendarDay(date, index + 1 - weekday(date)));
+
 const DAY_FMT = new Intl.DateTimeFormat('en-SG', { weekday: 'short', day: 'numeric', month: 'short' });
 const LONG_FMT = new Intl.DateTimeFormat('en-SG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 

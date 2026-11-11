@@ -6,8 +6,10 @@ import {
   STATUSES,
   sampleToDoData,
 } from '../data.js';
-import { scoreTask } from '../ai.js';
 import { assessRisk } from '../planner.js';
+import { accessibleCase } from '../cases.js';
+import { CAPTURE_STATUSES, canCapture, taskDateInput, taskDuration } from '../taskCapture.js';
+import { deadlineAlert } from '../taskIntelligence.js';
 import { traceDownstream, traceUpstream } from '../ripple.js';
 import {
   getOfficer,
@@ -29,9 +31,11 @@ export const tasksView = {
   status: 'all',
   priority: 'all',
   category: 'all',
+  tag: '',
   owner: 'all',
+  dueDate: '',
   selectedToDoList: 'l1',
-  toDoBusy: false,
+  toDoOpen: false,
   page: 1,
   pageSize: 5,
 };
@@ -69,9 +73,13 @@ export function groupTasks(s, rows, by) {
 
 export default {
   render(s) {
-    const user = getCurrentUser(s);
     const mgr = isManager(s);
-    const baseTasks = visibleTasks(s);
+    const baseTasks = canCapture(s) ? visibleTasks(s) : [];
+    const tags = new Map();
+    for (const task of baseTasks) {
+      for (const tag of task.tags || []) tags.set(tag.toLowerCase(), tag);
+    }
+    if (view.tag && !tags.has(view.tag)) tags.set(view.tag, view.tag);
 
     const totalOpen = baseTasks.filter((t) => isOpen(t)).length;
     const dueToday = baseTasks.filter((t) => isOpen(t) && t.due.slice(0, 10) === TODAY).length;
@@ -88,11 +96,8 @@ export default {
       <header class="page-hero">
         <span class="page-hero-icon" aria-hidden="true">${icon('tasks', 28)}</span>
         <div class="page-hero-text">
-          <p class="page-hero-eyebrow">Task Intelligence & Management</p>
-          <h1>My Tasks <span class="hero-badge">PS 12i Smart Planner</span></h1>
-          <p>
-            Ranked by genuine resident safety, statutory compliance and long-term consequences. Compare operational tasks alongside your simulated Microsoft To Do list.
-          </p>
+          <h1>My Tasks</h1>
+          <p>Create and track SyncAI work orders. Link a task to a case when it is part of a follow-up.</p>
         </div>
         <div class="page-hero-aside">
           <div class="hero-stat">
@@ -110,20 +115,17 @@ export default {
         </div>
       </header>
 
-      <!-- Simulated Microsoft To Do Card -->
-      ${renderMicrosoftToDo(s)}
-
       <!-- SyncAI Operational Tasks -->
       <section class="panel" aria-labelledby="tasks-h">
         <div class="panel-head">
           <div>
-            <h2 id="tasks-h">SyncAI Operational Work Orders</h2>
+            <h2 id="tasks-h">SyncAI work orders</h2>
             <p class="muted small" style="margin-top: 2px;">
               ${mgr ? 'All team tasks across Zone A, B, and C.' : 'Your assigned operational tasks.'}
             </p>
           </div>
           <div class="panel-tools">
-            <button type="button" class="btn-primary btn-sm" data-action="task-create-dialog">
+            <button type="button" class="btn-primary btn-sm" data-action="task-create-dialog" ${canCapture(s) ? '' : 'disabled'}>
               ${icon('plus', 14)} Add task
             </button>
           </div>
@@ -135,15 +137,17 @@ export default {
             ${[
               ['all', 'All', baseTasks.length],
               ['open', 'Open', baseTasks.filter((t) => isOpen(t)).length],
+              ...CAPTURE_STATUSES.slice(0, 2).map(({ id, label }) => [id, label, baseTasks.filter((t) => t.status === id).length]),
               ['today', 'Today', baseTasks.filter((t) => isOpen(t) && t.due.slice(0, 10) === TODAY).length],
               ['overdue', 'Overdue', baseTasks.filter((t) => isOverdue(t)).length],
               ['risk', 'At risk', baseTasks.filter((t) => isOpen(t) && assessRisk(s, t).level === 'high').length],
-              ['done', 'Done', baseTasks.filter((t) => !isOpen(t)).length],
+              ['done', 'Completed', baseTasks.filter((t) => !isOpen(t)).length],
             ].map(
               ([key, label, count]) => html`
                 <button
                   type="button"
                   class="filter-tab ${view.status === key ? 'active' : ''}"
+                  aria-pressed="${view.status === key}"
                   data-action="tasks-filter-status"
                   data-status="${key}"
                 >
@@ -160,6 +164,7 @@ export default {
                     class="filter-tab"
                     style="border: 1px solid var(--colorNeutralStroke1); border-radius: 6px;"
                     data-action="tasks-filter-owner"
+                    aria-label="Filter by assigned officer"
                   >
                     <option value="all" ${view.owner === 'all' ? 'selected' : ''}>All Officers</option>
                     ${s.officers.map(
@@ -175,6 +180,7 @@ export default {
               class="filter-tab"
               style="border: 1px solid var(--colorNeutralStroke1); border-radius: 6px;"
               data-action="tasks-filter-category"
+              aria-label="Filter by category"
             >
               <option value="all" ${view.category === 'all' ? 'selected' : ''}>All Categories</option>
               ${CATEGORIES.map(
@@ -183,6 +189,19 @@ export default {
                 `,
               )}
             </select>
+            <select class="capture-filter" data-action="tasks-filter-tag" aria-label="Filter by tag">
+              <option value="">All tags</option>
+              ${[...tags].sort((a, b) => a[1].localeCompare(b[1])).map(([key, tag]) => html`
+                <option value="${key}" ${view.tag === key ? 'selected' : ''}>${tag}</option>`)}
+            </select>
+
+            <select class="capture-filter" data-action="tasks-filter-priority" aria-label="Filter by priority">
+              <option value="all">All priorities</option>
+              ${PRIORITIES.map((priority) => html`<option value="${priority}" ${view.priority === priority ? 'selected' : ''}>${priority}</option>`)}
+            </select>
+            <label class="capture-date-filter">Due date (SGT)
+              <input class="capture-filter" type="date" value="${view.dueDate}" data-action="tasks-filter-date" />
+            </label>
 
             <div class="search-input">
               ${icon('search', 16)}
@@ -199,25 +218,25 @@ export default {
 
         <!-- Table View -->
         ${filtered.length === 0
-          ? html`<div class="empty">${icon('check', 24)}<p>No tasks match the selected filters.</p></div>`
+          ? html`<div class="empty" role="status">${icon('check', 24)}<p>${baseTasks.length ? 'No tasks match the selected filters.' : 'No tasks yet.'}</p></div>`
           : html`
               <div class="table-wrap">
-                <table class="data-table" aria-label="Operational tasks">
+                <table class="data-table capture-table" aria-label="Operational tasks">
                   <thead>
                     <tr>
-                      <th style="width: 44px; text-align: center;">Done</th>
                       <th>Task title & Location</th>
-                      ${mgr ? html`<th style="width: 130px;">Owner</th>` : ''}
+                      <th>Assigned officer</th>
                       <th style="width: 100px;">Category</th>
                       <th style="width: 120px;">Priority</th>
-                      <th style="width: 80px; text-align: center;">AI Score</th>
                       <th style="width: 150px;">Deadline & SLA</th>
+                      <th>Duration</th>
+                      <th>Status</th>
                       <th style="width: 125px; white-space: nowrap;">Risk</th>
                       <th style="text-align: right; width: 80px;">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    ${paged.map((t) => renderTaskRow(s, t, mgr))}
+                    ${paged.map((t) => renderTaskRow(s, t))}
                   </tbody>
                 </table>
                 <div class="pagination-bar">
@@ -267,6 +286,7 @@ export default {
               </div>
             `}
       </section>
+      ${renderMicrosoftToDo(s)}
     `;
   },
 };
@@ -274,17 +294,18 @@ export default {
 function filterTasks(s, list) {
   return list.filter((t) => {
     if (view.status === 'open' && !isOpen(t)) return false;
+    if (['todo', 'in_progress', 'done'].includes(view.status) && t.status !== view.status) return false;
     if (view.status === 'today' && (!isOpen(t) || t.due.slice(0, 10) !== TODAY)) return false;
     if (view.status === 'overdue' && !isOverdue(t)) return false;
     if (view.status === 'risk' && (!isOpen(t) || assessRisk(s, t).level !== 'high')) return false;
-    if (view.status === 'done' && isOpen(t)) return false;
-
     if (view.priority !== 'all' && t.priority !== view.priority) return false;
     if (view.category !== 'all' && t.category !== view.category) return false;
+    if (view.tag && !(t.tags || []).some((tag) => tag.toLowerCase() === view.tag)) return false;
     if (view.owner !== 'all' && t.ownerId !== view.owner) return false;
+    if (view.dueDate && taskDateInput(t.dueAt || t.due).slice(0, 10) !== view.dueDate) return false;
 
-    if (view.q) {
-      const q = view.q.toLowerCase();
+    if (view.q.trim()) {
+      const q = view.q.trim().toLowerCase();
       const match =
         t.title.toLowerCase().includes(q) ||
         (t.location && t.location.toLowerCase().includes(q)) ||
@@ -295,77 +316,59 @@ function filterTasks(s, list) {
   });
 }
 
-function renderTaskRow(s, t, mgr) {
-  const scored = scoreTask(s, t);
+function renderTaskRow(s, t) {
   const risk = assessRisk(s, t);
   const done = !isOpen(t);
-  const scoreClass = scored.score >= 70 ? 'hi' : scored.score >= 40 ? 'md' : 'lo';
+  const relatedCase = accessibleCase(s, t.caseId);
+  const deadline = deadlineAlert(t);
 
   return html`
     <tr class="${done ? 'done-row' : ''}">
-      <td style="text-align: center; width: 44px;">
-        <input
-          type="checkbox"
-          class="circular-checkbox"
-          ${done ? 'checked' : ''}
-          data-action="task-toggle"
-          data-id="${t.id}"
-          aria-label="Toggle completion for ${t.title}"
-        />
-      </td>
       <td>
         <button type="button" class="task-link-btn" data-action="task-inspect" data-id="${t.id}">
           ${t.title}
         </button>
+        ${relatedCase ? html`<a class="task-case-link" href="#cases/${relatedCase.id}" aria-label="View case ${relatedCase.number} · ${relatedCase.title}">Case ${relatedCase.number}</a>` : ''}
         ${t.location
           ? html`<span class="small muted" style="display: flex; align-items: center; gap: 4px; margin-top: 3px;">${icon('pin', 12)} ${t.location}</span>`
-          : ''}
-        ${t.caseId
-          ? html`<button type="button" class="tag tag-brand small" data-action="nav-to-case" data-case="${t.caseId}" style="cursor: pointer; margin-top: 3px; border: 1px solid var(--colorBrandStroke2); background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-family: monospace; font-weight: 600;" title="View linked case in Case Action Centre">${icon('cases', 12)} ${t.caseId}</button>`
           : ''}
         ${t.appointmentTime
           ? html`<span class="tag tag-brand small" style="margin-top: 4px;">${t.appointmentTime}</span>`
           : ''}
       </td>
-      ${mgr
-        ? html`
-            <td>
-              <span class="small" style="font-weight: 500;">${officerName(s, t.ownerId)}</span>
-            </td>
-          `
-        : ''}
-      <td>
-        <span class="tag tag-neutral">${t.category}</span>
+      <td data-label="Assigned officer">${officerName(s, t.ownerId)}</td>
+      <td data-label="Category">
+        <div class="task-tag-list"><span class="tag tag-brand">${t.category}</span>
+          ${(t.tags || []).map((tag) => html`<span class="tag tag-neutral">${tag}</span>`)}
+        </div>
       </td>
-      <td>
+      <td data-label="Priority">
         <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
           ${priorityBadge(t.priority)}
           ${t.safety ? html`<span class="tag tag-danger small">Safety</span>` : ''}
           ${t.statutory ? html`<span class="tag tag-warning small">Statutory</span>` : ''}
         </div>
       </td>
-      <td style="text-align: center;">
-        <span class="score-pill ${scoreClass}" title="AI Priority Score: ${scored.score}/100">
-          ${scored.score}
-        </span>
-      </td>
-      <td>
-        <span class="due-text" style="display: block;">${fmtDue(t.due)}</span>
+      <td data-label="Deadline">
+        <span class="due-text" style="display: block;">${fmtDue(taskDateInput(t.dueAt || t.due))}</span>
+        ${deadline ? html`<span class="tag tag-${deadline.tone}" title="Demo deadline reminder">${deadline.label}</span>` : ''}
         ${t.slaType ? html`<span class="sla-label muted small" style="display: block; margin-top: 2px;">${t.slaType}</span>` : ''}
       </td>
-      <td class="cell-risk" style="white-space: nowrap !important; min-width: 125px;">
+      <td class="capture-duration" data-label="Duration">${taskDuration(t)} min</td>
+      <td data-label="Status">
+        <select class="capture-filter" data-action="capture-status" data-id="${t.id}" aria-label="Status for ${t.title}">
+          ${t.status === 'review' ? html`<option value="review" selected disabled>In review</option>` : ''}
+          ${CAPTURE_STATUSES.map(({ id, label }) => html`<option value="${id}" ${t.status === id ? 'selected' : ''}>${label}</option>`)}
+        </select>
+      </td>
+      <td data-label="Risk">
         ${riskBadge(risk.level)}
       </td>
-      <td style="text-align: right; white-space: nowrap;">
-        <button
-          type="button"
-          class="btn-subtle btn-sm"
-          data-action="task-inspect"
-          data-id="${t.id}"
-          title="Inspect AI score, dependencies and consequences"
-        >
-          Inspect
-        </button>
+      <td>
+        <div class="capture-row-actions">
+          <button type="button" class="btn-secondary btn-sm" data-action="capture-edit" data-id="${t.id}" aria-label="Edit ${t.title}">Edit</button>
+          ${t.manualCapture ? html`<button type="button" class="btn-ghost btn-sm" data-action="capture-delete" data-id="${t.id}" aria-label="Delete ${t.title}">Delete</button>` : ''}
+        </div>
       </td>
     </tr>
   `;
@@ -377,17 +380,9 @@ function renderMicrosoftToDo(s) {
   const currentTasks = todoData.tasks?.[currentListId] || [];
 
   return html`
-    <section class="panel cal-panel" aria-labelledby="todo-h">
-      <div class="cal-head">
-        <span class="card-icon" aria-hidden="true">${icon('check-square', 24)}</span>
-        <div class="cal-head-text">
-          <h2 id="todo-h">Microsoft To Do (Simulated Integration)</h2>
-          <p class="muted">
-            Reads personal and flagged tasks from Microsoft Graph. Tasks here run independently from Town Council work orders.
-          </p>
-        </div>
-        <span class="tag tag-brand">Demo data — no live Microsoft connection</span>
-      </div>
+    <details class="panel todo-preview" id="todo-preview" ${view.toDoOpen ? 'open' : ''}>
+      <summary>Microsoft To Do <span class="tag tag-neutral">Simulated</span></summary>
+      <p class="muted small">Preview the fictional Microsoft To Do lists.</p>
 
       <div class="cal-bar">
         <span class="cal-bar-text">
@@ -428,9 +423,6 @@ function renderMicrosoftToDo(s) {
           `,
         )}
       </ol>
-      <p class="cal-foot small muted">
-        Demo data — Microsoft Graph read-only simulation. Changes do not alter live Microsoft 365 accounts.
-      </p>
-    </section>
+    </details>
   `;
 }

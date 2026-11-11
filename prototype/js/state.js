@@ -1,7 +1,7 @@
 // Shared application state with localStorage persistence. Every page reads
 // from the same object so dashboards, tasks, plans and simulations agree.
 
-import { createSeedState, DATA_VERSION } from './data.js';
+import { addDemoCases, addPlanningDemoData, createSeedState, DATA_VERSION } from './data.js';
 import { TODAY, NOW, dt, workDay } from './time.js';
 
 const STORAGE_KEY = 'syncai.prototype.state';
@@ -27,13 +27,37 @@ export function loadState() {
     storage.ok = false;
     storage.notice = 'Browser storage is unavailable, so changes will not be kept after you close this tab.';
   }
+  if (saved?.version === DATA_VERSION) {
+    // The previous Add task dialog used a four-digit ID and saved a UTC deadline without source metadata.
+    for (const task of saved.tasks || []) {
+      if (!task.source && !task.createdAt && /^t\d{4}$/.test(task.id) && task.due?.endsWith('Z')) {
+        task.manualCapture = true;
+      }
+    }
+  }
   if (saved && saved.version === DATA_VERSION && saved.seededFor === TODAY) {
     if (saved.role === 'officer') saved.role = 'team_member';
     else if (saved.role === 'supervisor' || saved.role === 'hq') saved.role = 'manager';
-    state = saved;
+    const needsDemoData = !Array.isArray(saved.cases) || !Array.isArray(saved.appointments);
+    state = addPlanningDemoData(addDemoCases(saved));
+    if (needsDemoData) persist();
   } else {
     state = createSeedState();
-    if (saved) storage.notice = 'Demo data was refreshed so dates line up with today.';
+    if (saved) {
+      if (saved.version === DATA_VERSION) {
+        if (Array.isArray(saved.cases)) state.cases = saved.cases;
+        if (saved.schedulePreferences) state.schedulePreferences = saved.schedulePreferences;
+        const savedTasks = new Map((saved.tasks || []).map((task) => [task.id, task]));
+        for (const task of state.tasks) {
+          const previous = savedTasks.get(task.id);
+          if (previous && Object.hasOwn(previous, 'caseId')) task.caseId = previous.caseId;
+          if (previous?.tags) task.tags = previous.tags;
+          if (previous?.category) task.category = previous.category;
+        }
+        state.tasks.unshift(...(saved.tasks || []).filter((task) => task.manualCapture));
+      }
+      storage.notice = 'Demo data was refreshed so dates line up with today.';
+    }
     persist();
   }
   return bumpRev(state);
@@ -429,7 +453,7 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
     return { success: false, error: 'Unauthorized: Requesters cannot self-approve restricted changes; only assigned managers are authorised.' };
   }
 
-  if (decision === 'approved') {
+  if (decision === 'approved' || decision === 'approve') {
     approval.status = 'approved';
     approval.decidedAt = NOW;
     approval.decidedBy = reviewer;
@@ -631,28 +655,7 @@ export function getCase(s, id) {
   return (s.cases || []).find((c) => c.id === id || c.caseNumber === id);
 }
 
-/**
- * Role-aware case visibility:
- * - Admin: Minimal governance summary (zero confidential resident content)
- * - Manager: Authorized team cases (Zone A/B/C officers) + own cases
- * - Member: Own assigned cases only (strict isolation)
- * - Pending/Disabled: No operational access
- */
-export function visibleCases(s) {
-  const all = getCases(s);
-  if (s.status !== 'active') return [];
-  if (isAdmin(s)) {
-    // Admin only sees governance metadata, no operational resident cases
-    return [];
-  }
-  if (isManager(s)) {
-    // Manager sees all cases for officers in supervised teams
-    const supervisedOfficerIds = new Set(['o1', 'o2', 'o3', 'o4', 'o5', 'o6', s.supervisor?.id || 's1']);
-    return all.filter((c) => supervisedOfficerIds.has(c.ownerId));
-  }
-  // Member: strict case isolation
-  return all.filter((c) => c.ownerId === s.currentOfficerId);
-}
+export { visibleCases, accessibleCase, tasksForCase } from './cases.js';
 
 /**
  * Operational Loose-End Detector — Signature Feature

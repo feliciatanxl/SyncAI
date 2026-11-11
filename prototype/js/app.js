@@ -21,7 +21,6 @@ import {
   removeTeamMember,
   createApprovalRequest,
   decideApproval,
-  getTask,
   isOpen,
   logActivity,
   actorName,
@@ -30,16 +29,21 @@ import {
   requestCaseReassignment,
   officerName,
 } from './state.js';
-import { html, raw, render, icon, toast, openModal, closeModal } from './ui.js';
-import { scoreTask } from './ai.js';
+import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog } from './ui.js';
+import { accessibleTask, changeTaskStatus, deleteCapturedTask, taskDateInput, taskDuration } from './taskCapture.js';
+import { accessibleCase } from './cases.js';
+import { deadlineAlert, priorityFactors } from './taskIntelligence.js';
 import { traceDownstream } from './ripple.js';
-import { commitSimulation } from './simulation.js';
+import { calendarDay, singaporeInstant, TODAY } from './time.js';
 
 // Page modules
 import overviewPage from './pages/overview.js';
-import tasksPage from './pages/tasks.js';
 import casesPage, { caseView } from './pages/cases.js';
-import planPage from './pages/plan.js';
+import tasksPage, { tasksView } from './pages/tasks.js';
+import { openTaskCapture } from './pages/taskCaptureDialog.js';
+import planPage, { planView } from './pages/plan.js';
+import { currentPlanningOfficer, planningDates, planningView } from './pages/smartPlan.js';
+import { openSchedulePreferences } from './pages/schedulePreferencesDialog.js';
 import teamPage from './pages/team.js';
 import peoplePage from './pages/people.js';
 import teamsAdminPage from './pages/teams-admin.js';
@@ -64,12 +68,13 @@ const SECTIONS = {
 };
 
 let currentSection = 'overview';
+let currentCaseId = null;
 
 // Determine allowed sections based on role and status (matches client/src/lib/sections.js)
 function allowedSections(s) {
   const user = getCurrentUser(s);
   if (user.status !== 'active') {
-    return ['overview', 'assistant', 'cases', 'decides', 'settings'];
+    return ['overview', 'assistant', 'decides', 'settings'];
   }
   if (isAdmin(s)) {
     return ['overview', 'assistant', 'cases', 'people', 'teams', 'activity', 'decides', 'settings'];
@@ -79,6 +84,14 @@ function allowedSections(s) {
   }
   // Member
   return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'decides', 'settings'];
+}
+
+function readPortalRoute(s) {
+  const hash = window.location.hash.replace(/^#\/?/, '');
+  const caseRoute = /^cases\/([^/]+)$/.exec(hash);
+  const section = caseRoute ? 'cases' : hash;
+  currentSection = allowedSections(s).includes(section) ? section : 'overview';
+  currentCaseId = currentSection === 'cases' ? caseRoute?.[1] ?? null : null;
 }
 
 function init() {
@@ -111,13 +124,7 @@ function init() {
   if (textSize !== 'standard') document.documentElement.setAttribute('data-text-size', textSize);
 
   // Read section from URL hash
-  const hash = window.location.hash.replace(/^#\/?/, '');
-  const allowed = allowedSections(s);
-  if (hash && allowed.includes(hash)) {
-    currentSection = hash;
-  } else {
-    currentSection = 'overview';
-  }
+  readPortalRoute(s);
 
   // Subscribe to state updates
   subscribe(() => renderApp());
@@ -150,6 +157,7 @@ function renderApp() {
   // Role Boundary check: enforce role-based access
   if (!allowed.includes(currentSection)) {
     currentSection = 'overview';
+    currentCaseId = null;
     window.location.hash = '#overview';
   }
 
@@ -269,7 +277,7 @@ function renderMain(s) {
   if (!main) return;
 
   const sec = SECTIONS[currentSection] || SECTIONS.overview;
-  render(main, sec.page.render(s));
+  render(main, sec.id === 'cases' ? sec.page.render(s, currentCaseId) : sec.page.render(s));
 }
 
 function setupEvents() {
@@ -281,6 +289,7 @@ function setupEvents() {
       const sec = navBtn.dataset.section;
       if (sec && SECTIONS[sec]) {
         currentSection = sec;
+        currentCaseId = null;
         window.location.hash = `#${sec}`;
         window.scrollTo({ top: 0, behavior: 'smooth' });
         renderApp();
@@ -335,15 +344,11 @@ function setupEvents() {
     const taskToggle = e.target.closest('[data-action="task-toggle"]');
     if (taskToggle) {
       const taskId = taskToggle.dataset.id;
-      update((s) => {
-        const t = getTask(s, taskId);
-        if (t) {
-          t.status = t.status === 'done' ? 'todo' : 'done';
-          t.completedAt = t.status === 'done' ? new Date().toISOString() : null;
-          logActivity(s, `${t.status === 'done' ? 'Completed' : 'Reopened'} task: ${t.title}`, actorName(s));
-        }
-      });
-      toast('Task status updated.', 'success');
+      const task = accessibleTask(getState(), taskId);
+      if (task) {
+        update((s) => changeTaskStatus(s, taskId, isOpen(task) ? 'done' : 'todo'));
+        toast('Task status updated.', 'success');
+      }
       return;
     }
 
@@ -351,17 +356,41 @@ function setupEvents() {
     if (taskInspect) {
       const taskId = taskInspect.dataset.id;
       const s = getState();
-      const t = getTask(s, taskId);
+      const t = accessibleTask(s, taskId);
       if (t) showTaskDetailModal(s, t);
+      return;
+    }
+
+    const taskEdit = e.target.closest('[data-action="capture-edit"]');
+    if (taskEdit) {
+      const task = accessibleTask(getState(), taskEdit.dataset.id);
+      if (task) openTaskCapture({ task });
+      return;
+    }
+
+    const taskDelete = e.target.closest('[data-action="capture-delete"]');
+    if (taskDelete) {
+      const task = accessibleTask(getState(), taskDelete.dataset.id);
+      if (task?.manualCapture) {
+        confirmDialog({
+          title: 'Delete task?',
+          body: `“${task.title}” will be removed from this prototype.`,
+          confirmLabel: 'Delete task',
+          danger: true,
+        }).then((confirmed) => {
+          if (!confirmed || !accessibleTask(getState(), task.id)?.manualCapture) return;
+          update((s) => deleteCapturedTask(s, task.id));
+          toast('Task deleted.', 'success');
+        });
+      }
       return;
     }
 
     const tasksFilterStatus = e.target.closest('[data-action="tasks-filter-status"]');
     if (tasksFilterStatus) {
       const status = tasksFilterStatus.dataset.status;
-      const targetView = tasksPage.tasksView || tasksPage.view || {};
-      targetView.status = status;
-      targetView.page = 1;
+      tasksView.status = status;
+      tasksView.page = 1;
       renderApp();
       return;
     }
@@ -370,8 +399,7 @@ function setupEvents() {
     if (tasksPageBtn) {
       const p = parseInt(tasksPageBtn.dataset.page, 10);
       if (!isNaN(p) && p >= 1) {
-        const targetView = tasksPage.tasksView || tasksPage.view || {};
-        targetView.page = p;
+        tasksView.page = p;
         renderApp();
       }
       return;
@@ -411,7 +439,36 @@ function setupEvents() {
 
     const taskCreateDialog = e.target.closest('[data-action="task-create-dialog"]');
     if (taskCreateDialog) {
-      showCreateTaskModal(getState());
+      const caseId = taskCreateDialog.dataset.caseId;
+      if (caseId && !accessibleCase(getState(), caseId)) return;
+      openTaskCapture({
+        caseId,
+        onCreate: caseId ? undefined : () => Object.assign(tasksView, {
+          q: '', status: 'all', priority: 'all', category: 'all', tag: '', owner: 'all', dueDate: '', page: 1,
+        }),
+      });
+      return;
+    }
+
+    const planControl = e.target.closest('button[data-action^="plan-"]');
+    if (planControl) {
+      const officer = currentPlanningOfficer(getState());
+      if (!officer) return;
+      const { action, mode, offset, date } = planControl.dataset;
+      if (action === 'plan-preferences') {
+        openSchedulePreferences(officer);
+        return;
+      }
+      if (action === 'plan-generate') planningView.generation = { officerId: officer.id, dates: planningDates() };
+      if (action === 'plan-view') planningView.mode = mode;
+      if (action === 'plan-today') planningView.date = TODAY;
+      if (action === 'plan-shift') planningView.date = calendarDay(planningView.date, Number(offset) * (planningView.mode === 'weekly' ? 7 : 1));
+      if (action === 'plan-open-day') Object.assign(planningView, { date, mode: 'daily' });
+      renderApp();
+      if (action === 'plan-open-day') document.querySelector('[data-action="plan-view"][data-mode="daily"]')?.focus();
+      else if (action === 'plan-view') document.querySelector('[data-action="plan-view"][aria-pressed="true"]')?.focus();
+      else if (action === 'plan-shift') document.querySelector(`[data-action="plan-shift"][data-offset="${offset}"]`)?.focus();
+      else document.querySelector(`[data-action="${action}"]`)?.focus();
       return;
     }
 
@@ -419,27 +476,27 @@ function setupEvents() {
     const simScenarioBtn = e.target.closest('[data-action="sim-select-scenario"]');
     if (simScenarioBtn) {
       const scenarioId = simScenarioBtn.dataset.scenario;
-      planPage.activeScenarioId = scenarioId;
-      planPage.simulationResult = null;
+      planView.activeScenarioId = scenarioId;
+      planView.simulationResult = null;
       renderApp();
       return;
     }
 
     const simAltBtn = e.target.closest('[data-action="sim-select-alt"]');
     if (simAltBtn) {
-      planPage.selectedAltId = simAltBtn.dataset.alt;
+      planView.selectedAltId = simAltBtn.dataset.alt;
       renderApp();
       return;
     }
 
     const simCommitBtn = e.target.closest('[data-action="sim-commit"]');
     if (simCommitBtn) {
+      if (!isManager(getState()) || getCurrentUser(getState()).status !== 'active') return;
       const alt = simCommitBtn.dataset.alt;
       update((s) => {
-        logActivity(s, `Committed Alternative ${alt.toUpperCase()} in What-If Simulator: schedule adjustments applied.`, actorName(s));
+        logActivity(s, `Recorded simulated choice: Alternative ${alt.toUpperCase()}.`, actorName(s));
       });
-      toast(`Alternative ${alt.toUpperCase()} applied to team schedule.`, 'success');
-      renderApp();
+      toast(`Simulated choice recorded: Alternative ${alt.toUpperCase()}.`, 'success');
       return;
     }
 
@@ -775,6 +832,10 @@ function setupEvents() {
     switchDemoRole(roleKey);
   });
 
+  document.addEventListener('toggle', (event) => {
+    if (event.target.id === 'todo-preview' && event.target.isConnected) tasksView.toDoOpen = event.target.open;
+  }, true);
+
   // Filter changes
   document.addEventListener('change', (e) => {
     if (e.target.dataset.action === 'admin-change-role') {
@@ -787,24 +848,45 @@ function setupEvents() {
       renderApp();
     }
 
-    if (e.target.dataset.action === 'tasks-filter-category') {
-      const tv = tasksPage.tasksView || tasksPage.view || {};
-      tv.category = e.target.value;
-      tv.page = 1;
+    const filter = {
+      'tasks-filter-category': 'category',
+      'tasks-filter-tag': 'tag',
+      'tasks-filter-owner': 'owner',
+      'tasks-filter-priority': 'priority',
+      'tasks-filter-date': 'dueDate',
+    }[e.target.dataset.action];
+    if (filter) {
+      tasksView[filter] = e.target.value;
+      tasksView.page = 1;
       renderApp();
     }
 
-    if (e.target.dataset.action === 'tasks-filter-owner') {
-      const tv = tasksPage.tasksView || tasksPage.view || {};
-      tv.owner = e.target.value;
-      tv.page = 1;
-      renderApp();
+    if (e.target.dataset.action === 'capture-status') {
+      const { id } = e.target.dataset;
+      const task = accessibleTask(getState(), id);
+      if (task) {
+        const status = e.target.value;
+        update((s) => changeTaskStatus(s, id, status));
+        toast('Task status updated.', 'success');
+      }
     }
 
     if (e.target.dataset.action === 'todo-select-list') {
-      const tv = tasksPage.tasksView || tasksPage.view || {};
-      tv.selectedToDoList = e.target.value;
+      tasksView.selectedToDoList = e.target.value;
+      tasksView.toDoOpen = true;
       renderApp();
+      document.getElementById('todo-list-select')?.focus();
+    }
+
+    if (e.target.dataset.action === 'plan-date') {
+      if (singaporeInstant(e.target.value + 'T00:00')) planningView.date = e.target.value;
+      renderApp();
+      document.querySelector('[data-action="plan-date"]')?.focus();
+    }
+    if (e.target.dataset.action === 'plan-officer') {
+      planningView.officerId = e.target.value;
+      renderApp();
+      document.querySelector('[data-action="plan-officer"]')?.focus();
     }
 
     if (e.target.dataset.action === 'settings-change-theme') {
@@ -837,10 +919,13 @@ function setupEvents() {
   // Search input events
   document.addEventListener('input', (e) => {
     if (e.target.dataset.action === 'tasks-search') {
-      const tv = tasksPage.tasksView || tasksPage.view || {};
-      tv.q = e.target.value;
-      tv.page = 1;
+      const { value, selectionStart, selectionEnd } = e.target;
+      tasksView.q = value;
+      tasksView.page = 1;
       renderApp();
+      const search = document.querySelector('[data-action="tasks-search"]');
+      search?.focus();
+      search?.setSelectionRange(selectionStart, selectionEnd);
     }
     if (e.target.dataset.action === 'people-search') {
       const pv = peoplePage.peopleView || peoplePage.view || {};
@@ -869,14 +954,9 @@ function setupEvents() {
 
   // Hash change
   window.addEventListener('hashchange', () => {
-    const hash = window.location.hash.replace(/^#\/?/, '');
-    const s = getState();
-    const allowed = allowedSections(s);
-    if (hash && allowed.includes(hash)) {
-      currentSection = hash;
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      renderApp();
-    }
+    readPortalRoute(getState());
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    renderApp();
   });
 }
 
@@ -942,33 +1022,35 @@ function showAccountSwitchModal() {
 }
 
 function showTaskDetailModal(s, t) {
-  const scored = scoreTask(s, t);
-  const downstream = traceDownstream(s, t.id);
-  const user = getCurrentUser(s);
+  const dependents = traceDownstream(s, t.id).dependents.filter(({ task }) => accessibleTask(s, task.id));
   const mgr = isManager(s);
+  const relatedCase = accessibleCase(s, t.caseId);
+  const factors = priorityFactors(t);
+  const deadline = deadlineAlert(t);
+  const slaDue = taskDateInput(t.slaDue);
 
   const content = html`
-    <h2 class="modal-title">${t.title}</h2>
+    <h2 id="modal-title" class="modal-title">${t.title}</h2>
     <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
       <span class="tag tag-brand">${t.category}</span>
       <span class="tag tag-neutral">${t.priority} priority</span>
+      ${(t.tags || []).map((tag) => html`<span class="tag tag-neutral">${tag}</span>`)}
+      ${deadline ? html`<span class="tag tag-${deadline.tone}">${deadline.label}</span>` : ''}
       ${t.safety ? html`<span class="tag tag-danger">Safety Hazard</span>` : ''}
       ${t.statutory ? html`<span class="tag tag-warning">Statutory Deadline</span>` : ''}
     </div>
 
-    <div style="padding: 12px 14px; border-radius: 8px; background: var(--colorNeutralBackground2); margin-bottom: 16px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <strong>Consequence-Aware AI Score:</strong>
-        <span class="score-pill ${scored.score >= 70 ? 'hi' : scored.score >= 40 ? 'md' : 'lo'}">
-          ${scored.score} / 100
-        </span>
-      </div>
-      <p class="small muted">${scored.summary || 'Prioritised based on EM Services operational weights.'}</p>
-    </div>
-
     <div style="display: grid; gap: 10px; font-size: 0.875rem; margin-bottom: 16px;">
-      <div><strong>Location:</strong> ${t.location || 'Estate Site'}</div>
-      <div><strong>Due Date:</strong> ${t.due} (${t.slaType || 'Standard SLA'})</div>
+      ${t.description ? html`<p class="capture-text">${t.description}</p>` : ''}
+      <div><strong>Assigned officer:</strong> ${officerName(s, t.ownerId)}</div>
+      ${relatedCase ? html`<div><strong>Case:</strong> <a href="#cases/${relatedCase.id}" data-action="modal-close">${relatedCase.number} · ${relatedCase.title}</a></div>` : ''}
+      ${t.location ? html`<div><strong>Location:</strong> ${t.location}</div>` : ''}
+      <div><strong>Due:</strong> ${taskDateInput(t.dueAt || t.due).replace('T', ' ')} SGT</div>
+      ${slaDue || t.slaType ? html`<div><strong>SLA:</strong> ${t.slaType || 'Recorded deadline'}
+        ${slaDue ? html`<time datetime="${slaDue}+08:00">${slaDue.replace('T', ' ')} SGT</time>` : ''}</div>` : ''}
+      <div><strong>Estimated duration:</strong> ${taskDuration(t)} minutes</div>
+      ${t.fixedStartAt ? html`<div><strong>Fixed start:</strong> ${taskDateInput(t.fixedStartAt).replace('T', ' ')} SGT</div>` : ''}
+      ${t.remarks ? html`<div class="capture-text"><strong>Remarks:</strong> ${t.remarks}</div>` : ''}
       ${t.appointmentTime
         ? html`<div><strong>Resident Commitment:</strong> <span class="tag tag-brand">${t.appointmentTime}</span></div>`
         : ''}
@@ -992,15 +1074,20 @@ function showTaskDetailModal(s, t) {
         ? html`<div><strong>Long-term Consequence Risk:</strong> <span class="muted">${t.consequence}</span></div>`
         : ''}
     </div>
+    <details class="priority-explanation">
+      <summary>Why this priority?</summary>
+      <p class="small muted">Priority is set on the task. These demo factors show the recorded context in EMS’s stated order.</p>
+      <ol>${factors.map(({ factor, reason }) => html`<li><strong>${factor}</strong> ${reason}</li>`)}</ol>
+    </details>
 
     <!-- Downstream Dependency Chain -->
     <div style="padding: 12px; border-radius: 8px; border: 1px solid var(--colorNeutralStroke2); margin-bottom: 16px;">
       <strong class="small" style="display: block; margin-bottom: 6px;">Downstream Ripple Dependencies:</strong>
-      ${downstream.dependents.length === 0
-        ? html`<p class="small muted" style="margin: 0;">No other work orders depend directly on this task.</p>`
+      ${dependents.length === 0
+        ? html`<p class="small muted" style="margin: 0;">No visible work orders depend on this task.</p>`
         : html`
             <ul style="margin: 0; padding-left: 18px; font-size: 0.8125rem;">
-              ${downstream.dependents.map(
+              ${dependents.map(
                 (d) => html`<li><strong>${d.task.title}</strong> (Depth: ${d.depth})</li>`,
               )}
             </ul>
@@ -1008,7 +1095,7 @@ function showTaskDetailModal(s, t) {
     </div>
 
     <div class="modal-actions">
-      ${!mgr
+      ${t.manualCapture ? '' : !mgr
         ? html`
             <button
               type="button"
@@ -1052,103 +1139,6 @@ function showTaskDetailModal(s, t) {
       renderApp();
     }
   }, { once: true });
-}
-
-function showCreateTaskModal(s) {
-  const content = html`
-    <h2 class="modal-title">Create Operational Task</h2>
-    <form id="create-task-form" style="display: grid; gap: 12px; margin-top: 14px;">
-      <div>
-        <label for="task-title-input" class="small" style="font-weight: 600; display: block; margin-bottom: 4px;">Task Title</label>
-        <input
-          type="text"
-          id="task-title-input"
-          class="search-input"
-          style="width: 100%;"
-          placeholder="e.g. Inspect corridor lighting fault at Blk 214"
-          required
-        />
-      </div>
-      <div>
-        <label for="task-cat-select" class="small" style="font-weight: 600; display: block; margin-bottom: 4px;">Category</label>
-        <select id="task-cat-select" class="filter-tab" style="width: 100%; border: 1px solid var(--colorNeutralStroke1); border-radius: 6px;">
-          <option value="Inspection">Inspection</option>
-          <option value="Maintenance">Maintenance</option>
-          <option value="Resident Feedback">Resident Feedback</option>
-          <option value="Contractor">Contractor</option>
-          <option value="Admin">Admin</option>
-        </select>
-      </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <div>
-          <label for="task-priority-select" class="small" style="font-weight: 600; display: block; margin-bottom: 4px;">Priority</label>
-          <select id="task-priority-select" class="filter-tab" style="width: 100%; border: 1px solid var(--colorNeutralStroke1); border-radius: 6px;">
-            <option value="High">High</option>
-            <option value="Medium" selected>Medium</option>
-            <option value="Critical">Critical</option>
-            <option value="Low">Low</option>
-          </select>
-        </div>
-        <div>
-          <label for="task-effort-input" class="small" style="font-weight: 600; display: block; margin-bottom: 4px;">Effort (Hours)</label>
-          <input type="number" id="task-effort-input" class="search-input" style="width: 100%;" value="1.5" min="0.5" max="8" step="0.5" />
-        </div>
-      </div>
-      <div>
-        <label for="task-loc-input" class="small" style="font-weight: 600; display: block; margin-bottom: 4px;">Location</label>
-        <input type="text" id="task-loc-input" class="search-input" style="width: 100%;" placeholder="e.g. Blk 214 void deck" />
-      </div>
-      <div style="display: flex; gap: 16px; margin-top: 6px;">
-        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.875rem; cursor: pointer;">
-          <input type="checkbox" id="task-safety-check" /> Genuine resident safety risk
-        </label>
-        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.875rem; cursor: pointer;">
-          <input type="checkbox" id="task-statutory-check" /> Mandatory statutory deadline
-        </label>
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Cancel</button>
-        <button type="submit" class="btn-primary btn-sm">Create Task</button>
-      </div>
-    </form>
-  `;
-
-  openModal(content);
-
-  document.getElementById('create-task-form')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const title = document.getElementById('task-title-input').value.trim();
-    const category = document.getElementById('task-cat-select').value;
-    const priority = document.getElementById('task-priority-select').value;
-    const effort = parseFloat(document.getElementById('task-effort-input').value) || 1.5;
-    const location = document.getElementById('task-loc-input').value.trim();
-    const safety = document.getElementById('task-safety-check').checked;
-    const statutory = document.getElementById('task-statutory-check').checked;
-
-    closeModal();
-    update((stateObj) => {
-      stateObj.tasks ||= [];
-      const newTask = {
-        id: `t${Date.now().toString().slice(-4)}`,
-        ownerId: stateObj.currentOfficerId || 'o1',
-        title,
-        category,
-        priority,
-        effort,
-        spent: 0,
-        status: 'todo',
-        location,
-        safety,
-        statutory,
-        due: new Date(Date.now() + 86400000).toISOString(),
-        dependsOn: [],
-      };
-      stateObj.tasks.unshift(newTask);
-      logActivity(stateObj, `Created task: ${title}`, actorName(stateObj));
-    });
-    toast('New operational task created.', 'success');
-    renderApp();
-  });
 }
 
 function showCreateTeamModal(s) {

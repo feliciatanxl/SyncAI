@@ -1,148 +1,44 @@
-// Plan Page — Smart Work Planner + Simulated Outlook Calendar + Ripple What-If Simulator
-import { html, raw, icon, capacityBadge } from '../ui.js';
-import {
-  assessRisk,
-  buildSchedule,
-  dayCapacity,
-  schedule,
-  teamAnalysis,
-} from '../planner.js';
-import {
-  analyzeScenarioRipple,
-  evaluateAlternatives,
-  traceDownstream,
-} from '../ripple.js';
-import {
-  INCIDENTS,
-  runSimulation,
-  commitSimulation,
-} from '../simulation.js';
-import {
-  getOfficer,
-  getState,
-  getTask,
-  isOpen,
-  isManager,
-  isTeamMember,
-  getCurrentUser,
-  officerName,
-  update,
-  visibleTasks,
-  meetingsFor,
-  createApprovalRequest,
-} from '../state.js';
-import {
-  TODAY,
-  NOW,
-  fmtDue,
-  fmtHours,
-  fmtTime,
-  workDay,
-  horizonDays,
-} from '../time.js';
+// Plan Page — schedule proposals, simulated Outlook preview and What-If Simulator
+import { html, icon } from '../ui.js';
+import { analyzeScenarioRipple, analyzeTaskRipple } from '../ripple.js';
+import { isManager, visibleTasks } from '../state.js';
+import { currentPlanningOfficer, renderSmartPlan } from './smartPlan.js';
 
-const planView = {
-  day: TODAY,
+export const planView = {
   activeScenarioId: 'lift_emergency',
   selectedAltId: 'b',
-  showSimulator: true,
   simulationResult: null,
 };
 
 export default {
   render(s) {
-    const user = getCurrentUser(s);
     const mgr = isManager(s);
-    const officerId = s.currentOfficerId || 'o1';
-    const officer = getOfficer(s, officerId) || s.officers[0];
+    const officer = currentPlanningOfficer(s);
 
-    // Compute day capacity and schedule
-    const cap = dayCapacity(s, officer.id, planView.day) || { freeHours: 4.5 };
-    const sched = buildSchedule(s, officer.id, [planView.day]);
-    const meetings = meetingsFor(s, officer.id, planView.day);
-    const allocatedHours = ((sched.taskMinByDay?.[0] || 0) / 60);
-
-    // Compute simulation if not cached
-    if (!planView.simulationResult || planView.simulationResult.scenarioId !== planView.activeScenarioId) {
-      planView.simulationResult = evaluateAlternatives(s, planView.activeScenarioId);
+    if (officer && (planView.simulationResult?.state !== s || planView.simulationResult?.revision !== s.rev)) {
+      const scenario = planView.activeScenarioId;
+      const ripple = scenario === 'seepage_delay' ? analyzeTaskRipple(s, 't103')
+        : analyzeScenarioRipple(s, scenario === 'officer_mc' ? { absent: ['o6'] } : { incident: 'lift', incidentAssignee: 'o1' });
+      planView.simulationResult = { state: s, revision: s.rev, ripple };
     }
-    const sim = planView.simulationResult;
+    const visibleIds = new Set(visibleTasks(s).map((task) => task.id));
+    const ripple = planView.simulationResult?.ripple;
+    const downstream = (ripple?.downstreamTaskIds || []).filter((id) => visibleIds.has(id));
+    const consequences = (ripple?.potentialConsequences || []).filter(({ taskId }) => visibleIds.has(taskId));
 
     return html`
       <header class="page-hero">
         <span class="page-hero-icon" aria-hidden="true">${icon('calendar', 28)}</span>
         <div class="page-hero-text">
-          <p class="page-hero-eyebrow">Capacity-Aware Scheduling & Resilience</p>
-          <h1>My Plan <span class="hero-badge">Smart Planner</span></h1>
-          <p>
-            Dynamically fits your operational tasks around Outlook meetings and travel buffer. Use the What-If Simulator to explore downstream ripple effects before committing changes.
-          </p>
-        </div>
-        <div class="page-hero-aside">
-          <div class="hero-stat">
-            <strong>${allocatedHours.toFixed(1)}h</strong>
-            <span>Allocated</span>
-          </div>
-          <div class="hero-stat">
-            <strong>${(cap.freeHours || 0).toFixed(1)}h</strong>
-            <span>Free capacity</span>
-          </div>
-          <div class="hero-stat">
-            <strong>${meetings.length}</strong>
-            <span>Outlook blocks</span>
-          </div>
+          <h1>My Plan</h1>
+          <p>Preview daily and weekly work around protected commitments and your schedule preferences.</p>
         </div>
       </header>
-
-      <!-- Simulated Outlook Calendar Panel -->
-      ${renderOutlookCalendar(s, officer)}
-
-      <!-- Daily Schedule Timeline -->
-      <section class="panel" aria-labelledby="timeline-h">
-        <div class="panel-head">
-          <div>
-            <h2 id="timeline-h">Today's Proposed Schedule (${officer.name})</h2>
-            <p class="muted small">Working hours: 08:30 – 17:30 · Lunch break: 12:30 – 13:30 (Protected)</p>
-          </div>
-          <div class="panel-tools">
-            <span class="tag ${allocatedHours > (cap.freeHours || 0) ? 'tag-danger' : 'tag-brand'}">
-              ${allocatedHours > (cap.freeHours || 0) ? 'Overloaded' : 'Fits Available Time'}
-            </span>
-          </div>
-        </div>
-
-        <div style="display: grid; gap: 8px; margin-top: 14px;">
-          ${sched.blocks.length === 0
-            ? html`<p class="muted">No scheduled task blocks for today.</p>`
-            : sched.blocks.map((b) => {
-                const blockClass = b.kind === 'meeting' ? 'is-meeting' : b.task?.safety ? 'is-safety' : b.task?.statutory ? 'is-statutory' : '';
-                return html`
-                  <div class="timeline-block ${blockClass}">
-                    <span class="small muted" style="font-variant-numeric: tabular-nums; font-weight: 600;">
-                      ${b.start} – ${b.end}
-                    </span>
-                    <div>
-                      <strong>${b.title}</strong>
-                      ${b.location
-                        ? html`<span class="small muted" style="display: block;">${icon('pin', 12)} ${b.location}</span>`
-                        : ''}
-                      ${b.task?.caseId
-                        ? html`<button type="button" class="tag tag-brand small" data-action="nav-to-case" data-case="${b.task.caseId}" style="cursor: pointer; margin-top: 3px; border: 1px solid var(--colorBrandStroke2); background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-family: monospace; font-weight: 600;" title="View Case ${b.task.caseId}">${icon('cases', 12)} ${b.task.caseId}</button>`
-                        : ''}
-                    </div>
-                    <div>
-                      <span class="tag ${b.kind === 'meeting' ? 'tag-brand' : b.task?.safety ? 'tag-danger' : b.task?.statutory ? 'tag-warning' : 'tag-neutral'}">
-                        ${b.kind === 'meeting' ? 'Outlook' : b.task?.safety ? 'Safety' : b.task?.statutory ? 'Statutory' : 'Task'}
-                      </span>
-                    </div>
-                  </div>
-                `;
-              })}
-        </div>
-      </section>
+      ${renderSmartPlan(s, officer)}
+      ${officer ? renderOutlookCalendar(s, officer) : ''}
 
       <!-- Operational Ripple Intelligence & What-If Simulator -->
-      <section class="panel sim-box" aria-labelledby="sim-h">
+      ${officer ? html`<section class="panel sim-box" aria-labelledby="sim-h">
         <div class="panel-head">
           <div>
             <h2 id="sim-h">Operational Ripple Intelligence & What-If Simulator</h2>
@@ -178,14 +74,12 @@ export default {
         <div class="callout warn" style="margin-bottom: 20px;">
           ${icon('alert', 22)}
           <div>
-            <strong>Downstream Disruption Detected:</strong><br />
-            <span>
-              ${sim.ripple?.headline || 'Operational emergency requires schedule adaptation. Downstream appointments at risk.'}
-            </span>
-            ${sim.ripple?.consequences?.length > 0
+            <strong>Simulated disruption</strong><br />
+            <span>${downstream.length} downstream tasks in your view.</span>
+            ${consequences.length > 0
               ? html`
                   <ul style="margin: 8px 0 0; padding-left: 20px; font-size: 0.8125rem;">
-                    ${sim.ripple.consequences.map((c) => html`<li>${c}</li>`)}
+                    ${consequences.map(({ title, consequence }) => html`<li><strong>${title}</strong> ${consequence}</li>`)}
                   </ul>
                 `
               : ''}
@@ -258,7 +152,7 @@ export default {
           ${mgr
             ? html`
                 <button type="button" class="btn-primary" data-action="sim-commit" data-alt="${planView.selectedAltId}">
-                  Commit Alternative ${planView.selectedAltId.toUpperCase()} to Schedule
+                  Record simulated choice ${planView.selectedAltId.toUpperCase()}
                 </button>
               `
             : html`
@@ -267,7 +161,7 @@ export default {
                 </button>
               `}
         </div>
-      </section>
+      </section>` : ''}
     `;
   },
 };
@@ -282,7 +176,7 @@ function renderOutlookCalendar(s, officer) {
         <div class="cal-head-text">
           <h2 id="cal-h">Outlook Calendar (Simulated Integration)</h2>
           <p class="muted">
-            Reads upcoming meetings, inspections and reserved resident appointments from Microsoft Graph.
+            Preview the fictional Outlook meeting records used by this demo.
           </p>
         </div>
         <span class="tag tag-brand">Demo data — no live Microsoft connection</span>

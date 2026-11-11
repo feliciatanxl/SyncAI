@@ -201,7 +201,9 @@ export function buildSchedule(s, officerId, days = horizonDays(), opts = {}) {
   }
   const boostDay = opts.boost?.date ? days.indexOf(opts.boost.date) : -1;
 
-  for (const { t, score, boosted } of orderTasks(s, openTasksFor(s, officerId), opts)) {
+  // A001 stores scheduling preferences for manually captured tasks without assigning calendar blocks.
+  const candidates = openTasksFor(s, officerId).filter((task) => !task.manualCapture);
+  for (const { t, score, boosted } of orderTasks(s, candidates, opts)) {
     let need = Math.ceil((remainingHours(t) * 60) / SLOT) * SLOT - (credit[t.id] || 0);
     if (need <= 0) continue;
     const minChunk = Math.min(st.minChunkMin, need);
