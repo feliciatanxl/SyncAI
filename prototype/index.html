@@ -3,58 +3,98 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="SyncAI — AI-powered Smart Work Planner prototype for Town Council officers (EMS Challenge 12i)." />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+    <meta name="description" content="SyncAI — Operationally Aware AI Smart Work Planner for Town Council estate operations." />
     <title>SyncAI — Smart Work Planner</title>
     <link rel="icon" href="assets/syncai-logo.png" type="image/png" />
     <link rel="stylesheet" href="css/style.css" />
     <script type="module" src="js/app.js"></script>
   </head>
   <body>
-    <a class="skip-link" href="#page">Skip to main content</a>
+    <a class="skip-link" href="#main-content">Skip to content</a>
 
-    <div class="app" id="app">
-      <aside class="sidebar" id="sidebar" aria-label="Main navigation">
-        <div class="brand">
-          <img src="assets/syncai-logo.png" alt="" width="32" height="32" />
-          <div class="brand-text">
-            <strong>SyncAI</strong>
-            <span>Smart Work Planner</span>
+    <div class="portal" id="portal-root">
+      <!-- Portal Top Header (matches PortalShell.jsx) -->
+      <header class="portal-header">
+        <a href="site/index.html" class="brand" aria-label="SyncAI homepage">
+          <img src="assets/syncai-logo.png" width="30" height="30" alt="" />
+          <span>SyncAI</span>
+        </a>
+
+        <span class="portal-tag" id="portal-role-tag">Team member</span>
+
+        <div class="portal-header-actions">
+          <!-- Quick Role Switcher Pill for Reviewers -->
+          <div class="role-pill-select" title="Switch demo persona">
+            <span>Role:</span>
+            <select id="quick-role-select" aria-label="Switch demo role">
+              <option value="member">Team Member (Aisyah)</option>
+              <option value="manager">Manager (Jennifer)</option>
+              <option value="admin">Admin (Alex)</option>
+              <option value="pending">Pending Account (David)</option>
+              <option value="disabled">Disabled Account (Siti)</option>
+            </select>
+          </div>
+
+          <button type="button" class="btn-subtle btn-sm" id="btn-quick-reset" title="Restore seed data">
+            Reset Demo
+          </button>
+
+          <!-- Microsoft 365 Account Menu Trigger -->
+          <div style="position: relative;">
+            <button type="button" class="account-trigger" id="account-trigger" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
+              <div class="account-trigger-text">
+                <strong id="account-name-header">Aisyah Rahman</strong>
+                <span id="account-email-header">aisyah@towncouncil.gov.sg</span>
+              </div>
+              <div class="account-avatar" id="account-avatar-header">AR</div>
+              <span class="account-chevron">▼</span>
+            </button>
+
+            <!-- Microsoft 365 Style Account Popover Card -->
+            <div class="account-popover" id="account-popover" hidden aria-label="Account card">
+              <div class="account-card-top">
+                <span class="account-card-brand">SyncAI</span>
+                <button type="button" class="btn-subtle btn-sm" id="btn-signout">
+                  Sign out
+                </button>
+              </div>
+              <div class="account-card-who">
+                <div class="account-avatar lg" id="account-avatar-card">AR</div>
+                <div>
+                  <strong id="account-name-card">Aisyah Rahman</strong>
+                  <span class="muted" id="account-email-card">aisyah@towncouncil.gov.sg</span>
+                  <span class="role-text" id="account-role-card">Property Officer</span>
+                </div>
+              </div>
+              <div class="account-card-actions">
+                <button type="button" class="account-card-action-btn" id="btn-switch-account">
+                  <span>⇄</span> Switch demo account
+                </button>
+                <button type="button" class="account-card-action-btn" id="btn-reset-demo-card">
+                  <span>↺</span> Reset all demo state
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-        <nav id="nav"></nav>
-        <div class="sidebar-foot" id="sidebar-foot"></div>
-      </aside>
-      <div class="scrim" id="scrim" data-action="nav-close" hidden></div>
-      <nav class="tabbar" id="tabbar" aria-label="Quick navigation"></nav>
+      </header>
 
-      <div class="main">
-        <header class="topbar">
-          <button class="icon-btn only-mobile" data-action="nav-open" aria-label="Open navigation" aria-controls="sidebar">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
-          <button class="icon-btn only-desktop" data-action="nav-collapse" aria-label="Collapse navigation" aria-controls="sidebar" id="collapse-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
-          <div class="topbar-title" id="topbar-title"></div>
-          <div class="topbar-actions" id="topbar-actions"></div>
-        </header>
+      <!-- Portal Body (Nav Sidebar + Main Workspace) -->
+      <div class="portal-body">
+        <nav class="portal-nav" id="portal-nav" aria-label="Portal navigation">
+          <!-- Nav items dynamically injected by app.js -->
+        </nav>
 
-        <div class="demo-banner" id="demo-banner" role="note"></div>
-        <main id="page" class="page" tabindex="-1" aria-live="polite" aria-busy="false"></main>
+        <main id="main-content" class="portal-main" tabindex="-1">
+          <!-- Active section content dynamically rendered -->
+        </main>
       </div>
     </div>
 
-    <aside class="assistant" id="assistant" aria-label="Ask SyncAI assistant" hidden></aside>
-    <aside class="assistant alerts-panel" id="alerts" aria-label="Alerts" hidden></aside>
-    <div id="modal-root" hidden></div>
-    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
-    <button class="to-top" id="to-top" data-action="scroll-top" aria-label="Scroll to top" title="Back to top" hidden>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6" /></svg>
-    </button>
+    <!-- Modals Container -->
+    <div id="modal-root" class="modal-backdrop" hidden></div>
 
-    <noscript>
-      <div class="noscript">SyncAI needs JavaScript enabled to run this prototype.</div>
-    </noscript>
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toasts" role="status" aria-live="polite"></div>
   </body>
 </html>

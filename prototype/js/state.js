@@ -94,9 +94,163 @@ export function logActivity(s, text, actor) {
 
 export const isManager = (s) => s.role === 'manager' || s.role === 'supervisor';
 export const isSupervisor = isManager;
-export const isTeamMember = (s) => s.role === 'team_member' || s.role === 'officer';
+export const isTeamMember = (s) => s.role === 'team_member' || s.role === 'member' || s.role === 'officer';
 export const isAdmin = (s) => s.role === 'admin';
 export const isHQ = (s) => s.role === 'hq';
+
+export function getCurrentUser(s) {
+  if (isAdmin(s)) {
+    return {
+      id: 'a1',
+      displayName: s.admin?.name || 'Alex Tan',
+      email: 'alex.tan@towncouncil.gov.sg',
+      role: 'admin',
+      status: s.status || 'active',
+      teams: [],
+    };
+  }
+  if (isManager(s)) {
+    return {
+      id: 's1',
+      displayName: s.supervisor?.name || 'Jennifer Ong',
+      email: 'jennifer.ong@towncouncil.gov.sg',
+      role: 'manager',
+      status: s.status || 'active',
+      teams: (s.teams || []).map((t) => ({ id: t.id, name: t.name, kind: 'manager' })),
+    };
+  }
+  // Team Member or Pending / Disabled
+  const off = getOfficer(s, s.currentOfficerId) || { name: 'Aisyah Rahman', email: 'aisyah.rahman@towncouncil.gov.sg' };
+  const foundUser = (s.users || []).find((u) => u.id === s.currentOfficerId) || {};
+  return {
+    id: s.currentOfficerId || 'o1',
+    displayName: foundUser.displayName || off.name,
+    email: foundUser.email || off.email || `${off.name.toLowerCase().replace(/\s+/g, '.')}@towncouncil.gov.sg`,
+    role: 'member',
+    status: s.status || foundUser.status || 'active',
+    teams: foundUser.teams || [{ id: 'team-1', name: 'Zone A Operations', kind: 'member' }],
+  };
+}
+
+export function setCurrentUser(s, userOrRole) {
+  if (typeof userOrRole === 'string') {
+    if (userOrRole === 'admin') {
+      s.role = 'admin';
+      s.status = 'active';
+      s.currentOfficerId = 'a1';
+    } else if (userOrRole === 'manager') {
+      s.role = 'manager';
+      s.status = 'active';
+      s.currentOfficerId = 's1';
+    } else if (userOrRole === 'pending') {
+      s.role = 'member';
+      s.status = 'pending';
+      s.currentOfficerId = 'p1';
+    } else if (userOrRole === 'disabled') {
+      s.role = 'member';
+      s.status = 'disabled';
+      s.currentOfficerId = 'd1';
+    } else {
+      s.role = 'member';
+      s.status = 'active';
+      s.currentOfficerId = 'o1';
+    }
+  } else if (userOrRole && typeof userOrRole === 'object') {
+    s.role = userOrRole.role === 'admin' ? 'admin' : userOrRole.role === 'manager' ? 'manager' : 'member';
+    s.status = userOrRole.status || 'active';
+    s.currentOfficerId = userOrRole.id || 'o1';
+  }
+}
+
+export function getUsers(s) {
+  return s.users || [];
+}
+
+export function getUser(s, id) {
+  return (s.users || []).find((u) => u.id === id);
+}
+
+export function approveUser(s, id, role = 'member') {
+  const user = getUser(s, id);
+  if (user) {
+    user.status = 'active';
+    user.role = role;
+    logActivity(s, `Approved access for ${user.displayName} (${role})`, actorName(s));
+  }
+}
+
+export function setUserRole(s, id, newRole) {
+  const user = getUser(s, id);
+  if (user) {
+    const oldRole = user.role;
+    user.role = newRole;
+    logActivity(s, `Changed role for ${user.displayName} from ${oldRole} to ${newRole}`, actorName(s));
+  }
+}
+
+export function setUserStatus(s, id, newStatus) {
+  const user = getUser(s, id);
+  if (user) {
+    const oldStatus = user.status;
+    user.status = newStatus;
+    logActivity(s, `Changed account status for ${user.displayName} to ${newStatus}`, actorName(s));
+  }
+}
+
+export function getTeams(s) {
+  return s.teams || [];
+}
+
+export function getTeam(s, id) {
+  return (s.teams || []).find((t) => t.id === id);
+}
+
+export function createTeam(s, name) {
+  s.teams ||= [];
+  const id = `team-${nextId(s, '')}`;
+  const newTeam = {
+    id,
+    name,
+    managers: [{ id: 's1', displayName: 'Jennifer Ong', email: 'jennifer.ong@towncouncil.gov.sg' }],
+    members: [],
+  };
+  s.teams.push(newTeam);
+  logActivity(s, `Created new operational team: ${name}`, actorName(s));
+  return newTeam;
+}
+
+export function addTeamMember(s, teamId, userId) {
+  const team = getTeam(s, teamId);
+  const user = getUser(s, userId);
+  if (team && user) {
+    if (!team.members.some((m) => m.id === user.id)) {
+      team.members.push({
+        id: user.id,
+        displayName: user.displayName,
+        email: user.email,
+        role: user.role === 'manager' ? 'Estate Manager' : 'Property Officer',
+        lastActiveAt: new Date().toISOString(),
+      });
+      user.teams ||= [];
+      if (!user.teams.some((t) => t.id === teamId)) {
+        user.teams.push({ id: team.id, name: team.name, kind: 'member' });
+      }
+      logActivity(s, `Added ${user.displayName} to ${team.name}`, actorName(s));
+    }
+  }
+}
+
+export function removeTeamMember(s, teamId, userId) {
+  const team = getTeam(s, teamId);
+  if (team) {
+    team.members = team.members.filter((m) => m.id !== userId);
+    const user = getUser(s, userId);
+    if (user && user.teams) {
+      user.teams = user.teams.filter((t) => t.id !== teamId);
+    }
+    logActivity(s, `Removed member ${userId} from ${team.name}`, actorName(s));
+  }
+}
 
 export function actorName(s) {
   if (isAdmin(s)) return s.admin?.name || 'Administrator';

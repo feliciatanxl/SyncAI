@@ -3,77 +3,205 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Sign in to SyncAI, the AI Smart Work Planner." />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'" />
-    <title>Sign in — SyncAI</title>
+    <meta name="description" content="Sign in to SyncAI — Simulated Microsoft sign-in demonstration." />
+    <title>Sign in to SyncAI</title>
     <link rel="icon" href="../assets/syncai-logo.png" type="image/png" />
-    <link rel="stylesheet" href="../css/style.css" />
     <link rel="stylesheet" href="site.css" />
-    <script type="module" src="site.js"></script>
   </head>
   <body>
-    <div class="auth">
-      <aside class="auth-side">
-        <a class="logo" href="index.html"><img src="../assets/syncai-logo.png" alt="" width="32" height="32" />SyncAI</a>
-        <div class="side-copy">
-          <h2>Your Work. Your Time. In Sync.</h2>
-          <p style="margin-top: 12px">Pick up where you left off: today's briefing, your plan and any alerts are waiting.</p>
+    <div class="login-page">
+      <a class="skip-link" href="#main">Skip to content</a>
+
+      <!-- Left Brand Aside (desktop) -->
+      <aside class="login-aside" aria-hidden="true">
+        <a href="index.html" class="brand">
+          <img src="../assets/syncai-logo.png" width="32" height="32" alt="" />
+          <span>SyncAI</span>
+        </a>
+        <div>
+          <h2>Smarter priorities. More realistic plans.</h2>
+          <p>Safety first, deadlines protected, and a day that actually fits.</p>
         </div>
-        <p class="side-copy" style="font-size: 13px">Prototype with fictional data. Nothing you type leaves this browser.</p>
+        <p class="small">Your Work. Your Time. In Sync.</p>
       </aside>
 
-      <main class="auth-main">
-        <div class="auth-card">
-          <div>
-            <h1>Sign in</h1>
-            <p class="sub">Use your Town Council account.</p>
+      <!-- Main Login Container -->
+      <main id="main" class="login-main">
+        <div class="login-card">
+          <div class="login-brand-mobile">
+            <a href="index.html" class="brand">
+              <img src="../assets/syncai-logo.png" width="30" height="30" alt="" />
+              <span>SyncAI</span>
+            </a>
           </div>
 
-          <button class="btn btn-lg" type="button" data-sso>
-            <svg width="18" height="18" viewBox="0 0 21 21" aria-hidden="true"><path fill="#f25022" d="M1 1h9v9H1z" /><path fill="#7fba00" d="M11 1h9v9h-9z" /><path fill="#00a4ef" d="M1 11h9v9H1z" /><path fill="#ffb900" d="M11 11h9v9h-9z" /></svg>
-            Sign in with Microsoft
-          </button>
-          <div class="divider">or use email</div>
+          <h1>Sign in to SyncAI</h1>
+          <p class="muted">Use your organisation’s Microsoft account. SyncAI has no separate username or password.</p>
 
-          <form data-form="login" style="display: grid; gap: 14px" aria-label="Sign in with email">
-            <div class="notice" data-status tabindex="-1" role="status" hidden></div>
-            <div class="field">
-              <label for="email">Work email</label>
-              <input class="input" id="email" name="email" type="email" autocomplete="username" required />
-              <span class="error-text" aria-live="polite"></span>
+          <!-- Demonstration Callout Notice -->
+          <div class="login-notice" role="status">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+            </svg>
+            <div>
+              <strong>Prototype demonstration</strong><br />
+              Microsoft sign-in is simulated. No Microsoft account or credentials are required.
             </div>
-            <div class="field">
-              <div class="row-between"><label for="password">Password</label><a href="forgot-password.html">Forgot password?</a></div>
-              <div class="pw-wrap">
-                <input class="input" id="password" name="password" type="password" autocomplete="current-password" required />
-                <button class="btn btn-subtle btn-sm" type="button" data-toggle-pw aria-pressed="false" aria-controls="password">Show</button>
-              </div>
-              <span class="error-text" aria-live="polite"></span>
+          </div>
+
+          <!-- Main Sign In Button -->
+          <div id="signin-action-box">
+            <button type="button" class="btn-microsoft wide" id="btn-microsoft-signin">
+              <svg width="20" height="20" viewBox="0 0 21 21" aria-hidden="true">
+                <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+                <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+                <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+                <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+              </svg>
+              <span>Sign in with Microsoft</span>
+            </button>
+          </div>
+
+          <!-- Simulated Demo Role Selector (shown upon click or expandable) -->
+          <form class="role-picker" id="demo-role-picker" style="display: none;" onsubmit="handleDemoContinue(event)">
+            <div class="role-picker-title">Select a demo persona to continue:</div>
+            <div class="role-options">
+              <label class="role-option">
+                <input type="radio" name="demoRole" value="member" checked />
+                <div class="role-option-text">
+                  <strong>Team Member — Aisyah Rahman</strong>
+                  <span>Property Officer (Zone A). Personal tasks, daily plan, simulated To Do & Calendar, submit change requests.</span>
+                </div>
+              </label>
+
+              <label class="role-option">
+                <input type="radio" name="demoRole" value="manager" />
+                <div class="role-option-text">
+                  <strong>Manager — Jennifer Ong</strong>
+                  <span>Estate Manager. Team workload overview, capacity, approval queue, Ripple Intelligence & 3-alternative simulation.</span>
+                </div>
+              </label>
+
+              <label class="role-option">
+                <input type="radio" name="demoRole" value="admin" />
+                <div class="role-option-text">
+                  <strong>Admin — Alex Tan</strong>
+                  <span>System Administrator. People & team management, approve pending accounts, assign roles, inspect activity logs.</span>
+                </div>
+              </label>
+
+              <label class="role-option">
+                <input type="radio" name="demoRole" value="pending" />
+                <div class="role-option-text">
+                  <strong>Reviewer Demo: Pending Account</strong>
+                  <span>David Koh (New Officer). Previews the awaiting manager approval screen and restricted navigation.</span>
+                </div>
+              </label>
+
+              <label class="role-option">
+                <input type="radio" name="demoRole" value="disabled" />
+                <div class="role-option-text">
+                  <strong>Reviewer Demo: Disabled Account</strong>
+                  <span>Siti Nurhaliza (Disabled Officer). Previews disabled status banner and restricted access.</span>
+                </div>
+              </label>
             </div>
-            <label class="check"><input type="checkbox" name="remember" /> Keep me signed in on this device</label>
-            <button class="btn btn-primary btn-lg" type="submit">Sign in</button>
+
+            <div class="role-picker-actions">
+              <button type="submit" class="btn-primary" id="btn-continue-demo">
+                Continue to Dashboard →
+              </button>
+            </div>
           </form>
 
-          <div class="demo-accounts">
-            <strong>Demo accounts</strong> (password <code>SyncAI-demo1</code>)
-            <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 8px">Fictional demo identities for evaluation — not live Microsoft Entra authentication.</p>
-            <div class="row-between" style="margin-top: 8px">
-              <span>Property Officer · <code>officer@syncai.demo</code></span>
-              <button class="btn btn-sm" type="button" data-fill="officer@syncai.demo" style="width: auto">Use</button>
-            </div>
-            <div class="row-between" style="margin-top: 6px">
-              <span>Estate Manager · <code>manager@syncai.demo</code></span>
-              <button class="btn btn-sm" type="button" data-fill="manager@syncai.demo" style="width: auto">Use</button>
-            </div>
-            <div class="row-between" style="margin-top: 6px">
-              <span>System Admin · <code>admin@syncai.demo</code></span>
-              <button class="btn btn-sm" type="button" data-fill="admin@syncai.demo" style="width: auto">Use</button>
-            </div>
-          </div>
+          <p class="login-foot">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <span>Sign-in is handled by Microsoft Entra ID (Simulated). SyncAI never sees your password.</span>
+          </p>
 
-          <p class="sub" style="font-size: 14px">New to SyncAI? <a href="index.html#demo">Request a demo</a></p>
+          <p class="login-foot">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            <span>Data protection notice: Demonstrated with fictional Town Council records. Absences recorded as MC/leave only, never medical details.</span>
+          </p>
         </div>
       </main>
     </div>
+
+    <script type="module">
+      const btnSignIn = document.getElementById('btn-microsoft-signin');
+      const picker = document.getElementById('demo-role-picker');
+
+      btnSignIn.addEventListener('click', () => {
+        picker.style.display = 'block';
+        btnSignIn.style.display = 'none';
+        const firstRadio = picker.querySelector('input[name="demoRole"]');
+        if (firstRadio) firstRadio.focus();
+      });
+
+      window.handleDemoContinue = function(event) {
+        event.preventDefault();
+        const selected = document.querySelector('input[name="demoRole"]:checked')?.value || 'member';
+
+        if (selected === 'admin') {
+          sessionStorage.setItem('syncai_demo_role', 'admin');
+          sessionStorage.setItem('syncai_demo_status', 'active');
+          sessionStorage.setItem('syncai_demo_user', JSON.stringify({
+            id: 'a1',
+            displayName: 'Alex Tan',
+            email: 'alex.tan@towncouncil.gov.sg',
+            role: 'admin',
+            status: 'active'
+          }));
+        } else if (selected === 'manager') {
+          sessionStorage.setItem('syncai_demo_role', 'manager');
+          sessionStorage.setItem('syncai_demo_status', 'active');
+          sessionStorage.setItem('syncai_demo_user', JSON.stringify({
+            id: 's1',
+            displayName: 'Jennifer Ong',
+            email: 'jennifer.ong@towncouncil.gov.sg',
+            role: 'manager',
+            status: 'active'
+          }));
+        } else if (selected === 'pending') {
+          sessionStorage.setItem('syncai_demo_role', 'member');
+          sessionStorage.setItem('syncai_demo_status', 'pending');
+          sessionStorage.setItem('syncai_demo_user', JSON.stringify({
+            id: 'p1',
+            displayName: 'David Koh',
+            email: 'david.koh@towncouncil.gov.sg',
+            role: 'member',
+            status: 'pending'
+          }));
+        } else if (selected === 'disabled') {
+          sessionStorage.setItem('syncai_demo_role', 'member');
+          sessionStorage.setItem('syncai_demo_status', 'disabled');
+          sessionStorage.setItem('syncai_demo_user', JSON.stringify({
+            id: 'd1',
+            displayName: 'Siti Nurhaliza',
+            email: 'siti.nurhaliza@towncouncil.gov.sg',
+            role: 'member',
+            status: 'disabled'
+          }));
+        } else {
+          // Team Member (Aisyah Rahman)
+          sessionStorage.setItem('syncai_demo_role', 'member');
+          sessionStorage.setItem('syncai_demo_status', 'active');
+          sessionStorage.setItem('syncai_demo_user', JSON.stringify({
+            id: 'o1',
+            displayName: 'Aisyah Rahman',
+            email: 'aisyah.rahman@towncouncil.gov.sg',
+            role: 'member',
+            status: 'active'
+          }));
+        }
+
+        window.location.href = '../index.html';
+      };
+    </script>
   </body>
 </html>

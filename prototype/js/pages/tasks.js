@@ -1,155 +1,42 @@
-import { CATEGORIES, PRIORITIES, STATUSES, sampleMinutes } from '../data.js';
-import { extractActionItems, parseNaturalTask, scoreTask } from '../ai.js';
+// Tasks Page — Operational Work Tasks + Simulated Microsoft To Do
+import { html, raw, icon, priorityBadge, riskBadge, emptyState } from '../ui.js';
+import {
+  CATEGORIES,
+  PRIORITIES,
+  STATUSES,
+  sampleToDoData,
+} from '../data.js';
+import { scoreTask } from '../ai.js';
 import { assessRisk } from '../planner.js';
-import { getOfficer, getState, getTask, isOpen, isOverdue, isSupervisor, logActivity, nextId, officerName, update, visibleTasks } from '../state.js';
-import { NOW, TODAY, fmtDue, fmtHours, fmtTime, timePart } from '../time.js';
-import { html, icon, render, priorityBadge, riskBadge, sourceTag, emptyState, avatar, toast, openModal, closeModal, filterTabs, pager, limitTo, showMore } from '../ui.js';
-import { openTaskForm, scorePill, timerButton } from './shared.js';
-import { settleTimer } from '../timer.js';
-import { ctx } from '../ctx.js';
+import { traceDownstream, traceUpstream } from '../ripple.js';
+import {
+  getOfficer,
+  getState,
+  getTask,
+  isOpen,
+  isOverdue,
+  isManager,
+  isAdmin,
+  getCurrentUser,
+  officerName,
+  update,
+  visibleTasks,
+} from '../state.js';
+import { TODAY, NOW, fmtDue, fmtHours, dt, workDay } from '../time.js';
 
-const view = { q: '', status: 'open', priority: 'all', category: 'all', owner: 'all', sort: 'score', group: 'none', page: 1, per: '10', nl: null, nlText: '' };
-const PER_PAGE_OPTIONS = ['10', '25', '50', 'all'];
-const PRIORITY_RANK = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+const view = {
+  q: '',
+  status: 'all',
+  priority: 'all',
+  category: 'all',
+  owner: 'all',
+  selectedToDoList: 'l1',
+  toDoBusy: false,
+};
 
-const EXAMPLES = [
-  'Urgent: lift fault at Blk 214 trapping resident, today 2pm',
-  'Follow up with resident on corridor lights Blk 209 tomorrow, 30 min',
-  'Prepare monthly defect summary by Friday, low priority',
-];
+export function mountKanban() {}
+export function setStatus() {}
 
-// Status tabs: [value, label, test]. Counts respect the search and the other filters.
-const STATUS_TABS = [
-  ['open', 'Open', (s, t) => isOpen(t)],
-  ['today', 'Today', (s, t) => isOpen(t) && t.due.slice(0, 10) === TODAY],
-  ['upcoming', 'Upcoming', (s, t) => isOpen(t) && t.due.slice(0, 10) > TODAY],
-  ['overdue', 'Overdue', (s, t) => isOpen(t) && isOverdue(t)],
-  ['risk', 'At risk', (s, t) => isOpen(t) && assessRisk(s, t).level === 'high'],
-  ['in_progress', 'In progress', (s, t) => t.status === 'in_progress'],
-  ['done', 'Done', (s, t) => !isOpen(t)],
-  ['all', 'All', () => true],
-];
-
-function matching(s) {
-  const q = view.q.trim().toLowerCase();
-  return visibleTasks(s).filter((t) => {
-      if (view.priority !== 'all' && t.priority !== view.priority) return false;
-      if (view.category !== 'all' && t.category !== view.category) return false;
-      if (view.owner !== 'all' && t.ownerId !== view.owner) return false;
-      if (q && !`${t.title} ${t.location} ${t.category} ${t.description} ${officerName(s, t.ownerId)}`.toLowerCase().includes(q)) return false;
-      return true;
-    });
-}
-
-function filtered(s, base = matching(s)) {
-  const test = STATUS_TABS.find((x) => x[0] === view.status)[2];
-  const rows = base.filter((t) => test(s, t)).map((t) => ({ t, score: scoreTask(s, t).score }));
-
-  const cmp = {
-    score: (a, b) => b.score - a.score,
-    due: (a, b) => a.t.due.localeCompare(b.t.due),
-    priority: (a, b) => PRIORITY_RANK[a.t.priority] - PRIORITY_RANK[b.t.priority] || b.score - a.score,
-    effort: (a, b) => b.t.effort - a.t.effort,
-    title: (a, b) => a.t.title.localeCompare(b.t.title),
-  }[view.sort];
-  return rows.sort(cmp);
-}
-
-function listView(s, rows) {
-  const sup = isSupervisor(s);
-  return html`<div class="table-wrap"><table class="table task-table">
-    <caption class="sr-only">Tasks, sorted by ${view.sort}</caption>
-    <thead><tr>
-      <th style="width:36px"><span class="sr-only">Complete</span></th>
-      <th>Task</th>
-      ${sup ? html`<th class="hide-sm">Owner</th>` : ''}
-      <th>Priority</th>
-      <th title="SyncAI priority score (0–100)">AI score</th>
-      <th>Due</th>
-      <th class="hide-sm">Effort</th>
-      <th class="hide-sm">Risk</th>
-      <th><span class="sr-only">Actions</span></th>
-    </tr></thead>
-    <tbody>
-      ${rows.map(({ t }) => {
-        const risk = assessRisk(s, t);
-        const done = !isOpen(t);
-        return html`<tr class="${done ? 'done' : ''}">
-          <td><button class="complete-btn ${done ? 'is-done' : ''}" data-action="task-toggle" data-id="${t.id}" aria-label="${done ? 'Reopen' : 'Complete'} “${t.title}”" aria-pressed="${done}">${icon('check', 12)}</button></td>
-          <td class="cell-task">
-            <button class="task-title" data-action="task-view" data-id="${t.id}">${t.title}</button>
-            <div class="meta">
-              <span>${t.category}</span>
-              ${t.location ? html`<span>${icon('pin', 12)}${t.location}</span>` : ''}
-              ${sourceTag(t.source)}
-              ${t.safety ? html`<span class="badge badge-danger" style="padding:0 6px">${icon('shield', 11)}Safety</span>` : ''}
-              ${t.statutory ? html`<span class="badge badge-warning" style="padding:0 6px" title="Statutory or compliance deadline">${icon('calendar', 11)}Statutory</span>` : ''}
-              ${t.slaDue ? html`<span class="badge badge-warning" style="padding:0 6px" title="${t.slaType || 'SLA'} due ${fmtDue(t.slaDue)}">${icon('clock', 11)}SLA: ${fmtTime(timePart(t.slaDue))}</span>` : ''}
-              ${t.appointmentTime ? html`<span class="badge badge-info" style="padding:0 6px" title="Fixed commitment">${icon('calendar', 11)}Appt</span>` : ''}
-              ${t.source === 'OCC (Mock)' ? html`<span class="badge badge-ai" style="padding:0 6px">${icon('zap', 11)}OCC</span>` : ''}
-              ${t.dependsOn.length ? html`<span title="Has dependencies">${icon('link', 12)}${t.dependsOn.length}</span>` : ''}
-              ${t.status === 'in_progress' ? html`<span class="badge badge-info" style="padding:0 6px">In progress</span>` : ''}
-              ${t.status === 'review' ? html`<span class="badge badge-neutral" style="padding:0 6px">In review</span>` : ''}
-            </div>
-          </td>
-          ${sup ? html`<td class="cell-owner"><span class="row">${avatar(officerName(s, t.ownerId), 'sm')}${officerName(s, t.ownerId)}</span></td>` : ''}
-          <td class="cell-meta cell-first">${priorityBadge(t.priority)}</td>
-          <td class="cell-meta">${done ? '—' : scorePill(s, t)}</td>
-          <td class="cell-meta ${isOverdue(t) ? 'delta-bad' : ''}" style="white-space:nowrap">${fmtDue(t.due)}${isOverdue(t) ? html`<div class="small">Overdue</div>` : ''}</td>
-          <td class="hide-sm">${fmtHours(t.effort)}</td>
-          <td class="hide-sm">${riskBadge(risk.level)}</td>
-          <td class="cell-act"><div class="cell-actions">
-            ${timerButton(s, t, true)}
-            <button class="icon-btn sm" data-action="task-edit" data-id="${t.id}" aria-label="Edit “${t.title}”">${icon('pencil', 15)}</button>
-            <button class="icon-btn sm" data-action="task-delete" data-id="${t.id}" aria-label="Delete “${t.title}”">${icon('trash', 15)}</button>
-          </div></td>
-        </tr>`;
-      })}
-    </tbody>
-  </table></div>`;
-}
-
-function kanbanView(s, rows) {
-  const statuses = view.status === 'open' ? STATUSES.filter((x) => x.id !== 'done') : STATUSES;
-  return html`<div class="kanban" style="grid-template-columns:repeat(${statuses.length}, minmax(240px, 1fr))">
-    ${statuses.map((col) => {
-      const items = rows.filter(({ t }) => t.status === col.id);
-      return html`<section class="kanban-col" data-status="${col.id}" aria-label="${col.label}">
-        <h3>${col.label} <span class="badge badge-neutral">${items.length}</span></h3>
-        ${items.map(
-          ({ t }) => html`<article class="kanban-card" draggable="true" data-id="${t.id}">
-            <div class="row">${priorityBadge(t.priority)}${col.id !== 'done' ? scorePill(s, t) : ''}</div>
-            <button class="task-title" data-action="task-view" data-id="${t.id}">${t.title}</button>
-            <div class="meta"><span>${icon('clock', 12)}${fmtDue(t.due)}</span><span>${fmtHours(t.effort)}</span>${sourceTag(t.source)}</div>
-            ${isSupervisor(s) ? html`<div class="meta">${avatar(officerName(s, t.ownerId), 'sm')}<span>${officerName(s, t.ownerId)}</span></div>` : ''}
-            <label class="sr-only" for="st-${t.id}">Move “${t.title}” to</label>
-            <select class="select" id="st-${t.id}" data-change="task-status" data-id="${t.id}">
-              ${STATUSES.map((x) => html`<option value="${x.id}" ${x.id === t.status ? 'selected' : ''}>${x.label}</option>`)}
-            </select>
-          </article>`,
-        )}
-        ${items.length ? '' : html`<p class="muted small" style="text-align:center;padding:16px 0">Drop tasks here</p>`}
-      </section>`;
-    })}
-  </div>`;
-}
-
-function results(s) {
-  const base = matching(s);
-  const tabs = filterTabs('task-tab', 'Task status', STATUS_TABS.map(([v, l, test]) => [v, l, base.filter((t) => test(s, t)).length]), view.status);
-  const rows = filtered(s, base);
-  const narrowed = view.q.trim() || view.priority !== 'all' || view.category !== 'all' || view.owner !== 'all';
-  return html`${tabs}
-    ${narrowed ? html`<div class="filter-summary"><span class="muted small">${rows.length} matching ${rows.length === 1 ? 'task' : 'tasks'}</span><button class="btn btn-subtle btn-sm" data-action="task-clear-filters">${icon('x', 14)}Clear filters</button></div>` : ''}
-    ${resultList(s, rows)}`;
-}
-
-const GROUP_SIZE = 5;
-
-/**
- * Split rows ({ t }) into labelled groups, in a fixed order (status, priority and
- * category follow their lists; owner and project are alphabetical, "No project" last).
- */
 export function groupTasks(s, rows, by) {
   const keyOf = {
     status: (t) => t.status,
@@ -159,11 +46,11 @@ export function groupTasks(s, rows, by) {
     project: (t) => t.projectId || '',
   }[by];
   const labelOf = {
-    status: (k) => STATUSES.find((x) => x.id === k).label,
+    status: (k) => (STATUSES.find((x) => x.id === k) || { label: k }).label,
     priority: (k) => k,
     category: (k) => k,
     owner: (k) => officerName(s, k),
-    project: (k) => s.projects.find((p) => p.id === k)?.name || 'No project',
+    project: (k) => (s.projects || []).find((p) => p.id === k)?.name || 'No project',
   }[by];
   const order = { status: STATUSES.map((x) => x.id), priority: PRIORITIES, category: CATEGORIES }[by];
   const groups = new Map();
@@ -177,362 +64,316 @@ export function groupTasks(s, rows, by) {
     .sort((a, b) => (order ? order.indexOf(a.key) - order.indexOf(b.key) : (a.key === '') - (b.key === '') || a.label.localeCompare(b.label)));
 }
 
-function groupedList(s, rows) {
-  return html`<p class="sr-only" aria-live="polite">${rows.length} tasks in groups</p>
-    ${groupTasks(s, rows, view.group).map(({ key, label, rows: items }) => {
-      const id = `grp-${view.group}-${key || 'none'}`;
-      return html`<section class="task-group" aria-label="${label}">
-        <h3 class="group-head">${label} <span class="tab-count">${items.length}</span></h3>
-        ${listView(s, limitTo(id, items, GROUP_SIZE))}
-        ${showMore(id, items.length, GROUP_SIZE, 'tasks')}
-      </section>`;
-    })}`;
-}
-
-function resultList(s, rows) {
-  if (!rows.length) {
-    const any = visibleTasks(s).length;
-    return emptyState(
-      'search',
-      any ? 'No tasks match these filters' : 'No tasks yet',
-      any ? 'Try clearing the search or changing filters.' : 'Create a task or describe one in plain language above.',
-      any ? html`<button class="btn" data-action="task-clear-filters">Clear filters</button>` : html`<button class="btn btn-primary" data-action="task-new">${icon('plus', 16)}New task</button>`,
-    );
-  }
-  if (s.prefs.taskView === 'kanban') return html`<p class="sr-only" aria-live="polite">${rows.length} tasks shown</p>${kanbanView(s, rows)}`;
-  if (view.group !== 'none') return groupedList(s, rows);
-  const per = view.per === 'all' ? rows.length : Number(view.per);
-  const pages = Math.ceil(rows.length / per);
-  view.page = Math.min(view.page, pages);
-  const from = (view.page - 1) * per;
-  const shown = rows.slice(from, from + per);
-  return html`<p class="sr-only" aria-live="polite">${rows.length} tasks, showing ${from + 1} to ${from + shown.length}</p>
-    ${listView(s, shown)}
-    <div class="list-foot"><span class="muted small">Showing ${from + 1}–${from + shown.length} of ${rows.length}</span>
-      <div class="row wrap">${select('per', 'Rows per page', view.per, PER_PAGE_OPTIONS.map((v) => [v, v === 'all' ? 'Show all' : `${v} per page`]))}${pager('task-page', view.page, pages, 'Task pages')}</div></div>`;
-}
-
-function nlPreview(s) {
-  if (!view.nl) return '';
-  const { task, found } = view.nl;
-  return html`<div class="estimate-box mt" style="background:#fff">
-    <div class="row wrap"><span class="ai-label">${icon('sparkles', 14)}SyncAI extracted</span><span class="muted small">Review before saving — nothing has been created yet.</span></div>
-    <table class="table mt-sm"><thead><tr><th>Field</th><th>Value</th><th>Why</th></tr></thead><tbody>
-      <tr><td>Title</td><td><strong>${task.title}</strong></td><td class="muted">Remaining words after removing dates, times and priority cues</td></tr>
-      ${found.map((f) => html`<tr><td>${f.field}</td><td><strong>${f.value}</strong></td><td class="muted">${f.why}</td></tr>`)}
-      ${isSupervisor(s) && !found.some((f) => f.field === 'Owner') ? html`<tr><td>Owner</td><td><strong>${officerName(s, task.ownerId)}</strong></td><td class="muted">No officer named — add “for &lt;name&gt;” to assign</td></tr>` : ''}
-    </tbody></table>
-    <div class="row wrap mt-sm">
-      <button class="btn btn-primary btn-sm" data-action="nl-create">${icon('check', 14)}Accept & create</button>
-      <button class="btn btn-sm" data-action="nl-edit">${icon('pencil', 14)}Modify</button>
-      <button class="btn btn-subtle btn-sm" data-action="nl-clear">Dismiss</button>
-    </div>
-  </div>`;
-}
-
-function select(name, label, value, options) {
-  return html`<label class="sr-only" for="flt-${name}">${label}</label>
-    <select class="select" id="flt-${name}" data-change="task-filter" name="${name}">
-      ${options.map(([v, l]) => html`<option value="${v}" ${v === value ? 'selected' : ''}>${l}</option>`)}
-    </select>`;
-}
-
-function renderPage(s) {
-  const sup = isSupervisor(s);
-  const mode = s.prefs.taskView;
-  return html`
-    <div class="page-head">
-      <div><h1>${sup ? 'Team Tasks' : 'My Tasks'}</h1><p>${sup ? 'All officer tasks with AI priority and deadline risk.' : 'Your tasks, ranked and explained by SyncAI.'}</p></div>
-      <div class="actions">
-        <button class="btn" data-action="minutes-open">${icon('folder', 16)}From meeting minutes</button>
-        <button class="btn btn-primary" data-action="task-new">${icon('plus', 16)}New task</button>
-      </div>
-    </div>
-
-    <section class="card ai-card" aria-labelledby="nl-h">
-      <div class="card-body">
-        <h2 id="nl-h" class="ai-label" style="font-size:14px">${icon('wand', 16)}Describe a task in plain language</h2>
-        <form class="row wrap mt-sm" data-submit="nl-parse" novalidate>
-          <label class="sr-only" for="nl-text">Task description</label>
-          <input class="input" id="nl-text" name="text" style="flex:1;min-width:240px" maxlength="240" value="${view.nlText}" placeholder="e.g. Urgent: inspect lift fault at Blk 214 tomorrow 10am, about 2h" />
-          <button class="btn btn-ai" type="submit">${icon('sparkles', 16)}Extract</button>
-        </form>
-        <div class="row wrap mt-sm"><span class="muted small">Try:</span>${EXAMPLES.map((e) => html`<button class="chip" data-action="nl-example" data-text="${e}">${e}</button>`)}</div>
-        <div id="nl-preview" aria-live="polite">${nlPreview(s)}</div>
-      </div>
-    </section>
-
-    <section class="card mt" aria-label="Task list">
-      <div class="toolbar">
-        <div class="search-box">${icon('search', 16)}<label class="sr-only" for="task-q">Search tasks</label><input class="input" id="task-q" type="search" placeholder="Search tasks, blocks, officers…" value="${view.q}" data-input="task-search" /></div>
-        ${select('priority', 'Priority', view.priority, [['all', 'All priorities'], ...PRIORITIES.map((p) => [p, p])])}
-        ${select('category', 'Category', view.category, [['all', 'All categories'], ...CATEGORIES.map((c) => [c, c])])}
-        ${sup ? select('owner', 'Owner', view.owner, [['all', 'All officers'], ...s.officers.map((o) => [o.id, o.name])]) : ''}
-        ${select('sort', 'Sort by', view.sort, [['score', 'Sort: AI score'], ['due', 'Sort: Deadline'], ['priority', 'Sort: Priority'], ['effort', 'Sort: Effort'], ['title', 'Sort: Title']])}
-        ${mode === 'kanban' ? '' : select('group', 'Group by', view.group, [['none', 'Group: none'], ['status', 'Group: status'], ['priority', 'Group: priority'], ['category', 'Group: category'], ['project', 'Group: project'], ...(sup ? [['owner', 'Group: owner']] : [])])}
-        <span class="spacer"></span>
-        <div class="segmented" role="group" aria-label="View">
-          <button data-action="task-mode" data-mode="list" aria-pressed="${mode === 'list'}">${icon('list', 15)}List</button>
-          <button data-action="task-mode" data-mode="kanban" aria-pressed="${mode === 'kanban'}">${icon('columns', 15)}Board</button>
-        </div>
-      </div>
-      <div id="task-results">${results(s)}</div>
-    </section>`;
-}
-
-function refreshResults() {
-  const el = document.getElementById('task-results');
-  if (el) {
-    render(el, results(getState()));
-    mountKanban(el);
-  }
-}
-
-export function mountKanban(root) {
-  let dragId = null;
-  root.querySelectorAll('.kanban-card').forEach((card) => {
-    card.addEventListener('dragstart', (e) => {
-      dragId = card.dataset.id;
-      card.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', dragId);
-    });
-    card.addEventListener('dragend', () => card.classList.remove('dragging'));
-  });
-  root.querySelectorAll('.kanban-col').forEach((col) => {
-    col.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      col.classList.add('drag-over');
-    });
-    col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
-    col.addEventListener('drop', (e) => {
-      e.preventDefault();
-      col.classList.remove('drag-over');
-      const id = e.dataTransfer.getData('text/plain') || dragId;
-      setStatus(id, col.dataset.status);
-    });
-  });
-}
-
-export function setStatus(id, status) {
-  const t = getTask(getState(), id);
-  if (!t || t.status === status || !STATUSES.some((x) => x.id === status)) return;
-  update((st) => {
-    const x = getTask(st, id);
-    if (status === 'done') settleTimer(x, Date.now());
-    x.status = status;
-    if (status === 'done') {
-      x.completedAt = NOW;
-      x.actual = x.actual || Math.max(x.effort, x.spent || 0);
-    } else x.completedAt = null;
-    logActivity(st, `Moved “${x.title}” to ${STATUSES.find((y) => y.id === status).label}.`);
-  });
-  toast(`Moved to ${STATUSES.find((y) => y.id === status).label}`);
-}
-
-// ---------- meeting minutes → tasks ----------
-
-let minutes = null; // { text, items, selected:Set, owners:{} }
-
-function minutesInput(text = '') {
-  return html`<form data-submit="minutes-extract" novalidate>
-    <header class="modal-head"><h2 id="modal-title">${icon('folder', 18)} AI meeting-to-task generator</h2>
-      <button type="button" class="icon-btn" data-action="modal-close" aria-label="Close">${icon('x')}</button></header>
-    <div class="modal-body stack">
-      <p class="muted">Paste meeting minutes or upload a text file. In production these would come from SharePoint / OneDrive with the officer's permission; nothing leaves this browser here.</p>
-      <div class="row wrap">
-        <label class="btn btn-sm" for="minutes-file">${icon('folder', 14)}Upload .txt or .md</label>
-        <input class="sr-only" type="file" id="minutes-file" accept=".txt,.md,text/plain,text/markdown" data-change="minutes-file" />
-        <button type="button" class="btn btn-sm" data-action="minutes-sample">Load sample minutes</button>
-      </div>
-      <div class="field" data-field="minutes">
-        <label for="minutes-text">Minutes</label>
-        <textarea class="textarea" id="minutes-text" name="text" rows="12" maxlength="20000" style="font-family:var(--mono);font-size:12.5px">${text}</textarea>
-        <span class="error-text" id="e-minutes"></span>
-      </div>
-    </div>
-    <footer class="modal-foot"><button type="button" class="btn" data-action="modal-close">Cancel</button><button class="btn btn-ai" type="submit">${icon('sparkles', 16)}Extract action items</button></footer>
-  </form>`;
-}
-
-function minutesReview(s) {
-  const sup = isSupervisor(s);
-  const me = s.currentOfficerId;
-  return html`<header class="modal-head"><h2 id="modal-title">${icon('sparkles', 18)} ${minutes.items.length} action item${minutes.items.length === 1 ? '' : 's'} found</h2>
-      <button class="icon-btn" data-action="modal-close" aria-label="Close">${icon('x')}</button></header>
-    <div class="modal-body stack">
-      <p class="muted small">Review each suggestion. Untick anything that isn't a real action. ${sup ? 'Choose an owner for unassigned items.' : 'Items for other officers are shown for context — your supervisor imports those.'}</p>
-      ${minutes.items.map((it) => {
-        const owner = minutes.owners[it.id] || null;
-        const mine = sup || owner === me || (!owner && !sup);
-        const checked = minutes.selected.has(it.id) && mine;
-        return html`<div class="rec">
-          <div class="rec-head">
-            <input type="checkbox" data-change="minutes-pick" value="${it.id}" ${checked ? 'checked' : ''} ${mine ? '' : 'disabled'} aria-label="Import ${it.task.title}" style="width:18px;height:18px;margin-top:3px" />
-            <div class="grow" style="flex:1">
-              <div class="rec-title">${it.task.title}</div>
-              <div class="meta"><span>Due ${fmtDue(it.task.due)}</span>${priorityBadge(it.task.priority)}<span>${it.task.category}</span><span>${fmtHours(it.task.effort)}</span>${it.task.location ? html`<span>${icon('pin', 12)}${it.task.location}</span>` : ''}</div>
-              <p class="why mt-sm">${icon('info', 12)}<span>“${it.source}” — ${it.why}. ${it.found.slice(1).map((f) => `${f.field}: ${f.why.toLowerCase()}`).join('; ')}.</span></p>
-            </div>
-            ${sup
-              ? html`<label class="sr-only" for="own-${it.id}">Owner</label><select class="select" id="own-${it.id}" data-change="minutes-owner" data-item="${it.id}" style="width:auto"><option value="">Choose owner…</option>${s.officers.map((o) => html`<option value="${o.id}" ${o.id === owner ? 'selected' : ''}>${o.name}</option>`)}</select>`
-              : html`<span class="badge ${owner === me ? 'badge-brand' : owner ? 'badge-neutral' : 'badge-warning'}">${owner ? (owner === me ? 'You' : getOfficer(s, owner).name) : 'No owner — assigned to you'}</span>`}
-          </div>
-        </div>`;
-      })}
-    </div>
-    <footer class="modal-foot"><button class="btn" data-action="minutes-back">Back</button><button class="btn btn-primary" data-action="minutes-import">${icon('check', 16)}Create selected tasks</button></footer>`;
-}
-
-function extractMinutes(text) {
-  const s = getState();
-  const items = extractActionItems(s, text, s.currentOfficerId);
-  minutes = { text, items, selected: new Set(items.map((i) => i.id)), owners: Object.fromEntries(items.map((i) => [i.id, i.task.ownerId])) };
-  if (!items.length) {
-    openModal(minutesInput(text), { wide: true });
-    const out = document.getElementById('e-minutes');
-    if (out) out.textContent = 'No action items found. Lines like “Action: Aisyah to inspect Blk 214 by Friday” work best.';
-    return;
-  }
-  openModal(minutesReview(s), { wide: true });
-}
-
-function parse(text) {
-  const s = getState();
-  view.nlText = text;
-  if (text.trim().length < 4) {
-    view.nl = null;
-    toast('Describe the task in a few more words.', 'error');
-    return;
-  }
-  view.nl = parseNaturalTask(s, text, s.currentOfficerId);
-  if (!isSupervisor(s)) view.nl.task.ownerId = s.currentOfficerId;
-  render(document.getElementById('nl-preview'), nlPreview(s));
-}
-
 export default {
-  id: 'tasks',
-  title: 'My Tasks',
-  titleFor: (s) => (isSupervisor(s) ? 'Team Tasks' : 'My Tasks'),
-  icon: 'check-square',
-  roles: ['team_member', 'manager', 'officer', 'supervisor'],
-  render: renderPage,
-  mount: (root) => mountKanban(root),
-  actions: {
-    'task-mode': (el) => update((st) => (st.prefs.taskView = el.dataset.mode)),
-    'task-clear-filters': () => {
-      Object.assign(view, { q: '', status: 'open', priority: 'all', category: 'all', owner: 'all', sort: 'score', group: 'none', page: 1 });
-      ctx.rerender();
-    },
-    'task-tab': (el) => {
-      Object.assign(view, { status: el.dataset.value, page: 1 });
-      refreshResults();
-      document.querySelector(`[data-action="task-tab"][data-value="${el.dataset.value}"]`)?.focus();
-    },
-    'task-page': (el) => {
-      view.page = Number(el.dataset.page);
-      refreshResults();
-      const box = document.getElementById('task-results');
-      box?.closest('.card')?.scrollIntoView({ block: 'start' });
-      box?.querySelector('.pager [aria-current="page"]')?.focus({ preventScroll: true });
-    },
-    'minutes-open': () => openModal(minutesInput(minutes?.text || ''), { wide: true }),
-    'minutes-sample': () => {
-      const ta = document.getElementById('minutes-text');
-      if (ta) ta.value = sampleMinutes();
-    },
-    'minutes-back': () => openModal(minutesInput(minutes?.text || ''), { wide: true }),
-    'minutes-import': () => {
-      const s = getState();
-      const sup = isSupervisor(s);
-      const picked = minutes.items.filter((it) => minutes.selected.has(it.id));
-      const ready = picked.filter((it) => (sup ? minutes.owners[it.id] : !minutes.owners[it.id] || minutes.owners[it.id] === s.currentOfficerId));
-      if (sup && ready.length < picked.length) return toast('Choose an owner for every selected item.', 'error');
-      if (!ready.length) return toast('Select at least one action item.', 'error');
-      update((st) => {
-        ready.forEach((it) => {
-          st.tasks.push({
-            id: nextId(st, 't'), description: `From meeting minutes: “${it.source}”`, status: 'todo', spent: 0, dependsOn: [], source: 'SharePoint',
-            createdAt: NOW, completedAt: null, actual: null, ...it.task, ownerId: sup ? minutes.owners[it.id] : st.currentOfficerId,
-          });
-        });
-        logActivity(st, `Created ${ready.length} task(s) from meeting minutes.`);
-      });
-      minutes = null;
-      closeModal();
-      toast(`${ready.length} task${ready.length > 1 ? 's' : ''} created from the minutes`);
-    },
-    'nl-example': (el) => {
-      const input = document.getElementById('nl-text');
-      input.value = el.dataset.text;
-      parse(el.dataset.text);
-    },
-    'nl-clear': () => {
-      view.nl = null;
-      view.nlText = '';
-      const input = document.getElementById('nl-text');
-      if (input) input.value = '';
-      render(document.getElementById('nl-preview'), '');
-    },
-    'nl-edit': () => {
-      if (!view.nl) return;
-      const prefill = { ...view.nl.task };
-      view.nl = null;
-      view.nlText = '';
-      openTaskForm(null, prefill);
-    },
-    'nl-create': () => {
-      if (!view.nl) return;
-      const fields = view.nl.task;
-      update((st) => {
-        st.tasks.push({ id: nextId(st, 't'), description: `Created from: “${view.nlText}”`, status: 'todo', spent: 0, dependsOn: [], source: 'SyncAI', createdAt: NOW, completedAt: null, actual: null, ...fields });
-        logActivity(st, `Created “${fields.title}” from natural-language input.`);
-      });
-      view.nl = null;
-      view.nlText = '';
-      toast(`Created “${fields.title}”`);
-    },
-  },
-  changes: {
-    'task-filter': (el) => {
-      view[el.name] = el.value;
-      view.page = 1;
-      refreshResults();
-    },
-    'task-status': (el) => setStatus(el.dataset.id, el.value),
-    'minutes-pick': (el) => (el.checked ? minutes.selected.add(el.value) : minutes.selected.delete(el.value)),
-    'minutes-owner': (el) => (minutes.owners[el.dataset.item] = el.value || null),
-    'minutes-file': (el) => {
-      const file = el.files?.[0];
-      if (!file) return;
-      if (file.size > 200 * 1024) return toast('That file is larger than 200 KB. Paste the relevant section instead.', 'error');
-      if (!/\.(txt|md)$/i.test(file.name) && !/^text\//.test(file.type)) return toast('Upload a plain-text (.txt or .md) file.', 'error');
-      const reader = new FileReader();
-      reader.onload = () => {
-        const ta = document.getElementById('minutes-text');
-        if (ta) ta.value = String(reader.result).slice(0, 20000);
-      };
-      reader.onerror = () => toast('The file could not be read.', 'error');
-      reader.readAsText(file);
-    },
-  },
-  inputs: {
-    'task-search': (el) => {
-      view.q = el.value;
-      view.page = 1;
-      refreshResults();
-    },
-  },
-  submits: {
-    'nl-parse': (form) => parse(String(new FormData(form).get('text') || '')),
-    'minutes-extract': (form) => {
-      const text = String(new FormData(form).get('text') || '').trim();
-      if (text.length < 20) {
-        form.querySelector('[data-field="minutes"]').classList.add('invalid');
-        form.querySelector('#e-minutes').textContent = 'Paste the minutes or load the sample first.';
-        return;
-      }
-      extractMinutes(text);
-    },
+  render(s) {
+    const user = getCurrentUser(s);
+    const mgr = isManager(s);
+    const baseTasks = visibleTasks(s);
+
+    const totalOpen = baseTasks.filter((t) => isOpen(t)).length;
+    const dueToday = baseTasks.filter((t) => isOpen(t) && t.due.slice(0, 10) === TODAY).length;
+    const highRisk = baseTasks.filter((t) => isOpen(t) && assessRisk(s, t).level === 'high').length;
+
+    // Filter tasks
+    const filtered = filterTasks(s, baseTasks);
+
+    return html`
+      <header class="page-hero">
+        <span class="page-hero-icon" aria-hidden="true">${icon('tasks', 28)}</span>
+        <div class="page-hero-text">
+          <p class="page-hero-eyebrow">Task Intelligence & Management</p>
+          <h1>My Tasks <span class="hero-badge">PS 12i Smart Planner</span></h1>
+          <p>
+            Ranked by genuine resident safety, statutory compliance and long-term consequences. Compare operational tasks alongside your simulated Microsoft To Do list.
+          </p>
+        </div>
+        <div class="page-hero-aside">
+          <div class="hero-stat">
+            <strong>${totalOpen}</strong>
+            <span>Active tasks</span>
+          </div>
+          <div class="hero-stat">
+            <strong>${dueToday}</strong>
+            <span>Due today</span>
+          </div>
+          <div class="hero-stat ${highRisk > 0 ? 'hero-stat-warn' : ''}">
+            <strong>${highRisk}</strong>
+            <span>SLA attention</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Simulated Microsoft To Do Card -->
+      ${renderMicrosoftToDo(s)}
+
+      <!-- SyncAI Operational Tasks -->
+      <section class="panel" aria-labelledby="tasks-h">
+        <div class="panel-head">
+          <div>
+            <h2 id="tasks-h">SyncAI Operational Work Orders</h2>
+            <p class="muted small" style="margin-top: 2px;">
+              ${mgr ? 'All team tasks across Zone A, B, and C.' : 'Your assigned operational tasks.'}
+            </p>
+          </div>
+          <div class="panel-tools">
+            <button type="button" class="btn-primary btn-sm" data-action="task-create-dialog">
+              ${icon('plus', 14)} Add task
+            </button>
+          </div>
+        </div>
+
+        <!-- Toolbar: Search and Filter Tabs -->
+        <div class="toolbar-wrap">
+          <div class="filter-tabs" role="group" aria-label="Status filter">
+            ${[
+              ['all', 'All', baseTasks.length],
+              ['open', 'Open', baseTasks.filter((t) => isOpen(t)).length],
+              ['today', 'Today', baseTasks.filter((t) => isOpen(t) && t.due.slice(0, 10) === TODAY).length],
+              ['overdue', 'Overdue', baseTasks.filter((t) => isOverdue(t)).length],
+              ['risk', 'At risk', baseTasks.filter((t) => isOpen(t) && assessRisk(s, t).level === 'high').length],
+              ['done', 'Done', baseTasks.filter((t) => !isOpen(t)).length],
+            ].map(
+              ([key, label, count]) => html`
+                <button
+                  type="button"
+                  class="filter-tab ${view.status === key ? 'active' : ''}"
+                  data-action="tasks-filter-status"
+                  data-status="${key}"
+                >
+                  ${label} <span class="muted small">(${count})</span>
+                </button>
+              `,
+            )}
+          </div>
+
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            ${mgr
+              ? html`
+                  <select
+                    class="filter-tab"
+                    style="border: 1px solid var(--colorNeutralStroke1); border-radius: 6px;"
+                    data-action="tasks-filter-owner"
+                  >
+                    <option value="all" ${view.owner === 'all' ? 'selected' : ''}>All Officers</option>
+                    ${s.officers.map(
+                      (o) => html`
+                        <option value="${o.id}" ${view.owner === o.id ? 'selected' : ''}>${o.name}</option>
+                      `,
+                    )}
+                  </select>
+                `
+              : ''}
+
+            <select
+              class="filter-tab"
+              style="border: 1px solid var(--colorNeutralStroke1); border-radius: 6px;"
+              data-action="tasks-filter-category"
+            >
+              <option value="all" ${view.category === 'all' ? 'selected' : ''}>All Categories</option>
+              ${CATEGORIES.map(
+                (c) => html`
+                  <option value="${c}" ${view.category === c ? 'selected' : ''}>${c}</option>
+                `,
+              )}
+            </select>
+
+            <div class="search-input">
+              ${icon('search', 16)}
+              <input
+                type="search"
+                placeholder="Search tasks, locations..."
+                value="${view.q}"
+                data-action="tasks-search"
+                aria-label="Search operational tasks"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Table View -->
+        ${filtered.length === 0
+          ? html`<div class="empty">${icon('check', 24)}<p>No tasks match the selected filters.</p></div>`
+          : html`
+              <div class="table-wrap">
+                <table class="data-table" aria-label="Operational tasks">
+                  <thead>
+                    <tr>
+                      <th style="width: 38px;">Done</th>
+                      <th>Task title & Location</th>
+                      ${mgr ? html`<th>Owner</th>` : ''}
+                      <th>Category</th>
+                      <th>Priority</th>
+                      <th title="SyncAI Consequence-Aware Priority Score (0–100)">AI Score</th>
+                      <th>Deadline & SLA</th>
+                      <th>Risk</th>
+                      <th style="text-align: right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${filtered.map((t) => renderTaskRow(s, t, mgr))}
+                  </tbody>
+                </table>
+              </div>
+            `}
+      </section>
+    `;
   },
 };
+
+function filterTasks(s, list) {
+  return list.filter((t) => {
+    if (view.status === 'open' && !isOpen(t)) return false;
+    if (view.status === 'today' && (!isOpen(t) || t.due.slice(0, 10) !== TODAY)) return false;
+    if (view.status === 'overdue' && !isOverdue(t)) return false;
+    if (view.status === 'risk' && (!isOpen(t) || assessRisk(s, t).level !== 'high')) return false;
+    if (view.status === 'done' && isOpen(t)) return false;
+
+    if (view.priority !== 'all' && t.priority !== view.priority) return false;
+    if (view.category !== 'all' && t.category !== view.category) return false;
+    if (view.owner !== 'all' && t.ownerId !== view.owner) return false;
+
+    if (view.q) {
+      const q = view.q.toLowerCase();
+      const match =
+        t.title.toLowerCase().includes(q) ||
+        (t.location && t.location.toLowerCase().includes(q)) ||
+        (t.description && t.description.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+    return true;
+  });
+}
+
+function renderTaskRow(s, t, mgr) {
+  const scored = scoreTask(s, t);
+  const risk = assessRisk(s, t);
+  const done = !isOpen(t);
+  const scoreClass = scored.score >= 70 ? 'hi' : scored.score >= 40 ? 'md' : 'lo';
+
+  return html`
+    <tr class="${done ? 'done-row' : ''}">
+      <td>
+        <input
+          type="checkbox"
+          ${done ? 'checked' : ''}
+          data-action="task-toggle"
+          data-id="${t.id}"
+          aria-label="Toggle completion for ${t.title}"
+        />
+      </td>
+      <td>
+        <button type="button" class="task-link-btn" data-action="task-inspect" data-id="${t.id}">
+          ${t.title}
+        </button>
+        ${t.location
+          ? html`<span class="small muted" style="display: block;">${icon('pin', 12)} ${t.location}</span>`
+          : ''}
+        ${t.appointmentTime
+          ? html`<span class="tag tag-brand" style="margin-top: 4px;">${t.appointmentTime}</span>`
+          : ''}
+      </td>
+      ${mgr
+        ? html`
+            <td>
+              <span class="small">${officerName(s, t.ownerId)}</span>
+            </td>
+          `
+        : ''}
+      <td>
+        <span class="tag tag-neutral">${t.category}</span>
+      </td>
+      <td>
+        ${priorityBadge(t.priority)}
+        ${t.safety ? html`<span class="tag tag-danger" style="margin-left: 4px;">Safety</span>` : ''}
+        ${t.statutory ? html`<span class="tag tag-warning" style="margin-left: 4px;">Statutory</span>` : ''}
+      </td>
+      <td>
+        <span class="score-pill ${scoreClass}">
+          ${scored.score}
+        </span>
+      </td>
+      <td>
+        <span class="small">${fmtDue(t.due)}</span>
+        ${t.slaType ? html`<span class="small muted" style="display: block;">${t.slaType}</span>` : ''}
+      </td>
+      <td>
+        ${riskBadge(risk.level)}
+      </td>
+      <td style="text-align: right; white-space: nowrap;">
+        <button
+          type="button"
+          class="btn-subtle btn-sm"
+          data-action="task-inspect"
+          data-id="${t.id}"
+          title="Inspect AI score, dependencies and consequences"
+        >
+          Inspect
+        </button>
+      </td>
+    </tr>
+  `;
+}
+
+function renderMicrosoftToDo(s) {
+  const todoData = s.todo || sampleToDoData();
+  const currentListId = view.selectedToDoList || todoData.lists[0].id;
+  const currentTasks = todoData.tasks?.[currentListId] || [];
+
+  return html`
+    <section class="panel cal-panel" aria-labelledby="todo-h">
+      <div class="cal-head">
+        <span class="card-icon" aria-hidden="true">${icon('check-square', 24)}</span>
+        <div class="cal-head-text">
+          <h2 id="todo-h">Microsoft To Do (Simulated Integration)</h2>
+          <p class="muted">
+            Reads personal and flagged tasks from Microsoft Graph. Tasks here run independently from Town Council work orders.
+          </p>
+        </div>
+        <span class="tag tag-brand">Demo data — no live Microsoft connection</span>
+      </div>
+
+      <div class="cal-bar">
+        <span class="cal-bar-text">
+          <label for="todo-list-select" class="small muted">List:</label>
+          <select id="todo-list-select" data-action="todo-select-list">
+            ${todoData.lists.map(
+              (l) => html`
+                <option value="${l.id}" ${l.id === currentListId ? 'selected' : ''}>${l.name}</option>
+              `,
+            )}
+          </select>
+        </span>
+        <button type="button" class="btn-secondary btn-sm" data-action="todo-refresh">
+          ${icon('refresh', 14)} Refresh To Do
+        </button>
+      </div>
+
+      <ol class="cal-list">
+        ${currentTasks.map(
+          (item) => html`
+            <li class="cal-item ${item.done ? 'todo-done' : ''}">
+              <span class="cal-when">
+                <time datetime="${item.due}">${fmtDue(item.due)}</time>
+                <span>${item.due.slice(11, 16)}</span>
+              </span>
+              <span class="cal-what">
+                <strong>${item.title}</strong>
+              </span>
+              <span class="cal-meta">
+                <span class="tag ${item.importance === 'high' ? 'tag-danger' : 'tag-neutral'}">
+                  ${item.importance.toUpperCase()}
+                </span>
+                <span class="tag ${item.status === 'completed' ? 'tag-success' : 'tag-neutral'}">
+                  ${item.status === 'completed' ? 'Completed' : 'In Progress'}
+                </span>
+              </span>
+            </li>
+          `,
+        )}
+      </ol>
+      <p class="cal-foot small muted">
+        Demo data — Microsoft Graph read-only simulation. Changes do not alter live Microsoft 365 accounts.
+      </p>
+    </section>
+  `;
+}
