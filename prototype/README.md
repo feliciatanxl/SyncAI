@@ -44,56 +44,93 @@ Once started, open your browser to:
 
 ---
 
-## 3. Simulated Microsoft Sign-In Bypass
+## 3. Simulated Microsoft Sign-In Bypass & Demo Accounts
 
-In compliance with the prototype design constraints, **Microsoft sign-in is 100% simulated**:
-- **No External Connection:** Clicking **"Sign in with Microsoft"** does not contact Microsoft Entra ID (Azure AD), does not issue OAuth/OIDC tokens, and never prompts for real passwords or tenant permissions.
-- **Interactive Role Chooser:** Clicking the sign-in button opens a demo role modal allowing immediate entry as:
-  1. **Team Member (Property Officer):** `officer@syncai.demo` (Northvale Estate Office)
-  2. **Estate Manager:** `manager@syncai.demo` (Northvale Estate Office)
-  3. **System Administrator:** `admin@syncai.demo` (IT & Operations Governance)
-  4. **Pending Account (Reviewer Preview):** `pending@syncai.demo`
-  5. **Disabled Account (Reviewer Preview):** `disabled@syncai.demo`
+In compliance with prototype design constraints, **Microsoft sign-in is 100% simulated**:
+- **No External Connection:** Clicking **"Sign in with Microsoft"** does not contact Microsoft Entra ID (Azure AD), does not issue live OAuth/OIDC tokens, and never prompts for real passwords or tenant permissions.
+- **Interactive Role Chooser:** Clicking the sign-in button opens a demo role modal allowing immediate entry into five fictional personas:
+  1. **Team Member (Property Officer):** Aisyah Rahman (`aisyah.rahman@towncouncil.gov.sg`, Zone A Operations)
+  2. **Estate Manager:** Jennifer Ong (`jennifer.ong@towncouncil.gov.sg`, Supervisory Manager)
+  3. **System Administrator:** Alex Tan / `TAN, ALEX` (`alex.tan@syncai.demo`, Governance & Audit)
+  4. **Pending Account (Reviewer Preview):** David (`pending@syncai.demo`, awaiting administrative approval)
+  5. **Disabled Account (Reviewer Preview):** Siti (`disabled@syncai.demo`, account suspended)
 - **Quick Role Switcher:** Once inside the portal, you can switch between roles at any time using the role pill dropdown in the top navigation bar or the Microsoft 365 Account Menu popover.
 
 ---
 
-## 4. Role-Based Workflows & Portal Features
+## 4. Four Interconnected Feature Workstreams
 
-The prototype implements the same three primary roles as the full-stack system:
+The prototype demonstrates Team 24's **four primary feature areas** collaborating as one unified application:
 
-### 1. Team Member (`member` / `team_member`)
-- **Overview:** Personal task countdown, daily Outlook calendar glance, setup progress checklist, and quick links to planning.
-- **Cases:** Open a fictional operational case to see its assigned officer, recorded deadlines, and associated tasks. **Add task** from a case preselects that case in the task form. Officers see their own cases, and managers see cases for teams they lead.
-- **My Tasks:** Use **Add task** to create a work order with an optional case link. Assign a category and multiple tags, or use the simulated keyword suggestion and filter the list by category or tag. Open a task and expand **Why this priority?** for the recorded service, safety, residents’ well-being, and urgency factors. The work order shows its manual priority and any recorded SLA deadline. The 24-hour highlight is a demo reminder.
-- **My Plan:** Save your working days, hours, lunch, focus periods, and daily hours limit in **Schedule preferences**. **Generate Daily Schedule** places flexible work around fictional meetings and repair appointments. **Weekly → Generate Weekly Plan** spreads tasks across Monday–Sunday. The proposal shows workload, conflicts, and unscheduled tasks with reasons. Schedule preferences and work orders persist in this browser, and all times use Singapore time.
-- **Ask SyncAI:** Context-aware assistant providing deterministic answers to operational queries (e.g., *"What should I work on first?"*, *"Can I finish everything today?"*). Strictly respects privacy boundaries—never reveals peer calendar or medical leave details.
-- **How SyncAI Decides:** Interactive documentation explaining the 4-factor scoring rubric and Responsible AI governance principles.
-- **Settings:** Interface preferences (font size, language, theme appearance), simulated Graph connection tester, and demo data reset.
+### A. Task Visibility & Case Action Centre (Category C — Felicia Tan)
+Located in the primary navigation (`Overview` → `Ask SyncAI` → `My Tasks` → `Case Action Centre` → `My Plan`):
+- **Interactive Case Workspace:** Search cases by number, title, block, or resident name. Filter by estate zone and urgency, or toggle between **List view** and **Kanban board** grouped by operational lifecycle stages (`Open`, `In Progress`, `Awaiting External / Blocked`, `Closure Ready`, `Closed`).
+- **Operational Loose-End Detector ("Follow-Up Radar"):** A signature deterministic engine identifying hidden operational loose ends before tasks breach SLAs:
+  1. *Outstanding Resident Follow-Up:* Promised callbacks unrecorded after site visits.
+  2. *Pending Contractor Confirmation:* Issued work orders awaiting contractor acknowledgment.
+  3. *Inspection Without Documented Outcome:* Completed inspection blocks lacking recorded results.
+  4. *Stale Case Alert:* Cases without meaningful timeline updates within threshold days.
+  5. *Missing Supporting Evidence:* Completed repairs lacking mandatory photos or notices.
+  6. *Premature Closure Check:* Cases marked ready while required checkpoints remain open.
+  7. *Pending Reassignment Handover:* Assignment changes without receiving officer sign-off.
+  8. *Unconfirmed Repair Appointment:* Scheduled resident visits without confirmed access.
+- **Case Journey Drawer:** Inspect full chronological event timelines (reports, site checks, contractor milestones, resident contacts, manager approvals) and prerequisite checkpoint verifications.
+- **Closure Readiness Checker:** Multi-checkpoint evaluation preventing premature case closure.
+- **Evidence-Linked AI Case Brief:** Deterministic summary generator with one-click clipboard copying.
+- **Case Reassignment Workflow:** Reassignment requests route directly to the Manager Approvals queue.
 
-### 2. Estate Manager (`manager`)
-All Team Member capabilities, plus managerial oversight:
-- **Manager Overview:** Team-wide task health, statutory compliance countdowns, pending schedule change approvals, and team capacity summaries.
-- **My Team:** Comprehensive workload dashboard displaying officer availability, utilization heatmaps, assigned task counts, and absence previews (MC/leave type only—no sensitive diagnosis data).
-- **Manager Approval Queue:** Review schedule-change requests and reassignment proposals submitted by officers. Approving an item updates the operational schedule and logs an audit record; rejections require an explanation.
-- **Operational Ripple Intelligence (What-If Simulator):** Test disruption scenarios (e.g., *Urgent Lift Incident in Block 104*, *Property Officer on Medical Leave*). Generates a multi-level downstream dependency cascade and evaluates **three side-by-side alternatives**:
-  - **Alternative A (No Action):** Quantifies SLA breaches and secondary inspection stalls.
-  - **Alternative B (Reschedule Lower-Impact Work):** Defers routine admin to maintain safety and compliance milestones.
-  - **Alternative C (Reassign Eligible Work):** Suggests reassigning high-priority items to qualified officers with available capacity.
-- **Ask SyncAI:** Extended managerial intelligence answering team-wide inquiries (e.g., *"Which alternative is most feasible?"*, *"What approvals are pending?"*).
+### B. Smart Planning (Category B — Charlisa Tan)
+- **Schedule Preferences Dialog:** Configure working hours, lunch break window, protected focus periods, daily hours limit, and working days (Monday–Friday).
+- **Calendar-Aware Time Blocking:** Places flexible tasks around protected Outlook meetings, fixed repair appointments, and travel buffers (`prototype/js/smartSchedule.js`).
+- **Daily & Weekly Plan Generation:** Visual timeline of proposed time blocks for the day, and a weekly planning grid balancing workloads across Monday–Sunday without task duplication.
+- **Task Capture with Case Linking:** Create work orders (`taskCaptureDialog.js`) with manual priority, category tags, optional case linking, and offset-aware Singapore deadlines.
 
-### 3. System Administrator (`admin`)
-Dedicated administrative governance portal matching `AdminPortal.jsx`:
-- **Admin Overview:** Tenant statistics, active user counts, pending access requests, and quick administrative actions.
-- **People Directory:** Fictional user management with role assignment (`admin`, `manager`, `member`), account approvals, and disable/restore controls.
-- **Teams Directory:** Town Council team structuring, assigning designated Estate Managers and managing officer assignments.
-- **Activity Log:** Comprehensive, privacy-sanitized operational audit trail recording schedule changes, role updates, and system decisions.
-- **Governance Guardrails:** Admin cannot view private officer calendar appointments, preserving workplace privacy.
+### C. Operational Ripple Intelligence (Category D — Shamreen Rizmiya)
+- **What-If Disruption Simulator:** Simulates unexpected operational emergencies (e.g. *Urgent Lift Incident in Block 214*, *Property Officer on Medical Leave*).
+- **Cascade & Dependency Tracing:** Traverses multi-level task dependencies (`t103` → `t104` → `t112`), highlighting exposed statutory compliance deadlines and cumulative defect risks.
+- **Three-Alternative Decision Matrix:**
+  - *Alternative A (No Action):* Demonstrates the cost of inaction—quantifying SLA breaches and cascading stalls.
+  - *Alternative B (Reschedule Lower-Impact Work):* Defers routine admin to protect safety and compliance cut-offs with the primary officer.
+  - *Alternative C (Reassign Eligible Work):* Recommends qualified officers with available capacity, enforcing domain skill certifications (e.g. lift specialist validation) and flagging unqualified candidates.
 
-### 4. Reviewer Preview Accounts (`pending` & `disabled`)
-Allows reviewers to evaluate non-standard account states:
-- **Pending Approval:** Shows an onboarding hold screen with status details, access explanation, and simulated approval verification.
-- **Account Disabled:** Displays an IT security notice instructing the user to contact the system administrator.
+### D. Approvals & Audit (Category G — Nann)
+- **Hierarchical Manager Approval Queue:** Supervisors review schedule shifts and cross-officer reassignments. Approving an item updates the schedule and case ownership immediately; rejections require an operational rationale.
+- **Self-Approval Guardrails:** Front-line officers cannot self-approve restricted requests.
+- **Append-Only Audit Logging:** Records every approval, reassignment, and status transition with actor timestamps.
+- **Simulated Multi-Channel Notifications:** Models notification adapters (In-App, Teams, WhatsApp) with privacy-safe payloads and deep links (`syncai://approval/...`) directing users to authenticated in-app reviews.
+
+---
+
+## 5. Role-Based Workflows & Portal Features
+
+The prototype enforces role-aware views matching the full-stack system:
+
+### 1. Team Member (`member` / `team_member` — Aisyah Rahman)
+- Strictly isolated operational view: sees only own assigned tasks, cases, and commitments.
+- My Tasks work orders with category tags, SLA deadline indicators, and case links.
+- Case Action Centre showing own cases, Follow-Up Radar warnings, and closure checklists.
+- Smart Planner daily proposal, Outlook calendar preview, and schedule preferences.
+- Ask SyncAI assistant with role privacy guardrails (never exposes peer medical leave or calendars).
+
+### 2. Estate Manager (`manager` — Jennifer Ong)
+- Multi-zone operational oversight across Zones A, B, and C.
+- Team-wide capacity, workload heatmaps, absence previews (MC/leave type only—no diagnosis data).
+- Case Action Centre displaying team cases, cross-zone loose ends, and handover statuses.
+- Full What-If Simulator and Ripple Intelligence scenario evaluation.
+- Manager Approval Queue with decision actions and audit recording.
+
+### 3. System Administrator (`admin` — Alex Tan / `TAN, ALEX`)
+- Administrative governance portal (`AdminPortal.jsx` design alignment).
+- People directory for approving new accounts, changing roles, or toggling statuses.
+- Teams directory for structuring operational zones and assigning supervisors.
+- 12-month activity audit log.
+- **Data Minimisation Guardrail:** In accordance with Singapore Town Council data minimisation principles, administrators view system configuration, compliance metrics, and audit logs—with zero access to private officer calendars or operational resident casework.
+
+### 4. Reviewer Preview Accounts (`pending` & `disabled` — David & Siti)
+- Demonstrates account lifecycle gates before administrative approval or following suspension.
+- Restricted access banner with quick-switch demo actions.
+
+---
 
 ---
 
@@ -133,18 +170,16 @@ In accordance with the competition scope for **Challenge PS 12i (Smart Work Plan
 The prototype includes an automated regression test suite ensuring business logic, scheduling invariants, ripple intelligence, and role boundaries function correctly in Node.js:
 
 ```bash
-# Run all automated prototype tests
-node prototype/tests/rules.test.mjs
-node prototype/tests/ripple.test.mjs
-node prototype/tests/client-requirements.test.mjs
-node prototype/tests/status-codes.test.mjs
-node prototype/tests/rebuild-user-journey.test.mjs
+# Run all 88 automated prototype tests across 8 suites
+node --test "prototype/tests/*.test.mjs"
 ```
 
-### Test Coverage Summary:
-- `cases.test.mjs`: Validates Category C Case Action Centre, role-based case isolation, 8-rule deterministic Loose-End Detector, Case Journey timeline, Closure Readiness checker, AI Case Brief generator, and cross-workstream Approvals & Smart Planner sync.
-- `rules.test.mjs`: Validates 4-tier client priority scoring, safety non-negotiables, repeat complaint zero-weighting, and capacity checks.
-- `ripple.test.mjs`: Tests dependency cascade propagation, downstream impact scoring, and 3-alternative generation.
-- `client-requirements.test.mjs`: Verifies appointment window protection, statutory deadline enforcement, and self-approval prevention.
-- `status-codes.test.mjs`: Checks task state transitions and validation constraints.
-- `rebuild-user-journey.test.mjs`: Comprehensive suite testing role switching, simulated M365 touchpoints, admin user governance, manager approval workflows, and Ask SyncAI privacy guardrails.
+### Test Coverage Summary (88 tests passing across 8 suites):
+- `cases.test.mjs` (5 tests): Validates documented EMS priority order, recorded deadlines, role-based case access, task-case links, and browser persistence after day rollover.
+- `category-c-cases.test.mjs` (5 tests): Validates Category C Case Action Centre role-aware views, 8-rule deterministic Loose-End Detector, Closure Readiness checker, simulated AI Case Brief generator, and reassignment approval workflow.
+- `smart-planning.test.mjs` (8 tests): Validates Category B calendar time-blocking around meetings/appointments, schedule preferences validation & persistence, and weekly planning across Monday–Sunday.
+- `task-capture.test.mjs` (6 tests): Validates Category B task capture with manual priority and offset-aware deadlines, category/tag persistence, and Singapore due date filters.
+- `rules.test.mjs` (20 tests): Validates 4-tier client priority scoring, safety non-negotiables, repeat complaint zero-weighting, and capacity checks.
+- `ripple.test.mjs` (20 tests): Validates Category D dependency cascade propagation, downstream impact scoring, and 3-alternative generation with skill certification matching.
+- `client-requirements.test.mjs` (17 tests): Verifies appointment window protection, statutory deadline enforcement, self-approval prevention, and What-If state isolation.
+- `rebuild-user-journey.test.mjs` (7 tests): Comprehensive suite testing role switching, simulated M365 touchpoints, admin user governance, manager approval workflows, and Ask SyncAI privacy guardrails.

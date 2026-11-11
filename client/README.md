@@ -140,6 +140,7 @@ Accessed via `/app` by accounts with the `admin` role and `active` status ([`src
 - **People:** Searchable, filterable directory of all registered users. Inspect exact last active timestamps, promote/demote between `admin`, `manager`, and `member` roles, and approve or disable accounts. Administrators cannot deactivate or demote themselves.
 - **Teams (`src/components/TeamsAdmin.jsx`):** Accordion-based team directory. Create, rename, and delete teams (deletion is restricted to empty teams). Assign managers and team members using pickers that filter for eligible candidates. Role changes automatically remove invalid team assignments.
 - **Activity Log (`src/components/ActivityLog.jsx`):** 12-month read-only audit log of access and governance events (first sign-ins, daily opens, approvals, role adjustments, team updates). Filterable by person and action type.
+- **Data Minimisation & Privacy:** Administrators govern users, team placements, and compliance audit logs, with zero access to private officer calendars or operational resident casework.
 - **How SyncAI Decides:** Overview of the four operational prioritisation factors and human-in-the-loop safeguards.
 - **Settings:** Text size, language, and appearance settings.
 

@@ -20,33 +20,73 @@ Town Council Property Officers operate in high-density residential estates, mana
 
 ---
 
-## Latest EM Services Client Feedback & Requirements (November 2026)
+## Four Team Workstreams & Interconnected Architecture
 
-Following our latest consultation with EM Services (EMS), the prototype and system architecture have been enhanced around five core operational realities:
+SyncAI is **one interconnected Smart Work Planner**, not four independent tools. Developed by **IT2134 Team 24**, the system unites four primary feature workstreams into a single operational workflow:
 
-1. **Operations Command Centre (OCC) Complementarity:**
-   - EMS noted potential future connectivity with its Operations Command Centre.
-   - SyncAI does **not** claim live OCC integration or duplicate the PS 12g Operations Hub.
-   - The prototype includes clearly labelled fictional mock records (`OCC (Mock)`) to demonstrate how OCC-originated tasks (e.g. lift entrapments or building fault telemetries) seamlessly flow into an officer's daily schedule.
-2. **Client Case Prioritisation Order vs. Operational Model:**
-   - EMS stated the client assessment priority: **1. Service → 2. Safety → 3. Residents' well-being → 4. Actual concern / urgency**.
-   - SyncAI incorporates this four-tier breakdown into task details and explainability views, while maintaining strict adherence to statutory, safety, and operational boundaries:
-     - Routine service requests **never** blindly outrank imminent physical danger (e.g. lift faults or falling concrete).
-     - Statutory and regulatory compliance deadlines (BCA/SCDF) act as non-negotiable hard constraints.
-     - Repeat complaint volume alone continues to award **0 points**, preventing loudest-voice bias.
-     - Clear disclaimers in the UI specify that numerical scoring weights are Team 24's proposed operational model awaiting formal empirical calibration with EMS.
-3. **SLA-Aware Scheduling & Fixed Resident Appointments:**
-   - Property Officers manage strict Service Level Agreement (SLA) cut-offs, fixed repair appointment windows, and compliance obligations.
-   - The prototype evaluates SLA due times (`slaDue`), flags tight buffer windows (<60m), raises high-risk warnings for breached SLAs, and protects fixed resident appointments during disruption rescheduling.
-4. **Hierarchical Management Approval Workflow:**
-   - Schedule adjustments and cross-officer reassignments follow an authorised management hierarchy:
-     $$\text{Team Member proposes change} \longrightarrow \text{Assigned Manager reviews} \longrightarrow \text{Optional escalation} \longrightarrow \text{Audit trail recorded} \longrightarrow \text{Applied to plan}$$
-   - **Self-approval prevention:** Property Officers cannot approve their own restricted schedule change requests.
-   - All approval decisions, rejections, and escalations generate immutable audit records.
-5. **Auditable Simulated Communications (In-App, Teams, WhatsApp):**
-   - EMS relies heavily on WhatsApp alongside Microsoft 365.
-   - SyncAI models simulated notification adapters across **In-App**, **Microsoft Teams (proposed)**, and **WhatsApp (proposed)**.
-   - **Strict Privacy & Architecture Safeguards:** No real WhatsApp Business API or Meta credentials are used. Notification previews contain zero sensitive resident data and provide secure in-app verification links (`syncai://approval/...`) directing users back into SyncAI where decisions are authenticated and audited.
+| Team Member | Feature Workstream | Primary Responsibilities |
+| --- | --- | --- |
+| **Charlisa Tan** | **Smart Planning** | Calendar-aware scheduling, daily and weekly planning, officer availability, and realistic workload arrangements around meetings and travel buffers. |
+| **Felicia Tan** | **Task Visibility** | Task and case visibility, Case Action Centre, Operational Loose-End Intelligence, case progress, blockers, outstanding commitments, and follow-ups. |
+| **Shamreen Rizmiya** | **Ripple Intelligence** | Task dependency analysis, disruption impact and downstream consequences, alternative scheduling, and reassignment strategies. |
+| **Nann** | **Approvals & Audit** | Management approval workflows, approval hierarchy, decision tracking, and immutable auditability. |
+
+> *Note on Team Allocation:* These areas define primary ownership. Individual subfeatures remain subject to implementation feasibility (not every exploratory brainstorming idea is required to be built). All members contribute across full-stack development, testing, and documentation.
+
+### The Interconnected Operational Loop
+
+The four workstreams connect into a continuous closed-loop operational cycle:
+
+```
+    ┌────────────────────────────────────────────────────────┐
+    │ 1. Task Visibility (Felicia Tan)                       │
+    │    • Surfaces operational cases, blockers, commitments │
+    │    • Follow-Up Radar flags unresolved loose ends       │
+    └───────────────────────────┬────────────────────────────┘
+                                │ Tasks & Case Checkpoints
+                                ▼
+    ┌────────────────────────────────────────────────────────┐
+    │ 2. Smart Planning (Charlisa Tan)                       │
+    │    • Fits work around Outlook meetings & travel buffer │
+    │    • Generates realistic daily and weekly schedules    │
+    └───────────────────────────┬────────────────────────────┘
+                                │ Schedule Conflicts & Delays
+                                ▼
+    ┌────────────────────────────────────────────────────────┐
+    │ 3. Ripple Intelligence (Shamreen Rizmiya)              │
+    │    • Traces downstream dependency cascade              │
+    │    • Evaluates 3 alternatives (No Action/Shift/Assign) │
+    └───────────────────────────┬────────────────────────────┘
+                                │ Selected Reassignment / Shift
+                                ▼
+    ┌────────────────────────────────────────────────────────┐
+    │ 4. Approvals & Audit (Nann)                            │
+    │    • Routes restricted changes to assigned manager     │
+    │    • Enforces self-approval guardrails & audit trail   │
+    └───────────────────────────┬────────────────────────────┘
+                                │ Authorised Decision Applied
+                                ▼
+       [Updates Case Journey, Officer Schedule & Audit Log]
+```
+
+1. **Task Visibility** identifies cases, blockers, and outstanding commitments.
+2. **Smart Planning** builds realistic plans using tasks, calendars, and officer availability.
+3. **Ripple Intelligence** analyses disruption consequences and compares feasible alternatives.
+4. **Approvals & Audit** routes changes requiring authorisation to the correct manager and records the decision.
+5. **Approved changes feed back** into task visibility, schedules, case histories, and audit records.
+
+Shared task IDs (`t101`), case IDs (`case-001`), officer IDs (`o1`), team IDs (`team-1`), deadline timestamps, and approval states serve as the unified data foundation connecting these workstreams.
+
+### Operational Reality & Client Criteria Alignment
+
+SyncAI's architecture aligns with essential Town Council operating principles:
+
+- **Client Prioritisation Criteria:** Reflects EM Services' four-tier framework (**1. Service → 2. Safety → 3. Residents' well-being → 4. Actual concern / urgency**).
+- **Statutory & Safety Non-Negotiables:** Routine service requests **never** override imminent physical danger (lift breakdowns, falling concrete) or statutory compliance deadlines (BCA, SCDF). Repeat complaint volume awards **0 priority points** to prevent loudest-voice bias.
+- **SLA & Appointment Protection:** Monitors strict SLA cut-offs and locks in fixed resident appointments during disruption rescheduling.
+- **Authorised Management Hierarchy:** Front-line officers cannot self-approve restricted schedule changes or cross-officer reassignments; decisions require supervisory review.
+- **Auditable Communications:** Simulated notification adapters across In-App, Microsoft Teams (proposed), and WhatsApp (proposed) omit sensitive resident data and route users to authenticated in-app approval links (`syncai://approval/...`).
+- **OCC Complementarity:** SyncAI complements the Operations Command Centre by providing forward-looking schedule planning and consequence forecasting, without duplicating the OCC's real-time situational tracking.
 
 ---
 
@@ -95,19 +135,20 @@ SyncAI maintains a strict separation between its interactive proof-of-concept pr
 | Capability / Tier | Static Prototype (`prototype/`) | Full-Stack Application (`client/` & `server/`) | Planned / Roadmap |
 | --- | --- | --- | --- |
 | **User Interface** | HTML5, CSS3, vanilla JavaScript ES modules (Fluent 2 inspired) | React 19, Vite, Microsoft Fluent UI components | Continuous UX refinement |
-| **Authentication** | Simulated role switching (`localStorage` session) | **Implemented:** Microsoft Entra ID (MSAL) with JWT signature validation | Multi-tenant policy configuration |
-| **Data Persistence** | Browser `localStorage` seeded with fictional data | **Implemented:** PostgreSQL with parameterized queries and migrations | Entity tables for tasks and schedules |
-| **Access Control & Approvals** | **Implemented:** Hierarchical manager approval workflow & self-approval prevention | **Implemented:** Admin approval queue, role enforcement (`admin`, `manager`, `member`) | Granular zone/estate permissions |
-| **Team Management** | Hard-coded officer zones and skills | **Implemented:** Admin team management, manager assignment, member placement | Dynamic multi-team assignment |
-| **Audit Logging** | In-memory activity log & approval decision audits | **Implemented:** 12-month append-only audit trail in PostgreSQL | Export to external compliance log |
-| **Priority Scoring** | **Implemented:** Deterministic scoring engine (`ai.js`, 0–100 score, EMS 4-tier criteria breakdown) | Placeholder page in Member Portal | Migration to Express API planning service |
-| **Schedule Feasibility** | **Implemented:** Time-blocking against meetings, buffer, SLAs, and appointments (`planner.js`) | Placeholder page in Member Portal | Migration to Express API planning service |
-| **Ripple Intelligence** | **Implemented:** Multi-level dependency analysis, SLA risk, and 3 alternatives (`ripple.js`) | Conceptual preview in How SyncAI Decides | Migration to Express API planning service |
-| **M365 & Notifications** | Mock Outlook meetings and multi-channel simulated alerts (In-App, Teams, WhatsApp) | **Implemented (read-only):** each active member or manager can connect and view their own Outlook calendar via Microsoft Graph (`Calendars.Read`); and their own Microsoft To Do lists (`Tasks.Read`); not yet used for planning, nothing written or stored | Calendar- and task-aware planning, To Do write-back, Power Automate, Teams |
+| **Authentication** | Simulated role switching (`localStorage` session, 5 demo accounts) | **Implemented / locally tested:** Microsoft Entra ID (MSAL) with JWT JWKS signature validation | Multi-tenant policy configuration |
+| **Data Persistence** | Browser `localStorage` seeded with fictional Town Council data | **Implemented / locally tested:** PostgreSQL with parameterized queries and migrations | Entity tables for tasks, cases, and schedules |
+| **Access Control & RBAC** | **Implemented:** Strict role separation (`admin`, `manager`, `member`) & account status screens (`pending`, `disabled`) | **Implemented / locally tested:** Admin approval queue, role enforcement (`admin`, `manager`, `member`), status gates (`pending`, `disabled`) | Granular zone/estate permissions |
+| **Team Management** | Hard-coded officer zones and skills with assignment history | **Implemented / locally tested:** Admin team management, manager assignment, member placement | Dynamic multi-team assignment |
+| **Audit Logging** | In-memory activity log & approval decision audits | **Implemented / locally tested:** 12-month append-only audit trail in PostgreSQL | Export to external compliance log |
+| **Task & Case Visibility (Category C)** | **Implemented:** Case Action Centre, List & Kanban views, 8-rule Loose-End Detector ("Follow-Up Radar"), Case Journey timeline, Closure Readiness Checker, simulated AI brief | **Implemented / locally tested:** Read-only Microsoft To Do task inspection via Graph (`Tasks.Read`); SyncAI task engine in development | Persistent task/case tables and API endpoints |
+| **Smart Planning (Category B)** | **Implemented:** Daily & weekly schedule generator, time-blocking around meetings/appointments, schedule preferences dialog | **Implemented / locally tested:** Read-only Outlook Calendar sync via Graph (`Calendars.Read`) in client; server planning engine in development | Server-side calendar-aware scheduling |
+| **Ripple Intelligence (Category D)** | **Implemented:** Multi-level dependency analysis, SLA risk, capacity deficit evaluation, and 3-alternative scenario comparisons (`ripple.js`) | Conceptual preview in How SyncAI Decides | Migration to Express API planning service |
+| **Approvals & Audit (Category G)** | **Implemented:** Hierarchical manager approval workflow, self-approval prevention, simulated In-App/Teams/WhatsApp alerts | **Implemented / locally tested:** Admin user approval queue, PostgreSQL audit log; manager schedule approval API in development | Power Automate flows, Teams adaptive cards |
+| **M365 & Notifications** | Simulated Outlook meetings, To Do tasks, and multi-channel alerts (In-App, Teams, WhatsApp) | **Implemented (read-only):** Each active member/manager can connect their own Outlook calendar (`Calendars.Read`) and To Do lists (`Tasks.Read`); nothing stored | Bi-directional M365 sync, Power Automate, Teams cards |
 | **OCC Complementarity** | Fictional mock records labelled `OCC (Mock)` | Not connected | Real-time event ingestion adapter |
 | **Language Features** | Deterministic keyword and regex extraction | Help-guide Q&A preview (4 languages) | Optional Azure OpenAI assistance |
 
-*Note: The prototype's intelligence is deterministic and rules-based. It is not an unverified black-box predictive ML model, ensuring all scheduling advice is explainable and auditable.*
+*Note: The prototype's intelligence is deterministic and rules-based. It is not an unverified black-box predictive ML model, ensuring all scheduling advice is explainable, safe, and auditable.*
 
 ---
 
@@ -170,9 +211,12 @@ SyncAI supports three distinct application roles:
 
 | Application Role | Operational Persona | Key Capabilities |
 | --- | --- | --- |
-| **System Administrator** (`admin`) | Technical Administrator | Approves new accounts, assigns roles, manages team memberships, monitors 12-month audit activity log. Has no access to operational tasks or schedule boards. |
-| **Manager** (`manager`) | Supervisory Manager / Estate Manager | Oversees assigned team members, reviews team capacity, evaluates What-If disruption simulations, approves reassignments, and manages statutory compliance risks. |
-| **Team Member** (`member`) | Property Officer / Front-Line Staff | Manages personal daily schedules, views recommended task priorities with explainable score breakdowns, performs site inspections, and requests emergency schedule adjustments. |
+| **System Administrator** (`admin`) | Technical Administrator | Approves new accounts, assigns roles, manages team memberships, monitors 12-month audit activity log. In accordance with data minimisation principles, administrators inspect compliance aggregates and audit logs, with zero access to private officer calendars or operational resident casework. |
+| **Manager** (`manager`) | Supervisory Manager / Estate Manager | Oversees assigned team members across supervised zones, reviews team capacity, evaluates What-If disruption simulations, reviews reassignment requests, and manages statutory compliance risks. |
+| **Team Member** (`member`) | Property Officer / Front-Line Staff | Manages personal daily schedules, views recommended task priorities with explainable score breakdowns, performs site inspections, tracks case checkpoints, and requests emergency schedule adjustments. Operates under strict case isolation (sees only own work). |
+
+> **Account Statuses vs. Roles:** `pending` and `disabled` are account lifecycle states, not roles. New sign-ins enter a `pending` state awaiting administrator role assignment. Disabled accounts are blocked from operational features.  
+> **Human-in-the-Loop Governance:** Front-line officers cannot self-approve restricted schedule changes or cross-officer reassignments. Management sign-off is mandatory for all schedule shifts affecting SLAs. Browser-only prototype access controls demonstrate UI behaviour; production security is cryptographically enforced on the Express backend.
 
 ---
 
@@ -220,7 +264,7 @@ Run the automated prototype test suite (Node.js 20+ built-in test runner):
 
 ```bash
 node --test "prototype/tests/*.test.mjs"
-# Verified: 57 automated tests pass (rules, ripple, client requirements, and status codes)
+# Verified: 88 automated tests pass across 8 suites (cases, rules, ripple, task capture, smart planning, user journey, client requirements, status codes)
 ```
 
 ### 2. Full-Stack Application
