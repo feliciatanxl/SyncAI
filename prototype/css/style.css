@@ -465,6 +465,12 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
 
 /* Member Portal Overview */
 .member-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 18px; margin-top: 20px; }
+.member-grid > .panel { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.member-grid > .panel > h2, .member-grid > .panel > .panel-head h2 { margin: 0; }
+.member-grid > .panel > p { margin: 0; }
+.member-grid > .panel-usp { display: grid; grid-column: 1 / -1; }
+.member-grid .panel-head { width: 100%; margin-bottom: 0; }
+.member-grid > .panel .card-icon { margin-bottom: 0; }
 .member-today { grid-row: span 2; }
 .plan-preview { width: 100%; display: grid; gap: 8px; padding: 14px; border-radius: 10px; background: var(--colorNeutralBackground2); }
 .plan-row {
@@ -685,6 +691,8 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
 /* How It Decides */
 .factor-cards { list-style: none; margin: 0 0 20px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .factor-cards li { display: flex; gap: 16px; }
+.factor-cards h2 { margin-bottom: 4px; }
+.factor-cards p, .principles p { margin: 0; }
 .principles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 
 /* Ask SyncAI Chat Panel — Optimized for Laptop Viewport Heights */
@@ -811,6 +819,61 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
 .toast.error { border-left: 4px solid var(--colorPaletteRedForeground1); }
 @keyframes toastIn { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
+/* People table cells */
+.people-person { display: flex; align-items: center; gap: 12px; }
+.people-person strong { display: block; font-size: 0.9375rem; }
+.people-person span { display: block; font-size: 0.8125rem; color: var(--colorNeutralForeground3); }
+
+/* Scroll-to-Top Floating Button */
+.scroll-to-top {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 99;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--colorNeutralStroke2);
+  background: var(--colorNeutralBackground1);
+  color: var(--colorBrandForeground1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow16);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px) scale(0.92);
+  transition: opacity 0.2s cubic-bezier(0.33, 1, 0.68, 1),
+              visibility 0.2s cubic-bezier(0.33, 1, 0.68, 1),
+              transform 0.2s cubic-bezier(0.33, 1, 0.68, 1),
+              background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.scroll-to-top.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+.scroll-to-top:hover {
+  background: var(--colorBrandBackground);
+  color: #fff;
+  border-color: var(--colorBrandBackground);
+  box-shadow: var(--shadow28);
+  transform: translateY(-2px) scale(1.04);
+}
+.scroll-to-top:active {
+  transform: translateY(0) scale(0.98);
+  background: var(--colorBrandBackgroundPressed);
+}
+.scroll-to-top:focus-visible {
+  outline: 2px solid var(--colorStrokeFocus2);
+  outline-offset: 2px;
+}
+.scroll-to-top svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* ==========================================================================
    Responsive Tier Breakdown:
    - 1180px: Laptop stat-grid & simulator adaptation
@@ -844,6 +907,14 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
   .portal-nav-note { display: none; }
   .account-trigger-text { display: none; }
   .settings-layout { grid-template-columns: minmax(0, 1fr); }
+  .people-table, .people-table tbody, .people-table tr, .people-table td { display: block; }
+  .people-table { border: 0; background: transparent; }
+  .people-table thead { display: none; }
+  .people-table tr { margin-bottom: 12px; padding: 14px; border-radius: var(--radius); background: var(--colorNeutralBackground1); border: 1px solid var(--colorNeutralStroke2); }
+  .people-table td { border: 0; padding: 6px 0; }
+  .people-table td[data-label]:not([data-label="Person"])::before { content: attr(data-label); display: block; font-size: 0.75rem; font-weight: 600; color: var(--colorNeutralForeground3); margin-bottom: 2px; }
+  .people-table td select { max-width: 260px; }
+  .people-table .row-actions { text-align: left; white-space: normal; padding-top: 10px; }
 }
 
 @media (max-width: 640px) {
@@ -857,6 +928,7 @@ code { font-family: Consolas, monospace; font-size: 0.875em; }
   .teams-toolbar { flex-direction: column; align-items: stretch; }
   .teams-toolbar-left { flex-direction: column; align-items: stretch; }
   .teams-search { max-width: 100%; }
+  .scroll-to-top { bottom: 20px; right: 20px; width: 40px; height: 40px; }
 }
 
 @media (max-width: 560px) {

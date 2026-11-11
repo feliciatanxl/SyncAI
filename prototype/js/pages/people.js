@@ -104,7 +104,7 @@ export default {
 
         <!-- Table -->
         <div class="table-wrap">
-          <table class="data-table" aria-label="People directory">
+          <table class="data-table people-table" aria-label="People directory">
             <thead>
               <tr>
                 <th>Person</th>
@@ -147,8 +147,8 @@ function renderPersonRow(u) {
 
   return html`
     <tr>
-      <td>
-        <div style="display: flex; align-items: center; gap: 12px;">
+      <td data-label="Person">
+        <div class="people-person">
           <div class="account-avatar">
             ${u.displayName.slice(0, 2).toUpperCase()}
           </div>
@@ -158,7 +158,7 @@ function renderPersonRow(u) {
           </div>
         </div>
       </td>
-      <td>
+      <td data-label="Role Assignment">
         <select
           class="filter-tab"
           style="border: 1px solid var(--colorNeutralStroke1); border-radius: 6px; padding: 4px 8px; font-size: 0.8125rem;"
@@ -171,12 +171,12 @@ function renderPersonRow(u) {
           <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
         </select>
       </td>
-      <td>
+      <td data-label="Status">
         <span class="tag ${isPending ? 'tag-warning' : isDisabled ? 'tag-neutral' : 'tag-success'}">
           ${u.status.toUpperCase()}
         </span>
       </td>
-      <td style="text-align: right; white-space: nowrap;">
+      <td data-label="Actions" class="row-actions" style="text-align: right; white-space: nowrap;">
         ${isPending
           ? html`
               <button

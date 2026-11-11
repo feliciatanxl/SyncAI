@@ -119,6 +119,19 @@ function init() {
   // Attach global event delegation
   setupEvents();
 
+  // Scroll to Top behavior
+  const scrollTopBtn = document.getElementById('btn-scroll-top');
+  if (scrollTopBtn) {
+    window.addEventListener('scroll', () => {
+      const scrolled = window.scrollY || document.documentElement.scrollTop;
+      scrollTopBtn.classList.toggle('is-visible', scrolled > 240);
+    }, { passive: true });
+
+    scrollTopBtn.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
   // Initial render
   renderApp();
 }
@@ -250,6 +263,7 @@ function setupEvents() {
       if (sec && SECTIONS[sec]) {
         currentSection = sec;
         window.location.hash = `#${sec}`;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         renderApp();
       }
       return;
@@ -581,6 +595,7 @@ function setupEvents() {
     const allowed = allowedSections(s);
     if (hash && allowed.includes(hash)) {
       currentSection = hash;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       renderApp();
     }
   });

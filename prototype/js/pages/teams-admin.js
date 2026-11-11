@@ -43,64 +43,80 @@ function renderAdminTeamCard(s, team, eligibleUsers) {
   const availableToAssign = eligibleUsers.filter((u) => !assignedIds.has(u.id));
 
   return html`
-    <section class="panel team-card" aria-labelledby="team-${team.id}-h" style="padding: 24px;">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
-        <div>
-          <h2 id="team-${team.id}-h" style="font-size: 1.25rem; margin-bottom: 4px;">${team.name}</h2>
-          <span class="tag tag-brand">Supervising Manager: Jennifer Ong</span>
+    <section class="team-card is-expanded" aria-labelledby="team-${team.id}-h" style="margin-bottom: 20px;">
+      <div class="team-card-header">
+        <div class="team-card-main">
+          <span class="team-card-icon" aria-hidden="true">${icon('team', 22)}</span>
+          <div class="team-card-info">
+            <div class="team-card-title-row">
+              <h2 id="team-${team.id}-h">${team.name}</h2>
+              <span class="muted small">${members.length} Officers</span>
+            </div>
+            <div class="team-badges-row">
+              <span class="team-badge is-manager">Supervising Manager: Jennifer Ong</span>
+            </div>
+          </div>
         </div>
-        <span class="tag tag-neutral">${members.length} Officers</span>
       </div>
 
-      <div style="display: grid; gap: 8px;">
-        <h3 style="font-size: 0.9375rem; color: var(--colorNeutralForeground2); margin: 0 0 6px;">Team Members</h3>
-        ${members.length === 0
-          ? html`<p class="muted small">No officers assigned to this team yet.</p>`
-          : html`
-              <ul style="list-style: none; margin: 0; padding: 0; display: grid; gap: 8px;">
-                ${members.map(
-                  (m) => html`
-                    <li style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 8px; background: var(--colorNeutralBackground2);">
-                      <div>
-                        <strong>${m.displayName}</strong>
-                        <span class="small muted" style="display: block;">${m.email || m.role}</span>
-                      </div>
-                      <button
-                        type="button"
-                        class="btn-ghost btn-sm"
-                        style="color: var(--colorPaletteRedForeground1);"
-                        data-action="admin-remove-team-member"
-                        data-team="${team.id}"
-                        data-user="${m.id}"
-                        title="Remove member from team"
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  `,
-                )}
-              </ul>
-            `}
-      </div>
+      <div class="team-card-content">
+        <div class="team-section-box">
+          <div class="team-section-header">
+            <h3>${icon('users', 16)} Team Members</h3>
+            <span class="team-section-count">${members.length}</span>
+          </div>
 
-      <!-- Add member form -->
-      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--colorNeutralStroke3); display: flex; gap: 10px; align-items: center;">
-        <label for="assign-select-${team.id}" class="small muted">Add officer:</label>
-        <select id="assign-select-${team.id}" class="filter-tab" style="flex: 1; max-width: 280px; border: 1px solid var(--colorNeutralStroke1); border-radius: 6px;">
-          <option value="">Select an active officer...</option>
-          ${availableToAssign.map(
-            (u) => html`<option value="${u.id}">${u.displayName} (${u.email})</option>`,
-          )}
-        </select>
-        <button
-          type="button"
-          class="btn-secondary btn-sm"
-          data-action="admin-add-team-member"
-          data-team="${team.id}"
-          data-select="assign-select-${team.id}"
-        >
-          Add to team
-        </button>
+          ${members.length === 0
+            ? html`<p class="muted small">No officers assigned to this team yet.</p>`
+            : html`
+                <ul class="team-members-list" style="list-style: none; margin: 0; padding: 0; display: grid; gap: 8px;">
+                  ${members.map(
+                    (m) => html`
+                      <li style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-radius: 8px; background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke3);">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                          <div class="account-avatar sm">${m.displayName.slice(0, 2).toUpperCase()}</div>
+                          <div>
+                            <strong>${m.displayName}</strong>
+                            <span class="small muted" style="display: block;">${m.email || 'Property Officer'}</span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          class="btn-ghost btn-sm"
+                          style="color: var(--colorPaletteRedForeground1);"
+                          data-action="admin-remove-team-member"
+                          data-team="${team.id}"
+                          data-user="${m.id}"
+                          title="Remove member from team"
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    `,
+                  )}
+                </ul>
+              `}
+
+          <!-- Add member form -->
+          <div style="margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--colorNeutralStroke2); display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <label for="assign-select-${team.id}" class="small muted" style="font-weight: 600;">Add officer:</label>
+            <select id="assign-select-${team.id}" class="filter-tab" style="flex: 1 1 200px; border: 1px solid var(--colorNeutralStroke1); border-radius: 6px; padding: 6px 10px;">
+              <option value="">Select an active officer...</option>
+              ${availableToAssign.map(
+                (u) => html`<option value="${u.id}">${u.displayName} (${u.email})</option>`,
+              )}
+            </select>
+            <button
+              type="button"
+              class="btn-secondary btn-sm"
+              data-action="admin-add-team-member"
+              data-team="${team.id}"
+              data-select="assign-select-${team.id}"
+            >
+              Add to team
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   `;
