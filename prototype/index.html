@@ -3,58 +3,119 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="SyncAI — AI-powered Smart Work Planner prototype for Town Council officers (EMS Challenge 12i)." />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+    <meta name="description" content="SyncAI — Operationally Aware AI Smart Work Planner for Town Council estate operations." />
     <title>SyncAI — Smart Work Planner</title>
     <link rel="icon" href="assets/syncai-logo.png" type="image/png" />
     <link rel="stylesheet" href="css/style.css" />
     <script type="module" src="js/app.js"></script>
   </head>
   <body>
-    <a class="skip-link" href="#page">Skip to main content</a>
+    <a class="skip-link" href="#main-content">Skip to content</a>
 
-    <div class="app" id="app">
-      <aside class="sidebar" id="sidebar" aria-label="Main navigation">
-        <div class="brand">
-          <img src="assets/syncai-logo.png" alt="" width="32" height="32" />
-          <div class="brand-text">
-            <strong>SyncAI</strong>
-            <span>Smart Work Planner</span>
+    <div class="portal" id="portal-root">
+      <!-- Portal Top Header (matches PortalShell.jsx) -->
+      <header class="portal-header">
+        <a href="site/index.html" class="brand" aria-label="SyncAI homepage">
+          <img src="assets/syncai-logo.png" width="30" height="30" alt="" />
+          <span>SyncAI</span>
+        </a>
+
+        <span class="portal-tag" id="portal-role-tag">Team member</span>
+
+        <div class="portal-header-actions">
+          <!-- Quick Role Switcher Pill for Reviewers -->
+          <div class="role-pill-select" title="Switch demo persona">
+            <span>Role:</span>
+            <select id="quick-role-select" aria-label="Switch demo role">
+              <option value="member">Team Member (Aisyah)</option>
+              <option value="manager">Manager (Jennifer)</option>
+              <option value="admin">Admin (TAN XIU LI, FELICIA)</option>
+              <option value="pending">Pending Account (David)</option>
+              <option value="disabled">Disabled Account (Siti)</option>
+            </select>
+          </div>
+
+          <button type="button" class="btn-subtle btn-sm" id="btn-quick-reset" title="Restore seed data">
+            Reset Demo
+          </button>
+
+          <!-- Microsoft 365 Account Menu Trigger -->
+          <div style="position: relative;">
+            <button type="button" class="account-trigger" id="account-trigger" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
+              <div class="account-trigger-text">
+                <strong id="account-name-header">TAN XIU LI, FELICIA</strong>
+                <span id="account-email-header">254381c@mymail.nyp.edu.sg</span>
+              </div>
+              <div class="account-avatar avatar-green" id="account-avatar-header">T</div>
+              <span class="account-chevron">▼</span>
+            </button>
+
+            <!-- Microsoft 365 Style Account Popover Card -->
+            <div class="account-popover account-card" id="account-popover" hidden aria-label="Account card">
+              <div class="account-card-top">
+                <span class="account-card-brand">SyncAI</span>
+                <button type="button" class="account-card-signout-btn" id="btn-signout" aria-label="Sign out">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M3 4.5A2.5 2.5 0 0 1 5.5 2h5a.5.5 0 0 1 0 1h-5A1.5 1.5 0 0 0 4 4.5v11A1.5 1.5 0 0 0 5.5 17h5a.5.5 0 0 1 0 1h-5A2.5 2.5 0 0 1 3 15.5v-11ZM12.854 6.146a.5.5 0 0 1 .708 0l3.5 3.5a.5.5 0 0 1 0 .708l-3.5 3.5a.5.5 0 0 1-.708-.708L15.293 10.5H7.5a.5.5 0 0 1 0-1h7.793l-2.439-2.646a.5.5 0 0 1 0-.708Z" />
+                  </svg>
+                  Sign out
+                </button>
+              </div>
+              <div class="account-card-who">
+                <div class="account-avatar lg avatar-green" id="account-avatar-card">T</div>
+                <div class="account-card-details">
+                  <strong id="account-name-card">TAN XIU LI, FELICIA</strong>
+                  <span class="muted" id="account-email-card">254381c@mymail.nyp.edu.sg</span>
+                  <a href="https://myaccount.microsoft.com/" target="_blank" rel="noreferrer" class="account-manage-link">
+                    Manage your Microsoft account
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path d="M4.5 3A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17h11a1.5 1.5 0 0 0 1.5-1.5v-5a.5.5 0 0 0-1 0v5a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5h5a.5.5 0 0 0 0-1h-5ZM11.5 3a.5.5 0 0 0 0 1h3.793L8.146 11.146a.5.5 0 0 0 .708.708L16 4.707V8.5a.5.5 0 0 0 1 0V3.5A.5.5 0 0 0 16.5 3h-5Z" />
+                    </svg>
+                  </a>
+                </div>
+              </div>
+              <div class="account-card-actions">
+                <button type="button" class="account-card-switch" id="btn-switch-account">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M6 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM2.5 13a3.5 3.5 0 0 1 7 0v1a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5v-1Zm11-9.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM11 13a3 3 0 0 1 5.414-1.78.5.5 0 0 1-.828.56A2 2 0 0 0 12 13.5v.5a.5.5 0 0 1-.5.5h-.5a.5.5 0 0 1-.5-.5v-1Z" />
+                  </svg>
+                  Sign in with a different account
+                </button>
+                <button type="button" class="account-card-switch" id="btn-reset-demo-card">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M10 3a7 7 0 1 0 6.93 6H15.9a6 6 0 1 1-1.68-4.24l-1.51 1.51A.5.5 0 0 0 13.06 7H17a.5.5 0 0 0 .5-.5V2.56a.5.5 0 0 0-.85-.35l-1.57 1.57A6.97 6.97 0 0 0 10 3Z" />
+                  </svg>
+                  Reset all demo state
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-        <nav id="nav"></nav>
-        <div class="sidebar-foot" id="sidebar-foot"></div>
-      </aside>
-      <div class="scrim" id="scrim" data-action="nav-close" hidden></div>
-      <nav class="tabbar" id="tabbar" aria-label="Quick navigation"></nav>
+      </header>
 
-      <div class="main">
-        <header class="topbar">
-          <button class="icon-btn only-mobile" data-action="nav-open" aria-label="Open navigation" aria-controls="sidebar">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
-          <button class="icon-btn only-desktop" data-action="nav-collapse" aria-label="Collapse navigation" aria-controls="sidebar" id="collapse-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
-          <div class="topbar-title" id="topbar-title"></div>
-          <div class="topbar-actions" id="topbar-actions"></div>
-        </header>
+      <!-- Portal Body (Nav Sidebar + Main Workspace) -->
+      <div class="portal-body">
+        <nav class="portal-nav" id="portal-nav" aria-label="Portal navigation">
+          <!-- Nav items dynamically injected by app.js -->
+        </nav>
 
-        <div class="demo-banner" id="demo-banner" role="note"></div>
-        <main id="page" class="page" tabindex="-1" aria-live="polite" aria-busy="false"></main>
+        <main id="main-content" class="portal-main" tabindex="-1">
+          <!-- Active section content dynamically rendered -->
+        </main>
       </div>
     </div>
 
-    <aside class="assistant" id="assistant" aria-label="Ask SyncAI assistant" hidden></aside>
-    <aside class="assistant alerts-panel" id="alerts" aria-label="Alerts" hidden></aside>
-    <div id="modal-root" hidden></div>
-    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
-    <button class="to-top" id="to-top" data-action="scroll-top" aria-label="Scroll to top" title="Back to top" hidden>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6" /></svg>
-    </button>
+    <!-- Modals Container -->
+    <div id="modal-root" class="modal-backdrop" hidden></div>
 
-    <noscript>
-      <div class="noscript">SyncAI needs JavaScript enabled to run this prototype.</div>
-    </noscript>
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toasts" role="status" aria-live="polite"></div>
+
+    <!-- Scroll to Top Floating Button -->
+    <button type="button" class="scroll-to-top" id="btn-scroll-top" aria-label="Scroll to top" title="Scroll to top">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M10 16V4M4 10l6-6 6 6" />
+      </svg>
+    </button>
   </body>
 </html>

@@ -3,336 +3,377 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="SyncAI is an AI-powered Smart Work Planner that helps Town Council officers and supervisors plan their day, protect deadlines and balance team workload." />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'" />
-    <title>SyncAI — Your Work. Your Time. In Sync.</title>
+    <meta name="description" content="SyncAI — Operationally Aware AI Scheduling. AI-powered Smart Work Planner for Town Council estate operations." />
+    <title>SyncAI — Smart Work Planner</title>
     <link rel="icon" href="../assets/syncai-logo.png" type="image/png" />
-    <link rel="stylesheet" href="../css/style.css" />
     <link rel="stylesheet" href="site.css" />
-    <script type="module" src="site.js"></script>
-    <script type="module" src="to-top.js"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to main content</a>
 
     <header class="site-header">
-      <div class="wrap">
-        <a class="logo" href="index.html"><img src="../assets/syncai-logo.png" alt="" width="32" height="32" />SyncAI</a>
-        <nav class="site-nav" aria-label="Main">
-          <a href="#differentiators">Differentiators</a>
-          <a href="#features">Features</a>
+      <div class="wrap header-inner">
+        <a href="index.html" class="brand" aria-label="SyncAI home">
+          <img src="../assets/syncai-logo.png" width="30" height="30" alt="" />
+          <span>SyncAI</span>
+        </a>
+        <nav class="site-nav" aria-label="Main navigation">
+          <a href="#challenge">The challenge</a>
+          <a href="#capabilities">Capabilities</a>
+          <a href="#priority">Priority logic</a>
           <a href="#how">How it works</a>
-          <a href="#roles">For teams</a>
-          <a href="#walkthrough">Walkthrough</a>
-          <a href="#faq">FAQ</a>
+          <a href="#trust">Responsible AI</a>
         </nav>
-        <div class="header-actions">
-          <a class="btn btn-subtle btn-lg" href="login.html">Sign in</a>
-          <a class="btn btn-primary btn-lg" href="#demo">Request a demo</a>
-        </div>
+        <a href="login.html" class="header-cta">
+          Sign in
+        </a>
       </div>
     </header>
 
-    <main id="main" tabindex="-1">
+    <main id="main">
+      <!-- Hero -->
       <section class="hero">
-        <div class="wrap">
+        <div class="wrap hero-inner">
           <div>
-            <span class="eyebrow">Smart Work Planner for EM Services PS 12i</span>
-            <h1>SyncAI — <span class="grad">Operationally Aware AI Scheduling</span></h1>
+            <p class="eyebrow">AI Smart Work Planner</p>
+            <h1>Plan the day your team actually has.</h1>
             <p class="lead">
-              Help Property Officers prioritise what matters, create achievable schedules and adapt when urgent work disrupts the day.
+              SyncAI ranks work the way real operations run, safety first and deadlines protected, then fits it into the time each person has. When urgent work lands, it explains what should move.
             </p>
-            <p class="lead" style="font-weight: 600; color: var(--text-color); margin-top: -8px">
-              "Know what matters. Plan what fits. Adapt when work changes."
-            </p>
-            <div class="hero-cta">
-              <a class="btn btn-primary btn-lg" href="login.html">Try the live prototype</a>
-              <a class="btn btn-lg" href="login.html">Explore the Ripple Effect</a>
+            <div class="hero-actions">
+              <a href="login.html" class="btn-microsoft">
+                <svg width="20" height="20" viewBox="0 0 21 21" aria-hidden="true">
+                  <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+                  <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+                  <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+                  <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+                </svg>
+                Sign in with Microsoft
+              </a>
+              <a href="#how" class="btn-ghost">
+                See how it works
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+              </a>
             </div>
-            <p class="hero-note">Designed for Microsoft 365 environments. Illustrated with fictional EM Services data. All AI suggestions require human approval.</p>
           </div>
 
-          <div class="mock" role="img" aria-label="Preview of the SyncAI dashboard: an AI daily briefing, three ranked tasks and a workload meter at 78 percent.">
-            <div class="mock-bar"><span></span><span></span><span></span></div>
-            <div class="mock-body" aria-hidden="true">
-              <div class="mock-brief"><strong>AI Daily Briefing</strong><br />Today's work fits. Start with the Blk 208 lift inspection: genuine safety hazard and statutory deadline due at 2:00pm.</div>
-              <div class="mock-row"><div class="t">Lift inspection, Blk 208<small>Safety hazard · Statutory due 2:00pm</small></div><span class="mock-score hi">95 Do now</span></div>
-              <div class="mock-row"><div class="t">Ceiling seepage site check, Blk 214<small>Structural defect risk</small></div><span class="mock-score md">64 Do next</span></div>
-              <div class="mock-row"><div class="t">Estate signage refresh<small>Repeat complaints (0 pts) · Flexible</small></div><span class="mock-score lo">28 Plan</span></div>
-              <div>
-                <div class="row-between" style="font-size: 13px"><span>Today's workload</span><strong>78% of free capacity (3.2h / 4.1h)</strong></div>
-                <div class="meter"><i></i></div>
+          <!-- Hero Plan Preview -->
+          <figure class="preview" aria-label="Example of a SyncAI daily plan">
+            <div class="preview-head">
+              <strong>Today’s plan</strong>
+              <span class="preview-fit">Fits your day · 6.5h of 7h</span>
+            </div>
+            <ul>
+              <li>
+                <span class="preview-time">08:30</span>
+                <span class="preview-title">Lift inspection · Block A</span>
+                <span class="tag tag-danger">Safety</span>
+              </li>
+              <li>
+                <span class="preview-time">10:00</span>
+                <span class="preview-title">Funding claim submission</span>
+                <span class="tag tag-warning">Statutory</span>
+              </li>
+              <li>
+                <span class="preview-time">11:30</span>
+                <span class="preview-title">Water leak check · Block C</span>
+                <span class="tag tag-brand">Service</span>
+              </li>
+              <li>
+                <span class="preview-time">14:00</span>
+                <span class="preview-title">Contractor claim review</span>
+                <span class="tag tag-neutral">Admin</span>
+              </li>
+            </ul>
+            <figcaption class="preview-note">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+              <span>Urgent leak at Block D? Safety and statutory work stay in place; the claim review moves to 15:30.</span>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- The Challenge -->
+      <section class="section" id="challenge" aria-labelledby="problem-h">
+        <div class="wrap">
+          <div class="section-head">
+            <p class="eyebrow">The challenge</p>
+            <h2 id="problem-h">Competing demands, limited hours</h2>
+          </div>
+          <div class="grid-3">
+            <article class="card">
+              <span class="card-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m9 11 3 3L22 4" />
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                </svg>
+              </span>
+              <h3>Many demands at once</h3>
+              <p>Operations teams juggle inspections, customer requests, contractor follow-ups and admin, often across thousands of units each.</p>
+            </article>
+
+            <article class="card">
+              <span class="card-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </span>
+              <h3>Loudest is not most urgent</h3>
+              <p>The most frequent complaint is not automatically the priority. Genuine safety risks and mandatory deadlines are.</p>
+            </article>
+
+            <article class="card">
+              <span class="card-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </span>
+              <h3>Plans that do not fit the day</h3>
+              <p>Urgent work arrives mid-day. Without a realistic plan, it is hard to see what can move and what cannot.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Core Capabilities -->
+      <section class="section alt" id="capabilities" aria-labelledby="cap-h">
+        <div class="wrap">
+          <div class="section-head">
+            <p class="eyebrow">Operationally aware AI scheduling</p>
+            <h2 id="cap-h">Understand priorities. Build achievable plans. Explain the changes.</h2>
+          </div>
+          <div class="grid-3">
+            <article class="card">
+              <div class="card-top">
+                <span class="card-icon" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <path d="m9 12 2 2 4-4" />
+                  </svg>
+                </span>
+                <span class="card-num">01</span>
               </div>
-            </div>
+              <h3>Smart priority</h3>
+              <p>Ranks tasks by safety, mandatory deadlines, service impact and long-term consequences, and shows the reason for every score.</p>
+            </article>
+
+            <article class="card">
+              <div class="card-top">
+                <span class="card-icon" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                </span>
+                <span class="card-num">02</span>
+              </div>
+              <h3>Realistic planning</h3>
+              <p>Proposes daily and weekly schedules around task durations, availability, meetings and existing commitments.</p>
+            </article>
+
+            <article class="card">
+              <div class="card-top">
+                <span class="card-icon" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 3h5v5" />
+                    <path d="M4 20L21 3" />
+                    <path d="M21 16v5h-5" />
+                    <path d="M15 15l6 6" />
+                    <path d="M4 4l5 5" />
+                  </svg>
+                </span>
+                <span class="card-num">03</span>
+              </div>
+              <h3>Team rebalancing</h3>
+              <p>Spots capacity problems when someone is away or urgent work lands, and suggests changes for a manager to approve.</p>
+            </article>
           </div>
         </div>
       </section>
 
-      <section class="section" id="differentiators" aria-labelledby="diff-h">
-        <div class="wrap">
-          <div class="section-head">
-            <span class="eyebrow">Proposed product differentiators</span>
-            <h2 id="diff-h">Three pillars of the PS 12i Smart Work Planner</h2>
-            <p class="lead">Built to address the daily realities of EM Services estate management: understand the potential consequences of scheduling decisions before making them.</p>
+      <!-- Priority Logic -->
+      <section class="section" id="priority" aria-labelledby="priority-h">
+        <div class="wrap split">
+          <div class="section-head left">
+            <p class="eyebrow">Priority logic</p>
+            <h2 id="priority-h">Ranked by what matters on the ground</h2>
+            <p class="lead">Four operational factors, weighed together and tunable to your organisation’s own rules.</p>
           </div>
-          <div class="grid-3">
-            <div class="tile">
-              <span class="ico ai"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5z" /></svg></span>
-              <h3>1. Consequence-Aware Prioritisation</h3>
-              <p>Considers real estate management priorities: genuine resident safety hazards, statutory deadlines (BCA/SCDF), and long-term consequence risks. Repeat complaint volume receives 0 extra urgency points.</p>
-            </div>
-            <div class="tile">
-              <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg></span>
-              <h3>2. Capacity-Aware Scheduling</h3>
-              <p>Assesses whether tasks realistically fit into true available working hours around Outlook meetings, inspections, and mandatory travel buffer. Flags impossible constraints instead of silently overpromising.</p>
-            </div>
-            <div class="tile">
-              <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" /></svg></span>
-              <h3>3. Operational Ripple Intelligence</h3>
-              <p>Trace downstream impacts across multi-level task dependencies. Evaluate and compare three operational alternatives (No Action, Reschedule Lower-Impact Tasks, Reassign Eligible Work) before committing changes.</p>
-            </div>
-          </div>
+          <ol class="factors">
+            <li>
+              <span class="factor-n" aria-hidden="true">1</span>
+              <div>
+                <h3>Safety</h3>
+                <p>Genuine risks to people, staff and property.</p>
+              </div>
+            </li>
+            <li>
+              <span class="factor-n" aria-hidden="true">2</span>
+              <div>
+                <h3>Mandatory deadlines</h3>
+                <p>Statutory, regulatory, contractual and funding-approval dates that cannot slip.</p>
+              </div>
+            </li>
+            <li>
+              <span class="factor-n" aria-hidden="true">3</span>
+              <div>
+                <h3>Service impact & long-term consequences</h3>
+                <p>Real customer needs and what happens if the work waits. Not who complains loudest.</p>
+              </div>
+            </li>
+            <li>
+              <span class="factor-n" aria-hidden="true">4</span>
+              <div>
+                <h3>Scheduling feasibility</h3>
+                <p>Estimated task durations matched to each person’s free time and capacity.</p>
+              </div>
+            </li>
+          </ol>
         </div>
       </section>
 
-      <section class="section alt" aria-labelledby="problem-h">
-        <div class="wrap">
-          <div class="section-head">
-            <span class="eyebrow">The problem</span>
-            <h2 id="problem-h">Estate work never arrives in a neat queue</h2>
-            <p class="lead">Town Council officers juggle safety inspections, resident feedback, contractor follow-ups and back-to-back meetings. Plans live in people's heads, so problems surface only when a deadline is already missed.</p>
-          </div>
-          <div class="grid-3">
-            <div class="tile"><h3>"What should I do first?"</h3><p>Priorities shift through the day and urgent cases keep arriving. Officers lose time deciding instead of doing.</p></div>
-            <div class="tile"><h3>"Can I finish all this today?"</h3><p>Calendars show meetings, not work. Nobody can see whether the remaining tasks actually fit in the free time left.</p></div>
-            <div class="tile"><h3>"Who can take over?"</h3><p>When an officer is on MC or a lift breaks down, supervisors rebalance work by phone and spreadsheet.</p></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="features" aria-labelledby="features-h">
-        <div class="wrap">
-          <div class="section-head">
-            <span class="eyebrow">Features</span>
-            <h2 id="features-h">AI that works inside the workday, not beside it</h2>
-          </div>
-          <div class="grid-3">
-            <div class="tile">
-              <span class="ico ai"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5z" /></svg></span>
-              <h3>Explainable priority scores</h3>
-              <p>Every task gets a 0–100 score from priority, deadline, safety, resident impact and dependencies, with the reasons listed.</p>
-            </div>
-            <div class="tile">
-              <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg></span>
-              <h3>Smart Planner</h3>
-              <p>Time-blocks tasks around Outlook meetings, lunch and travel. Flags clashes and unrealistic plans, and suggests alternatives.</p>
-            </div>
-            <div class="tile">
-              <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 9v4M12 17h.01" /><path d="M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /></svg></span>
-              <h3>Emergency rescheduling</h3>
-              <p>An urgent case arrives? SyncAI fits it in, protects safety-critical work and shows exactly what moved.</p>
-            </div>
-            <div class="tile">
-              <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8" /></svg></span>
-              <h3>Team workload heatmap</h3>
-              <p>See who is overloaded, who has spare capacity and who is falling behind, with skill-aware reassignment suggestions.</p>
-            </div>
-            <div class="tile">
-              <span class="ico ai"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" /></svg></span>
-              <h3>What-If Simulator</h3>
-              <p>Test an MC, a lift breakdown or two absences before they happen. Compare "no action" with SyncAI's plan, then apply.</p>
-            </div>
-            <div class="tile">
-              <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg></span>
-              <h3>Ask SyncAI</h3>
-              <p>Plain-English questions like "Can I finish everything today?" Turn meeting minutes into tasks in one click.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
+      <!-- How it works -->
       <section class="section alt" id="how" aria-labelledby="how-h">
         <div class="wrap">
           <div class="section-head">
-            <span class="eyebrow">How it works</span>
-            <h2 id="how-h">From inbox chaos to an approved plan in three steps</h2>
+            <p class="eyebrow">How it works</p>
+            <h2 id="how-h">From a long task list to an approved plan</h2>
           </div>
-          <div class="grid-3 steps">
-            <div class="tile"><h3>Connect</h3><p>Sign in with your Microsoft account. SyncAI reads your Outlook calendar and Microsoft To Do tasks.</p></div>
-            <div class="tile"><h3>Plan</h3><p>SyncAI scores your tasks, estimates effort from past work and drafts a schedule that fits your real free time.</p></div>
-            <div class="tile"><h3>Approve</h3><p>Review the draft, move anything you like, then accept. Nothing changes until you or your supervisor say so.</p></div>
-          </div>
-          <div class="pill-row" aria-label="Integrations">
-            <span>Microsoft Entra ID</span><span>Outlook Calendar</span><span>Microsoft To Do</span><span>Power Automate</span><span>Microsoft Teams</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="roles" aria-labelledby="roles-h">
-        <div class="wrap">
-          <div class="section-head">
-            <span class="eyebrow">For teams</span>
-            <h2 id="roles-h">Tailored views for estate operations</h2>
-          </div>
-          <div class="grid-3">
-            <div class="tile">
-              <h3>Property Officers</h3>
-              <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px">Team Member workflow</p>
-              <ul class="ticks">
-                <li>AI daily briefing: what to do first and why</li>
-                <li>Statutory deadline countdowns and alerts</li>
-                <li>Daily &amp; weekly calendar time-blocked around meetings</li>
-                <li>Capacity meter showing realistic free time</li>
-              </ul>
-            </div>
-            <div class="tile">
-              <h3>Estate Managers</h3>
-              <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px">Supervisor workflow</p>
-              <ul class="ticks">
-                <li>Team capacity heatmap and officer availability</li>
-                <li>What-If replanning simulation with impact preview</li>
-                <li>Protected statutory obligations and unblocked work</li>
-                <li>Human approval required before any reassignment</li>
-              </ul>
-            </div>
-            <div class="tile">
-              <h3>System Admins</h3>
-              <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px">Governance &amp; RBAC</p>
-              <ul class="ticks">
-                <li>Fictional demo user management and role switching</li>
-                <li>Least-privilege role matrix (Officer / Manager / Admin)</li>
-                <li>Approval policies and decision audit log</li>
-                <li>Zero operational noise in administrative views</li>
-              </ul>
-            </div>
+          <ol class="steps">
+            <li class="card">
+              <span class="step-n">Step 1</span>
+              <h3>Sign in with Microsoft</h3>
+              <p>Use your organisation’s Microsoft account. No separate SyncAI password.</p>
+            </li>
+            <li class="card">
+              <span class="step-n">Step 2</span>
+              <h3>Review your plan</h3>
+              <p>SyncAI ranks your tasks and drafts a day that fits around your Outlook meetings.</p>
+            </li>
+            <li class="card">
+              <span class="step-n">Step 3</span>
+              <h3>Approve the changes</h3>
+              <p>Move anything you like, then accept. Nothing changes until you or your manager say so.</p>
+            </li>
+          </ol>
+          <div class="integrations">
+            <p class="muted small">Works with the Microsoft 365 tools your team already uses (Simulated in Prototype)</p>
+            <ul class="pills">
+              <li>Microsoft Entra ID</li>
+              <li>Outlook Calendar</li>
+              <li>Microsoft To Do</li>
+              <li>Power Automate</li>
+              <li>Microsoft Teams</li>
+            </ul>
           </div>
         </div>
       </section>
 
-      <section class="section alt" id="trust" aria-labelledby="trust-h">
+      <!-- Responsible AI -->
+      <section class="section" id="trust" aria-labelledby="trust-h">
         <div class="wrap">
           <div class="section-head">
-            <span class="eyebrow">Responsible AI</span>
+            <p class="eyebrow">Responsible AI</p>
             <h2 id="trust-h">AI that shows its working</h2>
           </div>
           <div class="grid-3">
-            <div class="tile"><h3>Explainable</h3><p>Every score, estimate, risk and recommendation lists the reasons behind it. No black boxes.</p></div>
-            <div class="tile"><h3>Human in control</h3><p>Plans, reassignments and simulations change nothing until a person approves them. Every approval is logged.</p></div>
-            <div class="tile"><h3>Private by design</h3><p>Role-based access, data kept in your Microsoft 365 tenant, and designed for keyboard and screen-reader users.</p></div>
+            <article class="card">
+              <span class="card-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </span>
+              <h3>Explainable</h3>
+              <p>Every score, estimate and suggestion lists the reasons behind it.</p>
+            </article>
+
+            <article class="card">
+              <span class="card-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              </span>
+              <h3>Human approval</h3>
+              <p>AI recommends. A team member or manager approves every change, and every approval is logged.</p>
+            </article>
+
+            <article class="card">
+              <span class="card-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </span>
+              <h3>Private by design</h3>
+              <p>Role-based access through Microsoft Entra ID. Absences are recorded as MC or leave only, never medical details.</p>
+            </article>
           </div>
         </div>
       </section>
 
-      <section class="section" id="platform" aria-labelledby="platform-h">
-        <div class="wrap">
-          <div class="section-head">
-            <span class="eyebrow">Operationally aware AI scheduling</span>
-            <h2 id="platform-h">Ranked the way EM Services Property Officers really work</h2>
-            <p class="lead">A loud complaint is not the same as an urgent one. SyncAI weighs genuine safety risks, mandatory statutory deadlines, service impact and long-term consequences against realistic working capacity. All numerical rules are clearly labeled as configurable prototype assumptions.</p>
-          </div>
-          <div class="grid-3">
-            <div class="tile"><h3>Genuine safety hazards (+20)</h3><p>Explicitly identifies falling concrete, lift entrapments, exposed wiring, and fire hazards. Safety always precedes general maintenance.</p></div>
-            <div class="tile"><h3>Mandatory deadlines (+25 / +15)</h3><p>BCA annual lift certifications and statutory compliance deadlines are treated as hard scheduling constraints, not just numerical bonuses.</p></div>
-            <div class="tile"><h3>Long-term consequences (+12)</h3><p>Flags severe escalation risks such as ceiling water seepage penetrating structural rebar, void deck pooling, or regulatory stop-work orders.</p></div>
-            <div class="tile"><h3>Repeat complaints: 0 pts</h3><p>Repeated resident calls add zero priority points. SyncAI protects officers from loudest-voice bias while maintaining professional response standards.</p></div>
-            <div class="tile"><h3>Feasibility &amp; impossible conflicts</h3><p>Calculates required task effort against Outlook meetings, lunch, and mandatory travel buffer. Proactively warns when a deadline is mathematically unachievable.</p></div>
-            <div class="tile"><h3>Configurable assumptions</h3><p>Every score factor is clearly labeled as an illustrative prototype model assumption, ready for calibration against EM Services operational benchmarks.</p></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section alt" id="walkthrough" aria-labelledby="walkthrough-h">
-        <div class="wrap">
-          <div class="section-head">
-            <span class="eyebrow">Operational walkthrough</span>
-            <h2 id="walkthrough-h">A day in the life of a Property Officer</h2>
-            <p class="lead">How SyncAI guides an EM Services Property Officer through competing demands, sudden emergencies, and hard statutory obligations.</p>
-          </div>
-          <div class="grid-3">
-            <div class="tile">
-              <span class="ico">08:30</span>
-              <h3>Morning briefing &amp; triage</h3>
-              <p>The officer logs in. SyncAI evaluates assigned tasks against today's Outlook calendar (3.5 hours free). It identifies a BCA annual lift compliance deadline due at 14:00 as a hard statutory constraint.</p>
-            </div>
-            <div class="tile">
-              <span class="ico ai">11:15</span>
-              <h3>Urgent disruption lands</h3>
-              <p>A sudden lift passenger-trap incident occurs at Blk 208. SyncAI immediately triggers an explainable rescheduling proposal: prioritising resident safety, protecting the BCA compliance deadline, and deferring non-statutory estate signage review.</p>
-            </div>
-            <div class="tile">
-              <span class="ico">16:45</span>
-              <h3>Day-end statutory verification</h3>
-              <p>All mandatory statutory inspections are fulfilled. The Estate Manager receives an audit-ready confirmation of completed compliance filings and rebalanced non-urgent work.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="integrations" aria-labelledby="integ-h">
-        <div class="wrap">
-          <div class="section-head">
-            <span class="eyebrow">Architecture &amp; Roadmap</span>
-            <h2 id="integ-h">Microsoft 365 integration roadmap</h2>
-            <p class="lead">Designed for seamless deployment within the EM Services enterprise Microsoft tenant. (All integrations are currently simulated in this prototype.)</p>
-          </div>
-          <div class="grid-3">
-            <div class="tile">
-              <h3>Microsoft Graph API</h3>
-              <p>Bi-directional synchronisation with Microsoft Outlook calendars, Exchange event availability, and Microsoft To Do work orders.</p>
-            </div>
-            <div class="tile">
-              <h3>Microsoft Teams Bot</h3>
-              <p>Adaptive card alerts for high-severity safety incidents, emergency schedule changes, and one-click manager reassignments.</p>
-            </div>
-            <div class="tile">
-              <h3>Power Automate &amp; SharePoint</h3>
-              <p>Automated intake flows connecting Town Council resident feedback portals, contractor reports, and estate documentation archives.</p>
-            </div>
-          </div>
-          <div class="notice" style="margin-top: 24px; text-align: center;">
-            <strong>Prototype transparency note:</strong> This static evaluation prototype simulates Microsoft Graph calendar feeds and Entra ID authentication using client-side mock data. Production deployment will leverage verified Microsoft 365 app registrations.
-          </div>
-        </div>
-      </section>
-
-      <section class="section faq" id="faq" aria-labelledby="faq-h">
-        <div class="wrap">
-          <div class="section-head"><span class="eyebrow">FAQ</span><h2 id="faq-h">Questions we hear a lot</h2></div>
-          <details><summary>Does SyncAI replace our existing tools?</summary><p>No. It sits on top of Microsoft 365. Tasks, meetings and alerts stay in Outlook, Planner and Teams; SyncAI adds the planning and the AI.</p></details>
-          <details><summary>Can the AI move my work without asking?</summary><p>Never. SyncAI drafts plans and suggestions. Only the officer or supervisor can accept them, and every approval is logged.</p></details>
-          <details><summary>Who can see my tasks?</summary><p>You and your supervisor. Officers never see other officers' workload, and absences show only as MC or leave.</p></details>
-          <details><summary>How long does setup take?</summary><p>A pilot team can start in a day: sign in with Microsoft, connect the calendar, and SyncAI builds the first plan from existing tasks.</p></details>
-        </div>
-      </section>
-
-      <section class="section cta-band" id="demo" aria-labelledby="demo-h">
-        <div class="wrap">
-          <div>
-            <span class="eyebrow" style="color: #9fd3ff">Get started</span>
-            <h2 id="demo-h">See SyncAI with your own team's work</h2>
-            <p class="lead">Book a 30-minute walkthrough. We'll show the officer and supervisor views and run a What-If simulation on a typical week.</p>
-            <p class="lead">Or <a href="login.html" style="color: #9fd3ff">sign in to the prototype</a> with a demo account now.</p>
-          </div>
-          <form data-form="demo" aria-labelledby="demo-h">
-            <div class="notice" data-status tabindex="-1" role="status" hidden></div>
-            <div class="field"><label for="d-name">Name <span class="req" aria-hidden="true">*</span></label><input class="input" id="d-name" name="name" autocomplete="name" required /><span class="error-text" aria-live="polite"></span></div>
-            <div class="field"><label for="d-email">Work email <span class="req" aria-hidden="true">*</span></label><input class="input" id="d-email" name="email" type="email" autocomplete="email" required /><span class="error-text" aria-live="polite"></span></div>
-            <div class="field"><label for="d-org">Organisation <span class="req" aria-hidden="true">*</span></label><input class="input" id="d-org" name="org" autocomplete="organization" required /><span class="error-text" aria-live="polite"></span></div>
-            <div class="field"><label for="d-size">Team size</label><select class="select" id="d-size" name="size"><option>1–15 officers</option><option>16–50 officers</option><option>51+ officers</option></select></div>
-            <button class="btn btn-primary btn-lg" type="submit">Request a demo</button>
-          </form>
+      <!-- CTA Band -->
+      <section class="cta-band">
+        <div class="wrap cta-inner">
+          <h2>Smarter priorities. More realistic plans.</h2>
+          <a href="login.html" class="btn-microsoft on-dark">
+            <svg width="20" height="20" viewBox="0 0 21 21" aria-hidden="true">
+              <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+              <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+              <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+              <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+            </svg>
+            Sign in with Microsoft
+          </a>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
-      <div class="wrap">
-        <span>© 2026 SyncAI · Student prototype for EM Services challenge 12i. Fictional data; Microsoft integrations are simulated.</span>
-        <span><a href="login.html">Sign in</a> · <a href="../index.html">Open portal</a> · <a href="status.html">HTTP status codes</a></span>
+      <div class="wrap footer-inner">
+        <div>
+          <a href="index.html" class="brand">
+            <img src="../assets/syncai-logo.png" width="24" height="24" alt="" />
+            <span>SyncAI</span>
+          </a>
+          <p>AI Smart Work Planner for EM Services PS 12i. Your Work. Your Time. In Sync.</p>
+        </div>
+        <p class="footer-note">
+          Prototype demonstration — illustrated with fictional EM Services Town Council records.
+        </p>
       </div>
     </footer>
-    <button class="to-top" id="to-top" type="button" aria-label="Scroll to top" title="Back to top" hidden>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6" /></svg>
+
+    <!-- Scroll to Top Floating Button -->
+    <button type="button" class="scroll-to-top" id="btn-scroll-top" aria-label="Scroll to top" title="Scroll to top">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M10 16V4M4 10l6-6 6 6" />
+      </svg>
     </button>
+    <script>
+      (function() {
+        const btn = document.getElementById('btn-scroll-top');
+        if (btn) {
+          window.addEventListener('scroll', () => {
+            btn.classList.toggle('is-visible', (window.scrollY || document.documentElement.scrollTop) > 240);
+          }, { passive: true });
+          btn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          });
+        }
+      })();
+    </script>
   </body>
 </html>

@@ -548,14 +548,88 @@ function seedNotifications() {
   ];
 }
 
+export function defaultUsers() {
+  return [
+    { id: 'a1', displayName: 'TAN XIU LI, FELICIA', email: '254381c@mymail.nyp.edu.sg', role: 'admin', status: 'active', teams: [] },
+    { id: 's1', displayName: 'Jennifer Ong', email: 'jennifer.ong@towncouncil.gov.sg', role: 'manager', status: 'active', teams: [{ id: 'team-1', name: 'Zone A Operations', kind: 'manager' }, { id: 'team-2', name: 'Zone B Technical', kind: 'manager' }, { id: 'team-3', name: 'Zone C Conservancy', kind: 'manager' }] },
+    { id: 'o1', displayName: 'Aisyah Rahman', email: 'aisyah.rahman@towncouncil.gov.sg', role: 'member', status: 'active', teams: [{ id: 'team-1', name: 'Zone A Operations', kind: 'member' }] },
+    { id: 'o2', displayName: 'Marcus Tan', email: 'marcus.tan@towncouncil.gov.sg', role: 'member', status: 'active', teams: [{ id: 'team-2', name: 'Zone B Technical', kind: 'member' }] },
+    { id: 'o3', displayName: 'Priya Nair', email: 'priya.nair@towncouncil.gov.sg', role: 'member', status: 'active', teams: [{ id: 'team-1', name: 'Zone A Operations', kind: 'member' }] },
+    { id: 'o4', displayName: 'Daniel Lim', email: 'daniel.lim@towncouncil.gov.sg', role: 'member', status: 'active', teams: [{ id: 'team-2', name: 'Zone B Technical', kind: 'member' }] },
+    { id: 'o5', displayName: 'Chua Hui Min', email: 'chua.huimin@towncouncil.gov.sg', role: 'member', status: 'active', teams: [{ id: 'team-3', name: 'Zone C Conservancy', kind: 'member' }] },
+    { id: 'o6', displayName: 'Ravi Kumar', email: 'ravi.kumar@towncouncil.gov.sg', role: 'member', status: 'active', teams: [{ id: 'team-3', name: 'Zone C Conservancy', kind: 'member' }] },
+    { id: 'p1', displayName: 'David Koh', email: 'david.koh@towncouncil.gov.sg', role: 'member', status: 'pending', teams: [] },
+    { id: 'd1', displayName: 'Siti Nurhaliza', email: 'siti.nurhaliza@towncouncil.gov.sg', role: 'member', status: 'disabled', teams: [] },
+  ];
+}
+
+export function defaultTeams() {
+  return [
+    {
+      id: 'team-1',
+      name: 'Zone A Operations',
+      managers: [{ id: 's1', displayName: 'Jennifer Ong', email: 'jennifer.ong@towncouncil.gov.sg' }],
+      members: [
+        { id: 'o1', displayName: 'Aisyah Rahman', email: 'aisyah.rahman@towncouncil.gov.sg', role: 'Property Officer', lastActiveAt: new Date().toISOString() },
+        { id: 'o3', displayName: 'Priya Nair', email: 'priya.nair@towncouncil.gov.sg', role: 'Estate Officer', lastActiveAt: new Date().toISOString() },
+      ],
+    },
+    {
+      id: 'team-2',
+      name: 'Zone B Technical',
+      managers: [{ id: 's1', displayName: 'Jennifer Ong', email: 'jennifer.ong@towncouncil.gov.sg' }],
+      members: [
+        { id: 'o2', displayName: 'Marcus Tan', email: 'marcus.tan@towncouncil.gov.sg', role: 'Property Officer', lastActiveAt: new Date().toISOString() },
+        { id: 'o4', displayName: 'Daniel Lim', email: 'daniel.lim@towncouncil.gov.sg', role: 'Technical Officer', lastActiveAt: new Date().toISOString() },
+      ],
+    },
+    {
+      id: 'team-3',
+      name: 'Zone C Conservancy',
+      managers: [{ id: 's1', displayName: 'Jennifer Ong', email: 'jennifer.ong@towncouncil.gov.sg' }],
+      members: [
+        { id: 'o5', displayName: 'Chua Hui Min', email: 'chua.huimin@towncouncil.gov.sg', role: 'Conservancy Officer', lastActiveAt: new Date().toISOString() },
+        { id: 'o6', displayName: 'Ravi Kumar', email: 'ravi.kumar@towncouncil.gov.sg', role: 'Estate Officer', lastActiveAt: null },
+      ],
+    },
+  ];
+}
+
+export function sampleToDoData() {
+  return {
+    lists: [
+      { id: 'l1', name: 'Tasks (Default)' },
+      { id: 'l2', name: 'Estate Inspections' },
+      { id: 'l3', name: 'Contractor Follow-ups' },
+    ],
+    tasks: {
+      l1: [
+        { id: 'td-1', title: 'Follow up with lift vendor on Blk 208 fault logs', due: dt(TODAY, '12:00'), status: 'inProgress', importance: 'high', done: false },
+        { id: 'td-2', title: 'Prepare water seepage site inspection notes for #05-12', due: dt(TODAY, '17:00'), status: 'notStarted', importance: 'normal', done: false },
+        { id: 'td-3', title: 'Submit weekly contractor coordination summary', due: dt(workDay(1), '17:00'), status: 'notStarted', importance: 'normal', done: false },
+        { id: 'td-4', title: 'Complete monthly workplace safety e-learning module', due: dt(workDay(3), '17:00'), status: 'completed', importance: 'low', done: true },
+      ],
+      l2: [
+        { id: 'td-5', title: 'Blk 208 lift shaft sensory alignment check', due: dt(TODAY, '11:00'), status: 'inProgress', importance: 'high', done: false },
+        { id: 'td-6', title: 'Corridor lighting lux test Blk 214', due: dt(workDay(1), '14:00'), status: 'notStarted', importance: 'normal', done: false },
+      ],
+      l3: [
+        { id: 'td-7', title: 'CleanPro penalty deduction sign-off', due: dt(TODAY, '16:00'), status: 'inProgress', importance: 'high', done: false },
+        { id: 'td-8', title: 'Bin centre resurfacing warranty handover', due: dt(workDay(2), '17:00'), status: 'completed', importance: 'normal', done: true },
+      ],
+    },
+  };
+}
+
 export function createSeedState() {
   return {
     version: DATA_VERSION,
     seededFor: TODAY,
     role: 'team_member',
+    status: 'active',
     currentOfficerId: 'o1',
     supervisor: { id: 's1', name: 'Jennifer Ong', title: 'Estate Manager' },
-    admin: { id: 'a1', name: 'Alex Tan', title: 'System Administrator' },
+    admin: { id: 'a1', name: 'TAN XIU LI, FELICIA', title: 'Town Council Administrator', email: '254381c@mymail.nyp.edu.sg' },
     hq: { id: 'h1', name: 'Lim Wei Ling', title: 'EMS HQ · Estate Operations' },
     council: 'nv',
     settings: {
@@ -566,6 +640,9 @@ export function createSeedState() {
       bufferMin: 10,
       minChunkMin: 30,
     },
+    users: defaultUsers(),
+    teams: defaultTeams(),
+    todo: sampleToDoData(),
     officers: officers(),
     meetings: meetings(),
     tasks: linkProjects(tasks()),
