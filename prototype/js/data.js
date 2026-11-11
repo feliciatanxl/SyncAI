@@ -622,8 +622,7 @@ export function sampleToDoData() {
 }
 
 export function addDemoCases(state) {
-  if (Array.isArray(state.cases)) return state;
-  state.cases = [
+  const seedCases = [
     {
       id: 'case-001', number: 'DEMO-001', caseNumber: 'DEMO-001', title: 'Ceiling seepage at Blk 211', category: 'Resident Feedback',
       status: 'In progress', ownerId: 'o1', location: 'Blk 211', estate: 'Zone A — Blk 211', block: 'Blk 211', unit: '#05-12',
@@ -714,6 +713,33 @@ export function addDemoCases(state) {
       requiresManagerApprovalForClosure: true,
     },
   ];
+
+  if (!Array.isArray(state.cases)) {
+    state.cases = seedCases;
+  } else {
+    const seedMap = new Map(seedCases.map((c) => [c.id, c]));
+    for (const c of state.cases) {
+      const seed = seedMap.get(c.id);
+      if (seed) {
+        if (!c.checkpoints || c.checkpoints.length === 0) c.checkpoints = JSON.parse(JSON.stringify(seed.checkpoints || []));
+        if (!c.blockers || c.blockers.length === 0) c.blockers = JSON.parse(JSON.stringify(seed.blockers || []));
+        if (!c.evidence || c.evidence.length === 0) c.evidence = JSON.parse(JSON.stringify(seed.evidence || []));
+        if (!c.timeline || c.timeline.length === 0) c.timeline = JSON.parse(JSON.stringify(seed.timeline || []));
+        c.estate = seed.estate;
+        c.block = seed.block;
+        c.unit = seed.unit;
+        c.resident ??= seed.resident;
+        c.urgency ??= seed.urgency;
+        c.priority ??= seed.priority;
+        c.taskIds ??= seed.taskIds;
+        c.summary ??= seed.summary;
+        c.slaDue ??= seed.slaDue;
+        c.slaType ??= seed.slaType;
+        c.requiresManagerApprovalForClosure ??= seed.requiresManagerApprovalForClosure;
+        c.caseNumber ??= seed.number;
+      }
+    }
+  }
   const caseByTask = {
     t103: 'case-001', t104: 'case-001', t112: 'case-001',
     t202: 'case-002', t503: 'case-003', t101: 'case-004',

@@ -819,6 +819,28 @@ function setupEvents() {
       return;
     }
 
+    const toggleCp = e.target.closest('[data-action="case-toggle-checkpoint"]');
+    if (toggleCp) {
+      const cid = toggleCp.dataset.case;
+      const cpid = toggleCp.dataset.cp;
+      update((s) => {
+        const c = s.cases?.find((item) => item.id === cid);
+        const cp = c?.checkpoints?.find((item) => item.id === cpid);
+        if (cp) {
+          cp.completed = toggleCp.checked;
+          if (cp.completed) {
+            cp.completedAt = new Date().toISOString();
+            toast(`Checkpoint "${cp.title}" marked completed.`, 'success');
+          } else {
+            cp.completedAt = null;
+            toast(`Checkpoint "${cp.title}" marked pending.`, 'info');
+          }
+        }
+      });
+      renderApp();
+      return;
+    }
+
     const quickRoleBtn = e.target.closest('[data-action="quick-switch-role"]');
     if (quickRoleBtn) {
       switchDemoRole(quickRoleBtn.dataset.role);
