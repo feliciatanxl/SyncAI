@@ -621,8 +621,65 @@ export function sampleToDoData() {
   };
 }
 
+export function addDemoCases(state) {
+  if (Array.isArray(state.cases)) return state;
+  state.cases = [
+    {
+      id: 'case-001', number: 'DEMO-001', title: 'Ceiling seepage at Blk 211', category: 'Resident Feedback',
+      status: 'In progress', ownerId: 'o1', location: 'Blk 211',
+      description: 'A resident reported ceiling seepage. Inspect the affected unit, follow up with the resident and prepare the rectification work order.',
+      responseDue: dt(TODAY, '17:00'), followUpDue: dt(workDay(1), '12:00'),
+    },
+    {
+      id: 'case-002', number: 'DEMO-002', title: 'Refuse chute hopper fault at Blk 310', category: 'Maintenance',
+      status: 'Open', ownerId: 'o2', location: 'Blk 310',
+      description: 'The refuse chute hopper was reported faulty. Inspect the hopper and record the findings.',
+      responseDue: dt(TODAY, '17:00'), followUpDue: null,
+    },
+    {
+      id: 'case-003', number: 'DEMO-003', title: 'Drain obstruction at Blk 405', category: 'Cleaning',
+      status: 'Open', ownerId: 'o5', location: 'Blk 405',
+      description: 'A possible drain obstruction was reported near the block. Confirm the location and extent during the site check.',
+      responseDue: null, followUpDue: null,
+    },
+    {
+      id: 'case-004', number: 'DEMO-004', title: 'Reported lift jolts at Blk 208', category: 'Maintenance',
+      status: 'Open', ownerId: 'o1', location: 'Blk 208',
+      description: 'Residents reported jolts during lift travel. The officer will inspect the lifts with the technician.',
+      responseDue: dt(TODAY, '12:00'), followUpDue: null,
+    },
+  ];
+  const caseByTask = {
+    t103: 'case-001', t104: 'case-001', t112: 'case-001',
+    t202: 'case-002', t503: 'case-003', t101: 'case-004',
+  };
+  for (const task of state.tasks) {
+    if (caseByTask[task.id] && !Object.hasOwn(task, 'caseId')) task.caseId = caseByTask[task.id];
+  }
+  return state;
+}
+
+export function addPlanningDemoData(state) {
+  state.appointments ??= [
+    { id: 'repair-1', title: 'Lift technician joint check', date: TODAY, start: '10:30', end: '12:00', ownerId: 'o1', taskId: 't101', location: 'Blk 208' },
+    { id: 'repair-2', title: 'Resident seepage inspection', date: TODAY, start: '16:00', end: '17:00', ownerId: 'o1', taskId: 't103', location: 'Blk 211' },
+    { id: 'repair-3', title: 'Contractor pump servicing appointment', date: workDay(1), start: '13:30', end: '14:15', ownerId: 'o1', location: 'Blk 214 pump room' },
+    { id: 'repair-4', title: 'Contractor refuse chute repair appointment', date: TODAY, start: '16:15', end: '16:45', ownerId: 'o2', location: 'Blk 310' },
+  ];
+  const tagsByTask = {
+    t101: ['Lift', 'Technician'], t102: ['Contractor', 'Monthly report'],
+    t103: ['Seepage', 'Resident visit'], t104: ['Seepage', 'Resident follow-up'],
+    t105: ['Playground', 'Estate inspection'], t107: ['Lighting', 'Monthly report'],
+    t112: ['Seepage', 'Contractor'], t203: ['Contractor', 'Repainting'], t401: ['Lift', 'Fault'],
+  };
+  for (const task of state.tasks) {
+    if (tagsByTask[task.id]) task.tags ??= [...tagsByTask[task.id]];
+  }
+  return state;
+}
+
 export function createSeedState() {
-  return {
+  return addPlanningDemoData(addDemoCases({
     version: DATA_VERSION,
     seededFor: TODAY,
     role: 'team_member',
@@ -660,5 +717,5 @@ export function createSeedState() {
     reminders: [],
     prefs: { taskView: 'list', sidebarCollapsed: false },
     nextId: 1000,
-  };
+  }));
 }

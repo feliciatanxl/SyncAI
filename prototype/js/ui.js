@@ -241,7 +241,7 @@ export function openModal(content, { wide = false, onClose } = {}) {
   lastFocus = document.activeElement;
   const root = document.getElementById('modal-root');
   root.innerHTML = fmt(html`<div class="modal-backdrop" data-action="modal-close"></div>
-    <div class="modal ${wide ? 'modal-wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="modal-title">${content}</div>`);
+    <div class="modal modal-surface ${wide ? 'modal-wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">${content}</div>`);
   root.hidden = false;
   root._onClose = onClose;
   const first =

@@ -1,7 +1,7 @@
 // Shared application state with localStorage persistence. Every page reads
 // from the same object so dashboards, tasks, plans and simulations agree.
 
-import { createSeedState, DATA_VERSION } from './data.js';
+import { addDemoCases, addPlanningDemoData, createSeedState, DATA_VERSION } from './data.js';
 import { TODAY, NOW } from './time.js';
 
 const STORAGE_KEY = 'syncai.prototype.state';
@@ -27,13 +27,37 @@ export function loadState() {
     storage.ok = false;
     storage.notice = 'Browser storage is unavailable, so changes will not be kept after you close this tab.';
   }
+  if (saved?.version === DATA_VERSION) {
+    // The previous Add task dialog used a four-digit ID and saved a UTC deadline without source metadata.
+    for (const task of saved.tasks || []) {
+      if (!task.source && !task.createdAt && /^t\d{4}$/.test(task.id) && task.due?.endsWith('Z')) {
+        task.manualCapture = true;
+      }
+    }
+  }
   if (saved && saved.version === DATA_VERSION && saved.seededFor === TODAY) {
     if (saved.role === 'officer') saved.role = 'team_member';
     else if (saved.role === 'supervisor' || saved.role === 'hq') saved.role = 'manager';
-    state = saved;
+    const needsDemoData = !Array.isArray(saved.cases) || !Array.isArray(saved.appointments);
+    state = addPlanningDemoData(addDemoCases(saved));
+    if (needsDemoData) persist();
   } else {
     state = createSeedState();
-    if (saved) storage.notice = 'Demo data was refreshed so dates line up with today.';
+    if (saved) {
+      if (saved.version === DATA_VERSION) {
+        if (Array.isArray(saved.cases)) state.cases = saved.cases;
+        if (saved.schedulePreferences) state.schedulePreferences = saved.schedulePreferences;
+        const savedTasks = new Map((saved.tasks || []).map((task) => [task.id, task]));
+        for (const task of state.tasks) {
+          const previous = savedTasks.get(task.id);
+          if (previous && Object.hasOwn(previous, 'caseId')) task.caseId = previous.caseId;
+          if (previous?.tags) task.tags = previous.tags;
+          if (previous?.category) task.category = previous.category;
+        }
+        state.tasks.unshift(...(saved.tasks || []).filter((task) => task.manualCapture));
+      }
+      storage.notice = 'Demo data was refreshed so dates line up with today.';
+    }
     persist();
   }
   return bumpRev(state);
