@@ -1,4 +1,8 @@
-/* SyncAI Public Site & Login Styles — matches client/src/styles/site.css */
+/* ==========================================================================
+   SyncAI — Public Site & Login Stylesheet
+   Directly derived from client/src/styles/site.css
+   ========================================================================== */
+
 :root {
   color-scheme: light dark;
   --ms-blue: #0f6cbd;
@@ -120,8 +124,10 @@ a:hover { text-decoration: underline; }
 .btn-microsoft:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-microsoft.wide { width: 100%; }
 .btn-microsoft.on-dark { border-color: #fff; }
+
 .btn-primary { background: var(--colorBrandBackground); color: var(--colorNeutralForegroundOnBrand); }
 .btn-primary:hover { background: var(--colorBrandBackgroundHover); text-decoration: none; }
+
 .btn-ghost { color: var(--colorNeutralForeground1); border-color: var(--colorNeutralStroke1); background: transparent; }
 .btn-ghost:hover { background: var(--colorNeutralBackground1Hover); text-decoration: none; }
 
@@ -217,7 +223,7 @@ a:hover { text-decoration: underline; }
 .login-foot { display: flex; gap: 10px; align-items: flex-start; margin-top: 20px; font-size: 0.8125rem; color: var(--colorNeutralForeground3); line-height: 1.4; }
 .login-foot svg { flex: none; width: 16px; height: 16px; margin-top: 3px; }
 
-/* Demo Role Picker inside login */
+/* Demo Role Picker Modal inside login */
 .role-picker {
   margin-top: 20px; padding: 20px; border-radius: var(--radius);
   background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2);
