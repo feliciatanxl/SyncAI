@@ -2,7 +2,7 @@
 // from the same object so dashboards, tasks, plans and simulations agree.
 
 import { createSeedState, DATA_VERSION } from './data.js';
-import { TODAY, NOW } from './time.js';
+import { TODAY, NOW, dt, workDay } from './time.js';
 
 const STORAGE_KEY = 'syncai.prototype.state';
 
@@ -265,6 +265,10 @@ export function officerName(s, id) {
   return getOfficer(s, id)?.name || 'Unassigned';
 }
 
+export function getTasks(s) {
+  return s.tasks || [];
+}
+
 export function getTask(s, id) {
   return s.tasks.find((t) => t.id === id);
 }
@@ -348,6 +352,7 @@ export function createApprovalRequest(s, req) {
     id,
     requestType: req.requestType || 'schedule_adjustment',
     taskId: req.taskId,
+    caseId: req.caseId || null,
     taskTitle: req.taskTitle || getTask(s, req.taskId)?.title || 'Task',
     requesterId: req.requesterId || s.currentOfficerId,
     requesterName: req.requesterName || officerName(s, req.requesterId || s.currentOfficerId),
@@ -448,6 +453,29 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
       }
     }
 
+    // Apply approved case reassignment
+    if (approval.caseId) {
+      const c = getCase(s, approval.caseId);
+      if (c) {
+        const targetOfficer = approval.proposedOwnerId || approval.suggestedAssigneeId;
+        if (targetOfficer && targetOfficer !== c.ownerId) {
+          const prevOwnerName = officerName(s, c.ownerId);
+          const newOwnerName = officerName(s, targetOfficer);
+          c.ownerId = targetOfficer;
+          c.timeline = c.timeline || [];
+          c.timeline.push({
+            id: `ev-appr-${nextId(s, '')}`,
+            at: NOW,
+            type: 'approval',
+            title: `Reassignment approved by ${reviewer}`,
+            summary: `Operational case ownership transferred from ${prevOwnerName} to ${newOwnerName}. Note: ${approval.decision}`,
+            source: 'Manager Approvals',
+            actor: reviewer,
+          });
+        }
+      }
+    }
+
     logActivity(s, `Approved request (${approval.id}) for ${approval.taskTitle}: ${approval.decision}`, reviewer);
 
     addNotification(s, {
@@ -481,6 +509,22 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
     });
 
     logActivity(s, `Declined request (${approval.id}) for ${approval.taskTitle}: ${approval.decision}`, reviewer);
+
+    if (approval.caseId) {
+      const c = getCase(s, approval.caseId);
+      if (c) {
+        c.timeline = c.timeline || [];
+        c.timeline.push({
+          id: `ev-rej-${nextId(s, '')}`,
+          at: NOW,
+          type: 'approval',
+          title: `Reassignment request declined by ${reviewer}`,
+          summary: `Request declined: ${approval.decision}`,
+          source: 'Manager Approvals',
+          actor: reviewer,
+        });
+      }
+    }
 
     addNotification(s, {
       type: 'approval_request',
@@ -572,4 +616,360 @@ export function addNotification(s, notif) {
 export function markNotificationRead(s, id) {
   const notif = (s.notifications || []).find((n) => n.id === id);
   if (notif) notif.read = true;
+}
+
+// ============================================================================
+// Category C: Case Action Centre & Operational Loose-End Intelligence
+// ============================================================================
+
+export function getCases(s) {
+  return s.cases || [];
+}
+
+export function getCase(s, id) {
+  if (!id) return null;
+  return (s.cases || []).find((c) => c.id === id || c.caseNumber === id);
+}
+
+/**
+ * Role-aware case visibility:
+ * - Admin: Minimal governance summary (zero confidential resident content)
+ * - Manager: Authorized team cases (Zone A/B/C officers) + own cases
+ * - Member: Own assigned cases only (strict isolation)
+ * - Pending/Disabled: No operational access
+ */
+export function visibleCases(s) {
+  const all = getCases(s);
+  if (s.status !== 'active') return [];
+  if (isAdmin(s)) {
+    // Admin only sees governance metadata, no operational resident cases
+    return [];
+  }
+  if (isManager(s)) {
+    // Manager sees all cases for officers in supervised teams
+    const supervisedOfficerIds = new Set(['o1', 'o2', 'o3', 'o4', 'o5', 'o6', s.supervisor?.id || 's1']);
+    return all.filter((c) => supervisedOfficerIds.has(c.ownerId));
+  }
+  // Member: strict case isolation
+  return all.filter((c) => c.ownerId === s.currentOfficerId);
+}
+
+/**
+ * Operational Loose-End Detector — Signature Feature
+ * Deterministic rule-based engine detecting unresolved operational commitments
+ * before tasks become overdue or slip through the cracks.
+ */
+export function detectLooseEnds(s, c) {
+  if (!c) return [];
+  const findings = [];
+  const checkpoints = c.checkpoints || [];
+  const evidence = c.evidence || [];
+  const blockers = c.blockers || [];
+
+  // Rule 1: Promised resident follow-up is outstanding
+  const residentCp = checkpoints.find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.includes('resident'));
+  const openFeedbackTask = (c.taskIds || []).map((tid) => getTask(s, tid)).find((t) => t && t.category === 'Resident Feedback' && t.status !== 'done');
+  if (residentCp || openFeedbackTask) {
+    findings.push({
+      ruleId: 'resident_followup',
+      severity: 'warning',
+      title: 'Outstanding Resident Callback',
+      explanation: 'Promised resident update call has not been recorded following the initial site inspection.',
+      sourceEvidence: openFeedbackTask ? `Task ${openFeedbackTask.id} (${openFeedbackTask.title})` : `Checkpoint: ${residentCp?.title || 'Resident Callback'}`,
+      suggestedAction: `Contact resident ${c.resident?.name || 'tenant'} to provide investigation update and record callback.`,
+      dueDate: openFeedbackTask?.due || residentCp?.due || c.slaDue,
+      status: 'confirmed',
+    });
+  }
+
+  // Rule 2: Contractor confirmation or quotation still pending past threshold (>24h)
+  const contractorBlocker = blockers.find((b) => !b.resolved && (b.category === 'Awaiting contractor' || (b.title && b.title.toLowerCase().includes('contractor'))));
+  const contractorCp = checkpoints.find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.toLowerCase().includes('contractor'));
+  if (contractorBlocker || contractorCp) {
+    findings.push({
+      ruleId: 'contractor_pending',
+      severity: 'warning',
+      title: 'Contractor Quotation & Scope Pending',
+      explanation: 'Contractor quotation has exceeded the standard 24h estimation turnaround without recorded submission.',
+      sourceEvidence: contractorBlocker ? `${contractorBlocker.sourceRef} (${contractorBlocker.responsibleParty})` : 'Work Order WO-2026-8812',
+      suggestedAction: 'Send automated prompt to term contractor to submit scope quotation.',
+      dueDate: contractorCp?.due || dt(TODAY, '17:00'),
+      status: 'confirmed',
+    });
+  }
+
+  // Rule 3: Scheduled inspection lacks documented findings / outcome report
+  const outcomeCp = checkpoints.find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.includes('findings'));
+  if (outcomeCp) {
+    findings.push({
+      ruleId: 'inspection_outcome',
+      severity: 'critical',
+      title: 'Site Inspection Lacks Documented Findings',
+      explanation: 'Scheduled joint inspection took place, but mandatory statutory outcome findings have not been uploaded.',
+      sourceEvidence: `Case ${c.caseNumber} / Checkpoint: ${outcomeCp.title}`,
+      suggestedAction: 'Upload certified technician service log slip and endorse inspection findings.',
+      dueDate: outcomeCp.due || dt(TODAY, '14:00'),
+      status: 'confirmed',
+    });
+  }
+
+  // Rule 4: Case has not received a meaningful update within illustrative threshold (>48h)
+  const staleCp = checkpoints.find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.includes('>48h'));
+  const lastEvent = c.timeline && c.timeline.length ? c.timeline[c.timeline.length - 1] : null;
+  const lastAt = lastEvent?.at || c.reportedAt;
+  const isStale = Boolean(staleCp || (c.status === 'in_progress' && lastAt && (lastAt.includes(workDay(-2)) || lastAt.includes(workDay(-3)) || lastAt.includes(workDay(-4)) || lastAt.includes(workDay(-5)))));
+  if (isStale) {
+    findings.push({
+      ruleId: 'stale_case',
+      severity: 'warning',
+      title: 'Stale Case Activity (>48h Inactive)',
+      explanation: 'High-urgency open case has received no progress log or site inspection note in the last 48 hours.',
+      sourceEvidence: `Last recorded update: ${c.timeline && c.timeline.length ? c.timeline[c.timeline.length - 1].title : 'Case Intake'}`,
+      suggestedAction: 'Request status confirmation from attending property officer.',
+      dueDate: c.slaDue,
+      status: 'confirmed',
+    });
+  }
+
+  // Rule 5: Required supporting record or evidence is missing
+  const missingEvi = evidence.filter((e) => e.missing && e.requiredForClosure);
+  if (missingEvi.length > 0) {
+    findings.push({
+      ruleId: 'missing_evidence',
+      severity: 'warning',
+      title: 'Required Supporting Evidence Missing',
+      explanation: 'Mandatory technical records required by Town Council compliance standards are unattached.',
+      sourceEvidence: missingEvi.map((e) => e.title).join(', '),
+      suggestedAction: 'Request mandatory photo/document attachments before proceeding to rectification.',
+      dueDate: c.slaDue,
+      status: 'confirmed',
+    });
+  }
+
+  // Rule 6: Closure requested with incomplete checkpoints or unapproved exceptions
+  const unclosedCp = checkpoints.filter((cp) => !cp.completed && cp.requiredForClosure);
+  if (c.status === 'ready_for_closure' && unclosedCp.length > 0) {
+    findings.push({
+      ruleId: 'unresolved_closure',
+      severity: 'critical',
+      title: 'Closure Requested with Incomplete Checkpoints',
+      explanation: 'Case is marked ready for closure but prerequisite checkpoints remain incomplete.',
+      sourceEvidence: unclosedCp.map((cp) => cp.title).join('; '),
+      suggestedAction: 'Satisfy all mandatory closure checklist items or obtain authorised exception.',
+      dueDate: c.slaDue,
+      status: 'confirmed',
+    });
+  }
+
+  // Rule 7: Reassignment without completed handover acknowledgement
+  if (c.handover && c.handover.status === 'pending_acknowledgement') {
+    findings.push({
+      ruleId: 'pending_handover',
+      severity: 'warning',
+      title: 'Pending Assignment Handover Sign-off',
+      explanation: 'Case was reallocated to another officer, but the receiving officer has not acknowledged the handover brief.',
+      sourceEvidence: `Handover from ${officerName(s, c.handover.fromOfficerId)} to ${officerName(s, c.handover.toOfficerId)} (${c.handover.reason || 'Workload adjustment'})`,
+      suggestedAction: 'Receiving officer must review documented commitments and acknowledge handover.',
+      dueDate: dt(TODAY, '11:30'),
+      status: 'confirmed',
+    });
+  }
+
+  // Rule 8: Documented appointment approaching without confirmation
+  const unconfirmedApt = checkpoints.find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.toLowerCase().includes('appointment'));
+  const aptTask = (c.taskIds || []).map((tid) => getTask(s, tid)).find((t) => t && t.appointmentTime && t.status !== 'done');
+  if (unconfirmedApt || aptTask) {
+    findings.push({
+      ruleId: 'unconfirmed_appointment',
+      severity: 'warning',
+      title: 'Upcoming Appointment Lacks Confirmation',
+      explanation: 'Resident unit repair appointment is scheduled within 24 hours without recorded tenant access confirmation.',
+      sourceEvidence: aptTask ? `Task ${aptTask.id} (${aptTask.appointmentTime})` : `Appointment: ${unconfirmedApt?.due ? unconfirmedApt.due.slice(0, 16) : 'Upcoming'} (${c.resident?.contact || 'Resident'})`,
+      suggestedAction: 'Send SMS/Call resident to verify home access availability.',
+      dueDate: aptTask?.due || unconfirmedApt?.due || dt(TODAY, '17:00'),
+      status: 'confirmed',
+    });
+  }
+
+  return findings.map((f) => ({
+    ...f,
+    caseId: c.id,
+    caseNumber: c.caseNumber,
+    caseTitle: c.title,
+    caseItem: c,
+  }));
+}
+
+/**
+ * Closure Readiness Checker
+ * Evaluates whether all mandatory prerequisites are satisfied before marking complete.
+ */
+export function checkClosureReadiness(s, c) {
+  if (!c) return { isReady: false, unresolvedItems: ['Case record not found.'] };
+
+  const checkpoints = c.checkpoints || [];
+  const evidence = c.evidence || [];
+  const blockers = c.blockers || [];
+  const unresolvedItems = [];
+
+  // 1. Unresolved blockers
+  const activeBlockers = blockers.filter((b) => !b.resolved);
+  if (activeBlockers.length > 0) {
+    unresolvedItems.push(`Active blocker: ${activeBlockers[0].title}`);
+  }
+
+  // 2. Missing required evidence
+  const missingEvi = evidence.filter((e) => e.missing && e.requiredForClosure);
+  if (missingEvi.length > 0) {
+    unresolvedItems.push(`Missing required evidence: ${missingEvi.map((e) => e.title).join(', ')}`);
+  }
+
+  // 3. Unresolved required checkpoints
+  const incompleteCp = checkpoints.filter((cp) => !cp.completed && cp.requiredForClosure);
+  incompleteCp.forEach((cp) => {
+    unresolvedItems.push(`Incomplete prerequisite: ${cp.title}${cp.requiresManager ? ' (Requires Manager Sign-off)' : ''}`);
+  });
+
+  // 4. Loose-end critical alerts
+  const looseEnds = detectLooseEnds(s, c);
+  const criticalEnds = looseEnds.filter((l) => l.severity === 'critical');
+  criticalEnds.forEach((ce) => {
+    unresolvedItems.push(`Critical loose-end: ${ce.title}`);
+  });
+
+  return {
+    isReady: unresolvedItems.length === 0,
+    inspectionRecorded: !checkpoints.some((cp) => cp.id.includes('inspection') && !cp.completed),
+    evidenceVerified: missingEvi.length === 0,
+    contractorVerified: !checkpoints.some((cp) => cp.title.toLowerCase().includes('contractor') && !cp.completed),
+    residentCompleted: !checkpoints.some((cp) => cp.title.toLowerCase().includes('resident') && !cp.completed),
+    managerApproved: !checkpoints.some((cp) => cp.requiresManager && !cp.completed),
+    unresolvedItems,
+  };
+}
+
+/**
+ * AI-Ready Handover & Case Brief Generator
+ * Deterministic template simulating synthesized case intelligence from factual records.
+ */
+export function generateCaseBrief(s, c) {
+  if (!c) return 'No case selected.';
+  const officer = officerName(s, c.ownerId);
+  const looseEnds = detectLooseEnds(s, c);
+  const readiness = checkClosureReadiness(s, c);
+  const completedCp = (c.checkpoints || []).filter((cp) => cp.completed).map((cp) => cp.title);
+  const pendingCp = (c.checkpoints || []).filter((cp) => !cp.completed).map((cp) => cp.title);
+  const activeBlockers = (c.blockers || []).filter((b) => !b.resolved);
+
+  return [
+    `=== SIMULATED CASE BRIEF — GENERATED FROM FICTIONAL CASE DATA ===`,
+    `Case Reference: ${c.caseNumber} | Title: ${c.title}`,
+    `Category: ${c.category} | Location: ${c.estate} (Unit: ${c.unit})`,
+    `Assigned Property Officer: ${officer} (Zone A Operations)`,
+    ``,
+    `[CURRENT STATUS]`,
+    `Status: ${c.status.toUpperCase()} | Urgency: ${c.urgency} | SLA: ${c.slaType} (Due: ${c.slaDue})`,
+    ``,
+    `[EXECUTIVE SUMMARY]`,
+    c.summary || 'Operational estate case under active investigation.',
+    ``,
+    `[WORK COMPLETED]`,
+    completedCp.length > 0 ? completedCp.map((t) => `✓ ${t}`).join('\n') : '• Case reported and initial triage logged.',
+    ``,
+    `[OUTSTANDING COMMITMENTS & LOOSE ENDS] (${looseEnds.length} detected)`,
+    looseEnds.length > 0
+      ? looseEnds.map((l) => `! [${l.severity.toUpperCase()}] ${l.title}: ${l.suggestedAction} (Evidence: ${l.sourceEvidence})`).join('\n')
+      : '• All documented follow-up commitments are currently on track.',
+    ``,
+    `[DOCUMENTED BLOCKERS]`,
+    activeBlockers.length > 0
+      ? activeBlockers.map((b) => `• ${b.title} [Responsible: ${b.responsibleParty}]`).join('\n')
+      : '• No active blockers recorded.',
+    ``,
+    `[CLOSURE READINESS CHECK]`,
+    readiness.isReady
+      ? '✓ All checkpoints satisfied. Case is eligible for formal closure.'
+      : `⚠ Closure blocked by ${readiness.unresolvedItems.length} requirement(s):\n${readiness.unresolvedItems.map((u) => `  - ${u}`).join('\n')}`,
+    ``,
+    `[RECOMMENDED NEXT ACTIONS]`,
+    looseEnds.length > 0 ? `1. ${looseEnds[0].suggestedAction}` : '1. Continue scheduled routine monitoring.',
+    `2. Open Smart Planner to align follow-up blocks with officer calendar buffer.`,
+    `3. If schedule conflict arises, run Ripple Intelligence to evaluate alternatives before reassignment.`,
+    ``,
+    `Source: SyncAI Case Action Centre · Deterministic Prototype Simulator`,
+  ].join('\n');
+}
+
+/**
+ * Close a case with readiness validation.
+ */
+export function closeCase(s, caseId, actor = null) {
+  const c = getCase(s, caseId);
+  if (!c) return { success: false, error: 'Case not found.' };
+
+  const currentActor = actor || actorName(s);
+  const readiness = checkClosureReadiness(s, c);
+
+  // If not ready and not manager exception, block closure
+  if (!readiness.isReady && !isManager(s)) {
+    return {
+      success: false,
+      error: `Cannot close case: ${readiness.unresolvedItems[0] || 'Prerequisite checkpoints incomplete.'}`,
+      unresolved: readiness.unresolvedItems,
+    };
+  }
+
+  c.status = 'closed';
+  c.closedAt = NOW;
+  c.closedBy = currentActor;
+  c.timeline ||= [];
+  c.timeline.push({
+    id: `ev-close-${nextId(s, '')}`,
+    at: NOW,
+    type: 'closure',
+    title: `Case closed by ${currentActor}`,
+    summary: readiness.isReady
+      ? 'All closure readiness checklist requirements verified and satisfied.'
+      : `Closed with authorised manager exception: ${readiness.unresolvedItems.join(', ')}`,
+    source: 'Closure Readiness Engine',
+    actor: currentActor,
+  });
+
+  logActivity(s, `Closed case ${c.caseNumber} (${c.title})`, currentActor);
+  return { success: true, case: c };
+}
+
+/**
+ * Submit reassignment request for a case.
+ * Connected directly to the Approvals & Audit workflow!
+ */
+export function requestCaseReassignment(s, caseId, targetOfficerId, reason = '') {
+  const c = getCase(s, caseId);
+  if (!c) return null;
+
+  const primaryTaskId = (c.taskIds && c.taskIds[0]) || null;
+  const currentOfficer = officerName(s, c.ownerId);
+  const targetOfficer = officerName(s, targetOfficerId);
+
+  const approval = createApprovalRequest(s, {
+    requestType: 'reassign',
+    taskId: primaryTaskId,
+    taskTitle: `Reassign ${c.caseNumber}: ${c.title}`,
+    caseId: c.id,
+    proposedOwnerId: targetOfficerId,
+    reason: reason || `Workload adjustment / emergency case reassignment from ${currentOfficer} to ${targetOfficer}.`,
+  });
+
+  c.timeline ||= [];
+  c.timeline.push({
+    id: `ev-reassign-req-${nextId(s, '')}`,
+    at: NOW,
+    type: 'assignment',
+    title: `Reassignment requested to ${targetOfficer}`,
+    summary: reason || `Transfer requested from ${currentOfficer} to ${targetOfficer}. Awaiting Estate Manager approval.`,
+    source: 'Case Action Centre',
+    actor: actorName(s),
+  });
+
+  return approval;
 }

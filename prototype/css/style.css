@@ -1124,6 +1124,120 @@ td.cell-risk,
 }
 
 /* ==========================================================================
+   Case Action Centre & Operational Loose-End Detector Styles
+   ========================================================================== */
+
+.view-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: var(--colorNeutralBackground3);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.view-toggle .btn-icon {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--colorNeutralForeground2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.view-toggle .btn-icon:hover {
+  background: var(--colorNeutralBackground1Hover);
+  color: var(--colorNeutralForeground1);
+}
+
+.view-toggle .btn-icon.is-active {
+  background: var(--colorNeutralBackground1);
+  color: var(--colorBrandForeground1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.radar-panel {
+  border-left: 4px solid var(--colorPaletteMarigoldBorderActive) !important;
+  background: var(--colorNeutralBackground1);
+}
+
+.radar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 14px;
+}
+
+.loose-end-card {
+  border: 1px solid var(--colorPaletteMarigoldBorderActive);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--colorNeutralBackground1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.loose-end-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: var(--colorPaletteMarigoldForeground2);
+}
+
+.loose-end-card.is-critical {
+  border-color: var(--colorPaletteRedBorderActive);
+  background: #fffdfd;
+}
+
+.loose-end-card.is-critical:hover {
+  border-color: var(--colorPaletteRedForeground1);
+}
+
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.kanban-col {
+  background: var(--colorNeutralBackground2);
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 380px;
+}
+
+.kanban-case-card {
+  background: var(--colorNeutralBackground1);
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--shadow8);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.kanban-case-card:hover,
+.kanban-case-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--colorBrandStroke1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  outline: none;
+}
+
+/* ==========================================================================
    Responsive Tier Breakdown:
    - 1180px: Laptop stat-grid & simulator adaptation
    - 1100px: Portal grid & USP stack

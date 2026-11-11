@@ -320,6 +320,9 @@ function renderTaskRow(s, t, mgr) {
         ${t.location
           ? html`<span class="small muted" style="display: flex; align-items: center; gap: 4px; margin-top: 3px;">${icon('pin', 12)} ${t.location}</span>`
           : ''}
+        ${t.caseId
+          ? html`<button type="button" class="tag tag-brand small" data-action="nav-to-case" data-case="${t.caseId}" style="cursor: pointer; margin-top: 3px; border: 1px solid var(--colorBrandStroke2); background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-family: monospace; font-weight: 600;" title="View linked case in Case Action Centre">${icon('cases', 12)} ${t.caseId}</button>`
+          : ''}
         ${t.appointmentTime
           ? html`<span class="tag tag-brand small" style="margin-top: 4px;">${t.appointmentTime}</span>`
           : ''}

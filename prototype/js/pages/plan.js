@@ -126,6 +126,9 @@ export default {
                       ${b.location
                         ? html`<span class="small muted" style="display: block;">${icon('pin', 12)} ${b.location}</span>`
                         : ''}
+                      ${b.task?.caseId
+                        ? html`<button type="button" class="tag tag-brand small" data-action="nav-to-case" data-case="${b.task.caseId}" style="cursor: pointer; margin-top: 3px; border: 1px solid var(--colorBrandStroke2); background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-family: monospace; font-weight: 600;" title="View Case ${b.task.caseId}">${icon('cases', 12)} ${b.task.caseId}</button>`
+                        : ''}
                     </div>
                     <div>
                       <span class="tag ${b.kind === 'meeting' ? 'tag-brand' : b.task?.safety ? 'tag-danger' : b.task?.statutory ? 'tag-warning' : 'tag-neutral'}">

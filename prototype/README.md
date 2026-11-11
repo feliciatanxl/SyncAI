@@ -141,6 +141,7 @@ node prototype/tests/rebuild-user-journey.test.mjs
 ```
 
 ### Test Coverage Summary:
+- `cases.test.mjs`: Validates Category C Case Action Centre, role-based case isolation, 8-rule deterministic Loose-End Detector, Case Journey timeline, Closure Readiness checker, AI Case Brief generator, and cross-workstream Approvals & Smart Planner sync.
 - `rules.test.mjs`: Validates 4-tier client priority scoring, safety non-negotiables, repeat complaint zero-weighting, and capacity checks.
 - `ripple.test.mjs`: Tests dependency cascade propagation, downstream impact scoring, and 3-alternative generation.
 - `client-requirements.test.mjs`: Verifies appointment window protection, statutory deadline enforcement, and self-approval prevention.

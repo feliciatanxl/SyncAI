@@ -156,11 +156,13 @@ function tasks() {
       completedAt: extra.completedAt || null,
       actual: extra.actual || null,
       projectId: extra.projectId || null,
+      caseId: extra.caseId || null,
       checklist: extra.checklist || [],
     });
 
   // Aisyah Rahman (o1) — the demo officer
   T('t101', 'o1', 'Lift inspection — Blk 208 (Lifts A & B)', 'Inspection', 'High', TODAY, '12:00', 1.5, {
+    caseId: 'CASE-2026-0819',
     safety: true,
     location: 'Blk 208',
     source: 'Planner',
@@ -179,6 +181,7 @@ function tasks() {
     description: 'Check KPI attainment and penalty items before the coordination meeting.',
   });
   T('t103', 'o1', 'Site check: ceiling seepage at Blk 211 #05-12', 'Inspection', 'High', TODAY, '17:00', 1, {
+    caseId: 'CASE-2026-0814',
     source: 'Outlook',
     location: 'Blk 211',
     impact: 'high',
@@ -190,6 +193,7 @@ function tasks() {
     description: 'Flagged email from resident. Determine if the source is the unit above or common pipe.',
   });
   T('t104', 'o1', 'Resident follow-up call: Blk 211 seepage', 'Resident Feedback', 'Medium', workDay(1), '12:00', 0.75, {
+    caseId: 'CASE-2026-0814',
     dependsOn: ['t103'],
     location: 'Phone',
     impact: 'high',
@@ -197,6 +201,7 @@ function tasks() {
     slaType: 'Resident Follow-up SLA (next working day)',
   });
   T('t112', 'o1', 'Submit contractor rectification work-order: Blk 211 seepage', 'Contractor', 'Medium', workDay(2), '17:00', 1.5, {
+    caseId: 'CASE-2026-0814',
     dependsOn: ['t104'],
     location: 'Office',
     slaDue: dt(workDay(2), '17:00'),
@@ -206,9 +211,10 @@ function tasks() {
   });
   T('t105', 'o1', 'Inspect playground equipment — Blk 215', 'Inspection', 'Medium', workDay(1), '17:00', 2, { safety: true, source: 'Planner', location: 'Blk 215 playground' });
   T('t106', 'o1', 'Verify corridor cleaning complaint — Blk 209', 'Cleaning', 'Medium', workDay(2), '17:00', 0.75, { location: 'Blk 209', complaints: 6, description: 'Six calls this week, mostly from one resident. Verify on site; the number of calls alone does not make it urgent.' });
-  T('t107', 'o1', 'Compile common-area lighting defect summary', 'Admin', 'Low', workDay(3), '17:00', 2, { source: 'To Do', location: 'Office' });
+  T('t107', 'o1', 'Compile common-area lighting defect summary', 'Admin', 'Low', workDay(3), '17:00', 2, { caseId: 'CASE-2026-0822', source: 'To Do', location: 'Office' });
   T('t108', 'o1', 'Update estate maintenance log on SharePoint', 'Admin', 'Low', workDay(4), '17:00', 1, { location: 'Office' });
   T('t111', 'o1', 'Submit funding claim — Blk 214 lighting upgrade', 'Admin', 'Medium', workDay(2), '12:00', 1.5, {
+    caseId: 'CASE-2026-0822',
     statutory: true,
     source: 'SharePoint',
     location: 'Office',
@@ -221,6 +227,7 @@ function tasks() {
   T('t109', 'o1', 'Lift inspection — Blk 212 (Lift C)', 'Inspection', 'High', workDay(3), '17:00', 1.5, { safety: true, location: 'Blk 212', source: 'Planner' });
   T('t110', 'o1', 'Inspect lift motor room access — Blk 213', 'Inspection', 'Medium', workDay(4), '17:00', 1, { safety: true, location: 'Blk 213', source: 'Planner' });
   T('t113', 'o1', 'OCC Alert: Fire alarm false trigger reset check — Blk 207', 'Inspection', 'High', TODAY, '15:00', 1, {
+    caseId: 'CASE-2026-0830',
     safety: true,
     location: 'Blk 207',
     source: 'OCC (Mock)',
@@ -232,6 +239,7 @@ function tasks() {
   // Marcus Tan (o2) — overloaded
   T('t201', 'o2', 'Submit defect rectification report — Blk 305', 'Admin', 'High', workDay(-1), '17:00', 1.5, { status: 'in_progress', spent: 0.5, location: 'Office', source: 'Planner' });
   T('t202', 'o2', 'Inspect refuse chute hopper — Blk 310', 'Inspection', 'High', TODAY, '17:00', 1.5, {
+    caseId: 'CASE-2026-0825',
     safety: true,
     location: 'Blk 310',
     slaDue: dt(TODAY, '17:00'),
@@ -243,7 +251,7 @@ function tasks() {
   T('t204', 'o2', 'Respond to resident petition on car park lighting', 'Resident Feedback', 'Medium', workDay(1), '12:00', 1.5, { impact: 'high', location: 'Office' });
   T('t205', 'o2', 'Check cleaning contractor attendance records', 'Cleaning', 'Medium', workDay(1), '17:00', 1.5, { location: 'Office', source: 'To Do' });
   T('t206', 'o2', 'Prepare repainting progress update for committee', 'Admin', 'Medium', workDay(2), '12:00', 2.5, { dependsOn: ['t203'], location: 'Office' });
-  T('t207', 'o2', 'Inspect roof waterproofing works — Blk 318', 'Inspection', 'High', workDay(2), '17:00', 2, { safety: true, location: 'Blk 318', consequence: 'Delayed waterproofing allows rainwater ponding to corrode reinforcement rebar across top floor units.' });
+  T('t207', 'o2', 'Inspect roof waterproofing works — Blk 318', 'Inspection', 'High', workDay(2), '17:00', 2, { caseId: 'CASE-2026-0834', safety: true, location: 'Blk 318', consequence: 'Delayed waterproofing allows rainwater ponding to corrode reinforcement rebar across top floor units.' });
   T('t208', 'o2', 'Verify pest control treatment — Blk 306 bin centre', 'Cleaning', 'Low', workDay(3), '17:00', 1, { location: 'Blk 306' });
 
   // Priya Nair (o3) — balanced, on leave later this week
@@ -255,6 +263,7 @@ function tasks() {
 
   // Daniel Lim (o4) — technical, busy
   T('t401', 'o4', 'Lift fault investigation — Blk 322 Lift C', 'Maintenance', 'Critical', TODAY, '13:00', 2.5, {
+    caseId: 'CASE-2026-0841',
     safety: true,
     status: 'in_progress',
     spent: 0.5,
@@ -621,6 +630,375 @@ export function sampleToDoData() {
   };
 }
 
+export function defaultCases() {
+  return [
+    {
+      id: 'CASE-2026-0814',
+      caseNumber: 'CASE-2026-0814',
+      title: 'Ceiling seepage at Blk 211 #05-12',
+      category: 'Water Seepage',
+      estate: 'Zone A — Blk 211',
+      block: 'Blk 211',
+      unit: '#05-12',
+      ownerId: 'o1',
+      teamId: 'team-1',
+      status: 'in_progress',
+      urgency: 'High',
+      priority: 'High',
+      reportedAt: dt(workDay(-3), '14:20'),
+      slaDue: dt(TODAY, '17:00'),
+      slaType: 'Resident Feedback SLA (24h response window)',
+      resident: {
+        name: 'Mrs. Tan (Fictional Resident)',
+        contact: '9123 **** (Masked for Privacy)',
+        email: 'tan.blk211@fictional.sg',
+        unit: 'Blk 211 #05-12'
+      },
+      taskIds: ['t103', 't104', 't112'],
+      summary: 'Persistent ceiling water staining and active drip reported in master bedroom. Moisture penetrates structural concrete slab near wet area stack.',
+      blockers: [
+        {
+          id: 'blk-814-1',
+          title: 'Specialised thermographic moisture camera required',
+          category: 'Awaiting contractor',
+          responsibleParty: 'CleanPro / Waterproofing Specialists Pte Ltd',
+          sourceRef: 'Work Order WO-2026-8812',
+          reportedAt: dt(workDay(-1), '11:00'),
+          resolved: false,
+          impact: 'Cannot determine non-destructive pipe penetration path without thermographic imaging.'
+        }
+      ],
+      checkpoints: [
+        { id: 'cp-814-1', title: 'Resident initial feedback intake & triage', completed: true, completedAt: dt(workDay(-3), '15:00'), actor: 'Aisyah Rahman', requiredForClosure: true },
+        { id: 'cp-814-2', title: 'Site check & visual inspection at #05-12', completed: true, completedAt: dt(TODAY, '16:30'), actor: 'Aisyah Rahman', requiredForClosure: true },
+        { id: 'cp-814-3', title: 'Direct resident callback & update', completed: false, due: dt(workDay(1), '12:00'), actor: 'Aisyah Rahman', requiredForClosure: true, looseEndReason: 'Promised resident update call outstanding following initial site check' },
+        { id: 'cp-814-4', title: 'Contractor quotation & scope verification', completed: false, due: dt(workDay(2), '17:00'), actor: 'CleanPro Contractors', requiredForClosure: true, looseEndReason: 'Contractor formal quotation pending past 24h estimation window' },
+        { id: 'cp-814-5', title: 'Post-rectification moisture re-test', completed: false, requiredForClosure: true },
+        { id: 'cp-814-6', title: 'Resident closure satisfaction sign-off', completed: false, requiredForClosure: true },
+        { id: 'cp-814-7', title: 'Manager closure sign-off', completed: false, requiredForClosure: true, requiresManager: true }
+      ],
+      timeline: [
+        {
+          id: 'ev-814-1',
+          at: dt(workDay(-3), '14:20'),
+          type: 'reported',
+          title: 'Case reported via OneService portal',
+          summary: 'Resident reported water staining and active seepage in master bedroom ceiling.',
+          source: 'OneService (Simulated)',
+          actor: 'System Integration'
+        },
+        {
+          id: 'ev-814-2',
+          at: dt(workDay(-3), '15:00'),
+          type: 'assignment',
+          title: 'Assigned to Zone A Property Officer',
+          summary: 'Case routed to Aisyah Rahman based on Blk 211 zone boundary.',
+          source: 'SyncAI Routing',
+          actor: 'Estate Manager'
+        },
+        {
+          id: 'ev-814-3',
+          at: dt(TODAY, '16:00'),
+          type: 'inspection',
+          title: 'Site inspection conducted at #05-12',
+          summary: 'Visual check confirmed wet patch along structural joint. High moisture meter reading detected.',
+          source: 'Outlook Inspection Visit (t103)',
+          actor: 'Aisyah Rahman'
+        },
+        {
+          id: 'ev-814-4',
+          at: dt(TODAY, '16:45'),
+          type: 'blocker',
+          title: 'Blocker recorded: Specialized thermal camera required',
+          summary: 'Thermographic scan required before contractor can commit repair quote and scope.',
+          source: 'Case Action Log',
+          actor: 'Aisyah Rahman'
+        }
+      ],
+      evidence: [
+        { id: 'evi-814-1', title: 'Initial ceiling water patch photo', type: 'image', uploadedAt: dt(workDay(-3), '14:20'), verified: true, sourceRef: 'OneService Upload #1' },
+        { id: 'evi-814-2', title: 'Thermal moisture scan record', type: 'document', uploadedAt: null, verified: false, missing: true, requiredForClosure: true, sourceRef: 'BCA Form B / Contractor' },
+        { id: 'evi-814-3', title: 'Contractor repair joint work-order', type: 'work_order', uploadedAt: null, verified: false, pending: true, requiredForClosure: true, sourceRef: 'WO-2026-8812' }
+      ],
+      handover: null,
+      requiresManagerApprovalForClosure: true
+    },
+    {
+      id: 'CASE-2026-0819',
+      caseNumber: 'CASE-2026-0819',
+      title: 'Passenger lift jerky stops & juddering — Blk 208 (Lifts A & B)',
+      category: 'Lift Maintenance',
+      estate: 'Zone A — Blk 208',
+      block: 'Blk 208',
+      unit: 'Lifts A & B',
+      ownerId: 'o1',
+      teamId: 'team-1',
+      status: 'in_progress',
+      urgency: 'Critical',
+      priority: 'High',
+      reportedAt: dt(workDay(-2), '08:45'),
+      slaDue: dt(TODAY, '12:00'),
+      slaType: 'Safety SLA (4h BCA compliance)',
+      resident: {
+        name: 'Mr. Lim & 2 other residents',
+        contact: '9845 **** (Masked for Privacy)',
+        email: 'feedback.blk208@fictional.sg',
+        unit: 'Blk 208 Multi-unit'
+      },
+      taskIds: ['t101'],
+      summary: 'Residents reported sudden shuddering and uneven leveling at 4th floor landing. Statutory safety check mandatory under BCA lift regulations.',
+      blockers: [
+        {
+          id: 'blk-819-1',
+          title: 'BCA Form B statutory technician endorsement missing',
+          category: 'Missing evidence',
+          responsibleParty: 'Lift Contractor (Sigma / OTIS Partner)',
+          sourceRef: 'Inspection Ticket L-208',
+          reportedAt: dt(TODAY, '12:30'),
+          resolved: false,
+          impact: 'Cannot certify lift safe for operation without signed technician checklist.'
+        }
+      ],
+      checkpoints: [
+        { id: 'cp-819-1', title: 'Joint technician site inspection', completed: true, completedAt: dt(TODAY, '11:45'), actor: 'Aisyah Rahman', requiredForClosure: true },
+        { id: 'cp-819-2', title: 'BCA Form B statutory findings record', completed: false, due: dt(TODAY, '14:00'), actor: 'Aisyah Rahman', requiredForClosure: true, looseEndReason: 'Inspection scheduled in past lacks documented findings outcome report' },
+        { id: 'cp-819-3', title: 'Lift drive gear recalibration test', completed: false, due: dt(workDay(1), '11:00'), actor: 'Lift Technician', requiredForClosure: true },
+        { id: 'cp-819-4', title: 'Manager statutory compliance sign-off', completed: false, requiredForClosure: true, requiresManager: true }
+      ],
+      timeline: [
+        { id: 'ev-819-1', at: dt(workDay(-2), '08:45'), type: 'reported', title: 'Resident feedback: Lift juddering', summary: 'Multiple residents reported jerky leveling on Lift A.', source: 'Hotline Report', actor: 'Town Council Helpdesk' },
+        { id: 'ev-819-2', at: dt(workDay(-1), '09:00'), type: 'assignment', title: 'Assigned to Aisyah Rahman', summary: 'BCA safety inspection ticket created.', source: 'SyncAI Routing', actor: 'Jennifer Ong' },
+        { id: 'ev-819-3', at: dt(TODAY, '10:30'), type: 'inspection', title: 'Joint site inspection attended', summary: 'Joint inspection with lift maintenance contractor technician.', source: 'Planner (t101)', actor: 'Aisyah Rahman' }
+      ],
+      evidence: [
+        { id: 'evi-819-1', title: 'BCA Form B Checklist', type: 'document', uploadedAt: null, verified: false, missing: true, requiredForClosure: true, sourceRef: 'BCA Lift Safety Act' },
+        { id: 'evi-819-2', title: 'Technician service log slip', type: 'document', uploadedAt: dt(TODAY, '11:50'), verified: true, sourceRef: 'Slip #9921' }
+      ],
+      handover: null,
+      requiresManagerApprovalForClosure: true
+    },
+    {
+      id: 'CASE-2026-0822',
+      caseNumber: 'CASE-2026-0822',
+      title: 'Common-area corridor lighting failure — Blk 214 & 215',
+      category: 'Electrical & Lighting',
+      estate: 'Zone A — Blk 214–215',
+      block: 'Blk 214',
+      unit: 'Corridors L3–L6',
+      ownerId: 'o1',
+      teamId: 'team-1',
+      status: 'in_progress',
+      urgency: 'Medium',
+      priority: 'Medium',
+      reportedAt: dt(workDay(-4), '19:15'),
+      slaDue: dt(workDay(2), '12:00'),
+      slaType: 'Statutory Grant Cut-Off SLA',
+      resident: {
+        name: 'RC Chairman & Residents',
+        contact: '9234 **** (Masked for Privacy)',
+        email: 'rc.zoneA@fictional.sg',
+        unit: 'Blk 214 Residents Committee'
+      },
+      taskIds: ['t107', 't111'],
+      summary: 'Intermittent ballast failure on 4 corridor levels. Co-funding grant claim deadline approaching within 48h.',
+      blockers: [
+        {
+          id: 'blk-822-1',
+          title: 'Funding claim submission requires finalized contractor quote',
+          category: 'Missing evidence',
+          responsibleParty: 'Town Council Electrical Vendor',
+          sourceRef: 'Grant ID #GR-2026-04',
+          reportedAt: dt(workDay(-2), '14:00'),
+          resolved: false,
+          impact: 'Funding claim will lapse if quote not submitted before Town Council cut-off.'
+        }
+      ],
+      checkpoints: [
+        { id: 'cp-822-1', title: 'Corridor lighting preliminary defect audit', completed: true, completedAt: dt(workDay(-3), '16:00'), actor: 'Aisyah Rahman', requiredForClosure: true },
+        { id: 'cp-822-2', title: 'Compile lighting defect summary report', completed: true, completedAt: dt(workDay(-1), '17:00'), actor: 'Aisyah Rahman', requiredForClosure: true },
+        { id: 'cp-822-3', title: 'Submit Town Council funding co-payment claim', completed: false, due: dt(workDay(2), '12:00'), actor: 'Aisyah Rahman', requiredForClosure: true, looseEndReason: 'Co-funding grant deadline approaches without attached contractor quotation' },
+        { id: 'cp-822-4', title: 'Vendor replacement of LED driver ballasts', completed: false, requiredForClosure: true }
+      ],
+      timeline: [
+        { id: 'ev-822-1', at: dt(workDay(-4), '19:15'), type: 'reported', title: 'Flickering corridor lighting reported', summary: 'Multiple fixtures along 3rd and 5th floor corridors failed.', source: 'iFeedback', actor: 'Resident' },
+        { id: 'ev-822-2', at: dt(workDay(-3), '16:00'), type: 'inspection', title: 'Site audit completed', summary: '14 driver units marked for replacement under maintenance scheme.', source: 'Site Walk', actor: 'Aisyah Rahman' }
+      ],
+      evidence: [
+        { id: 'evi-822-1', title: 'Lighting defect survey sheet', type: 'document', uploadedAt: dt(workDay(-3), '16:30'), verified: true, sourceRef: 'Survey #822' },
+        { id: 'evi-822-2', title: 'Contractor quotation quote-LED-214', type: 'quote', uploadedAt: null, verified: false, missing: true, requiredForClosure: true, sourceRef: 'Quote Pending' }
+      ],
+      handover: null,
+      requiresManagerApprovalForClosure: false
+    },
+    {
+      id: 'CASE-2026-0825',
+      caseNumber: 'CASE-2026-0825',
+      title: 'Refuse chute hopper smoke drafting hazard — Blk 310',
+      category: 'Fire Safety',
+      estate: 'Zone B — Blk 310',
+      block: 'Blk 310',
+      unit: '#08 Chute Lobby',
+      ownerId: 'o2',
+      teamId: 'team-2',
+      status: 'in_progress',
+      urgency: 'High',
+      priority: 'High',
+      reportedAt: dt(workDay(-2), '11:00'),
+      slaDue: dt(TODAY, '17:00'),
+      slaType: 'Fire Safety Response SLA',
+      resident: {
+        name: 'Mr. Koh (Fictional Resident)',
+        contact: '9345 **** (Masked for Privacy)',
+        email: 'koh.blk310@fictional.sg',
+        unit: 'Blk 310 #08-04'
+      },
+      taskIds: ['t202'],
+      summary: 'Damaged fire seal on 8th-storey refuse hopper allows smoke drafting during chute fires.',
+      blockers: [],
+      checkpoints: [
+        { id: 'cp-825-1', title: 'Hopper fire seal inspection', completed: true, completedAt: dt(workDay(-1), '14:00'), actor: 'Marcus Tan', requiredForClosure: true },
+        { id: 'cp-825-2', title: 'Tenant repair access appointment confirmation', completed: false, due: dt(workDay(1), '10:00'), actor: 'Marcus Tan', requiredForClosure: true, looseEndReason: 'Repair appointment approaching within 24h lacks tenant confirmation' }
+      ],
+      timeline: [
+        { id: 'ev-825-1', at: dt(workDay(-2), '11:00'), type: 'reported', title: 'Smoke smell from hopper reported', summary: 'Resident reported rubber seal detachment and smoke leakage.', source: 'OneService', actor: 'Resident' }
+      ],
+      evidence: [
+        { id: 'evi-825-1', title: 'Hopper gasket detachment photo', type: 'image', uploadedAt: dt(workDay(-2), '11:15'), verified: true, sourceRef: 'Photo #1' }
+      ],
+      handover: null,
+      requiresManagerApprovalForClosure: false
+    },
+    {
+      id: 'CASE-2026-0830',
+      caseNumber: 'CASE-2026-0830',
+      title: 'OCC Alert: Fire alarm false trigger surge — Blk 207',
+      category: 'Emergency Safety',
+      estate: 'Zone A — Blk 207',
+      block: 'Blk 207',
+      unit: 'Sub-station & Alarm Panel',
+      ownerId: 'o1',
+      teamId: 'team-1',
+      status: 'ready_for_closure',
+      urgency: 'Critical',
+      priority: 'High',
+      reportedAt: dt(TODAY, '12:00'),
+      slaDue: dt(TODAY, '15:00'),
+      slaType: 'OCC Dispatch SLA (3h response)',
+      resident: {
+        name: 'Operations Command Centre (OCC)',
+        contact: '6288 **** (OCC Duty Officer)',
+        email: 'occ.dispatch@emservices.demo',
+        unit: 'Command Centre Feed'
+      },
+      taskIds: ['t113'],
+      summary: 'Electrical surge tripped main break-glass circuit. Physical site verification completed and panel reset.',
+      blockers: [],
+      checkpoints: [
+        { id: 'cp-830-1', title: 'Emergency dispatch to Blk 207', completed: true, completedAt: dt(TODAY, '12:45'), actor: 'Aisyah Rahman', requiredForClosure: true },
+        { id: 'cp-830-2', title: 'Fire alarm panel reset & breaker check', completed: true, completedAt: dt(TODAY, '13:30'), actor: 'Aisyah Rahman', requiredForClosure: true },
+        { id: 'cp-830-3', title: 'Supervisory endorsement by Estate Manager', completed: false, actor: 'Jennifer Ong', requiredForClosure: true, requiresManager: true, looseEndReason: 'Closure requested with required supervisory endorsement unresolved' }
+      ],
+      timeline: [
+        { id: 'ev-830-1', at: dt(TODAY, '12:00'), type: 'reported', title: 'OCC Emergency Dispatch Triggered', summary: 'Break-glass circuit tripped. No fire reported.', source: 'OCC Feed', actor: 'OCC Automated Alert' },
+        { id: 'ev-830-2', at: dt(TODAY, '13:30'), type: 'inspection', title: 'Site verification completed', summary: 'Panel reset successfully. No burning odor or physical defect.', source: 'Aisyah Rahman', actor: 'Aisyah Rahman' }
+      ],
+      evidence: [
+        { id: 'evi-830-1', title: 'Alarm panel normal status readout', type: 'image', uploadedAt: dt(TODAY, '13:35'), verified: true, sourceRef: 'Panel Photo' }
+      ],
+      handover: null,
+      requiresManagerApprovalForClosure: true
+    },
+    {
+      id: 'CASE-2026-0834',
+      caseNumber: 'CASE-2026-0834',
+      title: 'Spalling concrete hazard at external facade — Blk 318',
+      category: 'Structural Safety',
+      estate: 'Zone B — Blk 318',
+      block: 'Blk 318',
+      unit: 'Facade L11–L12',
+      ownerId: 'o2',
+      teamId: 'team-2',
+      status: 'ready_for_closure',
+      urgency: 'High',
+      priority: 'High',
+      reportedAt: dt(workDay(-5), '10:00'),
+      slaDue: dt(workDay(2), '17:00'),
+      slaType: 'Safety SLA (BCA standard)',
+      resident: {
+        name: 'Town Council Routine Patrol',
+        contact: '9456 ****',
+        email: 'patrol.zoneB@fictional.sg',
+        unit: 'External Inspection'
+      },
+      taskIds: ['t207'],
+      summary: 'Spalling concrete patch visible on 11th floor facade ledge. High-risk falling hazard over footpath.',
+      blockers: [
+        {
+          id: 'blk-834-1',
+          title: 'Awaiting BCA licensed structural engineer facade inspection report',
+          category: 'Awaiting authorised approval',
+          responsibleParty: 'Structural Inspection Specialist',
+          sourceRef: 'Inspection Reference SE-318',
+          reportedAt: dt(workDay(-3), '09:00'),
+          resolved: false,
+          impact: 'Cannot commence gondola chipping works without PE safety sign-off.'
+        }
+      ],
+      checkpoints: [
+        { id: 'cp-834-1', title: 'Immediate ground cordon & warning signs', completed: true, completedAt: dt(workDay(-5), '11:30'), actor: 'Marcus Tan', requiredForClosure: true },
+        { id: 'cp-834-2', title: 'PE facade assessment & safety permit', completed: false, due: dt(workDay(1), '17:00'), actor: 'Professional Engineer', requiredForClosure: true, looseEndReason: 'Closure requested while mandatory PE assessment remains unresolved' }
+      ],
+      timeline: [
+        { id: 'ev-834-1', at: dt(workDay(-5), '10:00'), type: 'reported', title: 'Spalling concrete spotted on ledge', summary: 'Warning barrier erected immediately below footpath.', source: 'Ground Patrol', actor: 'Marcus Tan' }
+      ],
+      evidence: [
+        { id: 'evi-834-1', title: 'Facade ledge telephoto photo', type: 'image', uploadedAt: dt(workDay(-5), '10:30'), verified: true, sourceRef: 'Facade Photo #1' },
+        { id: 'evi-834-2', title: 'Professional Engineer (PE) Structural Safety Endorsement', type: 'document', uploadedAt: null, verified: false, missing: true, requiredForClosure: true, sourceRef: 'BCA Spalling Protocol' }
+      ],
+      handover: null,
+      requiresManagerApprovalForClosure: true
+    },
+    {
+      id: 'CASE-2026-0841',
+      caseNumber: 'CASE-2026-0841',
+      title: 'Recurring lift door fault & sensor entrapment alarm — Blk 322 Lift C',
+      category: 'Emergency Maintenance',
+      estate: 'Zone B — Blk 322',
+      block: 'Blk 322',
+      unit: 'Lift C',
+      ownerId: 'o4',
+      teamId: 'team-2',
+      status: 'in_progress',
+      urgency: 'Critical',
+      priority: 'Critical',
+      reportedAt: dt(TODAY, '10:15'),
+      slaDue: dt(TODAY, '13:00'),
+      slaType: 'Emergency Lift SLA (2h response)',
+      resident: {
+        name: 'Town Council Hotline (Emergency)',
+        contact: '6288 ****',
+        email: 'emergency.hotline@towncouncil.gov.sg',
+        unit: 'Emergency Escalation'
+      },
+      taskIds: ['t401'],
+      summary: 'Recurring safety curtain sensor failure. Lift intermittently re-opens and stalls during peak transit hours.',
+      blockers: [],
+      checkpoints: [
+        { id: 'cp-841-1', title: 'Standby officer emergency shutdown', completed: true, completedAt: dt(TODAY, '10:30'), actor: 'Ravi Kumar', requiredForClosure: true },
+        { id: 'cp-841-2', title: 'Reassignment handover sign-off to Daniel Lim', completed: false, due: dt(TODAY, '11:30'), actor: 'Daniel Lim', requiredForClosure: true, looseEndReason: 'Assignment change without completed receiving officer handover sign-off' }
+      ],
+      timeline: [
+        { id: 'ev-841-1', at: dt(TODAY, '10:15'), type: 'reported', title: 'Emergency Lift Stoppage Reported', summary: 'Passenger reported door entrapment alert on Lift C.', source: 'Hotline', actor: 'Hotline Operator' }
+      ],
+      evidence: [
+        { id: 'evi-841-1', title: 'Controller error code log printout', type: 'document', uploadedAt: dt(TODAY, '10:45'), verified: true, sourceRef: 'Controller Error 44-B' }
+      ],
+      handover: { fromOfficerId: 'o6', toOfficerId: 'o4', status: 'pending_acknowledgement', reason: 'Ravi Kumar on leave; escalated to Daniel Lim.' },
+      requiresManagerApprovalForClosure: true
+    }
+  ];
+}
+
 export function createSeedState() {
   return {
     version: DATA_VERSION,
@@ -646,6 +1024,7 @@ export function createSeedState() {
     officers: officers(),
     meetings: meetings(),
     tasks: linkProjects(tasks()),
+    cases: defaultCases(),
     projects: projects(),
     plans: {},
     activity: [
