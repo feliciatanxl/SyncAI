@@ -52,12 +52,38 @@ The production application is implemented across `client/` and `server/`. Micros
 
 ---
 
+## Team 24 Workstreams & Feature Ownership
+
+SyncAI is developed by **IT2134 Team 24** as **one connected Smart Work Planner**. Development is organised across four primary feature areas:
+
+| Team Member | Feature Workstream | Scope & Primary Focus |
+| --- | --- | --- |
+| **Charlisa Tan** | **Smart Planning (Category B)** | Calendar-aware scheduling, daily and weekly planning, officer availability, and realistic workload arrangements. |
+| **Felicia Tan** | **Task Visibility (Category C)** | Task and case visibility, Case Action Centre, Operational Loose-End Intelligence, case progress, blockers, outstanding commitments, and follow-ups. |
+| **Shamreen Rizmiya** | **Ripple Intelligence (Category D)** | Task dependency analysis, disruption impact and downstream consequences, alternative scheduling and reassignment strategies. |
+| **Nann** | **Approvals & Audit (Category G)** | Management approval workflows, approval hierarchy, decision tracking, and auditability. |
+
+> *Note on Team Ownership:* These areas define primary responsibility. Individual subfeatures remain subject to implementation feasibility (not every exploratory brainstorming idea is required to be built). Team members contribute across the entire full-stack lifecycle—frontend, backend, testing, and documentation.
+
+### Shared Integration Workflow
+
+All four workstreams integrate around a unified, closed-loop workflow:
+1. **Task Visibility** surfaces operational cases, blockers, and outstanding commitments.
+2. **Smart Planning** schedules tasks into achievable time blocks around Outlook meetings and buffers.
+3. **Ripple Intelligence** assesses disruption cascades and proposes 3 side-by-side alternatives.
+4. **Approvals & Audit** routes reassignment and schedule shifts to the assigned manager, recording an immutable audit trail.
+5. **Approved changes feed back** directly into task visibility, schedules, case histories, and audit records.
+
+Shared task IDs (`t101`), case IDs (`case-001`), officer IDs (`o1`), team IDs (`team-1`), deadline timestamps, and approval states serve as the intended integration foundation.
+
+---
+
 ## Automated Testing Expectations
 
 Before opening a pull request, run the relevant automated test suites:
 
 ```bash
-# 1. Prototype rules, ripple, and client requirement tests (Node.js built-in runner, 57 tests)
+# 1. Prototype test suite (Node.js built-in runner, 88 tests across 8 suites)
 node --test "prototype/tests/*.test.mjs"
 
 # 2. Client frontend tests (Vitest, 16 tests)
@@ -67,7 +93,7 @@ cd client && npm test
 cd server && npm test
 ```
 
-All 94 automated tests across the repository must pass without errors or unhandled rejections.
+All 125 automated tests across the repository must pass without errors or unhandled rejections.
 
 ---
 
