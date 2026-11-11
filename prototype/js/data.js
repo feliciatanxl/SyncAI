@@ -550,7 +550,7 @@ function seedNotifications() {
 
 export function defaultUsers() {
   return [
-    { id: 'a1', displayName: 'TAN XIU LI, FELICIA', email: '254381c@mymail.nyp.edu.sg', role: 'admin', status: 'active', teams: [] },
+    { id: 'a1', displayName: 'TAN, ALEX', email: 'alex.tan@syncai.demo', role: 'admin', status: 'active', teams: [] },
     { id: 's1', displayName: 'Jennifer Ong', email: 'jennifer.ong@towncouncil.gov.sg', role: 'manager', status: 'active', teams: [{ id: 'team-1', name: 'Zone A Operations', kind: 'manager' }, { id: 'team-2', name: 'Zone B Technical', kind: 'manager' }, { id: 'team-3', name: 'Zone C Conservancy', kind: 'manager' }] },
     { id: 'o1', displayName: 'Aisyah Rahman', email: 'aisyah.rahman@towncouncil.gov.sg', role: 'member', status: 'active', teams: [{ id: 'team-1', name: 'Zone A Operations', kind: 'member' }] },
     { id: 'o2', displayName: 'Marcus Tan', email: 'marcus.tan@towncouncil.gov.sg', role: 'member', status: 'active', teams: [{ id: 'team-2', name: 'Zone B Technical', kind: 'member' }] },
@@ -629,7 +629,7 @@ export function createSeedState() {
     status: 'active',
     currentOfficerId: 'o1',
     supervisor: { id: 's1', name: 'Jennifer Ong', title: 'Estate Manager' },
-    admin: { id: 'a1', name: 'TAN XIU LI, FELICIA', title: 'Town Council Administrator', email: '254381c@mymail.nyp.edu.sg' },
+    admin: { id: 'a1', name: 'TAN, ALEX', displayName: 'TAN, ALEX', title: 'Town Council Administrator', email: 'alex.tan@syncai.demo' },
     hq: { id: 'h1', name: 'Lim Wei Ling', title: 'EMS HQ · Estate Operations' },
     council: 'nv',
     settings: {

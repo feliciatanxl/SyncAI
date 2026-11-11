@@ -303,9 +303,10 @@ function renderTaskRow(s, t, mgr) {
 
   return html`
     <tr class="${done ? 'done-row' : ''}">
-      <td style="text-align: center;">
+      <td style="text-align: center; width: 44px;">
         <input
           type="checkbox"
+          class="circular-checkbox"
           ${done ? 'checked' : ''}
           data-action="task-toggle"
           data-id="${t.id}"
@@ -349,7 +350,7 @@ function renderTaskRow(s, t, mgr) {
         <span class="due-text" style="display: block;">${fmtDue(t.due)}</span>
         ${t.slaType ? html`<span class="sla-label muted small" style="display: block; margin-top: 2px;">${t.slaType}</span>` : ''}
       </td>
-      <td style="white-space: nowrap;">
+      <td class="cell-risk" style="white-space: nowrap !important; min-width: 125px;">
         ${riskBadge(risk.level)}
       </td>
       <td style="text-align: right; white-space: nowrap;">

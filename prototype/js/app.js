@@ -768,7 +768,7 @@ function showAccountSwitchModal() {
       </button>
       <button type="button" class="btn-secondary" style="justify-content: flex-start; text-align: left; padding: 12px 14px;" data-action="pick-role-modal" data-role="admin">
         <div>
-          <strong>TAN XIU LI, FELICIA (Admin)</strong>
+          <strong>TAN, ALEX (Admin)</strong>
           <span class="small muted" style="display: block;">Town Council Administrator. User directory, pending account approval, team setup.</span>
         </div>
       </button>

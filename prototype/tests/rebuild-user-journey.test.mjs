@@ -65,7 +65,7 @@ test('1. Role persona setup and boundary enforcement', () => {
   assert.equal(isManager(s), false);
   assert.equal(isTeamMember(s), false);
   const adminUser = getCurrentUser(s);
-  assert.equal(adminUser.displayName, 'TAN XIU LI, FELICIA');
+  assert.equal(adminUser.displayName, 'TAN, ALEX');
 
   // Test Pending
   setCurrentUser(s, 'pending');
