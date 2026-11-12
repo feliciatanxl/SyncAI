@@ -831,6 +831,10 @@ function renderCaseJourneyModal(s, c) {
   const comms = getCommunications(s, c.id);
   const activeBlockers = (c.blockers || []).filter((b) => !b.resolved);
 
+  const pendingClosure = (s.approvals || []).find(
+    (a) => a.caseId === c.id && (a.requestType === 'case_closure' || a.requestType === 'closure') && a.status === 'pending'
+  );
+
   return html`
     <div class="modal-backdrop is-open" data-action="case-modal-close" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: flex-end;">
       <div
@@ -838,7 +842,9 @@ function renderCaseJourneyModal(s, c) {
         onclick="event.stopPropagation()"
         style="width: min(100%, 720px); height: 100%; background: var(--colorNeutralBackground1); display: flex; flex-direction: column; box-shadow: var(--shadow64); animation: slideInRight 0.25s cubic-bezier(0,0,0.2,1);"
         role="dialog"
-        aria-label="Case details: ${c.title}"
+        aria-modal="true"
+        aria-labelledby="case-drawer-title"
+        tabindex="-1"
       >
         <!-- Drawer Header -->
         <div class="drawer-header" style="padding: 18px 24px; border-bottom: 1px solid var(--colorNeutralStroke2); display: flex; justify-content: space-between; align-items: flex-start; background: var(--colorNeutralBackground2); gap: 16px;">
@@ -846,12 +852,13 @@ function renderCaseJourneyModal(s, c) {
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
               <span class="case-number" style="font-family: monospace; font-size: 0.8125rem; font-weight: 700; color: var(--colorBrandForeground1);">${c.number || c.caseNumber || c.id}</span>
               <span class="tag ${c.status === 'closed' ? 'tag-neutral' : c.status === 'ready_for_closure' ? 'tag-success' : 'tag-brand'} small">${c.status}</span>
+              ${pendingClosure ? html`<span class="tag tag-warning small">${icon('clock', 12)} Pending Sign-Off</span>` : ''}
               ${c.location ? html`<span class="small muted" style="display: inline-flex; align-items: center; gap: 4px;">${icon('pin', 12)} ${c.location}</span>` : ''}
               <span class="small muted" style="display: inline-flex; align-items: center; gap: 4px; margin-left: auto;">
                 ${icon('users', 12)} Assigned: <strong>${officerName(s, c.ownerId)}</strong>
               </span>
             </div>
-            <h2 style="font-size: 1.1875rem; margin: 8px 0 0; line-height: 1.35; color: var(--colorNeutralForeground1); font-weight: 600;">${c.title}</h2>
+            <h2 id="case-drawer-title" style="font-size: 1.1875rem; margin: 8px 0 0; line-height: 1.35; color: var(--colorNeutralForeground1); font-weight: 600;">${c.title}</h2>
           </div>
           <button type="button" class="drawer-close-btn" data-action="case-modal-close" aria-label="Close drawer" title="Close drawer">
             ${icon('x', 20)}
@@ -923,8 +930,10 @@ function renderCaseJourneyModal(s, c) {
               ${icon('calendar', 14)} View in Planner
             </button>
           </div>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            ${c.status !== 'closed' && !readiness.isReady ? html`
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            ${pendingClosure
+              ? html`<span class="tag tag-warning small" style="display: inline-flex; align-items: center; gap: 4px;">${icon('clock', 12)} Closure Pending Manager Sign-off</span>`
+              : c.status !== 'closed' && !readiness.isReady ? html`
               <span class="small muted" style="font-size: 0.75rem; color: var(--colorPaletteMarigoldForeground2);">
                 ${readiness.unresolvedItems.length} checklist item${readiness.unresolvedItems.length === 1 ? '' : 's'} pending
               </span>
@@ -936,7 +945,13 @@ function renderCaseJourneyModal(s, c) {
               data-case="${c.id}"
               ${c.status === 'closed' ? 'disabled' : ''}
             >
-              ${c.status === 'closed' ? 'Case Closed &amp; Audited' : 'Close Case'}
+              ${c.status === 'closed'
+                ? 'Case Closed &amp; Audited'
+                : pendingClosure
+                  ? 'Closure Pending Approval'
+                  : isManager(s)
+                    ? (readiness.isReady ? 'Close Case &amp; Sign Off' : 'Close Case (Manager Exception)')
+                    : 'Close Case'}
             </button>
           </div>
         </div>
@@ -949,6 +964,40 @@ function renderJourneyTimelineTab(s, c) {
   const events = c.timeline || [];
   return html`
     <div style="display: flex; flex-direction: column; gap: 14px;">
+      <!-- Add Operational Progress Note Form -->
+      <div class="case-add-note-box" style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <strong style="font-size: 0.875rem; display: flex; align-items: center; gap: 6px; color: var(--colorNeutralForeground1);">
+            ${icon('edit', 14)} Add Operational Progress Note
+          </strong>
+          <span class="small muted">Updates case timeline &amp; shared audit state</span>
+        </div>
+        <form id="case-add-note-form" data-case="${c.id}" style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <select name="noteCategory" id="case-note-category" class="select-control" style="flex: 1; min-width: 160px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-size: 0.8125rem; background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1);">
+              <option value="Inspection Update">Inspection Update</option>
+              <option value="Resident Contact">Resident Contact</option>
+              <option value="Contractor Follow-up">Contractor Follow-up</option>
+              <option value="Site Observation">Site Observation</option>
+              <option value="Repair Progress">Repair Progress</option>
+            </select>
+          </div>
+          <textarea
+            name="noteContent"
+            id="case-note-content"
+            rows="2"
+            placeholder="Record progress note (e.g. resident access confirmed, repair completed, water tested)..."
+            style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.8125rem;"
+            required
+          ></textarea>
+          <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="submit" class="btn-primary btn-sm" data-action="case-submit-note" data-case="${c.id}">
+              ${icon('plus', 12)} Add Note to Timeline
+            </button>
+          </div>
+        </form>
+      </div>
+
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <p class="small muted" style="margin: 0;">Chronological history of inspections, resident contacts, and contractor updates.</p>
         <span class="small muted">${events.length} recorded event${events.length === 1 ? '' : 's'}</span>
@@ -972,7 +1021,14 @@ function renderJourneyTimelineTab(s, c) {
                       <span class="small muted">${ev.at || TODAY}</span>
                     </div>
                     <p class="small" style="margin: 4px 0 0; color: var(--colorNeutralForeground2);">${ev.summary}</p>
-                    <span class="small muted" style="font-size: 0.75rem;">Source: ${ev.source || 'SyncAI'} · Officer: ${ev.actor || officerName(s, c.ownerId)}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                      <span class="small muted" style="font-size: 0.75rem;">Source: ${ev.source || 'SyncAI'} · Officer: ${ev.actor || officerName(s, c.ownerId)}</span>
+                      ${ev.sourceRef || ev.evidenceId ? html`
+                        <button type="button" class="btn-ghost btn-sm" data-action="case-jump-source" data-case="${c.id}" data-type="checkpoint" data-source-id="${ev.sourceRef || ev.evidenceId}" style="font-size: 0.7rem; padding: 1px 6px;">
+                          View Evidence →
+                        </button>
+                      ` : ''}
+                    </div>
                   </div>
                 `;
               })}
@@ -1034,18 +1090,33 @@ function renderJourneyLooseEndsTab(s, c, looseEnds) {
                 💡 <strong>Next step:</strong> ${l.suggestedAction}
               </div>
 
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--colorNeutralStroke3);">
-                <!-- Explain Finding Button -->
-                <button
-                  type="button"
-                  class="btn-primary btn-sm"
-                  data-action="case-view-explanation"
-                  data-case="${c.id}"
-                  data-rule="${l.ruleId}"
-                  style="font-size: 0.75rem;"
-                >
-                  ${icon('sparkle', 12)} Why was this flagged?
-                </button>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--colorNeutralStroke3); flex-wrap: wrap; gap: 6px;">
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  <!-- Explain Finding Button -->
+                  <button
+                    type="button"
+                    class="btn-primary btn-sm"
+                    data-action="case-view-explanation"
+                    data-case="${c.id}"
+                    data-rule="${l.ruleId}"
+                    style="font-size: 0.75rem;"
+                  >
+                    ${icon('sparkle', 12)} Why was this flagged?
+                  </button>
+
+                  <!-- Record Outcome / Resolve Follow-Up Button -->
+                  <button
+                    type="button"
+                    class="btn-subtle btn-sm"
+                    data-action="case-resolve-finding"
+                    data-case="${c.id}"
+                    data-rule="${l.ruleId}"
+                    style="font-size: 0.75rem; color: var(--colorPaletteGreenForeground1); border-color: var(--colorPaletteGreenBorderActive); font-weight: 600;"
+                    title="Record outcome and mark this operational commitment fulfilled"
+                  >
+                    ${icon('check', 12)} Record Outcome
+                  </button>
+                </div>
 
                 <!-- Shortcut to Communication Hub -->
                 <button
@@ -1161,17 +1232,30 @@ function renderExplanationPanel(s, c, exp) {
           <span class="small muted" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Supporting Source Record</span>
           <strong style="font-size: 0.875rem;">${exp.sourceRecordRef || exp.sourceEvidence}</strong>
         </div>
-        <button
-          type="button"
-          class="btn-primary btn-sm"
-          data-action="case-jump-source"
-          data-case="${c.id}"
-          data-type="${exp.sourceRecordType || 'timeline'}"
-          data-source-id="${exp.sourceRecordId}"
-          title="Jump directly to source record and highlight"
-        >
-          View Supporting Record →
-        </button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button
+            type="button"
+            class="btn-subtle btn-sm"
+            data-action="case-resolve-finding"
+            data-case="${c.id}"
+            data-rule="${exp.ruleId}"
+            style="font-size: 0.75rem; color: var(--colorPaletteGreenForeground1); border-color: var(--colorPaletteGreenBorderActive); font-weight: 600;"
+            title="Record outcome and mark this operational commitment fulfilled"
+          >
+            ${icon('check', 12)} Record Outcome / Resolve
+          </button>
+          <button
+            type="button"
+            class="btn-primary btn-sm"
+            data-action="case-jump-source"
+            data-case="${c.id}"
+            data-type="${exp.sourceRecordType || 'timeline'}"
+            data-source-id="${exp.sourceRecordId}"
+            title="Jump directly to source record and highlight"
+          >
+            View Supporting Record →
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -1205,15 +1289,30 @@ function renderJourneyBlockersTab(s, c) {
               <p class="small" style="margin: 0; color: var(--colorNeutralForeground1);">
                 <strong>Action needed:</strong> ${b.suggestedAction || 'Awaiting contractor or resident response.'}
               </p>
-              ${!b.resolved
-                ? html`
-                    <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
-                      <button type="button" class="btn-subtle btn-sm" data-action="case-resolve-blocker" data-case="${c.id}" data-blocker="${b.id}">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; flex-wrap: wrap; gap: 8px;">
+                ${(c.taskIds || []).length > 0
+                  ? html`
+                      <button
+                        type="button"
+                        class="btn-subtle btn-sm"
+                        data-action="case-ripple-nav"
+                        data-case="${c.id}"
+                        data-task="${c.taskIds[0]}"
+                        style="font-size: 0.75rem;"
+                        title="Analyze downstream dependencies in Ripple Intelligence"
+                      >
+                        ${icon('trend', 12)} View Ripple Analysis
+                      </button>
+                    `
+                  : '<span></span>'}
+                ${!b.resolved
+                  ? html`
+                      <button type="button" class="btn-subtle btn-sm" data-action="case-resolve-blocker" data-case="${c.id}" data-blocker="${b.id}" style="font-size: 0.75rem; color: var(--colorPaletteGreenForeground1); border-color: var(--colorPaletteGreenBorderActive); font-weight: 600;">
                         ${icon('check', 12)} Mark Blocker Resolved
                       </button>
-                    </div>
-                  `
-                : ''}
+                    `
+                  : ''}
+              </div>
             </div>
           `)}
     </div>
@@ -1223,8 +1322,21 @@ function renderJourneyBlockersTab(s, c) {
 function renderJourneyReadinessTab(s, c, readiness) {
   const checkpoints = c.checkpoints || [];
   const evidence = c.evidence || [];
+  const pendingClosure = (s.approvals || []).find(
+    (a) => a.caseId === c.id && (a.requestType === 'case_closure' || a.requestType === 'closure') && a.status === 'pending'
+  );
+
   return html`
     <div style="display: flex; flex-direction: column; gap: 16px;">
+      ${pendingClosure
+        ? html`
+            <div style="padding: 12px 14px; background: var(--colorPaletteMarigoldBackground1); border: 1px solid var(--colorPaletteMarigoldBorderActive); border-radius: 8px; font-size: 0.8125rem; color: var(--colorPaletteMarigoldForeground2); display: flex; align-items: center; gap: 8px;">
+              ${icon('clock', 16)}
+              <span><strong>Closure Sign-Off Submitted:</strong> Awaiting formal manager sign-off from Jennifer Ong.</span>
+            </div>
+          `
+        : ''}
+
       <div style="padding: 14px 16px; border-radius: 8px; border: 1px solid ${readiness.isReady ? 'var(--colorPaletteGreenBorderActive)' : 'var(--colorPaletteMarigoldBorderActive)'}; background: ${readiness.isReady ? 'var(--colorPaletteGreenBackground1)' : 'var(--colorPaletteMarigoldBackground1)'};">
         <strong style="color: ${readiness.isReady ? 'var(--colorPaletteGreenForeground1)' : 'var(--colorPaletteMarigoldForeground2)'}; display: flex; align-items: center; gap: 8px; font-size: 0.9375rem;">
           ${icon(readiness.isReady ? 'check' : 'alert', 18)}
@@ -1322,12 +1434,13 @@ function renderJourneyCommunicationsTab(s, c, comms) {
       </div>
 
       <!-- Channel Filter Tabs -->
-      <div class="filter-tabs" role="tablist" style="margin: 0;">
+      <div class="filter-tabs" role="tablist" style="margin: 0; overflow-x: auto;">
         ${[
           ['all', 'All Channels', comms.length],
           ['in_app', 'In-App', comms.filter((m) => m.channel === 'in_app').length],
           ['whatsapp', 'WhatsApp (Simulated)', comms.filter((m) => m.channel === 'whatsapp').length],
           ['teams', 'Teams (Simulated)', comms.filter((m) => m.channel === 'teams').length],
+          ['telegram', 'Telegram (Simulated)', comms.filter((m) => m.channel === 'telegram').length],
         ].map(
           ([ch, label, count]) => html`
             <button
@@ -1346,10 +1459,10 @@ function renderJourneyCommunicationsTab(s, c, comms) {
       <div id="comm-log-form-container" style="display: none; background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 14px;">
         <h4 style="margin: 0 0 10px; font-size: 0.875rem;">Log Simulated Communication Record</h4>
         <form id="comm-manual-log-form" style="display: flex; flex-direction: column; gap: 10px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
             <div>
               <label class="small muted" style="display: block; margin-bottom: 4px;">Channel</label>
-              <select name="channel" class="select-control" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1);">
+              <select name="channel" class="select-control" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1);">
                 <option value="in_app">In-App Portal</option>
                 <option value="whatsapp">WhatsApp (Proposed)</option>
                 <option value="teams">Microsoft Teams (Proposed)</option>
@@ -1358,7 +1471,7 @@ function renderJourneyCommunicationsTab(s, c, comms) {
             </div>
             <div>
               <label class="small muted" style="display: block; margin-bottom: 4px;">Category</label>
-              <select name="category" class="select-control" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1);">
+              <select name="category" class="select-control" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1);">
                 <option value="Resident Follow-up">Resident Follow-up</option>
                 <option value="Contractor Query">Contractor Query</option>
                 <option value="Inspection Scheduling">Inspection Scheduling</option>
@@ -1368,7 +1481,7 @@ function renderJourneyCommunicationsTab(s, c, comms) {
           </div>
           <div>
             <label class="small muted" style="display: block; margin-bottom: 4px;">Message Summary / Notes</label>
-            <textarea name="content" rows="2" placeholder="Record key points of the call or message..." required style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.8125rem;"></textarea>
+            <textarea name="content" id="comm-manual-log-content" rows="2" placeholder="Record key points of the call or message..." required style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.8125rem;"></textarea>
           </div>
           <div style="display: flex; justify-content: flex-end; gap: 8px;">
             <button type="button" class="btn-subtle btn-sm" data-action="comm-toggle-log-form">Cancel</button>
@@ -1383,9 +1496,9 @@ function renderJourneyCommunicationsTab(s, c, comms) {
           ? html`<p class="muted small" style="text-align: center; padding: 20px;">No communication records found for this channel.</p>`
           : filteredComms.map((m) => html`
               <div style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
                   <div style="display: flex; align-items: center; gap: 6px;">
-                    <span class="tag ${m.channel === 'whatsapp' ? 'tag-success' : m.channel === 'teams' ? 'tag-brand' : 'tag-neutral'} small">
+                    <span class="tag ${m.channel === 'whatsapp' ? 'tag-success' : m.channel === 'teams' ? 'tag-brand' : m.channel === 'telegram' ? 'tag-brand' : 'tag-neutral'} small">
                       ${m.channelLabel}
                     </span>
                     <strong style="font-size: 0.8125rem;">${m.sender}</strong>
@@ -1395,13 +1508,9 @@ function renderJourneyCommunicationsTab(s, c, comms) {
                 <p style="margin: 0; font-size: 0.8125rem; color: var(--colorNeutralForeground1); line-height: 1.4;">${m.content}</p>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--colorNeutralStroke3); font-size: 0.75rem;" class="muted">
                   <span>Source: <em>${m.sourceLabel}</em></span>
-                  ${!m.acknowledged
-                    ? html`
-                        <button type="button" class="btn-subtle btn-sm" data-action="comm-ack" data-id="${m.id}" style="font-size: 0.75rem; padding: 2px 6px;">
-                          ${icon('check', 12)} Mark Acknowledged
-                        </button>
-                      `
-                    : html`<span style="color: var(--colorPaletteGreenForeground1);">✓ Acknowledged</span>`}
+                  <button type="button" class="btn-subtle btn-sm" data-action="comm-ack" data-id="${m.id}" style="font-size: 0.75rem; padding: 2px 8px;">
+                    ${m.acknowledged ? '✓ Acknowledged (Click to undo)' : `${icon('check', 12)} Mark Acknowledged`}
+                  </button>
                 </div>
               </div>
             `)}
@@ -1409,7 +1518,7 @@ function renderJourneyCommunicationsTab(s, c, comms) {
 
       <!-- Suggested Reply & Follow-up Generator -->
       <div style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 14px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
           <h4 style="margin: 0; font-size: 0.875rem;">Simulated Draft Reply Generator</h4>
           <button type="button" class="btn-secondary btn-sm" data-action="comm-generate-reply" data-case="${c.id}">
             ${icon('sparkle', 12)} Generate Draft
@@ -1422,7 +1531,7 @@ function renderJourneyCommunicationsTab(s, c, comms) {
           placeholder="Click 'Generate Draft' to prepare a simulated contextual response..."
         >${generateDraftReply(s, c.id)}</textarea>
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
-          <button type="button" class="btn-subtle btn-sm" data-action="comm-copy-reply">
+          <button type="button" class="btn-subtle btn-sm" id="btn-copy-draft-reply" data-action="comm-copy-reply">
             ${icon('copy', 12)} Copy to Clipboard
           </button>
         </div>
@@ -1430,7 +1539,7 @@ function renderJourneyCommunicationsTab(s, c, comms) {
 
       <!-- Communication-to-Task Drafting (#076 — Stretch Feature) -->
       <div style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorBrandStroke2); border-radius: 8px; padding: 14px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
           <h4 style="margin: 0; font-size: 0.875rem; color: var(--colorBrandForeground1); display: flex; align-items: center; gap: 6px;">
             ${icon('sparkle', 14)} Message-to-Task Drafting (#076)
           </h4>
@@ -1446,7 +1555,7 @@ function renderJourneyCommunicationsTab(s, c, comms) {
         >Hi Officer Aisyah, Eng Seng Plumbing here regarding Blk 211 seepage. We need joint access to #06-12 tomorrow at 14:00 to verify floor trap seal before quote approval.</textarea>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; flex-wrap: wrap; gap: 6px;">
-          <div style="display: flex; gap: 6px;">
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
             <button type="button" class="btn-ghost btn-sm" data-action="comm-load-sample-1" style="font-size: 0.75rem;">Sample: Contractor Access</button>
             <button type="button" class="btn-ghost btn-sm" data-action="comm-load-sample-2" style="font-size: 0.75rem;">Sample: Resident Callback</button>
           </div>
@@ -1485,11 +1594,16 @@ function renderJourneyBriefTab(s, c) {
   const briefText = generateCaseBrief(s, c);
   return html`
     <div style="display: flex; flex-direction: column; gap: 12px;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span class="small muted">Deterministic JavaScript Template</span>
-        <button type="button" class="btn-secondary btn-sm" data-action="case-copy-brief" data-case="${c.id}">
-          ${icon('copy', 14)} Copy Case Brief
-        </button>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <span class="small muted">Deterministic Template · Factual State Intelligence</span>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn-subtle btn-sm" data-action="case-refresh-brief" data-case="${c.id}">
+            ${icon('sparkle', 14)} Refresh Brief
+          </button>
+          <button type="button" class="btn-secondary btn-sm" id="btn-copy-case-brief" data-action="case-copy-brief" data-case="${c.id}">
+            ${icon('copy', 14)} Copy Case Brief
+          </button>
+        </div>
       </div>
       <pre id="case-brief-text" style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 14px; font-family: monospace; font-size: 0.8125rem; line-height: 1.5; white-space: pre-wrap; margin: 0;">${briefText}</pre>
     </div>

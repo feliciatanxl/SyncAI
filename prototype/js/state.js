@@ -477,8 +477,11 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
       }
     }
 
-    // Apply approved case reassignment
-    if (approval.caseId) {
+    // Apply approved case closure
+    if (approval.caseId && (approval.requestType === 'case_closure' || approval.requestType === 'closure')) {
+      closeCase(s, approval.caseId, reviewer);
+    } else if (approval.caseId) {
+      // Apply approved case reassignment
       const c = getCase(s, approval.caseId);
       if (c) {
         const targetOfficer = approval.proposedOwnerId || approval.suggestedAssigneeId;
@@ -487,7 +490,7 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
           const newOwnerName = officerName(s, targetOfficer);
           c.ownerId = targetOfficer;
           c.timeline = c.timeline || [];
-          c.timeline.push({
+          c.timeline.unshift({
             id: `ev-appr-${nextId(s, '')}`,
             at: NOW,
             type: 'approval',
@@ -722,11 +725,11 @@ export function addCommunication(s, comm) {
   return record;
 }
 
-export function acknowledgeCommunication(s, commId) {
+export function acknowledgeCommunication(s, commId, ack = null) {
   const comm = (s.communications || []).find((m) => m.id === commId);
   if (comm) {
-    comm.acknowledged = true;
-    comm.acknowledgedAt = NOW;
+    comm.acknowledged = ack !== null ? ack : !comm.acknowledged;
+    comm.acknowledgedAt = comm.acknowledged ? NOW : null;
   }
   return comm;
 }
@@ -1185,6 +1188,17 @@ export function generateCaseBrief(s, c) {
   const pendingCp = (c.checkpoints || []).filter((cp) => !cp.completed).map((cp) => cp.title);
   const activeBlockers = (c.blockers || []).filter((b) => !b.resolved);
 
+  const unverifiedEvidence = (c.evidence || []).filter((e) => !e.verified).map((e) => e.title);
+  const missingInfoList = [];
+  if (unverifiedEvidence.length > 0) {
+    missingInfoList.push(`Unverified / missing evidence records: ${unverifiedEvidence.join(', ')}`);
+  }
+  for (const l of looseEnds) {
+    if (l.missingInfo && !missingInfoList.includes(l.missingInfo)) {
+      missingInfoList.push(l.missingInfo);
+    }
+  }
+
   return [
     `=== SIMULATED CASE BRIEF — GENERATED FROM FICTIONAL CASE DATA ===`,
     `Case Reference: ${c.caseNumber} | Title: ${c.title}`,
@@ -1214,6 +1228,11 @@ export function generateCaseBrief(s, c) {
     readiness.isReady
       ? '✓ All checkpoints satisfied. Case is eligible for formal closure.'
       : `⚠ Closure blocked by ${readiness.unresolvedItems.length} requirement(s):\n${readiness.unresolvedItems.map((u) => `  - ${u}`).join('\n')}`,
+    ``,
+    `[DISCLOSED MISSING INFORMATION]`,
+    missingInfoList.length > 0
+      ? missingInfoList.map((m) => `• ${m}`).join('\n')
+      : '• All required operational and statutory records are verified in authorized state.',
     ``,
     `[RECOMMENDED NEXT ACTIONS]`,
     looseEnds.length > 0 ? `1. ${looseEnds[0].suggestedAction}` : '1. Continue scheduled routine monitoring.',
@@ -1247,7 +1266,7 @@ export function closeCase(s, caseId, actor = null) {
   c.closedAt = NOW;
   c.closedBy = currentActor;
   c.timeline ||= [];
-  c.timeline.push({
+  c.timeline.unshift({
     id: `ev-close-${nextId(s, '')}`,
     at: NOW,
     type: 'closure',
@@ -1259,8 +1278,222 @@ export function closeCase(s, caseId, actor = null) {
     actor: currentActor,
   });
 
+  // If any pending closure approval was open for this case, mark it approved
+  for (const a of s.approvals || []) {
+    if (a.caseId === caseId && (a.requestType === 'case_closure' || a.requestType === 'closure') && a.status === 'pending') {
+      a.status = 'approved';
+      a.decidedAt = NOW;
+      a.decidedBy = currentActor;
+      a.decision = 'Case closure verified and authorized by Estate Manager.';
+    }
+  }
+
   logActivity(s, `Closed case ${c.caseNumber} (${c.title})`, currentActor);
   return { success: true, case: c };
+}
+
+/**
+ * Submit closure request for a case (creates manager approval request).
+ * Property Officers use this to request manager sign-off without prematurely closing the case.
+ */
+export function requestCaseClosure(s, caseId, reason = '') {
+  const c = getCase(s, caseId);
+  if (!c) return { success: false, error: 'Case not found.' };
+
+  const existing = (s.approvals || []).find(
+    (a) => a.caseId === caseId && (a.requestType === 'case_closure' || a.requestType === 'closure') && a.status === 'pending'
+  );
+  if (existing) {
+    return { success: false, error: 'A closure approval request is already pending manager sign-off.' };
+  }
+
+  const primaryTaskId = (c.taskIds && c.taskIds[0]) || null;
+  const currentActor = actorName(s);
+
+  const approval = createApprovalRequest(s, {
+    requestType: 'case_closure',
+    taskId: primaryTaskId,
+    caseId: c.id,
+    taskTitle: `Closure Sign-off: Case ${c.caseNumber || c.id} — ${c.title}`,
+    requesterId: s.currentOfficerId,
+    requesterName: currentActor,
+    requesterRole: 'team_member',
+    reason: reason || 'All operational checkpoints completed. Requesting formal manager sign-off and statutory audit.',
+    slaImpact: 'Verified on-schedule resolution',
+    operationalImpact: 'Final case archiving and inspection record closure',
+  });
+
+  c.timeline ||= [];
+  c.timeline.unshift({
+    id: `ev-req-close-${nextId(s, '')}`,
+    at: TODAY,
+    type: 'closure_requested',
+    title: `Closure sign-off requested by ${currentActor}`,
+    summary: reason || 'Submitted to Manager Jennifer Ong for statutory sign-off and closure audit.',
+    source: 'Case Action Centre',
+    actor: currentActor,
+  });
+
+  addNotification(s, {
+    type: 'closure_warning',
+    title: `Closure Sign-Off: Case ${c.caseNumber || c.id}`,
+    message: `${currentActor} requested manager closure sign-off for "${c.title}".`,
+    caseId: c.id,
+    priority: 'medium',
+    actionLabel: 'Review in Approvals',
+    actionUrl: '#team',
+    category: 'compliance',
+    role: 'manager',
+  });
+
+  logActivity(s, `Requested manager closure sign-off for Case ${c.caseNumber || c.id}`, currentActor);
+  return { success: true, approval };
+}
+
+/**
+ * Record follow-up outcome and resolve loose end.
+ */
+export function resolveLooseEnd(s, caseId, ruleId, outcomeNote = '') {
+  const c = getCase(s, caseId);
+  if (!c) return { success: false, error: 'Case not found.' };
+
+  const actor = actorName(s);
+  let resolvedRuleName = ruleId;
+
+  // Rule 1: resident_followup
+  if (ruleId === 'resident_followup' || ruleId === 'EMS-LE-01') {
+    resolvedRuleName = 'Resident Follow-up Commitment';
+    const residentCp = (c.checkpoints || []).find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.includes('resident'));
+    if (residentCp) {
+      residentCp.completed = true;
+      residentCp.completedAt = NOW;
+    }
+    const openFeedbackTask = (c.taskIds || []).map((tid) => getTask(s, tid)).find((t) => t && t.category === 'Resident Feedback' && t.status !== 'done');
+    if (openFeedbackTask) {
+      openFeedbackTask.status = 'done';
+    }
+  } else if (ruleId === 'contractor_pending' || ruleId === 'EMS-LE-02') {
+    resolvedRuleName = 'Contractor Quotation & Scope Turnaround';
+    const contractorBlocker = (c.blockers || []).find((b) => !b.resolved && (b.category === 'Awaiting contractor' || (b.title && b.title.toLowerCase().includes('contractor'))));
+    if (contractorBlocker) {
+      contractorBlocker.resolved = true;
+      contractorBlocker.resolvedAt = TODAY;
+    }
+    const contractorCp = (c.checkpoints || []).find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.toLowerCase().includes('contractor'));
+    if (contractorCp) {
+      contractorCp.completed = true;
+      contractorCp.completedAt = NOW;
+    }
+  } else if (ruleId === 'inspection_outcome' || ruleId === 'EMS-LE-03') {
+    resolvedRuleName = 'Inspection Outcome Documentation';
+    const outcomeCp = (c.checkpoints || []).find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.includes('findings'));
+    if (outcomeCp) {
+      outcomeCp.completed = true;
+      outcomeCp.completedAt = NOW;
+    }
+  } else if (ruleId === 'photo_evidence' || ruleId === 'EMS-LE-04') {
+    resolvedRuleName = 'Photographic Evidence Verification';
+    const photoEvi = (c.evidence || []).find((e) => !e.verified && e.title && e.title.toLowerCase().includes('photo'));
+    if (photoEvi) {
+      photoEvi.verified = true;
+    }
+  } else if (ruleId === 'bca_filing' || ruleId === 'EMS-LE-05') {
+    resolvedRuleName = 'Statutory BCA Filing';
+    const bcaCp = (c.checkpoints || []).find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.includes('BCA'));
+    if (bcaCp) {
+      bcaCp.completed = true;
+      bcaCp.completedAt = NOW;
+    }
+  } else {
+    const matchingCp = (c.checkpoints || []).find((cp) => !cp.completed && (cp.id === ruleId || cp.looseEndReason?.includes(ruleId)));
+    if (matchingCp) {
+      matchingCp.completed = true;
+      matchingCp.completedAt = NOW;
+    }
+  }
+
+  // Add timeline event
+  c.timeline ||= [];
+  c.timeline.unshift({
+    id: `ev-res-${nextId(s, '')}`,
+    at: TODAY,
+    type: 'followup_resolved',
+    title: `Follow-Up Resolved: ${resolvedRuleName}`,
+    summary: outcomeNote || `Operational commitment fulfilled and outcome recorded by ${actor}. Requirement verified.`,
+    source: 'Loose-End Detector',
+    actor,
+  });
+
+  // Mark matching loose-end notification read if any
+  for (const n of s.notifications || []) {
+    if (n.caseId === c.id && n.type === 'loose_end') {
+      n.read = true;
+    }
+  }
+
+  logActivity(s, `Resolved follow-up "${resolvedRuleName}" for Case ${c.caseNumber || c.id}`, actor);
+  return { success: true, case: c };
+}
+
+/**
+ * Resolve case blocker and log activity.
+ */
+export function resolveCaseBlocker(s, caseId, blockerId) {
+  const c = getCase(s, caseId);
+  if (!c) return { success: false, error: 'Case not found.' };
+
+  const b = (c.blockers || []).find((item) => item.id === blockerId);
+  if (!b) return { success: false, error: 'Blocker not found.' };
+
+  b.resolved = true;
+  b.resolvedAt = TODAY;
+
+  const actor = actorName(s);
+  c.timeline ||= [];
+  c.timeline.unshift({
+    id: `ev-blk-${nextId(s, '')}`,
+    at: TODAY,
+    type: 'blocker_resolved',
+    title: `Blocker Resolved: ${b.title}`,
+    summary: `External dependency cleared (${b.responsibleParty || 'External'}). Case unblocked.`,
+    source: 'Blocker Tracker',
+    actor,
+  });
+
+  logActivity(s, `Resolved case blocker: ${b.title} (Case ${c.caseNumber || c.id})`, actor);
+  return { success: true, blocker: b };
+}
+
+/**
+ * Add a progress note to case timeline with input validation.
+ */
+export function addCaseProgressNote(s, caseId, category, content) {
+  const c = getCase(s, caseId);
+  if (!c) return { success: false, error: 'Case not found.' };
+
+  const trimmed = (content || '').trim();
+  if (trimmed.length < 4) {
+    return { success: false, error: 'Progress note must be at least 4 characters.' };
+  }
+
+  const actor = actorName(s);
+  const noteCategory = category || 'Progress Note';
+
+  const newEvent = {
+    id: `ev-note-${nextId(s, '')}`,
+    at: TODAY,
+    type: 'progress_note',
+    title: `${noteCategory}`,
+    summary: trimmed,
+    source: 'Officer Field Note',
+    actor,
+  };
+
+  c.timeline ||= [];
+  c.timeline.unshift(newEvent);
+
+  logActivity(s, `Recorded progress note for Case ${c.caseNumber || c.id}: ${noteCategory}`, actor);
+  return { success: true, event: newEvent };
 }
 
 /**

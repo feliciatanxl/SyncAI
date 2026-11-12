@@ -15,6 +15,20 @@
     <div class="portal" id="portal-root">
       <!-- Portal Top Header (matches PortalShell.jsx) -->
       <header class="portal-header">
+        <!-- Responsive Mobile Navigation Toggle Hamburger Button -->
+        <button
+          type="button"
+          class="mobile-nav-toggle"
+          id="btn-mobile-nav-toggle"
+          aria-label="Toggle navigation menu"
+          aria-expanded="false"
+          aria-controls="portal-nav"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M3 5a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1Zm0 5a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1Zm0 5a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1Z" clip-rule="evenodd" />
+          </svg>
+        </button>
+
         <a href="site/index.html" class="brand" aria-label="SyncAI homepage">
           <img src="assets/syncai-logo.png" width="30" height="30" alt="" />
           <span>SyncAI</span>
@@ -133,6 +147,8 @@
 
       <!-- Portal Body (Nav Sidebar + Main Workspace) -->
       <div class="portal-body">
+        <div class="mobile-nav-backdrop" id="mobile-nav-backdrop" hidden></div>
+
         <nav class="portal-nav" id="portal-nav" aria-label="Portal navigation">
           <!-- Nav items dynamically injected by app.js -->
         </nav>

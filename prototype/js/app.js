@@ -26,7 +26,11 @@ import {
   actorName,
   getCase,
   closeCase,
+  requestCaseClosure,
   requestCaseReassignment,
+  resolveLooseEnd,
+  resolveCaseBlocker,
+  addCaseProgressNote,
   officerName,
   getVisibleNotifications,
   markNotificationRead,
@@ -78,6 +82,17 @@ const SECTIONS = {
 let currentSection = 'overview';
 let currentCaseId = null;
 let currentNotificationFilter = 'all';
+let lastFocusedTrigger = null;
+
+function closeCaseDrawer() {
+  caseView.selectedCaseId = null;
+  caseView.activeExplanationRuleId = null;
+  caseView.highlightedSourceId = null;
+  renderApp();
+  if (lastFocusedTrigger && typeof lastFocusedTrigger.focus === 'function') {
+    lastFocusedTrigger.focus();
+  }
+}
 
 // Determine allowed sections based on role and status (matches client/src/lib/sections.js)
 function allowedSections(s) {
@@ -354,10 +369,37 @@ function renderMain(s) {
 
 function setupEvents() {
   document.addEventListener('click', (e) => {
+    // 0. Mobile Navigation Hamburger & Backdrop
+    const mobileNavToggle = e.target.closest('#btn-mobile-nav-toggle');
+    if (mobileNavToggle) {
+      const nav = document.getElementById('portal-nav');
+      const backdrop = document.getElementById('mobile-nav-backdrop');
+      const isOpen = nav?.classList.toggle('is-open');
+      mobileNavToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      if (backdrop) {
+        if (isOpen) backdrop.removeAttribute('hidden');
+        else backdrop.setAttribute('hidden', '');
+      }
+      return;
+    }
+
+    const mobileBackdrop = e.target.closest('#mobile-nav-backdrop');
+    if (mobileBackdrop) {
+      document.getElementById('portal-nav')?.classList.remove('is-open');
+      mobileBackdrop.setAttribute('hidden', '');
+      document.getElementById('btn-mobile-nav-toggle')?.setAttribute('aria-expanded', 'false');
+      return;
+    }
+
     // 1. Navigation clicks
     const navBtn = e.target.closest('[data-action="nav-go"]');
     if (navBtn) {
       e.preventDefault();
+      // Close mobile navigation drawer if open
+      document.getElementById('portal-nav')?.classList.remove('is-open');
+      document.getElementById('mobile-nav-backdrop')?.setAttribute('hidden', '');
+      document.getElementById('btn-mobile-nav-toggle')?.setAttribute('aria-expanded', 'false');
+
       const sec = navBtn.dataset.section;
       if (sec && SECTIONS[sec]) {
         currentSection = sec;
@@ -853,6 +895,7 @@ function setupEvents() {
 
     const caseInspectBtn = e.target.closest('[data-action="case-inspect"]');
     if (caseInspectBtn) {
+      lastFocusedTrigger = caseInspectBtn;
       const cid = caseInspectBtn.dataset.id;
       caseView.selectedCaseId = cid;
       if (caseInspectBtn.dataset.tab) {
@@ -860,14 +903,20 @@ function setupEvents() {
       } else {
         caseView.journeyTab = 'timeline';
       }
+      if (caseInspectBtn.dataset.rule) {
+        caseView.activeExplanationRuleId = caseInspectBtn.dataset.rule;
+      }
+      caseView.highlightedSourceId = null;
       renderApp();
+      setTimeout(() => {
+        document.querySelector('.drawer-close-btn')?.focus();
+      }, 50);
       return;
     }
 
     const caseModalClose = e.target.closest('[data-action="case-modal-close"]');
     if (caseModalClose) {
-      caseView.selectedCaseId = null;
-      renderApp();
+      closeCaseDrawer();
       return;
     }
 
@@ -899,9 +948,14 @@ function setupEvents() {
 
     const caseRippleNav = e.target.closest('[data-action="case-ripple-nav"]');
     if (caseRippleNav) {
+      const cid = caseRippleNav.dataset.case;
+      const tid = caseRippleNav.dataset.task;
       caseView.selectedCaseId = null;
       currentSection = 'plan';
       window.location.hash = '#plan';
+      if (tid) {
+        planView.selectedTaskId = tid;
+      }
       toast('Opened What-If Simulator & Ripple Intelligence for case task.', 'info');
       renderApp();
       return;
@@ -922,17 +976,51 @@ function setupEvents() {
       return;
     }
 
-    const caseCloseBtn = e.target.closest('[data-action="case-close-action"]');
-    if (caseCloseBtn) {
-      const cid = caseCloseBtn.dataset.case;
+    const caseRequestClosureBtn = e.target.closest('[data-action="case-request-closure"]');
+    if (caseRequestClosureBtn) {
+      const cid = caseRequestClosureBtn.dataset.case;
       update((s) => {
-        const res = closeCase(s, cid);
+        const res = requestCaseClosure(s, cid);
         if (!res.success) {
           toast(res.error, 'error');
         } else {
-          toast(`Case ${res.case.caseNumber} closed successfully.`, 'success');
+          toast('Closure approval request submitted to Manager Jennifer Ong.', 'success');
         }
       });
+      renderApp();
+      return;
+    }
+
+    const caseCloseBtn = e.target.closest('[data-action="case-close-action"]');
+    if (caseCloseBtn) {
+      const cid = caseCloseBtn.dataset.case;
+      const s = getState();
+      if (!isManager(s)) {
+        update((st) => {
+          const res = requestCaseClosure(st, cid);
+          if (!res.success) {
+            toast(res.error, 'error');
+          } else {
+            toast('Closure approval request submitted to Manager Jennifer Ong.', 'success');
+          }
+        });
+      } else {
+        update((st) => {
+          const res = closeCase(st, cid);
+          if (!res.success) {
+            toast(res.error, 'error');
+          } else {
+            toast(`Case ${res.case.caseNumber} closed successfully.`, 'success');
+          }
+        });
+      }
+      renderApp();
+      return;
+    }
+
+    const caseRefreshBriefBtn = e.target.closest('[data-action="case-refresh-brief"]');
+    if (caseRefreshBriefBtn) {
+      toast('AI Case Brief refreshed from latest verified case state.', 'info');
       renderApp();
       return;
     }
@@ -949,6 +1037,9 @@ function setupEvents() {
       const el = document.getElementById('case-brief-text');
       if (el) {
         navigator.clipboard?.writeText(el.innerText);
+        const originalText = caseCopyBriefBtn.innerHTML;
+        caseCopyBriefBtn.innerHTML = '✓ Copied!';
+        setTimeout(() => { caseCopyBriefBtn.innerHTML = originalText; }, 2000);
         toast('Case Brief copied to clipboard.', 'success');
       }
       return;
@@ -972,6 +1063,18 @@ function setupEvents() {
           }
         }
       });
+      renderApp();
+      return;
+    }
+
+    const resolveFindingBtn = e.target.closest('[data-action="case-resolve-finding"]');
+    if (resolveFindingBtn) {
+      const cid = resolveFindingBtn.dataset.case;
+      const rule = resolveFindingBtn.dataset.rule;
+      update((s) => {
+        resolveLooseEnd(s, cid, rule);
+      });
+      toast('Follow-up outcome recorded and requirement fulfilled.', 'success');
       renderApp();
       return;
     }
@@ -1039,13 +1142,7 @@ function setupEvents() {
       const cid = resolveBlockerBtn.dataset.case;
       const bid = resolveBlockerBtn.dataset.blocker;
       update((s) => {
-        const c = getCase(s, cid);
-        const b = (c?.blockers || []).find((item) => item.id === bid);
-        if (b) {
-          b.resolved = true;
-          b.resolvedAt = TODAY;
-          logActivity(s, `Resolved case blocker: ${b.title}`, actorName(s));
-        }
+        resolveCaseBlocker(s, cid, bid);
       });
       toast('Blocker marked as resolved. Primary case status updated.', 'success');
       renderApp();
@@ -1071,7 +1168,7 @@ function setupEvents() {
     if (commAckBtn) {
       const mid = commAckBtn.dataset.id;
       update((s) => acknowledgeCommunication(s, mid));
-      toast('Communication marked as acknowledged.', 'success');
+      toast('Communication acknowledgement status updated.', 'info');
       renderApp();
       return;
     }
@@ -1090,6 +1187,12 @@ function setupEvents() {
       const box = document.getElementById('comm-draft-reply-box');
       if (box && box.value) {
         navigator.clipboard?.writeText(box.value);
+        const copyBtn = document.getElementById('btn-copy-draft-reply');
+        if (copyBtn) {
+          const orig = copyBtn.innerHTML;
+          copyBtn.innerHTML = '✓ Copied!';
+          setTimeout(() => { copyBtn.innerHTML = orig; }, 2000);
+        }
         toast('Draft reply copied to clipboard.', 'success');
       }
       return;
@@ -1292,6 +1395,12 @@ function setupEvents() {
       const content = form.content.value;
       const cid = caseView.selectedCaseId;
 
+      const trimmed = (content || '').trim();
+      if (trimmed.length < 4) {
+        toast('Please provide valid communication notes (at least 4 characters).', 'error');
+        return;
+      }
+
       update((s) => {
         addCommunication(s, {
           caseId: cid,
@@ -1300,13 +1409,35 @@ function setupEvents() {
           sender: `${actorName(s)} (Property Officer)`,
           recipient: 'Resident / Contractor',
           category,
-          content,
+          content: trimmed,
           sourceLabel: 'Manually recorded',
         });
         logActivity(s, `Logged manual ${channel} communication for Case ${cid}: ${category}`, actorName(s));
       });
 
       toast('Simulated communication record saved.', 'success');
+      renderApp();
+      return;
+    }
+
+    if (e.target.id === 'case-add-note-form') {
+      e.preventDefault();
+      const form = e.target;
+      const cid = form.dataset.case || caseView.selectedCaseId;
+      const category = form.noteCategory?.value || 'Inspection Update';
+      const content = form.noteContent?.value || '';
+
+      const trimmed = (content || '').trim();
+      if (trimmed.length < 4) {
+        toast('Please enter a valid note content (at least 4 characters).', 'error');
+        return;
+      }
+
+      update((s) => {
+        addCaseProgressNote(s, cid, category, trimmed);
+      });
+
+      toast('Progress note recorded and added to timeline.', 'success');
       renderApp();
       return;
     }
@@ -1318,6 +1449,71 @@ function setupEvents() {
         const text = input.value.trim();
         input.value = '';
         assistantPage.ask(getState(), text, () => renderApp());
+      }
+    }
+  });
+
+  // Global Keyboard Navigation & Focus Trap (Escape and Tab)
+  document.addEventListener('keydown', (e) => {
+    // Escape key handling
+    if (e.key === 'Escape') {
+      // 1. Mobile navigation drawer
+      const mobileNav = document.getElementById('portal-nav');
+      if (mobileNav?.classList.contains('is-open')) {
+        mobileNav.classList.remove('is-open');
+        document.getElementById('mobile-nav-backdrop')?.setAttribute('hidden', '');
+        document.getElementById('btn-mobile-nav-toggle')?.setAttribute('aria-expanded', 'false');
+        return;
+      }
+
+      // 2. Case Journey drawer
+      if (caseView.selectedCaseId) {
+        closeCaseDrawer();
+        return;
+      }
+
+      // 3. Generic modals
+      const modalRoot = document.getElementById('modal-root');
+      if (modalRoot && !modalRoot.hasAttribute('hidden')) {
+        closeModal();
+        return;
+      }
+
+      // 4. Notifications popover
+      const notifPopover = document.getElementById('notification-popover');
+      if (notifPopover && !notifPopover.hasAttribute('hidden')) {
+        notifPopover.setAttribute('hidden', '');
+        document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'false');
+        return;
+      }
+
+      // 5. Account menu popover
+      const accountPopover = document.getElementById('account-popover');
+      if (accountPopover && !accountPopover.hasAttribute('hidden')) {
+        accountPopover.setAttribute('hidden', '');
+        document.getElementById('account-trigger')?.setAttribute('aria-expanded', 'false');
+        return;
+      }
+    }
+
+    // Tab key focus trap inside active drawer
+    if (e.key === 'Tab' && caseView.selectedCaseId) {
+      const drawer = document.querySelector('.drawer-panel');
+      if (drawer) {
+        const focusable = drawer.querySelectorAll(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length > 0) {
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
       }
     }
   });

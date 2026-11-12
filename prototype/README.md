@@ -13,7 +13,7 @@ This `/prototype` folder is a **pure, standalone static web application** design
 - **Zero Runtime Dependencies:** Built strictly with **HTML5, CSS3, and Vanilla JavaScript (ES Modules)**. No React, Vite, Babel, Webpack, MSAL, or external runtime libraries.
 - **Client-Side State & Logic:** Uses an in-memory observable store (`prototype/js/state.js`) initialized from seeded fictional Town Council data (`prototype/js/data.js`), with session persistence.
 - **Deterministic AI & Scheduling:** Powered by local, transparent rule engines (`ai.js`, `planner.js`, `ripple.js`) providing mathematical priority scoring, capacity constraint scheduling, downstream dependency cascades, and What-If disruption simulations.
-- **Dual Visual Themes:** Fully supports Fluent UI Light and Dark modes with responsive desktop, tablet, and mobile layouts.
+- **Dual Visual Themes & Fully Responsive Layout:** Fully supports Fluent UI Light and Dark modes with responsive design across desktop (1920px/1440px), laptop/tablet (1024px/768px), and mobile (430px/390px/320px). Features a responsive off-canvas mobile navigation drawer with hamburger toggle, focus trap, and keyboard navigation.
 
 ### Relationship to the Full-Stack Application
 - **Source of Truth:** The full-stack React frontend (`/client`) and Express backend (`/server`) represent the production application.
@@ -106,7 +106,18 @@ Located in the primary navigation (`Overview` → `Ask SyncAI` → `My Tasks` �
 
 - **Closure Readiness Checker & AI Case Brief:**
   - Multi-checkpoint gate preventing premature closure while statutory checkpoints or evidence files remain incomplete.
-  - Deterministic synthesized case brief with one-click copy to clipboard.
+  - Role-differentiated closure workflow: Property Officers can submit closure requests for manager sign-off without prematurely altering case status, while Estate Managers can directly approve closures.
+  - Deterministic synthesized case brief with transparent `[DISCLOSED MISSING INFORMATION]` section detailing unverified evidence or missing documentation, with one-click clipboard copy and refresh capability.
+
+- **High-Contrast Metric Typography & WCAG AA Accessibility:**
+  - Metric values on all operational overview cards (`.stat-value`) utilize high-contrast color tokens (`--stat-value-color: #102B4E` and `--stat-value-warn-color: #7a4d00` in light mode, `#ffffff` and `#f9d86c` in dark mode) ensuring contrast ratios >= 11:1, far exceeding WCAG AA requirements (4.5:1).
+  - Accessible dialog semantics: modal drawers include `role="dialog"`, `aria-modal="true"`, `aria-labelledby`, visible close button, Escape key dismissal, and active Tab key focus trapping with focus return to triggers upon closing.
+
+- **Interactive Case Modal Workflows:**
+  - **Operational Progress Notes:** Validated note logging (minimum 4 characters) immediately updates shared state, chronological timeline, and system audit logs.
+  - **Outcome Resolution:** Record outcomes directly on Loose-End follow-up cards (`data-action="case-resolve-finding"`), completing underlying checkpoints or tasks and clearing related notifications in real time.
+  - **Blocker Resolution & Ripple Navigation:** Update blocker statuses (`data-action="case-resolve-blocker"`) and jump directly to What-If Ripple Analysis (`data-action="case-ripple-nav"`) when tasks have dependencies.
+  - **Multi-Channel Communications:** Supports In-App, WhatsApp, Teams, and Telegram with acknowledgment toggles and visual clipboard confirmation badges.
 
 ### B. Smart Planning (Category B — Charlisa Tan)
 - **Schedule Preferences Dialog:** Configure working hours, lunch break window, protected focus periods, daily hours limit, and working days (Monday–Friday).
@@ -245,14 +256,16 @@ Follow this step-by-step walkthrough to demonstrate the Case Action Centre V2 ca
 
 ## 9. Verification & Test Suite
 
-The prototype includes an automated regression test suite ensuring business logic, scheduling invariants, ripple intelligence, role boundaries, and Case Action Centre V2 workflows function correctly in Node.js:
+The prototype includes an automated regression test suite ensuring business logic, scheduling invariants, ripple intelligence, role boundaries, responsive UX, and Case Action Centre workflows function correctly in Node.js:
 
 ```bash
-# Run all 95 automated prototype tests across 9 suites
+# Run all 110 automated prototype tests across 11 suites
 node --test "prototype/tests/*.test.mjs"
 ```
 
-### Test Coverage Summary (95 tests passing across 9 suites):
+### Test Coverage Summary (110 tests passing across 11 suites):
+- `case-modal-interaction.test.mjs` (8 tests): Validates high-contrast metric CSS tokens, timeline notes logging with validation, follow-up outcome resolution, blocker resolution, closure approval workflow, multi-channel communications, AI Case Brief missing information disclosures, and modal dialog accessibility attributes.
+- `case-action-centre-v3.test.mjs` (7 tests): Validates UI refinement, header single summary presentation, drawer redesign, user-friendly terminology, notification centre, and role consistency.
 - `case-action-centre-v2.test.mjs` (7 tests): Validates single-column Kanban classification, 4-part Evidence-Linked Explanations, role-based visibility, Actionable Notifications (#071), Case Communication Hub, and Message-to-Task Drafting (#076).
 - `cases.test.mjs` (5 tests): Validates documented EMS priority order, recorded deadlines, role-based case access, task-case links, and browser persistence after day rollover.
 - `category-c-cases.test.mjs` (5 tests): Validates Category C Case Action Centre role-aware views, 8-rule deterministic Loose-End Detector, Closure Readiness checker, simulated AI Case Brief generator, and reassignment approval workflow.
