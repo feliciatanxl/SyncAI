@@ -755,10 +755,8 @@ function renderCaseList(s, cases) {
       <table class="data-table capture-table case-table" aria-labelledby="cases-h">
         <thead>
           <tr>
-            <th scope="col" class="th-case-title">Case / Location</th>
-            <th scope="col" class="th-case-category">Category</th>
-            <th scope="col" class="th-case-status">Status</th>
-            <th scope="col" class="th-case-officer">Assigned Officer</th>
+            <th scope="col" class="th-case-title">Case details</th>
+            <th scope="col" class="th-case-workflow">Workflow</th>
             <th scope="col" class="th-case-deadlines">Deadlines (SGT)</th>
             <th scope="col" class="th-case-actions" style="text-align: right;">Actions</th>
           </tr>
@@ -774,21 +772,25 @@ function renderCaseList(s, cases) {
 
             return html`
               <tr class="case-table-row" data-case-id="${c.id}" data-action="case-row-click" tabindex="0" role="button" aria-label="Open case ${c.number || c.caseNumber || c.id}: ${c.title}">
-                <td data-label="Case / Location">
+                <td data-label="Case details">
                   <div class="case-cell-primary">
                     <span class="case-number-badge" data-action="case-inspect" data-id="${c.id}" style="cursor: pointer;">${c.number || c.caseNumber || c.id}</span>
                     <a class="case-title-link" href="#cases/${c.id}" data-action="case-inspect" data-id="${c.id}">${c.title}</a>
-                    ${c.location ? html`<span class="case-location-tag">${icon('pin', 12)} ${c.location}</span>` : ''}
+                    <div class="case-detail-tags">
+                      <span class="tag tag-neutral small">${c.category}</span>
+                      ${c.location ? html`<span class="case-location-tag">${icon('pin', 12)} ${c.location}</span>` : ''}
+                    </div>
                   </div>
                 </td>
-                <td data-label="Category"><span class="tag tag-neutral small">${c.category}</span></td>
-                <td data-label="Status">
-                  <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
-                    <span class="tag ${statusClass}">${stageTitle}</span>
-                    ${isBlocked ? html`<span class="tag tag-danger small" style="display: inline-flex; align-items: center; gap: 4px;">${icon('alert', 12)} Blocked</span>` : ''}
+                <td data-label="Workflow">
+                  <div class="case-workflow-cell">
+                    <div class="case-workflow-status">
+                      <span class="tag ${statusClass}">${stageTitle}</span>
+                      ${isBlocked ? html`<span class="tag tag-danger small">${icon('alert', 12)} Blocked</span>` : ''}
+                    </div>
+                    <span class="case-officer-line">${icon('users', 13)} ${officerName(s, c.ownerId)}</span>
                   </div>
                 </td>
-                <td data-label="Assigned officer">${officerName(s, c.ownerId)}</td>
                 <td data-label="Deadlines (SGT)">${recordedDeadlines(c)}</td>
                 <td data-label="Actions" class="case-actions-cell" style="text-align: right;">
                   <div class="case-actions-group">
@@ -796,7 +798,7 @@ function renderCaseList(s, cases) {
                       ? html`
                           <button
                             type="button"
-                            class="tag tag-warning small"
+                            class="tag tag-warning small case-followup-action"
                             data-action="case-inspect"
                             data-id="${c.id}"
                             data-tab="loose_ends"
@@ -807,8 +809,8 @@ function renderCaseList(s, cases) {
                           </button>
                         `
                       : ''}
-                    <button type="button" class="btn-primary btn-sm case-view-btn" data-action="case-inspect" data-id="${c.id}" data-tab="timeline">
-                      ${icon('eye', 14)} View Case
+                    <button type="button" class="btn-primary btn-sm case-view-btn" data-action="case-inspect" data-id="${c.id}" data-tab="timeline" aria-label="View Case">
+                      ${icon('eye', 14)} View
                     </button>
                     <button
                       type="button"
@@ -817,7 +819,7 @@ function renderCaseList(s, cases) {
                       data-case="${c.id}"
                       title="Move case to stage"
                     >
-                      ${icon('arrow', 12)} Move to Stage
+                      ${icon('arrow', 12)} Move
                     </button>
                   </div>
                 </td>

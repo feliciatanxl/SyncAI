@@ -2732,7 +2732,8 @@ td.cell-risk,
     color: var(--colorNeutralForeground3);
     margin-bottom: 2px;
   }
-  .case-table td[data-label="Case / Location"]::before {
+  .case-table td[data-label="Case / Location"]::before,
+  .case-table td[data-label="Case details"]::before {
     display: none;
   }
   .case-table td.case-actions-cell {
@@ -2877,7 +2878,7 @@ td.cell-risk,
 }
 
 .case-toolbar-container {
-  padding: 18px 28px 20px;
+  padding: 10px 28px 18px;
   gap: 16px;
   background: linear-gradient(180deg, var(--colorNeutralBackground1), var(--colorNeutralBackground2));
 }
@@ -2895,12 +2896,14 @@ td.cell-risk,
 }
 
 .case-table-wrap {
-  padding: 14px 20px 22px;
-  overflow-x: auto;
+  padding: 10px 20px 22px;
+  overflow-x: visible;
 }
 
 .case-table {
-  min-width: 1120px;
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
   border-spacing: 0 10px;
   border-collapse: separate;
 }
@@ -2950,32 +2953,46 @@ td.cell-risk,
   box-shadow: inset 4px 0 0 var(--colorBrandStroke1), 0 0 0 2px var(--colorBrandStroke2);
 }
 
-.case-table .th-case-title { width: 27%; min-width: 260px; }
-.case-table .th-case-category { width: 12%; min-width: 130px; }
-.case-table .th-case-status { width: 14%; min-width: 150px; }
-.case-table .th-case-officer { width: 13%; min-width: 145px; }
-.case-table .th-case-deadlines { width: 17%; min-width: 185px; }
-.case-table .th-case-actions { width: 17%; min-width: 220px; }
+.case-table .th-case-title { width: 34%; min-width: 0; }
+.case-table .th-case-workflow { width: 25%; min-width: 0; }
+.case-table .th-case-deadlines { width: 22%; min-width: 0; }
+.case-table .th-case-actions { width: 19%; min-width: 0; }
 
 .case-cell-primary { gap: 6px; }
 .case-title-link { font-size: 1rem; }
+.case-detail-tags,
+.case-workflow-status,
+.case-officer-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.case-detail-tags { margin-top: 3px; }
+.case-workflow-cell { display: grid; gap: 10px; min-width: 0; }
+.case-officer-line { color: var(--colorNeutralForeground2); font-size: 0.8125rem; }
+.case-workflow-status .tag { max-width: 100%; white-space: normal; line-height: 1.25; }
 .case-actions-group {
-  display: grid;
-  grid-template-columns: repeat(2, max-content);
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
   justify-content: end;
   align-items: center;
   gap: 8px;
 }
 
-.case-actions-group > .tag { grid-column: 1 / -1; justify-self: end; }
+.case-actions-group > .tag { flex: 1 0 100%; justify-content: center; }
 .case-actions-group .btn-sm {
   min-height: 36px;
-  padding-inline: 12px;
+  padding-inline: 11px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
 }
+
+.case-followup-action { max-width: 100%; white-space: normal; text-align: center; }
 
 .case-view-btn { box-shadow: 0 4px 12px rgba(0, 95, 184, 0.16); }
 
@@ -3247,6 +3264,23 @@ td.cell-risk,
   .case-detail-nav .drawer-tab-btn { width: auto; min-width: max-content; }
   .case-detail-scroll { padding: 20px; }
   .kanban-board { grid-template-columns: repeat(2, minmax(240px, 1fr)); }
+}
+
+@media (max-width: 1180px) and (min-width: 769px) {
+  .case-table-wrap { padding-inline: 12px; }
+  .case-table th,
+  .case-table td { padding-inline: 12px; }
+  .case-table th:first-child,
+  .case-table td:first-child { padding-left: 18px; }
+  .case-table th:last-child,
+  .case-table td:last-child { padding-right: 18px; }
+  .case-table .th-case-title { width: 32%; }
+  .case-table .th-case-workflow { width: 27%; }
+  .case-table .th-case-deadlines { width: 23%; }
+  .case-table .th-case-actions { width: 18%; }
+  .case-actions-group { flex-direction: column; align-items: stretch; }
+  .case-actions-group > .tag { flex-basis: auto; }
+  .case-actions-group .btn-sm { width: 100%; }
 }
 
 @media (max-width: 600px) {
