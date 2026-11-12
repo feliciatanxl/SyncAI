@@ -744,12 +744,12 @@ function renderCaseList(s, cases) {
       <table class="data-table capture-table case-table" aria-labelledby="cases-h">
         <thead>
           <tr>
-            <th scope="col" style="min-width: 260px;">Case / Location</th>
-            <th scope="col" style="width: 140px;">Category</th>
-            <th scope="col" style="width: 150px;">Status</th>
-            <th scope="col" style="width: 160px;">Assigned Officer</th>
-            <th scope="col" style="width: 220px; white-space: nowrap;">Deadlines (SGT)</th>
-            <th scope="col" style="text-align: right; width: 140px;">Actions</th>
+            <th scope="col" class="th-case-title">Case / Location</th>
+            <th scope="col" class="th-case-category">Category</th>
+            <th scope="col" class="th-case-status">Status</th>
+            <th scope="col" class="th-case-officer">Assigned Officer</th>
+            <th scope="col" class="th-case-deadlines">Deadlines (SGT)</th>
+            <th scope="col" class="th-case-actions" style="text-align: right;">Actions</th>
           </tr>
         </thead>
         <tbody>

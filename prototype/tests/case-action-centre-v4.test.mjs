@@ -101,7 +101,13 @@ test('V4 Case Table: Clear column order with mobile data-label attributes for re
 
   const rendered = casesPage.render(s).toString();
 
-  // Column order in header
+  // Column order and classes in header
+  assert.match(rendered, /th-case-title/);
+  assert.match(rendered, /th-case-category/);
+  assert.match(rendered, /th-case-status/);
+  assert.match(rendered, /th-case-officer/);
+  assert.match(rendered, /th-case-deadlines/);
+  assert.match(rendered, /th-case-actions/);
   assert.match(rendered, /Case \/ Location/);
   assert.match(rendered, /Category/);
   assert.match(rendered, /Status/);
@@ -132,11 +138,14 @@ test('V4 CSS & Responsive Rules: Style definitions exist for V4 layout, cards, a
   assert.match(css, /\.radar-card-header/);
   assert.match(css, /\.radar-card-explanation/);
   assert.match(css, /\.radar-card-evidence/);
+  assert.match(css, /flex:\s*1\s+1\s+auto/);
   assert.match(css, /\.radar-card-actions/);
 
   // Table & mobile card transformation
   assert.match(css, /\.case-table/);
   assert.match(css, /\.case-cell-primary/);
+  assert.match(css, /\.case-table\s+\.th-case-title/);
+  assert.match(css, /\.case-table\s+\.th-case-actions/);
   assert.match(css, /\.case-table\s+td\[data-label\]::before/);
 
   // Media queries
