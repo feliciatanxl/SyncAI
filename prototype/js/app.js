@@ -66,6 +66,8 @@ import activityPage from './pages/activity.js';
 import decidesPage from './pages/decides.js';
 import settingsPage from './pages/settings.js';
 import assistantPage from './pages/assistant.js';
+import attendancePage, { handleAttendanceClick } from './pages/attendance.js';
+import ripplePage, { handleRippleClick } from './pages/ripple.js';
 
 // Navigation section registry
 const SECTIONS = {
@@ -75,6 +77,8 @@ const SECTIONS = {
   cases: { id: 'cases', label: 'Case Action Centre', icon: 'cases', page: casesPage },
   plan: { id: 'plan', label: 'My plan', icon: 'calendar', page: planPage },
   team: { id: 'team', label: 'My team', icon: 'team', page: teamPage },
+  attendance: { id: 'attendance', label: 'Attendance', icon: 'users', page: attendancePage },
+  ripple: { id: 'ripple', label: 'Ripple Intelligence', icon: 'radar', page: ripplePage },
   people: { id: 'people', label: 'People', icon: 'users', page: peoplePage },
   teams: { id: 'teams', label: 'Teams', icon: 'team', page: teamsAdminPage },
   activity: { id: 'activity', label: 'Activity', icon: 'history', page: activityPage },
@@ -107,10 +111,10 @@ function allowedSections(s) {
     return ['overview', 'assistant', 'cases', 'people', 'teams', 'activity', 'decides', 'settings'];
   }
   if (isManager(s)) {
-    return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'team', 'decides', 'settings'];
+    return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'team', 'attendance', 'ripple', 'decides', 'settings'];
   }
   // Member
-  return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'decides', 'settings'];
+  return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'attendance', 'decides', 'settings'];
 }
 
 function readPortalRoute(s) {
@@ -514,6 +518,12 @@ function setupEvents() {
       document.getElementById('portal-nav')?.classList.remove('is-open');
       mobileBackdrop.setAttribute('hidden', '');
       document.getElementById('btn-mobile-nav-toggle')?.setAttribute('aria-expanded', 'false');
+      return;
+    }
+
+    // Attendance (104, 051) and Ripple Intelligence pages
+    if (handleAttendanceClick(e) || handleRippleClick(e)) {
+      renderApp();
       return;
     }
 

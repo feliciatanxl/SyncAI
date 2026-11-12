@@ -3292,3 +3292,88 @@ td.cell-risk,
   .kanban-board { grid-template-columns: 1fr !important; }
   .case-table-wrap { padding: 12px; }
 }
+
+/* ===== Ripple Intelligence and Attendance pages ===== */
+.u-row { display: flex; align-items: center; gap: 8px; }
+.u-wrap { flex-wrap: wrap; }
+.u-mt { margin-top: 16px; }
+.u-mt-sm { margin-top: 8px; }
+.u-stack { display: grid; gap: 16px; }
+.u-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.u-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; font-size: 0.875rem; }
+.u-list li { padding-left: 14px; position: relative; }
+.u-list li::before { content: ''; position: absolute; left: 0; top: 0.55em; width: 6px; height: 6px; border-radius: 50%; background: var(--colorBrandForeground1); }
+.u-good { color: var(--colorPaletteGreenForeground1); }
+.u-bad { color: var(--colorPaletteRedForeground1); }
+.portal-main .panel h3 { font-size: 0.9375rem; margin-bottom: 4px; }
+.portal-main .panel h3.u-mt { margin-top: 18px; }
+
+.rip-step {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; margin-right: 6px; border-radius: 50%;
+  background: var(--colorBrandBackground); color: var(--colorNeutralForegroundOnBrand); font-size: 0.8125rem; font-weight: 700; vertical-align: middle;
+}
+.rip-scenarios { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.rip-scenario {
+  display: flex; gap: 12px; align-items: flex-start; text-align: left; font: inherit; color: var(--colorNeutralForeground1); cursor: pointer;
+  padding: 14px; border-radius: 10px; border: 2px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground1);
+}
+.rip-scenario:hover { border-color: var(--colorBrandStroke1); }
+.rip-scenario[aria-pressed="true"] { border-color: var(--colorBrandBackground); background: var(--colorBrandBackground2); }
+.rip-scenario .meta { display: block; margin-top: 2px; font-size: 0.8125rem; color: var(--colorNeutralForeground3); }
+.rip-lists h3 { margin-top: 0; }
+
+/* Dependency chain (031) */
+.chain-grid { display: grid; gap: 22px; }
+.chain-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.chain-node { display: flex; gap: 12px; align-items: flex-start; padding-left: calc((var(--depth, 0)) * 26px); position: relative; font-size: 0.875rem; }
+.chain-node + .chain-node::before { content: '↳'; position: absolute; left: calc((var(--depth, 1) - 1) * 26px + 4px); top: -2px; color: var(--colorNeutralForeground3); }
+.chain-dot { flex: none; width: 12px; height: 12px; margin-top: 5px; border-radius: 50%; background: var(--colorBrandBackground); }
+.chain-node.is-root .chain-dot { background: var(--colorPaletteRedForeground1); }
+.chain-node:not(.is-root) .chain-dot { margin-left: 14px; }
+
+/* Options (036) */
+.rip-alt { text-align: left; font: inherit; color: var(--colorNeutralForeground1); width: 100%; box-sizing: border-box; }
+.rip-alt-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rip-alt-head .badge { margin-left: auto; }
+.alt-stats { display: grid; gap: 4px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--colorNeutralStroke3); }
+.alt-stat { display: flex; justify-content: space-between; gap: 8px; font-size: 0.8125rem; }
+
+/* Before / after timelines (035) */
+.rip-tabs { margin-bottom: 12px; }
+.rip-axis { position: relative; height: 18px; margin-top: 8px; }
+.rip-axis i { position: absolute; transform: translateX(-50%); font-style: normal; font-size: 0.6875rem; color: var(--colorNeutralForeground3); }
+.rip-compare { align-items: start; }
+.rip-row { margin-top: 12px; }
+.rip-who { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.8125rem; }
+.rip-track { position: relative; height: 38px; border-radius: 8px; background: var(--colorNeutralBackground3); border: 1px solid var(--colorNeutralStroke2); overflow: hidden; }
+.rip-track.is-away { background: repeating-linear-gradient(45deg, var(--colorNeutralBackground3), var(--colorNeutralBackground3) 8px, var(--colorNeutralBackground4) 8px, var(--colorNeutralBackground4) 16px); }
+.rip-away { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.8125rem; font-weight: 600; color: var(--colorNeutralForeground2); }
+.rip-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--colorNeutralStroke2); }
+.rip-bar {
+  position: absolute; top: 4px; bottom: 4px; padding: 0 5px; border-radius: 5px; box-sizing: border-box; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  display: flex; align-items: center; font-size: 0.6875rem; font-weight: 600; border: 1px solid transparent;
+}
+.rip-task, .rip-key.rip-task { background: var(--colorBrandBackground2); border-color: var(--colorBrandStroke2); color: var(--colorBrandForeground1); }
+.rip-safety, .rip-key.rip-safety { background: var(--colorPaletteRedBackground1); border-color: var(--colorPaletteRedBorderActive); color: var(--colorPaletteRedForeground1); }
+.rip-mandatory, .rip-key.rip-mandatory { background: var(--colorPaletteMarigoldBackground1); border-color: var(--colorPaletteMarigoldBorderActive); color: var(--colorPaletteMarigoldForeground2); }
+.rip-incident, .rip-key.rip-incident { background: var(--colorPaletteRedForeground1); border-color: var(--colorPaletteRedForeground1); color: #fff; }
+.rip-meeting, .rip-key.rip-meeting { background: var(--colorNeutralBackground1); border-color: var(--colorNeutralStroke1); color: var(--colorNeutralForeground2); font-weight: 500; }
+.rip-bar.is-late, .rip-key.is-late { border-style: dashed; border-color: var(--colorPaletteRedForeground1); }
+.rip-bar.is-new { box-shadow: 0 0 0 2px var(--colorBrandStroke1); z-index: 1; }
+.rip-warn { margin: 6px 0 0; color: var(--colorPaletteRedForeground1); display: flex; gap: 6px; align-items: flex-start; }
+.rip-legend { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--colorNeutralForeground2); }
+.rip-legend li { display: flex; align-items: center; gap: 6px; }
+.rip-key { display: inline-block; width: 18px; height: 12px; border-radius: 3px; border: 1px solid transparent; }
+
+.rip-headline { font-size: 1.0625rem; font-weight: 600; margin: 0 0 8px; }
+.rip-decision { border-color: var(--colorBrandStroke1); }
+.rip-decision h2 { margin: 0 0 8px; font-size: 1.125rem; }
+
+/* Attendance and MC reshuffle (104, 051) */
+.att-load { display: grid; gap: 8px; margin-top: 8px; }
+.att-load-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 8px; background: var(--colorNeutralBackground2); }
+.att-load-values { display: flex; align-items: center; gap: 8px; font-size: 0.875rem; }
+
+@media (max-width: 900px) {
+  .rip-scenarios, .u-grid-2 { grid-template-columns: minmax(0, 1fr); }
+}
