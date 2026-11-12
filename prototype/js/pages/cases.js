@@ -965,7 +965,6 @@ function renderCaseMoveStageModal(s, caseId) {
     <div class="modal-backdrop is-open" data-action="case-move-stage-close" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1050; display: flex; align-items: center; justify-content: center; padding: 16px;">
       <div
         class="modal-card case-move-stage-dialog"
-        onclick="event.stopPropagation()"
         role="dialog"
         aria-modal="true"
         aria-labelledby="move-stage-title"
@@ -1129,7 +1128,6 @@ function renderCaseTransitionModal(s) {
     <div class="modal-backdrop is-open" data-action="case-transition-cancel" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1100; display: flex; align-items: center; justify-content: center; padding: 16px;">
       <div
         class="modal-card case-transition-confirm-dialog"
-        onclick="event.stopPropagation()"
         role="dialog"
         aria-modal="true"
         aria-labelledby="transition-confirm-title"
@@ -1210,7 +1208,6 @@ function renderCaseJourneyModal(s, c) {
     <div class="modal-backdrop is-open case-workspace-backdrop" data-action="case-modal-close">
       <div
         class="drawer-panel case-detail-workspace"
-        onclick="event.stopPropagation()"
         role="dialog"
         aria-modal="true"
         aria-labelledby="case-drawer-title"

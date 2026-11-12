@@ -3083,6 +3083,9 @@ td.cell-risk,
   width: min(1180px, calc(100vw - 56px));
   height: min(820px, calc(100vh - 56px));
   max-width: none;
+  min-width: 0;
+  box-sizing: border-box;
+  position: relative;
   background: var(--colorNeutralBackground1);
   display: flex;
   flex-direction: column;
@@ -3104,12 +3107,21 @@ td.cell-risk,
   justify-content: space-between;
   align-items: flex-start;
   gap: 20px;
-  padding: 24px 28px 20px;
+  padding: 24px 76px 20px 28px;
   border-bottom: 1px solid var(--colorNeutralStroke2);
   background: linear-gradient(135deg, #f7fbff 0%, var(--colorNeutralBackground1) 70%);
 }
 
-.case-detail-heading { flex: 1; min-width: 0; }
+.case-detail-header > .drawer-close-btn {
+  position: absolute;
+  top: 20px;
+  right: 22px;
+  z-index: 3;
+  background: var(--colorNeutralBackground1);
+  box-shadow: 0 4px 12px rgba(20, 37, 63, 0.1);
+}
+
+.case-detail-heading { flex: 1; min-width: 0; max-width: 100%; }
 .case-detail-kicker,
 .case-detail-owner-row {
   display: flex;
@@ -3130,6 +3142,7 @@ td.cell-risk,
   font-size: clamp(1.25rem, 2vw, 1.65rem);
   line-height: 1.25;
   color: var(--colorNeutralForeground1);
+  overflow-wrap: anywhere;
 }
 
 .case-owner-button { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; }
@@ -3199,12 +3212,16 @@ td.cell-risk,
   background: var(--colorNeutralBackground2);
 }
 
+.case-detail-footer > div {
+  min-width: 0;
+}
+
 @media (max-width: 1280px) {
   .kanban-board { grid-template-columns: repeat(3, minmax(230px, 1fr)); }
   .kanban-board .kanban-col:nth-child(n + 4) { min-height: 300px; }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   .case-workspace-backdrop { padding: 12px; }
   .case-detail-workspace { width: calc(100vw - 24px); height: calc(100vh - 24px); border-radius: 14px; }
   .case-detail-main { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
@@ -3221,7 +3238,8 @@ td.cell-risk,
 }
 
 @media (max-width: 600px) {
-  .case-detail-header { padding: 18px; }
+  .case-detail-header { padding: 18px 62px 18px 18px; }
+  .case-detail-header > .drawer-close-btn { top: 14px; right: 14px; }
   .case-detail-owner-row { align-items: flex-start; }
   .case-detail-footer { padding: 12px 16px; }
   .kanban-board-guide { align-items: flex-start; flex-direction: column; }

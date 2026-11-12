@@ -1044,8 +1044,9 @@ function setupEvents() {
       return;
     }
 
-    const caseModalClose = e.target.closest('[data-action="case-modal-close"]');
-    if (caseModalClose) {
+    const caseModalClose = e.target.closest('button[data-action="case-modal-close"]');
+    const caseBackdropClose = e.target.matches('.case-workspace-backdrop[data-action="case-modal-close"]');
+    if (caseModalClose || caseBackdropClose) {
       closeCaseDrawer();
       return;
     }
@@ -1075,7 +1076,9 @@ function setupEvents() {
       return;
     }
 
-    if (e.target.closest('[data-action="case-move-stage-close"]')) {
+    const moveStageClose = e.target.closest('button[data-action="case-move-stage-close"]');
+    const moveStageBackdropClose = e.target.matches('.modal-backdrop[data-action="case-move-stage-close"]');
+    if (moveStageClose || moveStageBackdropClose) {
       caseView.moveStageModalCaseId = null;
       renderApp();
       return;
@@ -1110,7 +1113,9 @@ function setupEvents() {
     }
 
     // Consequential Stage Transition Confirmation Modal Triggers
-    if (e.target.closest('[data-action="case-transition-cancel"]')) {
+    const transitionCancel = e.target.closest('button[data-action="case-transition-cancel"]');
+    const transitionBackdropCancel = e.target.matches('.modal-backdrop[data-action="case-transition-cancel"]');
+    if (transitionCancel || transitionBackdropCancel) {
       caseView.transitionModal = null;
       renderApp();
       return;
