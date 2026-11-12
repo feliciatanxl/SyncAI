@@ -821,7 +821,8 @@ export function getCase(s, id) {
   return (s.cases || []).find((c) => c.id === id || c.caseNumber === id);
 }
 
-export { visibleCases, accessibleCase, tasksForCase, getCaseKanbanColumn, KANBAN_COLUMNS } from './cases.js';
+import { visibleCases, accessibleCase, tasksForCase, getCaseKanbanColumn, KANBAN_COLUMNS } from './cases.js';
+export { visibleCases, accessibleCase, tasksForCase, getCaseKanbanColumn, KANBAN_COLUMNS };
 
 /**
  * Operational Loose-End Detector — Signature Feature
@@ -1530,3 +1531,624 @@ export function requestCaseReassignment(s, caseId, targetOfficerId, reason = '')
 
   return approval;
 }
+
+// ============================================================================
+// Case Stage Transition Engine — Real Kanban Workflow & Governance Rules
+// ============================================================================
+
+/**
+ * Normalizes target stage identifier to one of the 5 canonical KANBAN stage IDs:
+ * 'open' | 'in_progress' | 'pending_external' | 'ready_for_closure' | 'closed'
+ */
+export function normalizeKanbanStage(stageStr) {
+  if (!stageStr) return 'open';
+  const lower = stageStr.toLowerCase().trim();
+  if (lower === 'closed' || lower.includes('closed') || lower.includes('audited')) return 'closed';
+  if (lower === 'ready_for_closure' || lower.includes('closure ready') || lower.includes('ready for closure')) return 'ready_for_closure';
+  if (lower === 'pending_external' || lower === 'blocked' || lower.includes('external') || lower.includes('awaiting')) return 'pending_external';
+  if (lower === 'in_progress' || lower === 'in progress' || lower.includes('progress')) return 'in_progress';
+  return 'open';
+}
+
+/**
+ * Pre-evaluates whether a stage transition is permitted, blocked, or requires confirmation/reason.
+ */
+export function canTransitionCase(s, caseId, targetStage, actorId = null) {
+  const c = getCase(s, caseId);
+  if (!c) return { permitted: false, reason: 'Case record not found in system state.' };
+
+  // Resolve actor identity and role
+  const currentUser = getCurrentUser(s);
+  let effectiveUser = currentUser;
+  if (actorId && actorId !== currentUser.id) {
+    const foundUser = (s.users || []).find((u) => u.id === actorId);
+    const foundOfficer = (s.officers || []).find((o) => o.id === actorId);
+    if (foundUser) {
+      effectiveUser = foundUser;
+    } else if (foundOfficer) {
+      effectiveUser = {
+        id: foundOfficer.id,
+        displayName: foundOfficer.name,
+        role: (s.supervisor?.id === actorId || actorId === 's1') ? 'manager' : 'member',
+        status: 'active',
+      };
+    } else if (actorId === 's1' || actorId === s.supervisor?.id) {
+      effectiveUser = { id: 's1', displayName: s.supervisor?.name || 'Jennifer Ong', role: 'manager', status: 'active' };
+    } else if (actorId === 'a1' || actorId === s.admin?.id) {
+      effectiveUser = { id: 'a1', displayName: s.admin?.name || 'TAN, ALEX', role: 'admin', status: 'active' };
+    }
+  }
+
+  if (effectiveUser.status !== 'active') {
+    return { permitted: false, reason: 'Unauthorized: Operational case access is restricted for inactive or pending accounts.' };
+  }
+  if (effectiveUser.role === 'admin') {
+    return { permitted: false, reason: 'Unauthorized: Administrators have governance view-only access and cannot modify casework.' };
+  }
+
+  // Team member case assignment scope
+  if (effectiveUser.role === 'member' || effectiveUser.role === 'team_member') {
+    if (c.ownerId !== effectiveUser.id) {
+      return { permitted: false, reason: `Unauthorized: Team members can only modify their own assigned cases. Case is assigned to ${officerName(s, c.ownerId)}.` };
+    }
+  }
+
+  // Manager team scope
+  if (effectiveUser.role === 'manager' || effectiveUser.role === 'supervisor') {
+    const managedOfficers = new Set(
+      (s.teams || [])
+        .filter((t) => t.managers.some((m) => m.id === effectiveUser.id))
+        .flatMap((t) => t.members.map((m) => m.id))
+    );
+    managedOfficers.add(effectiveUser.id);
+    if (!managedOfficers.has(c.ownerId)) {
+      return { permitted: false, reason: 'Unauthorized: Case is outside your managerial team jurisdiction.' };
+    }
+  }
+
+  const normalized = normalizeKanbanStage(targetStage);
+  const currentStage = getCaseKanbanColumn(c);
+
+  if (normalized === currentStage) {
+    return { permitted: false, isCurrent: true, reason: 'Case is already in this workflow stage.' };
+  }
+
+  // Reopening a closed case
+  if (currentStage === 'closed') {
+    if (effectiveUser.role !== 'manager' && effectiveUser.role !== 'supervisor') {
+      return { permitted: false, reason: 'Unauthorized: Closed cases cannot be reopened by Team Members. Estate Manager authorization required.' };
+    }
+    return { permitted: true, requiresReason: true, reason: 'Reopening a closed case requires an auditable manager exception reason.' };
+  }
+
+  // Moving to Awaiting External / Blocked requires a reason
+  if (normalized === 'pending_external') {
+    return { permitted: true, requiresReason: true, reason: 'Placing a case on hold requires an operational blocker or external dependency reason.' };
+  }
+
+  // Moving from Awaiting External to In Progress requires resolving all blockers
+  if (normalized === 'in_progress' && currentStage === 'pending_external') {
+    const activeBlockers = (c.blockers || []).filter((b) => !b.resolved);
+    if (activeBlockers.length > 0) {
+      return {
+        permitted: false,
+        reason: `Cannot resume In Progress: active blocker unresolved ("${activeBlockers[0].title}"). Please resolve the blocker before resuming work.`,
+        activeBlockers,
+        canResolveBlocker: true,
+      };
+    }
+    return { permitted: true, reason: 'All external blockers cleared. Permitted to resume work.' };
+  }
+
+  // Moving to Closure Ready requires satisfying closure checklist
+  if (normalized === 'ready_for_closure') {
+    const readiness = checkClosureReadiness(s, c);
+    if (!readiness.isReady) {
+      return {
+        permitted: false,
+        reason: `Cannot move to Closure Ready: ${readiness.unresolvedItems[0] || 'Prerequisites incomplete.'}`,
+        unresolvedItems: readiness.unresolvedItems,
+      };
+    }
+    return { permitted: true, reason: 'All closure checklist prerequisites satisfied. Permitted.' };
+  }
+
+  // Moving to Closed & Audited
+  if (normalized === 'closed') {
+    if (effectiveUser.role !== 'manager' && effectiveUser.role !== 'supervisor') {
+      return { permitted: true, requiresApproval: true, reason: 'Team Members must submit a closure approval request for Manager sign-off.' };
+    }
+    const readiness = checkClosureReadiness(s, c);
+    if (!readiness.isReady) {
+      return { permitted: true, requiresReason: true, isException: true, reason: `Checklist incomplete: ${readiness.unresolvedItems[0]}. An auditable manager exception reason is required.` };
+    }
+    return { permitted: true, reason: 'Authorised manager can verify and sign off closure.' };
+  }
+
+  return { permitted: true, reason: 'Permitted transition.' };
+}
+
+/**
+ * Central Status Transition Engine — requestCaseStageTransition
+ * Enforces business logic, role-based access, blocker validation, and closure verification.
+ * Changes real prototype shared state and returns a structured result.
+ */
+export function requestCaseStageTransition(s, caseId, targetStage, actorId = null, reason = '') {
+  const c = getCase(s, caseId);
+  if (!c) {
+    return {
+      success: false,
+      error: 'Case record not found in system state.',
+      caseId,
+      resultingStatus: null,
+      resultingStage: null,
+      affectedTaskIds: [],
+    };
+  }
+
+  // 1. Resolve actor and role
+  const currentUser = getCurrentUser(s);
+  let effectiveUser = currentUser;
+  if (actorId && actorId !== currentUser.id) {
+    const foundUser = (s.users || []).find((u) => u.id === actorId);
+    const foundOfficer = (s.officers || []).find((o) => o.id === actorId);
+    if (foundUser) {
+      effectiveUser = foundUser;
+    } else if (foundOfficer) {
+      effectiveUser = {
+        id: foundOfficer.id,
+        displayName: foundOfficer.name,
+        role: (s.supervisor?.id === actorId || actorId === 's1') ? 'manager' : 'member',
+        status: 'active',
+      };
+    } else if (actorId === 's1' || actorId === s.supervisor?.id) {
+      effectiveUser = { id: 's1', displayName: s.supervisor?.name || 'Jennifer Ong', role: 'manager', status: 'active' };
+    } else if (actorId === 'a1' || actorId === s.admin?.id) {
+      effectiveUser = { id: 'a1', displayName: s.admin?.name || 'TAN, ALEX', role: 'admin', status: 'active' };
+    }
+  }
+
+  const currentActorId = effectiveUser.id;
+  const currentActorName = effectiveUser.displayName || officerName(s, currentActorId) || actorName(s);
+  const isMgr = effectiveUser.role === 'manager' || effectiveUser.role === 'supervisor';
+
+  // Status check: inactive/pending/disabled users are denied
+  if (effectiveUser.status !== 'active') {
+    return {
+      success: false,
+      error: 'Unauthorized: Operational case access is restricted for inactive or pending accounts.',
+      caseId: c.id,
+      caseNumber: c.caseNumber || c.id,
+      resultingStatus: c.status,
+      resultingStage: getCaseKanbanColumn(c),
+      affectedTaskIds: c.taskIds || [],
+    };
+  }
+
+  // Role check: Admin has governance view-only access
+  if (effectiveUser.role === 'admin') {
+    return {
+      success: false,
+      error: 'Unauthorized: Administrators have governance view-only access and cannot modify operational casework.',
+      caseId: c.id,
+      caseNumber: c.caseNumber || c.id,
+      resultingStatus: c.status,
+      resultingStage: getCaseKanbanColumn(c),
+      affectedTaskIds: c.taskIds || [],
+    };
+  }
+
+  // Role check: Team Member can only modify their own assigned cases
+  if (effectiveUser.role === 'member' || effectiveUser.role === 'team_member') {
+    if (c.ownerId !== currentActorId) {
+      return {
+        success: false,
+        error: `Unauthorized: Team members can only modify their own assigned cases. Case is assigned to ${officerName(s, c.ownerId)}.`,
+        caseId: c.id,
+        caseNumber: c.caseNumber || c.id,
+        resultingStatus: c.status,
+        resultingStage: getCaseKanbanColumn(c),
+        affectedTaskIds: c.taskIds || [],
+      };
+    }
+  }
+
+  // Role check: Manager can modify cases within their managed teams
+  if (isMgr) {
+    const managedOfficers = new Set(
+      (s.teams || [])
+        .filter((t) => t.managers.some((m) => m.id === currentActorId))
+        .flatMap((t) => t.members.map((m) => m.id))
+    );
+    managedOfficers.add(currentActorId);
+    if (!managedOfficers.has(c.ownerId)) {
+      return {
+        success: false,
+        error: 'Unauthorized: Case is outside your managerial team jurisdiction.',
+        caseId: c.id,
+        caseNumber: c.caseNumber || c.id,
+        resultingStatus: c.status,
+        resultingStage: getCaseKanbanColumn(c),
+        affectedTaskIds: c.taskIds || [],
+      };
+    }
+  }
+
+  // Normalize targetStage
+  const normalizedStage = normalizeKanbanStage(targetStage);
+  const currentStage = getCaseKanbanColumn(c);
+  const previousStatus = c.status;
+  const previousStage = currentStage;
+
+  if (normalizedStage === currentStage) {
+    return {
+      success: false,
+      error: `Case is already in ${KANBAN_COLUMNS.find((col) => col.id === currentStage)?.title || currentStage}.`,
+      caseId: c.id,
+      caseNumber: c.caseNumber || c.id,
+      currentStage,
+      resultingStatus: c.status,
+      resultingStage: currentStage,
+      affectedTaskIds: c.taskIds || [],
+    };
+  }
+
+  const trimmedReason = (reason || '').trim();
+
+  // =========================================================================
+  // Target: Open / Intake ('open')
+  // =========================================================================
+  if (normalizedStage === 'open') {
+    if (currentStage === 'closed') {
+      if (!isMgr) {
+        return {
+          success: false,
+          error: 'Unauthorized: Closed cases cannot be reopened by Team Members. Estate Manager authorization required.',
+          caseId: c.id,
+          resultingStatus: c.status,
+          resultingStage: currentStage,
+          affectedTaskIds: c.taskIds || [],
+        };
+      }
+      if (trimmedReason.length < 4) {
+        return {
+          success: false,
+          error: 'Reopening a closed case requires an auditable reason (minimum 4 characters).',
+          requiresReason: true,
+          caseId: c.id,
+          resultingStatus: c.status,
+          resultingStage: currentStage,
+          affectedTaskIds: c.taskIds || [],
+        };
+      }
+      c.status = 'Open';
+      c.closedAt = null;
+      c.closedBy = null;
+      c.timeline ||= [];
+      c.timeline.unshift({
+        id: `ev-reopen-${nextId(s, '')}`,
+        at: NOW,
+        type: 'reopened',
+        title: `Case reopened to Intake by ${currentActorName}`,
+        summary: trimmedReason,
+        source: 'Manager Audit Exception',
+        actor: currentActorName,
+      });
+      logActivity(s, `Reopened closed case ${c.caseNumber || c.id} to Intake: ${trimmedReason}`, currentActorName);
+      return {
+        success: true,
+        caseId: c.id,
+        caseNumber: c.caseNumber || c.id,
+        previousStatus,
+        previousStage,
+        resultingStatus: c.status,
+        resultingStage: 'open',
+        affectedTaskIds: c.taskIds || [],
+        message: `Case ${c.caseNumber || c.id} reopened to Open / Intake.`,
+      };
+    }
+
+    c.status = 'Open';
+    c.timeline ||= [];
+    c.timeline.unshift({
+      id: `ev-stage-${nextId(s, '')}`,
+      at: NOW,
+      type: 'status_change',
+      title: `Moved to Open / Intake by ${currentActorName}`,
+      summary: trimmedReason || 'Case returned to Intake for review.',
+      source: 'Case Action Centre',
+      actor: currentActorName,
+    });
+    logActivity(s, `Moved Case ${c.caseNumber || c.id} to Open / Intake`, currentActorName);
+    return {
+      success: true,
+      caseId: c.id,
+      caseNumber: c.caseNumber || c.id,
+      previousStatus,
+      previousStage,
+      resultingStatus: c.status,
+      resultingStage: 'open',
+      affectedTaskIds: c.taskIds || [],
+      message: `Case ${c.caseNumber || c.id} moved to Open / Intake.`,
+    };
+  }
+
+  // =========================================================================
+  // Target: In Progress ('in_progress')
+  // =========================================================================
+  if (normalizedStage === 'in_progress') {
+    if (currentStage === 'closed') {
+      if (!isMgr) {
+        return {
+          success: false,
+          error: 'Unauthorized: Closed cases cannot be reopened by Team Members. Estate Manager authorization required.',
+          caseId: c.id,
+          resultingStatus: c.status,
+          resultingStage: currentStage,
+          affectedTaskIds: c.taskIds || [],
+        };
+      }
+      if (trimmedReason.length < 4) {
+        return {
+          success: false,
+          error: 'Reopening a closed case requires an auditable reason (minimum 4 characters).',
+          requiresReason: true,
+          caseId: c.id,
+          resultingStatus: c.status,
+          resultingStage: currentStage,
+          affectedTaskIds: c.taskIds || [],
+        };
+      }
+      c.status = 'in_progress';
+      c.closedAt = null;
+      c.closedBy = null;
+      c.timeline ||= [];
+      c.timeline.unshift({
+        id: `ev-reopen-${nextId(s, '')}`,
+        at: NOW,
+        type: 'reopened',
+        title: `Case reopened to In Progress by ${currentActorName}`,
+        summary: trimmedReason,
+        source: 'Manager Audit Exception',
+        actor: currentActorName,
+      });
+      logActivity(s, `Reopened closed case ${c.caseNumber || c.id} to In Progress: ${trimmedReason}`, currentActorName);
+      return {
+        success: true,
+        caseId: c.id,
+        caseNumber: c.caseNumber || c.id,
+        previousStatus,
+        previousStage,
+        resultingStatus: c.status,
+        resultingStage: 'in_progress',
+        affectedTaskIds: c.taskIds || [],
+        message: `Case ${c.caseNumber || c.id} reopened to In Progress.`,
+      };
+    }
+
+    // Check unresolved active blockers when resuming from Awaiting External
+    const activeBlockers = (c.blockers || []).filter((b) => !b.resolved);
+    if (activeBlockers.length > 0) {
+      return {
+        success: false,
+        error: `Cannot resume In Progress: active blocker unresolved ("${activeBlockers[0].title}"). Please resolve the blocker before resuming work.`,
+        activeBlockers,
+        canResolveBlocker: true,
+        caseId: c.id,
+        caseNumber: c.caseNumber || c.id,
+        resultingStatus: c.status,
+        resultingStage: currentStage,
+        affectedTaskIds: c.taskIds || [],
+      };
+    }
+
+    c.status = 'in_progress';
+    c.timeline ||= [];
+    c.timeline.unshift({
+      id: `ev-stage-${nextId(s, '')}`,
+      at: NOW,
+      type: 'status_change',
+      title: currentStage === 'pending_external' ? `Work resumed (In Progress) by ${currentActorName}` : `Work started (In Progress) by ${currentActorName}`,
+      summary: trimmedReason || (currentStage === 'pending_external' ? 'External dependencies cleared; on-site operations resumed.' : 'Case intake completed and on-site works initiated.'),
+      source: 'Case Action Centre',
+      actor: currentActorName,
+    });
+    logActivity(s, `Case ${c.caseNumber || c.id} transitioned to In Progress`, currentActorName);
+    return {
+      success: true,
+      caseId: c.id,
+      caseNumber: c.caseNumber || c.id,
+      previousStatus,
+      previousStage,
+      resultingStatus: c.status,
+      resultingStage: 'in_progress',
+      affectedTaskIds: c.taskIds || [],
+      message: `Case ${c.caseNumber || c.id} moved to In Progress.`,
+    };
+  }
+
+  // =========================================================================
+  // Target: Awaiting External / Blocked ('pending_external')
+  // =========================================================================
+  if (normalizedStage === 'pending_external') {
+    if (trimmedReason.length < 4) {
+      return {
+        success: false,
+        error: 'A hold or blocker reason (minimum 4 characters) is required to move a case to Awaiting External / Blocked.',
+        requiresReason: true,
+        caseId: c.id,
+        caseNumber: c.caseNumber || c.id,
+        resultingStatus: c.status,
+        resultingStage: currentStage,
+        affectedTaskIds: c.taskIds || [],
+      };
+    }
+
+    c.status = 'pending_external';
+    c.blockers ||= [];
+    const newBlocker = {
+      id: `b-${nextId(s, '')}`,
+      title: trimmedReason,
+      recordedAt: NOW,
+      resolved: false,
+      category: 'Awaiting External / Specialist',
+      responsibleParty: 'External Specialist / Contractor',
+      suggestedAction: 'Monitor external dependency and follow up before resuming work.',
+    };
+    c.blockers.push(newBlocker);
+
+    c.timeline ||= [];
+    c.timeline.unshift({
+      id: `ev-blk-new-${nextId(s, '')}`,
+      at: NOW,
+      type: 'blocker',
+      title: `Placed on hold (Awaiting External) by ${currentActorName}`,
+      summary: `Blocker recorded: ${trimmedReason}`,
+      source: 'Blocker Tracker',
+      actor: currentActorName,
+    });
+    logActivity(s, `Placed Case ${c.caseNumber || c.id} on hold: ${trimmedReason}`, currentActorName);
+    return {
+      success: true,
+      caseId: c.id,
+      caseNumber: c.caseNumber || c.id,
+      previousStatus,
+      previousStage,
+      resultingStatus: c.status,
+      resultingStage: 'pending_external',
+      affectedTaskIds: c.taskIds || [],
+      message: `Case ${c.caseNumber || c.id} moved to Awaiting External / Blocked.`,
+    };
+  }
+
+  // =========================================================================
+  // Target: Closure Ready ('ready_for_closure')
+  // =========================================================================
+  if (normalizedStage === 'ready_for_closure') {
+    const readiness = checkClosureReadiness(s, c);
+    if (!readiness.isReady) {
+      return {
+        success: false,
+        error: `Cannot move to Closure Ready: ${readiness.unresolvedItems[0] || 'Prerequisite checkpoints incomplete.'}`,
+        unresolvedItems: readiness.unresolvedItems,
+        caseId: c.id,
+        caseNumber: c.caseNumber || c.id,
+        resultingStatus: c.status,
+        resultingStage: currentStage,
+        affectedTaskIds: c.taskIds || [],
+      };
+    }
+
+    c.status = 'ready_for_closure';
+    c.timeline ||= [];
+    c.timeline.unshift({
+      id: `ev-ready-${nextId(s, '')}`,
+      at: NOW,
+      type: 'closure_ready',
+      title: `Marked Closure Ready by ${currentActorName}`,
+      summary: trimmedReason || 'All mandatory operational checkpoints verified. Ready for formal manager closure sign-off.',
+      source: 'Closure Readiness Engine',
+      actor: currentActorName,
+    });
+    logActivity(s, `Case ${c.caseNumber || c.id} marked Closure Ready`, currentActorName);
+    return {
+      success: true,
+      caseId: c.id,
+      caseNumber: c.caseNumber || c.id,
+      previousStatus,
+      previousStage,
+      resultingStatus: c.status,
+      resultingStage: 'ready_for_closure',
+      affectedTaskIds: c.taskIds || [],
+      message: `Case ${c.caseNumber || c.id} verified and moved to Closure Ready.`,
+    };
+  }
+
+  // =========================================================================
+  // Target: Closed & Audited ('closed')
+  // =========================================================================
+  if (normalizedStage === 'closed') {
+    // Team member requires manager approval sign-off
+    if (!isMgr) {
+      const approvalRes = requestCaseClosure(s, c.id, trimmedReason || 'Work completed. Requesting manager statutory sign-off and closure audit.');
+      if (!approvalRes.success) {
+        return {
+          success: false,
+          error: approvalRes.error,
+          caseId: c.id,
+          caseNumber: c.caseNumber || c.id,
+          resultingStatus: c.status,
+          resultingStage: currentStage,
+          affectedTaskIds: c.taskIds || [],
+        };
+      }
+      return {
+        success: true,
+        caseId: c.id,
+        caseNumber: c.caseNumber || c.id,
+        previousStatus,
+        previousStage,
+        resultingStatus: c.status,
+        resultingStage: getCaseKanbanColumn(c),
+        requiresApproval: true,
+        approvalId: approvalRes.approval?.id,
+        affectedTaskIds: c.taskIds || [],
+        message: `Closure sign-off requested for Case ${c.caseNumber || c.id}. Submitted to Estate Manager Jennifer Ong for review.`,
+      };
+    }
+
+    // Manager direct closure
+    const readiness = checkClosureReadiness(s, c);
+    if (!readiness.isReady) {
+      if (trimmedReason.length < 4) {
+        return {
+          success: false,
+          error: `Closure checklist incomplete: ${readiness.unresolvedItems[0]}. An auditable manager exception reason is required.`,
+          unresolvedItems: readiness.unresolvedItems,
+          requiresReason: true,
+          caseId: c.id,
+          caseNumber: c.caseNumber || c.id,
+          resultingStatus: c.status,
+          resultingStage: currentStage,
+          affectedTaskIds: c.taskIds || [],
+        };
+      }
+    }
+
+    const closeRes = closeCase(s, c.id, currentActorName);
+    if (!closeRes.success) {
+      return {
+        success: false,
+        error: closeRes.error,
+        unresolvedItems: closeRes.unresolved,
+        caseId: c.id,
+        caseNumber: c.caseNumber || c.id,
+        resultingStatus: c.status,
+        resultingStage: currentStage,
+        affectedTaskIds: c.taskIds || [],
+      };
+    }
+
+    return {
+      success: true,
+      caseId: c.id,
+      caseNumber: c.caseNumber || c.id,
+      previousStatus,
+      previousStage,
+      resultingStatus: 'closed',
+      resultingStage: 'closed',
+      affectedTaskIds: c.taskIds || [],
+      message: `Case ${c.caseNumber || c.id} formally closed and audited.`,
+    };
+  }
+
+  return {
+    success: false,
+    error: `Unhandled stage transition to "${targetStage}".`,
+    caseId: c.id,
+    resultingStatus: c.status,
+    resultingStage: currentStage,
+    affectedTaskIds: c.taskIds || [],
+  };
+}
+

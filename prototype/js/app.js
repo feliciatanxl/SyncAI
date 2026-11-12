@@ -40,10 +40,13 @@ import {
   generateDraftReply,
   extractTaskDraftFromMessage,
   detectLooseEnds,
+  requestCaseStageTransition,
+  canTransitionCase,
+  normalizeKanbanStage,
 } from './state.js';
 import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog } from './ui.js';
 import { accessibleTask, changeTaskStatus, deleteCapturedTask, taskDateInput, taskDuration } from './taskCapture.js';
-import { accessibleCase, visibleCases } from './cases.js';
+import { accessibleCase, visibleCases, getCaseKanbanColumn } from './cases.js';
 import { deadlineAlert, priorityFactors } from './taskIntelligence.js';
 import { traceDownstream } from './ripple.js';
 import { calendarDay, singaporeInstant, TODAY } from './time.js';
@@ -367,7 +370,130 @@ function renderMain(s) {
   render(main, sec.id === 'cases' ? sec.page.render(s, currentCaseId) : sec.page.render(s));
 }
 
+let isDraggingCard = false;
+let currentDragCaseId = null;
+
+function handleCaseTransitionFlow(caseId, targetStage) {
+  const s = getState();
+  const c = getCase(s, caseId);
+  if (!c) return;
+
+  const check = canTransitionCase(s, caseId, targetStage);
+  if (check.isCurrent) return;
+
+  if (!check.permitted) {
+    toast(`Transition rejected: ${check.reason}`, 'error');
+    return;
+  }
+
+  if (check.requiresReason || check.requiresApproval || check.isException) {
+    caseView.transitionModal = {
+      caseId: c.id,
+      targetStage,
+      currentStage: getCaseKanbanColumn(c),
+      requiresReason: Boolean(check.requiresReason),
+      requiresApproval: Boolean(check.requiresApproval),
+      isException: Boolean(check.isException),
+      reasonHint: check.reason,
+      unresolvedItems: check.unresolvedItems || [],
+      error: null,
+    };
+    renderApp();
+    return;
+  }
+
+  // Straightforward permitted transition
+  update((stateObj) => {
+    const res = requestCaseStageTransition(stateObj, caseId, targetStage);
+    if (!res.success) {
+      toast(res.error, 'error');
+    } else {
+      toast(res.message || 'Case moved successfully.', 'success');
+    }
+  });
+  renderApp();
+}
+
+function setupKanbanDragAndDrop() {
+  document.addEventListener('dragstart', (e) => {
+    const card = e.target.closest('.kanban-case-card');
+    if (!card) return;
+    const cid = card.dataset.caseId || card.dataset.case;
+    if (!cid) return;
+
+    isDraggingCard = true;
+    currentDragCaseId = cid;
+    card.classList.add('is-dragging');
+
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('text/plain', cid);
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  });
+
+  document.addEventListener('dragend', (e) => {
+    const card = e.target.closest('.kanban-case-card');
+    if (card) card.classList.remove('is-dragging');
+    document.querySelectorAll('.kanban-col').forEach((col) => {
+      col.classList.remove('is-drop-target', 'is-invalid-target');
+    });
+    currentDragCaseId = null;
+    setTimeout(() => {
+      isDraggingCard = false;
+    }, 150);
+  });
+
+  document.addEventListener('dragover', (e) => {
+    const col = e.target.closest('.kanban-col');
+    if (!col) return;
+    e.preventDefault();
+
+    const targetColId = col.dataset.colId;
+    if (!targetColId || !currentDragCaseId) return;
+
+    const s = getState();
+    const check = canTransitionCase(s, currentDragCaseId, targetColId);
+
+    if (check.isCurrent) {
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+      col.classList.remove('is-drop-target', 'is-invalid-target');
+    } else if (check.permitted) {
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      col.classList.add('is-drop-target');
+      col.classList.remove('is-invalid-target');
+    } else {
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+      col.classList.add('is-invalid-target');
+      col.classList.remove('is-drop-target');
+    }
+  });
+
+  document.addEventListener('dragleave', (e) => {
+    const col = e.target.closest('.kanban-col');
+    if (!col) return;
+    if (!col.contains(e.relatedTarget)) {
+      col.classList.remove('is-drop-target', 'is-invalid-target');
+    }
+  });
+
+  document.addEventListener('drop', (e) => {
+    const col = e.target.closest('.kanban-col');
+    if (!col) return;
+    e.preventDefault();
+
+    col.classList.remove('is-drop-target', 'is-invalid-target');
+    const targetStage = col.dataset.colId;
+    const caseId = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || currentDragCaseId;
+
+    if (caseId && targetStage) {
+      handleCaseTransitionFlow(caseId, targetStage);
+    }
+  });
+}
+
 function setupEvents() {
+  setupKanbanDragAndDrop();
+
   document.addEventListener('click', (e) => {
     // 0. Mobile Navigation Hamburger & Backdrop
     const mobileNavToggle = e.target.closest('#btn-mobile-nav-toggle');
@@ -895,6 +1021,10 @@ function setupEvents() {
 
     const caseInspectBtn = e.target.closest('[data-action="case-inspect"]');
     if (caseInspectBtn) {
+      // Case links behave as in-page workspace controls; do not let their
+      // fallback hash navigate away before the detail workspace opens.
+      e.preventDefault();
+      e.stopPropagation();
       lastFocusedTrigger = caseInspectBtn;
       const cid = caseInspectBtn.dataset.id;
       caseView.selectedCaseId = cid;
@@ -914,8 +1044,9 @@ function setupEvents() {
       return;
     }
 
-    const caseModalClose = e.target.closest('[data-action="case-modal-close"]');
-    if (caseModalClose) {
+    const caseModalClose = e.target.closest('button[data-action="case-modal-close"]');
+    const caseBackdropClose = e.target.matches('.case-workspace-backdrop[data-action="case-modal-close"]');
+    if (caseModalClose || caseBackdropClose) {
       closeCaseDrawer();
       return;
     }
@@ -934,6 +1065,117 @@ function setupEvents() {
       caseView.activeTab = 'all';
       renderApp();
       return;
+    }
+
+    // Move to Stage Accessible Modal Triggers
+    const moveStageBtn = e.target.closest('[data-action="case-move-stage-dialog"]');
+    if (moveStageBtn) {
+      e.stopPropagation();
+      caseView.moveStageModalCaseId = moveStageBtn.dataset.case;
+      renderApp();
+      return;
+    }
+
+    const moveStageClose = e.target.closest('button[data-action="case-move-stage-close"]');
+    const moveStageBackdropClose = e.target.matches('.modal-backdrop[data-action="case-move-stage-close"]');
+    if (moveStageClose || moveStageBackdropClose) {
+      caseView.moveStageModalCaseId = null;
+      renderApp();
+      return;
+    }
+
+    const selectMoveStageBtn = e.target.closest('[data-action="case-select-move-stage"]');
+    if (selectMoveStageBtn) {
+      const cid = selectMoveStageBtn.dataset.case;
+      const targetStage = selectMoveStageBtn.dataset.target;
+      caseView.moveStageModalCaseId = null;
+      handleCaseTransitionFlow(cid, targetStage);
+      return;
+    }
+
+    const resolveAndMoveBtn = e.target.closest('[data-action="case-resolve-blocker-and-move"]');
+    if (resolveAndMoveBtn) {
+      const cid = resolveAndMoveBtn.dataset.case;
+      const bid = resolveAndMoveBtn.dataset.blocker;
+      const targetStage = resolveAndMoveBtn.dataset.target;
+      caseView.moveStageModalCaseId = null;
+      update((s) => {
+        resolveCaseBlocker(s, cid, bid);
+        const res = requestCaseStageTransition(s, cid, targetStage);
+        if (!res.success) {
+          toast(res.error, 'error');
+        } else {
+          toast(res.message || 'Blocker resolved and case resumed in In Progress.', 'success');
+        }
+      });
+      renderApp();
+      return;
+    }
+
+    // Consequential Stage Transition Confirmation Modal Triggers
+    const transitionCancel = e.target.closest('button[data-action="case-transition-cancel"]');
+    const transitionBackdropCancel = e.target.matches('.modal-backdrop[data-action="case-transition-cancel"]');
+    if (transitionCancel || transitionBackdropCancel) {
+      caseView.transitionModal = null;
+      renderApp();
+      return;
+    }
+
+    const confirmTransitionBtn = e.target.closest('[data-action="case-transition-confirm"]');
+    if (confirmTransitionBtn) {
+      const cid = confirmTransitionBtn.dataset.case;
+      const targetStage = confirmTransitionBtn.dataset.target;
+      const reasonInput = document.getElementById('case-transition-reason-input');
+      const reasonVal = reasonInput ? reasonInput.value.trim() : '';
+
+      const modal = caseView.transitionModal;
+      if (modal && modal.requiresReason && reasonVal.length < 4) {
+        toast('Please enter a valid operational reason (minimum 4 characters).', 'error');
+        return;
+      }
+
+      update((s) => {
+        const res = requestCaseStageTransition(s, cid, targetStage, null, reasonVal);
+        if (!res.success) {
+          toast(res.error, 'error');
+        } else {
+          caseView.transitionModal = null;
+          toast(res.message || 'Stage transition completed.', 'success');
+        }
+      });
+      renderApp();
+      return;
+    }
+
+    // Card Surface Click (opens case if not dragging and not clicking on interactive child elements)
+    const cardSurface = e.target.closest('[data-action="case-card-surface"]');
+    if (cardSurface) {
+      if (isDraggingCard) return;
+      if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.kanban-card-drag-affordance')) {
+        return;
+      }
+      const cid = cardSurface.dataset.caseId || cardSurface.dataset.case;
+      if (cid) {
+        caseView.selectedCaseId = cid;
+        caseView.journeyTab = 'timeline';
+        renderApp();
+        return;
+      }
+    }
+
+    // Table Row Click (opens case if not clicking on interactive child elements)
+    const rowClick = e.target.closest('[data-action="case-row-click"]');
+    if (rowClick) {
+      if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.tag')) {
+        return;
+      }
+      const cid = rowClick.dataset.caseId;
+      if (cid) {
+        caseView.selectedCaseId = cid;
+        caseView.journeyTab = 'timeline';
+        renderApp();
+        return;
+      }
     }
 
     const casePlanNav = e.target.closest('[data-action="case-plan-nav"]');
@@ -1043,6 +1285,13 @@ function setupEvents() {
     const caseReassignBtn = e.target.closest('[data-action="case-reassign-dialog"]');
     if (caseReassignBtn) {
       const cid = caseReassignBtn.dataset.case || caseView.selectedCaseId;
+      // Reassignment is a separate focused workflow. Remove the case workspace
+      // before mounting the generic modal so dialogs never stack visually or
+      // compete for keyboard focus.
+      caseView.selectedCaseId = null;
+      caseView.activeExplanationRuleId = null;
+      caseView.highlightedSourceId = null;
+      renderApp();
       showCaseReassignModal(getState(), cid);
       return;
     }
@@ -1470,6 +1719,23 @@ function setupEvents() {
 
   // Global Keyboard Navigation & Focus Trap (Escape and Tab)
   document.addEventListener('keydown', (e) => {
+    // Rows and Kanban cards expose keyboard-equivalent click behavior.
+    if ((e.key === 'Enter' || e.key === ' ') && !caseView.selectedCaseId) {
+      const caseSurface = e.target.closest('[data-action="case-row-click"], [data-action="case-card-surface"]');
+      if (caseSurface && !e.target.closest('button, a, input, select, textarea')) {
+        e.preventDefault();
+        const cid = caseSurface.dataset.caseId || caseSurface.dataset.case;
+        if (cid) {
+          lastFocusedTrigger = caseSurface;
+          caseView.selectedCaseId = cid;
+          caseView.journeyTab = 'timeline';
+          renderApp();
+          setTimeout(() => document.querySelector('.drawer-close-btn')?.focus(), 50);
+          return;
+        }
+      }
+    }
+
     // Escape key handling
     if (e.key === 'Escape') {
       // 1. Mobile navigation drawer
@@ -1781,7 +2047,15 @@ function showCaseReassignModal(s, caseId) {
     .filter((u) => u.status === 'active' && u.role !== 'admin' && u.id !== c.ownerId);
 
   const content = html`
-    <h2 class="modal-title">Request Case Reassignment</h2>
+    <header class="modal-head case-reassign-modal-head">
+      <div>
+        <span class="case-number-badge">${c.caseNumber || c.number || c.id}</span>
+        <h2 class="modal-title" id="modal-title">Request Case Reassignment</h2>
+      </div>
+      <button type="button" class="drawer-close-btn" data-action="modal-close" aria-label="Close reassignment dialog" title="Close">
+        ${icon('x', 18)}
+      </button>
+    </header>
     <p class="muted small" style="margin-bottom: 14px;">
       Reassign <strong>${c.caseNumber}</strong> (${c.title}). This will submit a formal handover request to Estate Manager Jennifer Ong.
     </p>
@@ -1804,8 +2078,9 @@ function showCaseReassignModal(s, caseId) {
         </div>
 
         <div>
-          <label for="reassign-reason-input" style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Operational Handover Reason</label>
-          <textarea id="reassign-reason-input" rows="3" required placeholder="e.g. Zone boundary re-alignment / site inspection capacity overload..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.875rem; box-sizing: border-box;"></textarea>
+          <label for="reassign-reason-input" style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Operational Handover Reason <span aria-hidden="true">*</span></label>
+          <textarea id="reassign-reason-input" rows="4" required minlength="4" aria-describedby="reassign-reason-help" placeholder="e.g. Zone boundary re-alignment / site inspection capacity overload..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.875rem; box-sizing: border-box;"></textarea>
+          <p id="reassign-reason-help" class="small muted" style="margin: 4px 0 0;">Required for the handover audit trail. Enter at least 4 characters.</p>
         </div>
 
         <div style="padding: 10px 12px; border-radius: 6px; background: var(--colorNeutralBackground2); font-size: 0.75rem; color: var(--colorNeutralForeground3);">
@@ -1834,9 +2109,15 @@ function showCaseReassignModal(s, caseId) {
         return;
       }
 
+      if (!reason || reason.trim().length < 4) {
+        toast('Please enter an operational handover reason (minimum 4 characters).', 'error');
+        document.getElementById('reassign-reason-input')?.focus();
+        return;
+      }
+
       closeModal();
       update((stateObj) => {
-        requestCaseReassignment(stateObj, caseId, targetOfficerId, reason);
+        requestCaseReassignment(stateObj, caseId, targetOfficerId, reason.trim());
       });
       toast(`Reassignment request for ${c.caseNumber} submitted for manager review.`, 'success');
       renderApp();

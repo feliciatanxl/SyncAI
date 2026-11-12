@@ -95,7 +95,7 @@ test('V4 Filter Toolbar: Two-row structured toolbar with status tabs, search, an
   assert.match(rendered, /Urgency:/);
 });
 
-test('V4 Case Table: Clear column order with mobile data-label attributes for responsive stacked cards', () => {
+test('V4 Case Table: Four-column layout groups related details without horizontal scrolling', () => {
   const s = createSeedState();
   setCurrentUser(s, 'member');
 
@@ -103,23 +103,17 @@ test('V4 Case Table: Clear column order with mobile data-label attributes for re
 
   // Column order and classes in header
   assert.match(rendered, /th-case-title/);
-  assert.match(rendered, /th-case-category/);
-  assert.match(rendered, /th-case-status/);
-  assert.match(rendered, /th-case-officer/);
+  assert.match(rendered, /th-case-workflow/);
   assert.match(rendered, /th-case-deadlines/);
   assert.match(rendered, /th-case-actions/);
-  assert.match(rendered, /Case \/ Location/);
-  assert.match(rendered, /Category/);
-  assert.match(rendered, /Status/);
-  assert.match(rendered, /Assigned Officer/);
+  assert.match(rendered, /Case details/);
+  assert.match(rendered, /Workflow/);
   assert.match(rendered, /Deadlines \(SGT\)/);
   assert.match(rendered, /Actions/);
 
   // Data labels for mobile stacked card transformation
-  assert.match(rendered, /data-label="Case \/ Location"/);
-  assert.match(rendered, /data-label="Category"/);
-  assert.match(rendered, /data-label="Status"/);
-  assert.match(rendered, /data-label="Assigned officer"/);
+  assert.match(rendered, /data-label="Case details"/);
+  assert.match(rendered, /data-label="Workflow"/);
   assert.match(rendered, /data-label="Deadlines \(SGT\)"/);
   assert.match(rendered, /data-label="Actions"/);
 });
