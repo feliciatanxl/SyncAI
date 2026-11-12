@@ -25,8 +25,23 @@ import {
   getUnreadNotifications,
 } from '../state.js';
 import { CAPTURE_STATUSES, taskDateInput } from '../taskCapture.js';
-import { TODAY, fmtDue, fmtLongDay, fmtTime, timePart } from '../time.js';
+import { TODAY, fmtDue, fmtLongDay, fmtTime, parseDate, timePart } from '../time.js';
 import { emptyState, html, icon, priorityBadge, riskBadge, raw } from '../ui.js';
+
+const COMPACT_DATE_FMT = new Intl.DateTimeFormat('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
+
+export function fmtCompactDeadline(iso) {
+  if (!iso) return '';
+  const parsed = parseDate(iso);
+  const dateStr = COMPACT_DATE_FMT.format(parsed);
+  const t = timePart(iso);
+  if (!t) return dateStr;
+  const [h, m] = t.split(':').map(Number);
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const h12 = ((h + 11) % 12) + 1;
+  const mm = String(m).padStart(2, '0');
+  return `${dateStr} · ${h12}:${mm} ${suffix}`;
+}
 
 // Module view state
 export const caseView = {
@@ -51,9 +66,9 @@ function recordedDeadlines(record) {
   ].filter(([, value]) => value);
   if (!deadlines.length) return html`<span class="muted">No deadline recorded</span>`;
   return html`<dl class="case-deadlines">
-    ${deadlines.map(([label, value]) => html`<div>
-      <dt>${label}</dt>
-      <dd><time datetime="${value}+08:00">${fmtLongDay(value)}, ${fmtTime(timePart(value))}</time></dd>
+    ${deadlines.map(([label, value]) => html`<div class="deadline-item">
+      <dt class="deadline-label">${label}</dt>
+      <dd class="deadline-val"><time datetime="${value}+08:00">${fmtCompactDeadline(value)}</time></dd>
     </div>`)}
   </dl>`;
 }
@@ -158,14 +173,22 @@ function renderAdminGovernanceView(s) {
   const readyCount = allCases.filter((c) => c.status === 'ready_for_closure').length;
 
   return html`
-    <header class="page-hero">
-      <span class="page-hero-icon" aria-hidden="true">${icon('cases', 28)}</span>
-      <div class="page-hero-text">
-        <p class="page-hero-eyebrow">Operational Governance</p>
-        <h1>Case Action Centre <span class="hero-badge">Admin Summary</span></h1>
-        <p>
-          High-level operational metrics and case workflow governance. In accordance with Singapore Town Council data minimisation principles, administrative roles inspect compliance aggregates rather than confidential resident casework.
-        </p>
+    <header class="page-hero case-action-hero">
+      <div class="case-hero-main">
+        <span class="page-hero-icon case-hero-icon" aria-hidden="true">${icon('cases', 28)}</span>
+        <div class="case-hero-text">
+          <p class="case-hero-eyebrow">Operational Governance</p>
+          <div class="case-hero-title-row">
+            <h1>Case Action Centre</h1>
+            <div class="case-hero-badges">
+              <span class="hero-badge">Admin Summary</span>
+              <span class="tag tag-demo-indicator">Governance Mode</span>
+            </div>
+          </div>
+          <p class="case-hero-description">
+            High-level operational metrics and case workflow governance. In accordance with Singapore Town Council data minimisation principles, administrative roles inspect compliance aggregates rather than confidential resident casework.
+          </p>
+        </div>
       </div>
       <div class="page-hero-aside">
         <div class="hero-stat">
@@ -179,26 +202,26 @@ function renderAdminGovernanceView(s) {
       </div>
     </header>
 
-    <div class="stat-grid" style="margin: 20px 0;">
-      <div class="stat-card">
+    <div class="stat-grid case-overview-grid">
+      <div class="stat-card case-stat-card">
         <span class="stat-icon" aria-hidden="true">${icon('folder', 20)}</span>
         <span class="stat-label">Active Workflows</span>
         <strong class="stat-value">${totalOpen}</strong>
         <span class="stat-hint">Across Zones A, B and C</span>
       </div>
-      <div class="stat-card ${blockedCount > 0 ? 'warn' : ''}">
+      <div class="stat-card case-stat-card ${blockedCount > 0 ? 'warn' : ''}">
         <span class="stat-icon" aria-hidden="true">${icon('alert', 20)}</span>
         <span class="stat-label">Blocked Workflows</span>
         <strong class="stat-value">${blockedCount}</strong>
         <span class="stat-hint">Awaiting specialist/contractor</span>
       </div>
-      <div class="stat-card">
+      <div class="stat-card case-stat-card">
         <span class="stat-icon" aria-hidden="true">${icon('check', 20)}</span>
         <span class="stat-label">Closure Approvals Pending</span>
         <strong class="stat-value">${readyCount}</strong>
         <span class="stat-hint">Ready for manager sign-off</span>
       </div>
-      <div class="stat-card">
+      <div class="stat-card case-stat-card">
         <span class="stat-icon" aria-hidden="true">${icon('shield', 20)}</span>
         <span class="stat-label">Data Minimisation Policy</span>
         <strong class="stat-value" style="font-size: 1.25rem; align-self: center; color: var(--colorPaletteGreenForeground1);">Active</strong>
@@ -206,15 +229,15 @@ function renderAdminGovernanceView(s) {
       </div>
     </div>
 
-    <section class="panel">
-      <div class="panel-head">
+    <section class="panel case-workspace-panel">
+      <div class="panel-head case-workspace-header">
         <div>
           <h2>Case Action Centre Configuration</h2>
           <p class="muted small">Configured SLA thresholds and automated loose-end detection triggers</p>
         </div>
         <span class="tag tag-brand">Governance Mode</span>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap case-table-wrap">
         <table class="data-table" aria-label="Detector Configuration">
           <thead>
             <tr>
@@ -290,33 +313,36 @@ function renderOperationalCaseActionCentre(s) {
   const blockedCases = cases.filter((c) => (c.blockers || []).some((b) => !b.resolved) || c.status === 'pending_external');
   const readyCases = cases.filter((c) => c.status === 'ready_for_closure');
   const criticalLooseEnds = allLooseEnds.filter((l) => l.severity === 'critical');
-  const unreadNotifs = getUnreadNotifications(s);
 
   // Apply filters
   const filteredCases = filterCases(s, cases);
 
   return html`
     <!-- Section A: Page Header with Gradient Hero -->
-    <header class="page-hero">
-      <span class="page-hero-icon" aria-hidden="true">${icon('cases', 28)}</span>
-      <div class="page-hero-text">
-        <p class="page-hero-eyebrow">Category C · Task Visibility &amp; Operational Intelligence</p>
-        <h1>
-          Case Action Centre
-          <span class="hero-badge">${mgr ? 'Manager Workspace' : 'Property Officer Workspace'}</span>
-          <span class="tag tag-neutral" style="margin-left: 8px; font-size: 0.75rem; vertical-align: middle;">Fictional Demo Environment</span>
-        </h1>
-        <p>
-          Proactively detects unresolved resident follow-ups, pending contractor quotes, and missing inspection evidence before routine tasks slip through the cracks.
-        </p>
+    <header class="page-hero case-action-hero">
+      <div class="case-hero-main">
+        <span class="page-hero-icon case-hero-icon" aria-hidden="true">${icon('cases', 28)}</span>
+        <div class="case-hero-text">
+          <p class="case-hero-eyebrow">Category C · Task Visibility &amp; Operational Intelligence</p>
+          <div class="case-hero-title-row">
+            <h1>Case Action Centre</h1>
+            <div class="case-hero-badges">
+              <span class="hero-badge">${mgr ? 'Manager Workspace' : 'Property Officer Workspace'}</span>
+              <span class="tag tag-demo-indicator">Fictional Demo Environment</span>
+            </div>
+          </div>
+          <p class="case-hero-description">
+            Proactively detects unresolved resident follow-ups, pending contractor quotes, and missing inspection evidence before routine tasks slip through the cracks.
+          </p>
+        </div>
       </div>
     </header>
 
     <!-- Section B: Operational Overview — 4 Equal-Width Metric Cards -->
-    <div class="stat-grid case-overview-grid" style="margin: 20px 0;">
+    <div class="stat-grid case-overview-grid">
       <button
         type="button"
-        class="stat-card stat-card-interactive ${caseView.activeTab === 'open' ? 'is-selected' : ''}"
+        class="stat-card case-stat-card stat-card-interactive ${caseView.activeTab === 'open' ? 'is-selected' : ''}"
         data-action="case-tab"
         data-tab="open"
         aria-label="Filter to open cases"
@@ -329,7 +355,7 @@ function renderOperationalCaseActionCentre(s) {
 
       <button
         type="button"
-        class="stat-card stat-card-interactive ${allLooseEnds.length > 0 ? 'warn' : ''} ${caseView.activeTab === 'radar' ? 'is-selected' : ''}"
+        class="stat-card case-stat-card stat-card-interactive ${allLooseEnds.length > 0 ? 'warn' : ''} ${caseView.activeTab === 'radar' ? 'is-selected' : ''}"
         data-action="case-tab"
         data-tab="radar"
         aria-label="Filter to outstanding follow-ups"
@@ -342,7 +368,7 @@ function renderOperationalCaseActionCentre(s) {
 
       <button
         type="button"
-        class="stat-card stat-card-interactive ${blockedCases.length > 0 ? 'warn' : ''} ${caseView.activeTab === 'blocked' ? 'is-selected' : ''}"
+        class="stat-card case-stat-card stat-card-interactive ${blockedCases.length > 0 ? 'warn' : ''} ${caseView.activeTab === 'blocked' ? 'is-selected' : ''}"
         data-action="case-tab"
         data-tab="blocked"
         aria-label="Filter to blocked cases"
@@ -355,7 +381,7 @@ function renderOperationalCaseActionCentre(s) {
 
       <button
         type="button"
-        class="stat-card stat-card-interactive ${caseView.activeTab === 'ready' ? 'is-selected' : ''}"
+        class="stat-card case-stat-card stat-card-interactive ${caseView.activeTab === 'ready' ? 'is-selected' : ''}"
         data-action="case-tab"
         data-tab="ready"
         aria-label="Filter to closure ready cases"
@@ -371,14 +397,14 @@ function renderOperationalCaseActionCentre(s) {
     ${caseView.activeTab === 'radar' || allLooseEnds.length > 0 ? renderFollowUpRadar(s, allLooseEnds) : ''}
 
     <!-- Section D: Operational Cases Workspace -->
-    <section class="panel" style="margin-top: 20px;" aria-labelledby="cases-h">
-      <div class="panel-head" style="padding: 16px 20px 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <section class="panel case-workspace-panel" aria-labelledby="cases-h">
+      <div class="panel-head case-workspace-header">
         <div>
-          <h2 id="cases-h" style="margin: 0; font-size: 1.125rem;">Operational cases</h2>
-          <p class="muted small" style="margin: 2px 0 0;">Review estate issues, recorded deadlines, and the tasks needed to follow up.</p>
+          <h2 id="cases-h">Operational cases</h2>
+          <p class="muted small">Review estate issues, recorded deadlines, and the tasks needed to follow up.</p>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span class="tag tag-neutral">Fictional demo cases</span>
+        <div class="case-view-controls">
+          <span class="tag tag-demo-indicator hide-sm">Fictional demo cases</span>
           <!-- List vs Kanban View Toggle -->
           <div class="view-toggle" role="group" aria-label="View layout">
             <button
@@ -405,90 +431,100 @@ function renderOperationalCaseActionCentre(s) {
         </div>
       </div>
 
-      <!-- Filter Toolbar -->
-      <div class="toolbar-wrap" style="padding: 12px 20px; border-bottom: 1px solid var(--colorNeutralStroke2); margin-bottom: 0;">
-        <div class="filter-tabs" role="tablist" aria-label="Filter cases">
-          ${[
-            ['all', 'All Cases', allCasesCount],
-            ['open', 'Open Cases', openCases.length],
-            ['radar', 'Outstanding Follow-Ups', allLooseEnds.length],
-            ['blocked', 'Blocked', blockedCases.length],
-            ['ready', 'Ready to Close?', readyCases.length],
-            ['closed', 'Closed', cases.filter((c) => c.status === 'closed' || c.status === 'Closed').length],
-          ].map(
-            ([tabKey, label, count]) => html`
-              <button
-                type="button"
-                class="filter-tab ${caseView.activeTab === tabKey ? 'is-active' : ''}"
-                data-action="case-tab"
-                data-tab="${tabKey}"
-                role="tab"
-                aria-selected="${caseView.activeTab === tabKey ? 'true' : 'false'}"
-              >
-                ${label}
-                <span class="tab-count">${count}</span>
-              </button>
-            `,
-          )}
+      <!-- Filter Toolbar: Structured 2-Row Layout -->
+      <div class="case-toolbar-container">
+        <!-- Row 1: Case status tabs -->
+        <div class="case-toolbar-row case-toolbar-row-primary">
+          <div class="filter-tabs case-status-tabs" role="tablist" aria-label="Filter cases by status">
+            ${[
+              ['all', 'All Cases', allCasesCount],
+              ['open', 'Open Cases', openCases.length],
+              ['radar', 'Outstanding Follow-Ups', allLooseEnds.length],
+              ['blocked', 'Blocked', blockedCases.length],
+              ['ready', 'Ready to Close?', readyCases.length],
+              ['closed', 'Closed', cases.filter((c) => c.status === 'closed' || c.status === 'Closed').length],
+            ].map(
+              ([tabKey, label, count]) => html`
+                <button
+                  type="button"
+                  class="filter-tab ${caseView.activeTab === tabKey ? 'is-active' : ''}"
+                  data-action="case-tab"
+                  data-tab="${tabKey}"
+                  role="tab"
+                  aria-selected="${caseView.activeTab === tabKey ? 'true' : 'false'}"
+                >
+                  ${label}
+                  <span class="tab-count ${count > 0 && (tabKey === 'radar' || tabKey === 'blocked') ? 'tab-count-warn' : ''}">${count}</span>
+                </button>
+              `,
+            )}
+          </div>
         </div>
 
-        <div class="toolbar-actions" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          <label for="case-search-input" class="visually-hidden">Search cases</label>
-          <div class="search-input" style="min-width: 210px;">
-            <span class="search-icon" aria-hidden="true">${icon('search', 16)}</span>
-            <input
-              type="search"
-              id="case-search-input"
-              placeholder="Search case #, title, estate, resident..."
-              value="${caseView.searchQuery}"
-              aria-label="Search cases by case number, title, estate, or resident"
-              data-action="case-search"
-            />
+        <!-- Row 2: Search input + Estate filter + Urgency filter + Reset -->
+        <div class="case-toolbar-row case-toolbar-row-secondary">
+          <div class="case-filter-search">
+            <label for="case-search-input" class="visually-hidden">Search cases by case number, title, estate, or resident</label>
+            <div class="search-input" style="width: 100%;">
+              <span class="search-icon" aria-hidden="true">${icon('search', 16)}</span>
+              <input
+                type="search"
+                id="case-search-input"
+                placeholder="Search case #, title, estate, resident..."
+                value="${caseView.searchQuery}"
+                aria-label="Search cases by case number, title, estate, or resident"
+                data-action="case-search"
+              />
+            </div>
           </div>
 
-          <label for="case-estate-filter" class="visually-hidden">Filter by estate</label>
-          <select
-            id="case-estate-filter"
-            class="filter-tab select-control"
-            data-action="case-filter-estate"
-            style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-size: 0.8125rem; background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1);"
-            aria-label="Filter cases by estate or block"
-          >
-            <option value="all">All Estates &amp; Blocks</option>
-            <option value="Blk 211" ${caseView.estateFilter === 'Blk 211' ? 'selected' : ''}>Zone A — Blk 211</option>
-            <option value="Blk 208" ${caseView.estateFilter === 'Blk 208' ? 'selected' : ''}>Zone A — Blk 208</option>
-            <option value="Blk 214" ${caseView.estateFilter === 'Blk 214' ? 'selected' : ''}>Zone A — Blk 214</option>
-            <option value="Blk 207" ${caseView.estateFilter === 'Blk 207' ? 'selected' : ''}>Zone A — Blk 207</option>
-            <option value="Blk 310" ${caseView.estateFilter === 'Blk 310' ? 'selected' : ''}>Zone B — Blk 310</option>
-            <option value="Blk 405" ${caseView.estateFilter === 'Blk 405' ? 'selected' : ''}>Zone C — Blk 405</option>
-          </select>
+          <div class="case-filter-dropdowns">
+            <div class="case-filter-group">
+              <label for="case-estate-filter" class="case-filter-label">Estate / Block:</label>
+              <select
+                id="case-estate-filter"
+                class="select-control case-filter-select"
+                data-action="case-filter-estate"
+                aria-label="Filter cases by estate or block"
+              >
+                <option value="all">All Estates &amp; Blocks</option>
+                <option value="Blk 211" ${caseView.estateFilter === 'Blk 211' ? 'selected' : ''}>Zone A — Blk 211</option>
+                <option value="Blk 208" ${caseView.estateFilter === 'Blk 208' ? 'selected' : ''}>Zone A — Blk 208</option>
+                <option value="Blk 214" ${caseView.estateFilter === 'Blk 214' ? 'selected' : ''}>Zone A — Blk 214</option>
+                <option value="Blk 207" ${caseView.estateFilter === 'Blk 207' ? 'selected' : ''}>Zone A — Blk 207</option>
+                <option value="Blk 310" ${caseView.estateFilter === 'Blk 310' ? 'selected' : ''}>Zone B — Blk 310</option>
+                <option value="Blk 405" ${caseView.estateFilter === 'Blk 405' ? 'selected' : ''}>Zone C — Blk 405</option>
+              </select>
+            </div>
 
-          <label for="case-urgency-filter" class="visually-hidden">Filter by urgency</label>
-          <select
-            id="case-urgency-filter"
-            class="filter-tab select-control"
-            data-action="case-filter-urgency"
-            style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-size: 0.8125rem; background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1);"
-            aria-label="Filter cases by urgency level"
-          >
-            <option value="all">All Urgencies</option>
-            <option value="Critical" ${caseView.urgencyFilter === 'Critical' ? 'selected' : ''}>Critical Urgency</option>
-            <option value="High" ${caseView.urgencyFilter === 'High' ? 'selected' : ''}>High Urgency</option>
-            <option value="Medium" ${caseView.urgencyFilter === 'Medium' ? 'selected' : ''}>Medium Urgency</option>
-          </select>
+            <div class="case-filter-group">
+              <label for="case-urgency-filter" class="case-filter-label">Urgency:</label>
+              <select
+                id="case-urgency-filter"
+                class="select-control case-filter-select"
+                data-action="case-filter-urgency"
+                aria-label="Filter cases by urgency level"
+              >
+                <option value="all">All Urgencies</option>
+                <option value="Critical" ${caseView.urgencyFilter === 'Critical' ? 'selected' : ''}>Critical Urgency</option>
+                <option value="High" ${caseView.urgencyFilter === 'High' ? 'selected' : ''}>High Urgency</option>
+                <option value="Medium" ${caseView.urgencyFilter === 'Medium' ? 'selected' : ''}>Medium Urgency</option>
+              </select>
+            </div>
 
-          ${caseView.searchQuery || caseView.estateFilter !== 'all' || caseView.urgencyFilter !== 'all' || caseView.activeTab !== 'all'
-            ? html`
-                <button type="button" class="btn-subtle btn-sm" data-action="case-clear-filters" aria-label="Reset all filters">
-                  ${icon('refresh', 14)} Reset filters
-                </button>
-              `
-            : ''}
+            ${caseView.searchQuery || caseView.estateFilter !== 'all' || caseView.urgencyFilter !== 'all' || caseView.activeTab !== 'all'
+              ? html`
+                  <button type="button" class="btn-subtle btn-sm case-reset-filters-btn" data-action="case-clear-filters" aria-label="Reset all filters">
+                    ${icon('refresh', 14)} Reset filters
+                  </button>
+                `
+              : ''}
+          </div>
         </div>
       </div>
 
       <!-- Workspace Body: List View vs Kanban View -->
-      <div style="padding: 16px 20px;">
+      <div>
         ${filteredCases.length === 0
           ? emptyState('folder', 'No matching cases found', 'Try adjusting your search query, status tab, or estate filter.')
           : caseView.viewMode === 'kanban'
@@ -539,15 +575,15 @@ function filterCases(s, cases) {
 function renderFollowUpRadar(s, allLooseEnds) {
   if (allLooseEnds.length === 0) {
     return html`
-      <section class="panel radar-panel" aria-labelledby="radar-h" style="border-left: 4px solid var(--colorPaletteGreenBorderActive); margin-top: 20px;">
-        <div class="panel-header" style="padding: 14px 20px; display: flex; justify-content: space-between; align-items: center;">
-          <div class="panel-title-group" style="display: flex; align-items: center; gap: 12px;">
-            <span class="panel-icon" style="background: var(--colorPaletteGreenBackground1); color: var(--colorPaletteGreenForeground1); display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px;" aria-hidden="true">
+      <section class="panel radar-panel" aria-labelledby="radar-h" style="border-left: 4px solid var(--colorPaletteGreenBorderActive); margin-top: 24px;">
+        <div class="panel-header radar-panel-header">
+          <div class="radar-header-title-group">
+            <span class="radar-header-icon" style="background: var(--colorPaletteGreenBackground1); color: var(--colorPaletteGreenForeground1);" aria-hidden="true">
               ${icon('check', 20)}
             </span>
-            <div>
-              <h2 id="radar-h" style="font-size: 1.0625rem; margin: 0;">Follow-Up Radar — Outstanding Follow-Ups Detector</h2>
-              <p class="muted small" style="margin: 2px 0 0;">
+            <div class="radar-header-text">
+              <h2 id="radar-h">Follow-Up Radar — Operational Loose-End Detector</h2>
+              <p class="muted small">
                 All operational commitments, resident follow-ups, and contractor quotes are fully on schedule.
               </p>
             </div>
@@ -569,43 +605,49 @@ function renderFollowUpRadar(s, allLooseEnds) {
   });
 
   return html`
-    <section class="panel radar-panel" aria-labelledby="radar-h" style="border-left: 4px solid ${criticalCount > 0 ? 'var(--colorPaletteRedBorderActive)' : 'var(--colorPaletteMarigoldBorderActive)'}; margin-top: 20px;">
-      <div class="panel-header" style="padding: 14px 20px; border-bottom: 1px solid var(--colorNeutralStroke2); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-        <div class="panel-title-group" style="display: flex; align-items: center; gap: 12px;">
-          <span class="panel-icon" style="background: ${criticalCount > 0 ? 'var(--colorPaletteRedBackground1)' : 'var(--colorPaletteMarigoldBackground1)'}; color: ${criticalCount > 0 ? 'var(--colorPaletteRedForeground1)' : 'var(--colorPaletteMarigoldForeground2)'}; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px;" aria-hidden="true">
+    <section class="panel radar-panel ${criticalCount > 0 ? 'is-critical' : ''}" aria-labelledby="radar-h">
+      <div class="panel-header radar-panel-header">
+        <div class="radar-header-title-group">
+          <span class="radar-header-icon ${criticalCount > 0 ? 'is-critical' : ''}" aria-hidden="true">
             ${icon('radar', 20)}
           </span>
-          <div>
-            <h2 id="radar-h" style="font-size: 1.0625rem; margin: 0;">Follow-Up Radar — Outstanding Follow-Ups Detector</h2>
-            <p class="muted small" style="margin: 2px 0 0;">
+          <div class="radar-header-text">
+            <h2 id="radar-h">Follow-Up Radar — Operational Loose-End Detector</h2>
+            <p class="muted small">
               Deterministic intelligence highlighting unfulfilled promises, missing evidence, and unconfirmed tenant appointments before they escalate.
             </p>
           </div>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          <div class="filter-tabs" role="tablist" style="margin: 0;">
+        <div class="radar-filter-bar">
+          <div class="filter-tabs radar-filter-tabs" role="tablist" aria-label="Filter follow-up items">
             <button
               type="button"
               class="filter-tab ${caseView.radarFilter === 'all' ? 'is-active' : ''}"
               data-action="case-radar-filter"
               data-filter="all"
+              role="tab"
+              aria-selected="${caseView.radarFilter === 'all' ? 'true' : 'false'}"
             >
-              All (${allLooseEnds.length})
+              All <span class="tab-count">${allLooseEnds.length}</span>
             </button>
             <button
               type="button"
               class="filter-tab ${caseView.radarFilter === 'critical' ? 'is-active' : ''}"
               data-action="case-radar-filter"
               data-filter="critical"
+              role="tab"
+              aria-selected="${caseView.radarFilter === 'critical' ? 'true' : 'false'}"
             >
-              Critical (${criticalCount})
+              Critical <span class="tab-count ${criticalCount > 0 ? 'tab-count-warn' : ''}">${criticalCount}</span>
             </button>
             <button
               type="button"
               class="filter-tab ${caseView.radarFilter === 'resident' ? 'is-active' : ''}"
               data-action="case-radar-filter"
               data-filter="resident"
+              role="tab"
+              aria-selected="${caseView.radarFilter === 'resident' ? 'true' : 'false'}"
             >
               Resident Callbacks
             </button>
@@ -614,6 +656,8 @@ function renderFollowUpRadar(s, allLooseEnds) {
               class="filter-tab ${caseView.radarFilter === 'contractor' ? 'is-active' : ''}"
               data-action="case-radar-filter"
               data-filter="contractor"
+              role="tab"
+              aria-selected="${caseView.radarFilter === 'contractor' ? 'true' : 'false'}"
             >
               Contractor
             </button>
@@ -621,8 +665,10 @@ function renderFollowUpRadar(s, allLooseEnds) {
         </div>
       </div>
 
-      <div class="radar-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 14px; padding: 16px 20px;">
-        ${displayedEnds.map((finding) => renderLooseEndCard(s, finding))}
+      <div class="radar-grid">
+        ${displayedEnds.length === 0
+          ? html`<div style="grid-column: 1 / -1; padding: 24px; text-align: center; color: var(--colorNeutralForeground3); font-size: 0.875rem;">No follow-up items match this filter.</div>`
+          : displayedEnds.map((finding) => renderLooseEndCard(s, finding))}
       </div>
     </section>
   `;
@@ -633,57 +679,57 @@ function renderLooseEndCard(s, finding) {
   const isCritical = finding.severity === 'critical';
 
   return html`
-    <div class="loose-end-card ${isCritical ? 'is-critical' : ''}" style="border: 1px solid ${isCritical ? 'var(--colorPaletteRedBorderActive)' : 'var(--colorPaletteMarigoldBorderActive)'}; border-left-width: 4px; border-radius: 8px; padding: 14px 16px; background: var(--colorNeutralBackground1); display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow4);">
-      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-        <span class="tag ${isCritical ? 'tag-danger' : 'tag-warning'} small" style="display: inline-flex; align-items: center; gap: 4px;">
-          ${icon(isCritical ? 'alert' : 'clock', 12)} ${finding.title}
-        </span>
-        <button
-          type="button"
-          class="btn-ghost btn-sm"
-          data-action="case-inspect"
-          data-id="${c.id}"
-          title="Inspect case details"
-          style="font-size: 0.75rem; padding: 2px 8px; font-weight: 700; color: var(--colorBrandForeground1); font-family: monospace;"
-        >
-          ${c.number || c.caseNumber || c.id} →
-        </button>
+    <div class="loose-end-card ${isCritical ? 'is-critical' : ''}">
+      <!-- Header: Finding type badge, Case ID, Case title -->
+      <div class="radar-card-header">
+        <div class="radar-card-top-row">
+          <span class="tag ${isCritical ? 'tag-danger' : 'tag-warning'} small" style="display: inline-flex; align-items: center; gap: 4px;">
+            ${icon(isCritical ? 'alert' : 'clock', 12)} ${finding.title}
+          </span>
+          <button
+            type="button"
+            class="btn-ghost btn-sm radar-case-link"
+            data-action="case-inspect"
+            data-id="${c.id}"
+            title="Inspect case details"
+          >
+            ${c.number || c.caseNumber || c.id} →
+          </button>
+        </div>
+        <h3 class="radar-card-title">${c.title}</h3>
       </div>
 
-      <strong style="font-size: 0.9375rem; color: var(--colorNeutralForeground1); line-height: 1.35;">
-        ${c.title}
-      </strong>
-
-      <p class="small muted" style="margin: 0; line-height: 1.45;">
+      <!-- Explanation: Short "Why it matters" description -->
+      <div class="radar-card-explanation">
         <strong>Why it matters:</strong> ${finding.explanation}
-      </p>
-
-      <div style="font-size: 0.75rem; color: var(--colorNeutralForeground3); background: var(--colorNeutralBackground2); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke3);">
-        <strong>Supporting Record:</strong> ${finding.sourceEvidence}
       </div>
 
-      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--colorNeutralStroke2); flex-wrap: wrap;">
-        <!-- Evidence-Linked Explanation Trigger -->
+      <!-- Evidence: Supporting record displayed in a visually distinct, subtle section -->
+      <div class="radar-card-evidence">
+        <span class="radar-evidence-label">Supporting Record:</span>
+        <span class="radar-evidence-value">${finding.sourceEvidence}</span>
+      </div>
+
+      <!-- Actions: "Why was this flagged?" and "Take Action", aligned consistently at the bottom -->
+      <div class="radar-card-actions">
         <button
           type="button"
-          class="btn-subtle btn-sm"
+          class="btn-subtle btn-sm radar-btn-explain"
           data-action="case-explain-finding"
           data-case="${c.id}"
           data-rule="${finding.ruleId}"
           title="Inspect why SyncAI flagged this case"
-          style="font-size: 0.75rem; font-weight: 600; color: var(--colorBrandForeground1);"
         >
-          ${icon('sparkle', 12)} Why was this flagged?
+          ${icon('sparkle', 14)} Why was this flagged?
         </button>
 
         <button
           type="button"
-          class="btn-primary btn-sm"
+          class="btn-primary btn-sm radar-btn-act"
           data-action="case-inspect"
           data-id="${c.id}"
           data-tab="loose_ends"
           data-rule="${finding.ruleId}"
-          style="font-size: 0.75rem;"
         >
           Take Action
         </button>
@@ -694,49 +740,63 @@ function renderLooseEndCard(s, finding) {
 
 function renderCaseList(s, cases) {
   return html`
-    <div class="table-wrap">
+    <div class="table-wrap case-table-wrap">
       <table class="data-table capture-table case-table" aria-labelledby="cases-h">
         <thead>
           <tr>
-            <th scope="col" style="min-width: 250px;">Case # &amp; Title</th>
-            <th scope="col" style="width: 130px;">Category</th>
-            <th scope="col" style="width: 130px;">Primary Status</th>
-            <th scope="col" style="width: 140px;">Assigned Officer</th>
-            <th scope="col" style="width: 180px; white-space: nowrap;">Deadlines (SGT)</th>
-            <th scope="col" style="width: 140px;">Follow-Ups</th>
-            <th scope="col" style="text-align: right; width: 120px;">Actions</th>
+            <th scope="col" style="min-width: 260px;">Case / Location</th>
+            <th scope="col" style="width: 140px;">Category</th>
+            <th scope="col" style="width: 150px;">Status</th>
+            <th scope="col" style="width: 160px;">Assigned Officer</th>
+            <th scope="col" style="width: 220px; white-space: nowrap;">Deadlines (SGT)</th>
+            <th scope="col" style="text-align: right; width: 140px;">Actions</th>
           </tr>
         </thead>
         <tbody>
           ${cases.map((c) => {
             const ends = detectLooseEnds(s, c);
-            const colId = getCaseKanbanColumn(c);
             const isBlocked = (c.blockers || []).some((b) => !b.resolved);
             const statusClass = c.status === 'closed' || c.status === 'Closed' ? 'tag-neutral' : c.status === 'ready_for_closure' ? 'tag-success' : isBlocked ? 'tag-warning' : 'tag-brand';
 
             return html`
               <tr>
-                <td>
-                  <span class="case-number" style="font-family: monospace; font-size: 0.75rem; font-weight: 700; color: var(--colorBrandForeground1);">${c.number || c.caseNumber || c.id}</span>
-                  <a class="case-title" href="#cases/${c.id}" style="display: block; font-weight: 600; text-decoration: none; color: inherit; margin-top: 2px;">${c.title}</a>
-                  ${c.location ? html`<span class="small muted" style="display: inline-flex; align-items: center; gap: 4px; margin-top: 3px;">${icon('pin', 12)} ${c.location}</span>` : ''}
+                <td data-label="Case / Location">
+                  <div class="case-cell-primary">
+                    <span class="case-number-badge">${c.number || c.caseNumber || c.id}</span>
+                    <a class="case-title-link" href="#cases/${c.id}">${c.title}</a>
+                    ${c.location ? html`<span class="case-location-tag">${icon('pin', 12)} ${c.location}</span>` : ''}
+                  </div>
                 </td>
                 <td data-label="Category"><span class="tag tag-neutral small">${c.category}</span></td>
-                <td data-label="Primary Status">
-                  <span class="tag ${statusClass}">${c.status}</span>
-                  ${isBlocked ? html`<span class="tag tag-danger small" style="margin-top: 4px; display: inline-block;">Blocked</span>` : ''}
+                <td data-label="Status">
+                  <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                    <span class="tag ${statusClass}">${c.status}</span>
+                    ${isBlocked ? html`<span class="tag tag-danger small" style="display: inline-flex; align-items: center; gap: 4px;">${icon('alert', 12)} Blocked</span>` : ''}
+                  </div>
                 </td>
                 <td data-label="Assigned officer">${officerName(s, c.ownerId)}</td>
                 <td data-label="Deadlines (SGT)">${recordedDeadlines(c)}</td>
-                <td data-label="Follow-Ups">
-                  ${ends.length === 0
-                    ? html`<span class="tag tag-success small" style="display: inline-flex; align-items: center; gap: 4px;">${icon('check', 12)} On Track</span>`
-                    : html`<button type="button" class="tag tag-warning small" data-action="case-inspect" data-id="${c.id}" data-tab="loose_ends" style="cursor: pointer; border: 1px solid var(--colorPaletteMarigoldBorderActive); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">${icon('radar', 12)} ${ends.length} Alert${ends.length > 1 ? 's' : ''}</button>`}
-                </td>
-                <td style="text-align: right; white-space: nowrap;">
-                  <button type="button" class="btn-primary btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="timeline">
-                    View Case
-                  </button>
+                <td data-label="Actions" class="case-actions-cell" style="text-align: right;">
+                  <div class="case-actions-group">
+                    ${ends.length > 0
+                      ? html`
+                          <button
+                            type="button"
+                            class="tag tag-warning small"
+                            data-action="case-inspect"
+                            data-id="${c.id}"
+                            data-tab="loose_ends"
+                            title="${ends.length} Attention items"
+                            style="cursor: pointer; border: 1px solid var(--colorPaletteMarigoldBorderActive); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;"
+                          >
+                            ${icon('radar', 12)} ${ends.length} Follow-Up${ends.length > 1 ? 's' : ''}
+                          </button>
+                        `
+                      : ''}
+                    <button type="button" class="btn-primary btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="timeline">
+                      View Case
+                    </button>
+                  </div>
                 </td>
               </tr>
             `;
@@ -754,72 +814,75 @@ function renderCaseList(s, cases) {
  */
 function renderCaseKanban(s, cases) {
   return html`
-    <div class="kanban-board" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; overflow-x: auto; padding-bottom: 8px;">
-      ${KANBAN_COLUMNS.map((col) => {
-        const colCases = cases.filter((c) => getCaseKanbanColumn(c) === col.id);
-        return html`
-          <div class="kanban-col" style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 400px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--colorNeutralStroke3);">
-              <strong style="font-size: 0.875rem;">${col.title}</strong>
-              <span class="tag ${col.badgeClass} small">${colCases.length}</span>
-            </div>
+    <div class="kanban-board-container" style="padding: 20px 24px;">
+      <div class="kanban-board">
+        ${KANBAN_COLUMNS.map((col) => {
+          const colCases = cases.filter((c) => getCaseKanbanColumn(c) === col.id);
+          return html`
+            <div class="kanban-col">
+              <div class="kanban-col-header">
+                <strong class="kanban-col-title">${col.title}</strong>
+                <span class="tag ${col.badgeClass} small">${colCases.length}</span>
+              </div>
 
-            <div style="display: flex; flex-direction: column; gap: 10px; flex: 1;">
-              ${colCases.length === 0
-                ? html`<div style="text-align: center; padding: 32px 8px; color: var(--colorNeutralForeground3); font-size: 0.8125rem;">No cases in this stage</div>`
-                : colCases.map((c) => {
-                    const ends = detectLooseEnds(s, c);
-                    const isBlocked = (c.blockers || []).some((b) => !b.resolved);
-                    return html`
-                      <div
-                        class="kanban-case-card"
-                        tabindex="0"
-                        role="region"
-                        aria-label="${c.title}"
-                        style="background: var(--colorNeutralBackground1); border: 1px solid var(--colorNeutralStroke1); border-left: 4px solid ${ends.length > 0 ? 'var(--colorPaletteMarigoldBorderActive)' : isBlocked ? 'var(--colorPaletteRedBorderActive)' : 'var(--colorBrandStroke1)'}; border-radius: 8px; padding: 12px; box-shadow: var(--shadow2); display: flex; flex-direction: column; gap: 8px;"
-                      >
-                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
-                          <span style="font-family: monospace; font-size: 0.75rem; font-weight: 700; color: var(--colorBrandForeground1);">${c.number || c.caseNumber || c.id}</span>
-                          <div style="display: flex; gap: 4px;">
-                            ${isBlocked ? html`<span class="tag tag-danger small">Blocked</span>` : ''}
-                            <span class="tag ${c.urgency === 'Critical' ? 'tag-danger' : 'tag-neutral'} small">${c.urgency || 'Standard'}</span>
+              <div class="kanban-cards-wrapper">
+                ${colCases.length === 0
+                  ? html`<div class="kanban-empty-col">No cases in this stage</div>`
+                  : colCases.map((c) => {
+                      const ends = detectLooseEnds(s, c);
+                      const isBlocked = (c.blockers || []).some((b) => !b.resolved);
+                      return html`
+                        <div
+                          class="kanban-case-card"
+                          tabindex="0"
+                          role="region"
+                          aria-label="${c.title}"
+                          style="border-left-color: ${ends.length > 0 ? 'var(--colorPaletteMarigoldBorderActive)' : isBlocked ? 'var(--colorPaletteRedBorderActive)' : 'var(--colorBrandStroke1)'};"
+                        >
+                          <div class="kanban-card-top">
+                            <span class="case-number-badge">${c.number || c.caseNumber || c.id}</span>
+                            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                              ${isBlocked ? html`<span class="tag tag-danger small">Blocked</span>` : ''}
+                              <span class="tag ${c.urgency === 'Critical' ? 'tag-danger' : 'tag-neutral'} small">${c.urgency || 'Standard'}</span>
+                            </div>
+                          </div>
+
+                          <a href="#cases/${c.id}" class="kanban-card-link">${c.title}</a>
+
+                          <div class="kanban-card-meta muted">
+                            <span style="display: inline-flex; align-items: center; gap: 4px;">
+                              ${icon('users', 12)} ${officerName(s, c.ownerId)}
+                            </span>
+                            ${c.location ? html`<span style="display: inline-flex; align-items: center; gap: 4px;">${icon('pin', 12)} ${c.location}</span>` : ''}
+                          </div>
+
+                          ${ends.length > 0
+                            ? html`
+                                <button
+                                  type="button"
+                                  class="tag tag-warning small kanban-followup-btn"
+                                  data-action="case-explain-finding"
+                                  data-case="${c.id}"
+                                  data-rule="${ends[0].ruleId}"
+                                >
+                                  ${icon('radar', 12)} ${ends.length} Follow-Up${ends.length > 1 ? 's' : ''} (Explain)
+                                </button>
+                              `
+                            : ''}
+
+                          <div class="kanban-card-footer">
+                            <button type="button" class="btn-primary btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="timeline">
+                              View Case
+                            </button>
                           </div>
                         </div>
-
-                        <a href="#cases/${c.id}" style="font-size: 0.875rem; font-weight: 600; text-decoration: none; color: inherit; line-height: 1.35;">${c.title}</a>
-
-                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 0.75rem;" class="muted">
-                          <span style="display: inline-flex; align-items: center; gap: 4px;">
-                            ${icon('users', 12)} ${officerName(s, c.ownerId)}
-                          </span>
-                          ${c.location ? html`<span>${c.location}</span>` : ''}
-                        </div>
-
-                        ${ends.length > 0
-                          ? html`
-                              <button
-                                type="button"
-                                class="tag tag-warning small"
-                                data-action="case-explain-finding"
-                                data-case="${c.id}"
-                                data-rule="${ends[0].ruleId}"
-                                style="align-self: flex-start; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--colorPaletteMarigoldBorderActive);"
-                              >
-                                ${icon('radar', 12)} ${ends.length} Follow-Up${ends.length > 1 ? 's' : ''} (Explain)
-                              </button>
-                            `
-                          : ''}
-
-                        <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--colorNeutralStroke3);">
-                          <button type="button" class="btn-primary btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="timeline" style="font-size: 0.75rem; padding: 2px 10px;">View Case</button>
-                        </div>
-                      </div>
-                    `;
-                  })}
+                      `;
+                    })}
+              </div>
             </div>
-          </div>
-        `;
-      })}
+          `;
+        })}
+      </div>
     </div>
   `;
 }

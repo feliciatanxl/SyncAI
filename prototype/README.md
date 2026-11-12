@@ -62,15 +62,22 @@ In compliance with prototype design constraints, **Microsoft sign-in is 100% sim
 
 The prototype demonstrates Team 24's **four primary feature areas** collaborating as one unified application:
 
-### A. Task Visibility & Case Action Centre V3 (Category C — Felicia Tan)
+### A. Task Visibility & Case Action Centre V4 (Category C — Felicia Tan)
 Located in the primary navigation (`Overview` → `Ask SyncAI` → `My Tasks` → `Case Action Centre` → `My Plan`):
 
-- **Modern Visual Hierarchy & Layout Redesign (V3):**
-  - **Section A — Page Header:** Consistent navy/blue gradient hero with title, role badge (`Manager Workspace` / `Property Officer Workspace`), value-focused description, and clear `Fictional Demo Environment` indicator. Clean and compact without duplicate metric counts.
-  - **Section B — Operational Overview:** Four equal-width, interactive metric cards (**Open Cases**, **Outstanding Follow-Ups**, **Blocked Cases**, **Ready to Close?**) with aligned icons, primary values, and clickable filters that immediately filter cases.
-  - **Section C — Follow-Up Radar:** High-priority banner with filter tabs (`All`, `Critical`, `Resident Callbacks`, `Contractor`), aligned action cards, and prominent **"Why was this flagged?"** and **"Take Action"** triggers.
-  - **Section D — Operational Cases:** Real-time search by case number, title, estate, or resident with accessible labels, Estate and Urgency filters, and a clear **"Reset filters"** button. Proportional table column widths, non-wrapping Singapore deadline timestamps, and single primary **"View Case"** action buttons.
-  - **Section E — Case Detail Drawer (V3 Redesign):**
+- **Modern Visual Hierarchy & Layout Redesign (V4):**
+  - **Section A — Page Header:** Consistent navy/blue gradient hero with title, role badge (`Manager Workspace` / `Property Officer Workspace`), value-focused description, and clear `Fictional Demo Environment` indicator. Clean and compact without duplicate metric counts, with dedicated title and badge cluster row preventing text clustering across desktop and mobile.
+  - **Section B — Operational Overview:** Four equal-width, interactive metric cards (**Open Cases**, **Outstanding Follow-Ups**, **Blocked Cases**, **Ready to Close?**) with aligned icons, primary values, and clickable filters that immediately filter cases. Responsive 4-column desktop, 2-column tablet, and 1-column mobile grid.
+  - **Section C — Follow-Up Radar (V4 Internal Card Redesign):** High-priority banner with filter tabs (`All`, `Critical`, `Resident Callbacks`, `Contractor`), aligned action cards, and distinct card zones:
+    - *Header:* Finding type badge with alert icon, monospace case ID link, and bold case title.
+    - *Explanation:* Comfortable line-height "Why it matters" narrative with balanced text density.
+    - *Evidence:* Distinct subtle Supporting Record box displaying verified source references without tiny fonts.
+    - *Actions:* Consistently bottom-aligned triggers for **"Why was this flagged?"** (Evidence-Linked Explanation) and **"Take Action"** (Jump to Loose Ends in Drawer).
+  - **Section D — Operational Cases Workspace & Toolbar:**
+    - *Two-Row Structured Toolbar:* Row 1 hosts case status tabs and List/Kanban toggles; Row 2 hosts the full-width search bar, Estate/Block dropdown with visible label, Urgency dropdown with visible label, and Reset filters action.
+    - *Case Table & Compact Deadlines:* Clear column order (`Case / Location`, `Category`, `Status`, `Assigned Officer`, `Deadlines (SGT)`, `Actions`) with compact Singapore timestamps (e.g., `11 Nov 2026 · 5:00 PM`) preventing excessive row heights.
+    - *Responsive Mobile Stacked Cards:* At tablet/mobile viewports ($\le 768px$), table rows transform seamlessly into stacked, accessible case cards with clear uppercase section labels.
+  - **Section E — Case Detail Drawer:**
     - *Header:* Monospace case number, primary status badge, location/estate, assigned officer (`Assigned: Aisyah Rahman`), case title, and a clearly visible, accessible **'X' close button** (`drawer-close-btn`).
     - *Responsive Wrapped Navigation:* Replaces overflowing horizontal tabs with wrapped segmented pills (`Timeline & Notes`, `Outstanding Follow-Ups`, `Blockers`, `Ready to Close?`, `Communications`, `AI Case Brief`), eliminating horizontal scrollbars and off-screen tabs.
     - *Compact Content:* Dynamic content-driven height. Empty timelines display a compact, helpful notice (*"No case updates have been recorded yet."*) without excessive whitespace.
@@ -259,11 +266,12 @@ Follow this step-by-step walkthrough to demonstrate the Case Action Centre V2 ca
 The prototype includes an automated regression test suite ensuring business logic, scheduling invariants, ripple intelligence, role boundaries, responsive UX, and Case Action Centre workflows function correctly in Node.js:
 
 ```bash
-# Run all 110 automated prototype tests across 11 suites
+# Run all 116 automated prototype tests across 12 suites
 node --test "prototype/tests/*.test.mjs"
 ```
 
-### Test Coverage Summary (110 tests passing across 11 suites):
+### Test Coverage Summary (116 tests passing across 12 suites):
+- `case-action-centre-v4.test.mjs` (6 tests): Validates V4 hero header structure, compact Singapore deadline timestamps, Follow-Up Radar internal card layout (Header, Explanation, Evidence, Actions), 2-row filter toolbar, case table with responsive mobile card data-labels, and CSS media queries.
 - `case-modal-interaction.test.mjs` (8 tests): Validates high-contrast metric CSS tokens, timeline notes logging with validation, follow-up outcome resolution, blocker resolution, closure approval workflow, multi-channel communications, AI Case Brief missing information disclosures, and modal dialog accessibility attributes.
 - `case-action-centre-v3.test.mjs` (7 tests): Validates UI refinement, header single summary presentation, drawer redesign, user-friendly terminology, notification centre, and role consistency.
 - `case-action-centre-v2.test.mjs` (7 tests): Validates single-column Kanban classification, 4-part Evidence-Linked Explanations, role-based visibility, Actionable Notifications (#071), Case Communication Hub, and Message-to-Task Drafting (#076).
