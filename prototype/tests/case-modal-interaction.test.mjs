@@ -223,3 +223,32 @@ test('8. Drawer Accessibility: ARIA attributes and dialog role present in render
   // Cleanup
   caseView.selectedCaseId = null;
 });
+
+test('9. Drawer Interactive Elements: Reassign icon, clickable officer, and readiness link', () => {
+  const s = loadState();
+  caseView.selectedCaseId = 'case-001';
+  caseView.journeyTab = 'timeline';
+
+  const html = casesPage.render(s).toString();
+
+  // Reassign Case button has action
+  assert.match(html, /data-action="case-reassign-dialog"/);
+  assert.match(html, /Reassign Case/);
+
+  // Clickable assigned officer button
+  assert.match(html, /Assigned:\s*<strong>Aisyah Rahman<\/strong>/);
+
+  // View in Planner button
+  assert.match(html, /data-action="case-plan-nav"/);
+  assert.match(html, /View in Planner/);
+
+  // Checklist items pending link
+  assert.match(html, /checklist item.*pending/);
+  assert.match(html, /data-tab="readiness"/);
+
+  // Close case button
+  assert.match(html, /data-action="case-close-action"/);
+
+  // Cleanup
+  caseView.selectedCaseId = null;
+});

@@ -917,9 +917,16 @@ function renderCaseJourneyModal(s, c) {
               <span class="tag ${c.status === 'closed' ? 'tag-neutral' : c.status === 'ready_for_closure' ? 'tag-success' : 'tag-brand'} small">${c.status}</span>
               ${pendingClosure ? html`<span class="tag tag-warning small">${icon('clock', 12)} Pending Sign-Off</span>` : ''}
               ${c.location ? html`<span class="small muted" style="display: inline-flex; align-items: center; gap: 4px;">${icon('pin', 12)} ${c.location}</span>` : ''}
-              <span class="small muted" style="display: inline-flex; align-items: center; gap: 4px; margin-left: auto;">
+              <button
+                type="button"
+                class="btn-ghost btn-sm"
+                data-action="case-reassign-dialog"
+                data-case="${c.id}"
+                title="Click to reassign this case"
+                style="display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-size: 0.8125rem; padding: 2px 8px; border-radius: 4px; cursor: pointer;"
+              >
                 ${icon('users', 12)} Assigned: <strong>${officerName(s, c.ownerId)}</strong>
-              </span>
+              </button>
             </div>
             <h2 id="case-drawer-title" style="font-size: 1.1875rem; margin: 8px 0 0; line-height: 1.35; color: var(--colorNeutralForeground1); font-weight: 600;">${c.title}</h2>
           </div>
@@ -997,9 +1004,16 @@ function renderCaseJourneyModal(s, c) {
             ${pendingClosure
               ? html`<span class="tag tag-warning small" style="display: inline-flex; align-items: center; gap: 4px;">${icon('clock', 12)} Closure Pending Manager Sign-off</span>`
               : c.status !== 'closed' && !readiness.isReady ? html`
-              <span class="small muted" style="font-size: 0.75rem; color: var(--colorPaletteMarigoldForeground2);">
+              <button
+                type="button"
+                class="btn-ghost btn-sm"
+                data-action="case-journey-tab"
+                data-tab="readiness"
+                title="View closure readiness checklist"
+                style="font-size: 0.75rem; color: var(--colorPaletteMarigoldForeground2); text-decoration: underline; cursor: pointer; padding: 2px 6px;"
+              >
                 ${readiness.unresolvedItems.length} checklist item${readiness.unresolvedItems.length === 1 ? '' : 's'} pending
-              </span>
+              </button>
             ` : ''}
             <button
               type="button"

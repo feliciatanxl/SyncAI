@@ -1000,6 +1000,7 @@ function setupEvents() {
           const res = requestCaseClosure(st, cid);
           if (!res.success) {
             toast(res.error, 'error');
+            caseView.journeyTab = 'readiness';
           } else {
             toast('Closure approval request submitted to Manager Jennifer Ong.', 'success');
           }
@@ -1009,12 +1010,26 @@ function setupEvents() {
           const res = closeCase(st, cid);
           if (!res.success) {
             toast(res.error, 'error');
+            caseView.journeyTab = 'readiness';
           } else {
             toast(`Case ${res.case.caseNumber} closed successfully.`, 'success');
           }
         });
       }
       renderApp();
+      return;
+    }
+
+    const caseSubmitNoteBtn = e.target.closest('[data-action="case-submit-note"]');
+    if (caseSubmitNoteBtn) {
+      const form = document.getElementById('case-add-note-form');
+      if (form) {
+        if (typeof form.requestSubmit === 'function') {
+          form.requestSubmit(caseSubmitNoteBtn);
+        } else {
+          form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
+      }
       return;
     }
 
