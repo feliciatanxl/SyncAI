@@ -23,6 +23,9 @@ import {
   getExplanationForFinding,
   getVisibleNotifications,
   getUnreadNotifications,
+  requestCaseStageTransition,
+  canTransitionCase,
+  normalizeKanbanStage,
 } from '../state.js';
 import { CAPTURE_STATUSES, taskDateInput } from '../taskCapture.js';
 import { TODAY, fmtDue, fmtLongDay, fmtTime, parseDate, timePart } from '../time.js';
@@ -57,6 +60,8 @@ export const caseView = {
   highlightedSourceId: null, // ID of source record to highlight
   commChannelFilter: 'all', // 'all' | 'in_app' | 'whatsapp' | 'teams' | 'telegram'
   extractedTaskDraft: null, // draft extracted from fictional message
+  moveStageModalCaseId: null, // case ID when "Move to Stage" dialog is open
+  transitionModal: null, // payload when consequential confirmation dialog is open
 };
 
 function recordedDeadlines(record) {
@@ -535,6 +540,12 @@ function renderOperationalCaseActionCentre(s) {
 
     <!-- Section E: Case Journey & Insights Drawer -->
     ${caseView.selectedCaseId ? renderCaseJourneyModal(s, getCase(s, caseView.selectedCaseId)) : ''}
+
+    <!-- Section F: Accessible Move to Stage Dialog -->
+    ${caseView.moveStageModalCaseId ? renderCaseMoveStageModal(s, caseView.moveStageModalCaseId) : ''}
+
+    <!-- Section G: Consequential Stage Transition Confirmation Modal -->
+    ${caseView.transitionModal ? renderCaseTransitionModal(s) : ''}
   `;
 }
 
@@ -756,21 +767,24 @@ function renderCaseList(s, cases) {
           ${cases.map((c) => {
             const ends = detectLooseEnds(s, c);
             const isBlocked = (c.blockers || []).some((b) => !b.resolved);
+            const colId = getCaseKanbanColumn(c);
+            const stageCol = KANBAN_COLUMNS.find((k) => k.id === colId);
+            const stageTitle = stageCol?.title || c.status;
             const statusClass = c.status === 'closed' || c.status === 'Closed' ? 'tag-neutral' : c.status === 'ready_for_closure' ? 'tag-success' : isBlocked ? 'tag-warning' : 'tag-brand';
 
             return html`
-              <tr>
+              <tr class="case-table-row" data-case-id="${c.id}" data-action="case-row-click" tabindex="0">
                 <td data-label="Case / Location">
                   <div class="case-cell-primary">
-                    <span class="case-number-badge">${c.number || c.caseNumber || c.id}</span>
-                    <a class="case-title-link" href="#cases/${c.id}">${c.title}</a>
+                    <span class="case-number-badge" data-action="case-inspect" data-id="${c.id}" style="cursor: pointer;">${c.number || c.caseNumber || c.id}</span>
+                    <a class="case-title-link" href="#cases/${c.id}" data-action="case-inspect" data-id="${c.id}">${c.title}</a>
                     ${c.location ? html`<span class="case-location-tag">${icon('pin', 12)} ${c.location}</span>` : ''}
                   </div>
                 </td>
                 <td data-label="Category"><span class="tag tag-neutral small">${c.category}</span></td>
                 <td data-label="Status">
                   <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
-                    <span class="tag ${statusClass}">${c.status}</span>
+                    <span class="tag ${statusClass}">${stageTitle}</span>
                     ${isBlocked ? html`<span class="tag tag-danger small" style="display: inline-flex; align-items: center; gap: 4px;">${icon('alert', 12)} Blocked</span>` : ''}
                   </div>
                 </td>
@@ -796,6 +810,15 @@ function renderCaseList(s, cases) {
                     <button type="button" class="btn-primary btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="timeline">
                       View Case
                     </button>
+                    <button
+                      type="button"
+                      class="btn-secondary btn-sm"
+                      data-action="case-move-stage-dialog"
+                      data-case="${c.id}"
+                      title="Move case to stage"
+                    >
+                      ${icon('arrow', 12)} Move to Stage
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -808,9 +831,9 @@ function renderCaseList(s, cases) {
 }
 
 /**
- * Kanban Board with Single-Column Classification.
+ * Kanban Board with Single-Column Classification and HTML5 Drag-and-Drop.
  * Each case is evaluated by getCaseKanbanColumn(c) and placed in exactly ONE column.
- * Duplication is eliminated. Secondary conditions (e.g. Blockers, High Priority) are shown via badges.
+ * Duplication is eliminated. Real state changes occur when cards are dropped or moved.
  */
 function renderCaseKanban(s, cases) {
   return html`
@@ -819,60 +842,98 @@ function renderCaseKanban(s, cases) {
         ${KANBAN_COLUMNS.map((col) => {
           const colCases = cases.filter((c) => getCaseKanbanColumn(c) === col.id);
           return html`
-            <div class="kanban-col">
+            <div class="kanban-col" data-col-id="${col.id}">
               <div class="kanban-col-header">
-                <strong class="kanban-col-title">${col.title}</strong>
-                <span class="tag ${col.badgeClass} small">${colCases.length}</span>
+                <div class="kanban-col-header-left" style="display: flex; align-items: center; gap: 8px;">
+                  <span class="kanban-col-icon" style="color: var(--colorNeutralForeground3);">${icon('columns', 14)}</span>
+                  <strong class="kanban-col-title">${col.title}</strong>
+                </div>
+                <span class="tag ${col.badgeClass} small kanban-count-badge">${colCases.length}</span>
               </div>
 
-              <div class="kanban-cards-wrapper">
+              <div class="kanban-cards-wrapper" data-col-id="${col.id}">
                 ${colCases.length === 0
-                  ? html`<div class="kanban-empty-col">No cases in this stage</div>`
+                  ? html`<div class="kanban-empty-col" data-col-id="${col.id}">
+                      <span style="display: block; font-size: 1.25rem; opacity: 0.6; margin-bottom: 4px;">📂</span>
+                      No cases in this stage
+                    </div>`
                   : colCases.map((c) => {
                       const ends = detectLooseEnds(s, c);
                       const isBlocked = (c.blockers || []).some((b) => !b.resolved);
                       return html`
                         <div
                           class="kanban-case-card"
+                          draggable="true"
+                          data-action="case-card-surface"
+                          data-case-id="${c.id}"
+                          data-case="${c.id}"
                           tabindex="0"
                           role="region"
-                          aria-label="${c.title}"
+                          aria-label="Case ${c.number || c.caseNumber || c.id}: ${c.title}. Stage: ${col.title}."
                           style="border-left-color: ${ends.length > 0 ? 'var(--colorPaletteMarigoldBorderActive)' : isBlocked ? 'var(--colorPaletteRedBorderActive)' : 'var(--colorBrandStroke1)'};"
                         >
                           <div class="kanban-card-top">
-                            <span class="case-number-badge">${c.number || c.caseNumber || c.id}</span>
-                            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                              ${isBlocked ? html`<span class="tag tag-danger small">Blocked</span>` : ''}
+                            <div class="kanban-card-top-left" style="display: flex; align-items: center; gap: 6px;">
+                              <span class="kanban-card-drag-affordance" title="Drag to move stage" aria-hidden="true" style="cursor: grab; display: inline-flex; align-items: center; color: var(--colorNeutralForeground4);">
+                                ${icon('menu', 14)}
+                              </span>
+                              <span class="case-number-badge" data-action="case-inspect" data-id="${c.id}" style="cursor: pointer;">${c.number || c.caseNumber || c.id}</span>
+                            </div>
+                            <div class="kanban-card-badges" style="display: flex; gap: 4px; flex-wrap: wrap;">
+                              ${isBlocked ? html`<span class="tag tag-danger small" style="display: inline-flex; align-items: center; gap: 4px;">${icon('alert', 12)} Blocked</span>` : ''}
                               <span class="tag ${c.urgency === 'Critical' ? 'tag-danger' : 'tag-neutral'} small">${c.urgency || 'Standard'}</span>
                             </div>
                           </div>
 
-                          <a href="#cases/${c.id}" class="kanban-card-link">${c.title}</a>
+                          <div class="kanban-card-body">
+                            <h3 class="kanban-card-title" style="margin: 0; font-size: 0.9375rem; line-height: 1.35; font-weight: 600;">
+                              <a href="#cases/${c.id}" class="kanban-card-link" data-action="case-inspect" data-id="${c.id}">${c.title}</a>
+                            </h3>
 
-                          <div class="kanban-card-meta muted">
-                            <span style="display: inline-flex; align-items: center; gap: 4px;">
-                              ${icon('users', 12)} ${officerName(s, c.ownerId)}
-                            </span>
-                            ${c.location ? html`<span style="display: inline-flex; align-items: center; gap: 4px;">${icon('pin', 12)} ${c.location}</span>` : ''}
+                            <div class="kanban-card-meta muted" style="margin-top: 6px;">
+                              <span class="kanban-meta-item" style="display: inline-flex; align-items: center; gap: 4px;">
+                                ${icon('users', 12)} ${officerName(s, c.ownerId)}
+                              </span>
+                              ${c.location ? html`<span class="kanban-meta-item" style="display: inline-flex; align-items: center; gap: 4px;">${icon('pin', 12)} ${c.location}</span>` : ''}
+                            </div>
                           </div>
 
-                          ${ends.length > 0
-                            ? html`
-                                <button
-                                  type="button"
-                                  class="tag tag-warning small kanban-followup-btn"
-                                  data-action="case-explain-finding"
-                                  data-case="${c.id}"
-                                  data-rule="${ends[0].ruleId}"
-                                >
-                                  ${icon('radar', 12)} ${ends.length} Follow-Up${ends.length > 1 ? 's' : ''} (Explain)
-                                </button>
-                              `
-                            : ''}
+                          <div class="kanban-card-indicators" style="display: flex; flex-direction: column; gap: 6px;">
+                            ${ends.length > 0
+                              ? html`
+                                  <button
+                                    type="button"
+                                    class="tag tag-warning small kanban-followup-btn"
+                                    data-action="case-explain-finding"
+                                    data-case="${c.id}"
+                                    data-rule="${ends[0].ruleId}"
+                                    title="${ends.length} Attention items"
+                                  >
+                                    ${icon('radar', 12)} ${ends.length} Follow-Up${ends.length > 1 ? 's' : ''} (Explain)
+                                  </button>
+                                `
+                              : ''}
+                            ${c.slaDue
+                              ? html`
+                                  <span class="kanban-deadline-tag small muted" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem;">
+                                    ${icon('clock', 12)} SLA Due: ${fmtCompactDeadline(c.slaDue)}
+                                  </span>
+                                `
+                              : ''}
+                          </div>
 
                           <div class="kanban-card-footer">
                             <button type="button" class="btn-primary btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="timeline">
                               View Case
+                            </button>
+                            <button
+                              type="button"
+                              class="btn-secondary btn-sm btn-move-stage"
+                              data-action="case-move-stage-dialog"
+                              data-case="${c.id}"
+                              title="Move case to stage"
+                            >
+                              ${icon('arrow', 12)} Move to Stage
                             </button>
                           </div>
                         </div>
@@ -886,6 +947,249 @@ function renderCaseKanban(s, cases) {
     </div>
   `;
 }
+
+/**
+ * Accessible Move to Stage Dialog for keyboard, mobile, and screen-reader operation.
+ */
+function renderCaseMoveStageModal(s, caseId) {
+  const c = getCase(s, caseId);
+  if (!c) return '';
+  const currentStage = getCaseKanbanColumn(c);
+  const currentStageCol = KANBAN_COLUMNS.find((col) => col.id === currentStage);
+
+  return html`
+    <div class="modal-backdrop is-open" data-action="case-move-stage-close" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1050; display: flex; align-items: center; justify-content: center; padding: 16px;">
+      <div
+        class="modal-card case-move-stage-dialog"
+        onclick="event.stopPropagation()"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="move-stage-title"
+        style="max-width: 540px; width: 100%; background: var(--colorNeutralBackground1); border-radius: 10px; box-shadow: var(--shadow64); padding: 22px; display: flex; flex-direction: column; gap: 16px;"
+      >
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--colorNeutralStroke2); padding-bottom: 12px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <span class="case-number-badge">${c.number || c.caseNumber || c.id}</span>
+              <span class="tag ${currentStageCol?.badgeClass || 'tag-neutral'} small">Current: ${currentStageCol?.title || currentStage}</span>
+            </div>
+            <h2 id="move-stage-title" style="font-size: 1.125rem; margin: 0; font-weight: 600; color: var(--colorNeutralForeground1); line-height: 1.35;">
+              Move Case to Stage
+            </h2>
+            <p class="muted small" style="margin: 4px 0 0;">${c.title}</p>
+          </div>
+          <button type="button" class="drawer-close-btn" data-action="case-move-stage-close" aria-label="Close move to stage dialog" title="Close">
+            ${icon('x', 18)}
+          </button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <p class="small" style="font-weight: 600; color: var(--colorNeutralForeground2); margin: 0;">Select Destination Workflow Stage:</p>
+          <div class="case-stage-options-list" role="radiogroup" aria-label="Workflow stages" style="display: flex; flex-direction: column; gap: 8px;">
+            ${KANBAN_COLUMNS.map((col) => {
+              const check = canTransitionCase(s, c.id, col.id);
+              const isCurrent = check.isCurrent;
+
+              return html`
+                <div
+                  class="case-stage-option-row ${isCurrent ? 'is-current' : check.permitted ? 'is-permitted' : 'is-disabled'}"
+                  style="border: 1px solid ${isCurrent ? 'var(--colorBrandStroke1)' : check.permitted ? 'var(--colorNeutralStroke1)' : 'var(--colorNeutralStroke3)'}; background: ${isCurrent ? 'var(--colorBrandBackground2)' : check.permitted ? 'var(--colorNeutralBackground1)' : 'var(--colorNeutralBackground3)'}; border-radius: 8px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px;"
+                >
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                      <strong style="font-size: 0.875rem; color: ${check.permitted || isCurrent ? 'var(--colorNeutralForeground1)' : 'var(--colorNeutralForeground4)'};">${col.title}</strong>
+                      <span class="tag ${col.badgeClass} small">${col.id}</span>
+                      ${isCurrent ? html`<span class="tag tag-brand small">Current Stage</span>` : ''}
+                    </div>
+                    <div class="small muted" style="margin-top: 4px; font-size: 0.75rem; color: ${check.permitted ? 'var(--colorNeutralForeground3)' : 'var(--colorPaletteRedForeground1)'};">
+                      ${check.reason}
+                    </div>
+                  </div>
+
+                  <div>
+                    ${isCurrent
+                      ? html`<span class="small muted" style="font-weight: 600; font-size: 0.8125rem;">Active</span>`
+                      : check.permitted
+                        ? html`
+                            <button
+                              type="button"
+                              class="btn-primary btn-sm"
+                              data-action="case-select-move-stage"
+                              data-case="${c.id}"
+                              data-target="${col.id}"
+                              style="white-space: nowrap;"
+                            >
+                              ${check.requiresApproval ? 'Request Sign-Off' : check.requiresReason ? 'Enter Reason & Move' : 'Move Here'}
+                            </button>
+                          `
+                        : check.canResolveBlocker
+                          ? html`
+                              <button
+                                type="button"
+                                class="btn-secondary btn-sm"
+                                data-action="case-resolve-blocker-and-move"
+                                data-case="${c.id}"
+                                data-blocker="${check.activeBlockers[0].id}"
+                                data-target="${col.id}"
+                                style="white-space: nowrap; font-size: 0.75rem;"
+                                title="Resolve active blocker and resume In Progress"
+                              >
+                                Resolve &amp; Move
+                              </button>
+                            `
+                          : html`
+                              <button type="button" class="btn-subtle btn-sm" disabled style="opacity: 0.5; white-space: nowrap;">
+                                Blocked
+                              </button>
+                            `}
+                  </div>
+                </div>
+              `;
+            })}
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--colorNeutralStroke2);">
+          <button type="button" class="btn-ghost btn-sm" data-action="case-move-stage-close">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Consequential Stage Transition Confirmation Modal.
+ * Opens for hold reasons, manager approval requests, and manager exceptions.
+ */
+function renderCaseTransitionModal(s) {
+  const modal = caseView.transitionModal;
+  if (!modal) return '';
+  const c = getCase(s, modal.caseId);
+  if (!c) return '';
+
+  const fromCol = KANBAN_COLUMNS.find((col) => col.id === modal.currentStage);
+  const toCol = KANBAN_COLUMNS.find((col) => col.id === modal.targetStage);
+
+  const fromTitle = fromCol?.title || modal.currentStage;
+  const toTitle = toCol?.title || modal.targetStage;
+
+  let headerTitle = 'Confirm Stage Move';
+  let bannerHtml = '';
+  let reasonLabel = 'Operational Reason / Note';
+  let placeholder = 'Explain the operational context for this transition...';
+  let confirmBtnLabel = 'Confirm Transition';
+
+  if (modal.requiresApproval) {
+    headerTitle = 'Request Manager Closure Sign-Off';
+    bannerHtml = html`
+      <div class="callout callout-warning" style="background: var(--colorPaletteMarigoldBackground1); border: 1px solid var(--colorPaletteMarigoldBorderActive); border-radius: 6px; padding: 10px 12px; font-size: 0.8125rem; color: var(--colorNeutralForeground1);">
+        <strong>${icon('clock', 14)} Manager Sign-Off Required:</strong> As a Property Officer, moving a case to <strong>Closed &amp; Audited</strong> submits an auditable closure approval request to Estate Manager Jennifer Ong.
+      </div>
+    `;
+    reasonLabel = 'Closure Request Justification';
+    placeholder = 'Describe completed inspection findings and verification details for manager audit...';
+    confirmBtnLabel = 'Submit for Approval';
+  } else if (modal.isException) {
+    headerTitle = 'Manager Exception Case Closure';
+    bannerHtml = html`
+      <div class="callout callout-warning" style="background: var(--colorPaletteMarigoldBackground1); border: 1px solid var(--colorPaletteMarigoldBorderActive); border-radius: 6px; padding: 10px 12px; font-size: 0.8125rem; color: var(--colorNeutralForeground1);">
+        <strong>${icon('alert', 14)} Incomplete Checklist Exception:</strong> This case has incomplete prerequisites: <em>${modal.unresolvedItems?.join(', ') || 'Requirements pending'}</em>. Estate Manager authorization requires an auditable exception memo.
+      </div>
+    `;
+    reasonLabel = 'Auditable Manager Exception Memo (Required)';
+    placeholder = 'Document why statutory closure is granted despite outstanding prerequisites...';
+    confirmBtnLabel = 'Authorize Closure (Exception)';
+  } else if (modal.targetStage === 'pending_external') {
+    headerTitle = 'Place Case on Hold (Awaiting External)';
+    bannerHtml = html`
+      <div class="callout callout-info" style="background: var(--colorBrandBackground2); border: 1px solid var(--colorBrandStroke2); border-radius: 6px; padding: 10px 12px; font-size: 0.8125rem; color: var(--colorBrandForeground1);">
+        <strong>${icon('info', 14)} Blocker Record Creation:</strong> State the external dependency (e.g. upper unit tenant unreachable, contractor quotation pending, BCA specialist schedule). This will create an active blocker record in the case tracker.
+      </div>
+    `;
+    reasonLabel = 'Hold / Blocker Reason (Required, min 4 characters)';
+    placeholder = 'e.g. Upper unit tenant unreachable for joint inspection scheduling...';
+    confirmBtnLabel = 'Place on Hold';
+  } else if (modal.currentStage === 'closed') {
+    headerTitle = 'Reopen Closed Case';
+    bannerHtml = html`
+      <div class="callout callout-warning" style="background: var(--colorPaletteMarigoldBackground1); border: 1px solid var(--colorPaletteMarigoldBorderActive); border-radius: 6px; padding: 10px 12px; font-size: 0.8125rem; color: var(--colorNeutralForeground1);">
+        <strong>${icon('alert', 14)} Manager Reopen Audit:</strong> Reopening a closed case alters the statutory compliance record. An auditable reason must be logged to the case timeline and activity ledger.
+      </div>
+    `;
+    reasonLabel = 'Auditable Reopen Reason (Required, min 4 characters)';
+    placeholder = 'e.g. Resident reported recurring moisture seepage; reopening for second-tier contractor inspection...';
+    confirmBtnLabel = 'Confirm Reopen';
+  }
+
+  return html`
+    <div class="modal-backdrop is-open" data-action="case-transition-cancel" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1100; display: flex; align-items: center; justify-content: center; padding: 16px;">
+      <div
+        class="modal-card case-transition-confirm-dialog"
+        onclick="event.stopPropagation()"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="transition-confirm-title"
+        style="max-width: 520px; width: 100%; background: var(--colorNeutralBackground1); border-radius: 10px; box-shadow: var(--shadow64); padding: 22px; display: flex; flex-direction: column; gap: 14px;"
+      >
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--colorNeutralStroke2); padding-bottom: 10px;">
+          <div>
+            <h2 id="transition-confirm-title" style="font-size: 1.125rem; margin: 0; font-weight: 600; color: var(--colorNeutralForeground1);">
+              ${headerTitle}
+            </h2>
+            <p class="muted small" style="margin: 4px 0 0;">
+              <strong>${c.number || c.caseNumber || c.id}</strong> — ${c.title}
+            </p>
+          </div>
+          <button type="button" class="drawer-close-btn" data-action="case-transition-cancel" aria-label="Cancel transition" title="Close">
+            ${icon('x', 18)}
+          </button>
+        </div>
+
+        <!-- Stage progression comparison -->
+        <div style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+          <div style="text-align: left;">
+            <span class="small muted" style="display: block; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.5px;">Current Stage</span>
+            <span class="tag ${fromCol?.badgeClass || 'tag-neutral'}" style="margin-top: 2px;">${fromTitle}</span>
+          </div>
+          <span style="color: var(--colorNeutralForeground3); font-size: 1.25rem;">→</span>
+          <div style="text-align: right;">
+            <span class="small muted" style="display: block; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.5px;">Proposed Stage</span>
+            <span class="tag ${toCol?.badgeClass || 'tag-brand'}" style="margin-top: 2px;">${toTitle}</span>
+          </div>
+        </div>
+
+        ${bannerHtml}
+
+        <div>
+          <label for="case-transition-reason-input" class="small" style="font-weight: 600; display: block; margin-bottom: 4px; color: var(--colorNeutralForeground1);">
+            ${reasonLabel}
+          </label>
+          <textarea
+            id="case-transition-reason-input"
+            class="search-input"
+            rows="3"
+            style="width: 100%; box-sizing: border-box; font-family: inherit; font-size: 0.875rem; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1);"
+            placeholder="${placeholder}"
+          ></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 8px; border-top: 1px solid var(--colorNeutralStroke2);">
+          <button type="button" class="btn-ghost btn-sm" data-action="case-transition-cancel">Cancel</button>
+          <button
+            type="button"
+            class="btn-primary btn-sm"
+            data-action="case-transition-confirm"
+            data-case="${c.id}"
+            data-target="${modal.targetStage}"
+          >
+            ${confirmBtnLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 
 function renderCaseJourneyModal(s, c) {
   if (!c) return '';

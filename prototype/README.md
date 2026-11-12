@@ -62,20 +62,44 @@ In compliance with prototype design constraints, **Microsoft sign-in is 100% sim
 
 The prototype demonstrates Team 24's **four primary feature areas** collaborating as one unified application:
 
-### A. Task Visibility & Case Action Centre V4 (Category C — Felicia Tan)
+### A. Task Visibility & Case Action Centre V5 (Category C — Felicia Tan)
 Located in the primary navigation (`Overview` → `Ask SyncAI` → `My Tasks` → `Case Action Centre` → `My Plan`):
 
-- **Modern Visual Hierarchy & Layout Redesign (V4):**
+- **Functional Drag-and-Drop Kanban & Workflow Transition Engine (V5):**
+  - **Real State-Driven Drag-and-Drop:** Fully functional desktop HTML5 drag-and-drop between all five canonical workflow stages (`Open / Intake`, `In Progress`, `Awaiting External / Blocked`, `Closure Ready`, `Closed & Audited`). Moving a card modifies shared prototype state (`state.js`), updates case status and blockers, appends audit events, and updates column counters dynamically.
+  - **Central Workflow Transition Engine (`requestCaseStageTransition`):** All stage transitions—whether triggered via mouse drag-and-drop or the accessible "Move to Stage" dialog—pass through a single central transition engine with structured validation:
+    - *Open → In Progress:* Permitted for authorized case owners or supervisory managers, logging operational start timestamps and updating active state.
+    - *In Progress → Awaiting External / Blocked:* Requires an auditable hold reason ($\ge 4$ characters) and records an active external dependency/blocker.
+    - *Awaiting External → In Progress:* Enforces active blocker resolution. Direct transitions without blocker resolution are rejected with an explicit explanation; provides a one-click *"Resolve Blocker & Move to In Progress"* flow for authorized officers.
+    - *Active Case → Closure Ready:* Strictly validates the closure checklist (`checkClosureReadiness`). If statutory checkpoints or required evidence are incomplete, the transition is blocked with clear itemized requirements.
+    - *Closure Ready → Closed & Audited:* Follows hierarchical governance. Front-line Team Members cannot close directly; the engine creates a Manager Closure Review approval request (`createApprovalRequest`). Estate Managers can close cases directly when all checklist criteria are satisfied, or record an auditable manager exception reason ($\ge 4$ characters) if closing with incomplete items.
+    - *Closed → Active Stages (Reopening):* Team Members cannot reopen closed cases. Estate Managers may reopen closed cases with an auditable justification reason ($\ge 4$ characters), appending an official audit log entry.
+  - **Role-Based Transition Segregation:**
+    - Property Officers (`member`) can only move cases assigned directly to them.
+    - Estate Managers (`manager`) can transition cases across their supervised team.
+    - Administrators (`admin`) hold governance/oversight access with view-only operational restrictions.
+    - Inactive, pending, or disabled accounts are strictly denied transition capabilities.
+  - **Consequential Transition Confirmation Dialog (`renderCaseTransitionModal`):**
+    - Seamless immediate movement for straightforward permitted transitions.
+    - Dedicated, accessible confirmation dialog for consequential transitions requiring input: hold/blocker reason, manager closure approval routing, auditable manager exceptions, and case reopening justifications.
+  - **Accessible Keyboard & Mobile Alternative ("Move to Stage"):**
+    - Every case card on the Kanban board and every row in the Table view includes an accessible **"Move to Stage"** button.
+    - Opens a focused, accessible modal (`renderCaseMoveStageModal`) listing all 5 destination stages with current stage indicator, real-time eligibility checks, and explicit explanatory reasons for disabled stages.
+    - 100% accessible via keyboard (Tab, Enter, Space, Escape) and touchscreens.
+  - **Safe Interaction Separation:** Clicking interactive elements (links, buttons, "Move to Stage") executes only that action with `stopPropagation()`; dragging a card never accidentally triggers case detail drawers (`isDraggingCard` suppression); clicking neutral card/row surfaces opens the case details modal.
+
+- **Modern Visual Hierarchy & Layout Redesign:**
   - **Section A — Page Header:** Consistent navy/blue gradient hero with title, role badge (`Manager Workspace` / `Property Officer Workspace`), value-focused description, and clear `Fictional Demo Environment` indicator. Clean and compact without duplicate metric counts, with dedicated title and badge cluster row preventing text clustering across desktop and mobile.
   - **Section B — Operational Overview:** Four equal-width, interactive metric cards (**Open Cases**, **Outstanding Follow-Ups**, **Blocked Cases**, **Ready to Close?**) with aligned icons, primary values, and clickable filters that immediately filter cases. Responsive 4-column desktop, 2-column tablet, and 1-column mobile grid.
-  - **Section C — Follow-Up Radar (V4 Internal Card Redesign):** High-priority banner with filter tabs (`All`, `Critical`, `Resident Callbacks`, `Contractor`), aligned action cards, and distinct card zones:
+  - **Section C — Follow-Up Radar:** High-priority banner with filter tabs (`All`, `Critical`, `Resident Callbacks`, `Contractor`), aligned action cards, and distinct card zones:
     - *Header:* Finding type badge with alert icon, monospace case ID link, and bold case title.
     - *Explanation:* Comfortable line-height "Why it matters" narrative with balanced text density.
     - *Evidence:* Distinct subtle Supporting Record box displaying verified source references without tiny fonts.
     - *Actions:* Consistently bottom-aligned triggers for **"Why was this flagged?"** (Evidence-Linked Explanation) and **"Take Action"** (Jump to Loose Ends in Drawer).
   - **Section D — Operational Cases Workspace & Toolbar:**
     - *Two-Row Structured Toolbar:* Row 1 hosts case status tabs and List/Kanban toggles; Row 2 hosts the full-width search bar, Estate/Block dropdown with visible label, Urgency dropdown with visible label, and Reset filters action.
-    - *Case Table & Compact Deadlines:* Clear column order (`Case / Location`, `Category`, `Status`, `Assigned Officer`, `Deadlines (SGT)`, `Actions`) with compact Singapore timestamps (e.g., `11 Nov 2026 · 5:00 PM`) preventing excessive row heights.
+    - *Redesigned Kanban Columns & Cards:* Balanced column widths, distinct drop-zone highlighting (`.is-drop-target`, `.is-invalid-target`), drag handles, operational indicators (outstanding follow-up counts, active blocker alerts, next deadlines), and dual action buttons (**View Case** and **Move to Stage**).
+    - *Case Table & Compact Deadlines:* Clear column order (`Case / Location`, `Category`, `Status`, `Assigned Officer`, `Deadlines (SGT)`, `Actions`) with clickable rows and compact Singapore timestamps (e.g., `11 Nov 2026 · 5:00 PM`) preventing excessive row heights.
     - *Responsive Mobile Stacked Cards:* At tablet/mobile viewports ($\le 768px$), table rows transform seamlessly into stacked, accessible case cards with clear uppercase section labels.
   - **Section E — Case Detail Drawer:**
     - *Header:* Monospace case number, primary status badge, location/estate, assigned officer (`Assigned: Aisyah Rahman`), case title, and a clearly visible, accessible **'X' close button** (`drawer-close-btn`).
@@ -238,9 +262,14 @@ Follow this step-by-step walkthrough to demonstrate the Case Action Centre V2 ca
      - 4-part breakdown: *1. Verified Recorded Facts*, *2. Rule-Based Deductions*, *3. Missing Information*, and *4. Proposed Recommendations*.
    - Click **"Inspect Source Record →"**: Watch the drawer transition to the verified source event, highlighting it with glowing animation. Click **"← Back to Explanation"** to return.
 
-5. **Verify Single-Column Kanban Classification (No Duplication):**
-   - Scroll to Section D and toggle the view switcher to **Kanban Board View** (columns icon).
-   - Note that Case DEMO-001 (Ceiling seepage at Blk 211) appears **strictly once** under `Awaiting External / Blocked` with a High Priority badge and Blocked tag, and is **not duplicated** in `In Progress`.
+5. **Test V5 Interactive Drag-and-Drop Kanban & Workflow Transitions:**
+   - In Section D, toggle to **Kanban Board View**.
+   - **Real Drag-and-Drop:** Drag an open case card (e.g. `DEMO-004`) and drop it into the `In Progress` column. Watch the card immediately move, column count badges update, and shared state update with an audit log.
+   - **Consequential Transition Confirmation:** Drag an in-progress case to `Awaiting External / Blocked`. A compact confirmation dialog appears prompting for an auditable hold reason. Enter a reason (e.g., *"Awaiting HDB contractor scaffolding permit"*) and confirm. Observe the case move and a new active blocker registered.
+   - **Blocker Resolution Safeguard:** Attempt to drag the blocked case back into `In Progress`. The transition engine rejects the silent move, explaining the unresolved blocker.
+   - **Accessible "Move to Stage" Alternative:** Click **"Move to Stage"** on any card or table row. Select `In Progress` from the accessible dialog. Notice the option to *"Resolve Blocker & Move to In Progress"*, which resolves the blocker and transitions the case in a single auditable action.
+   - **Governance & Closure Readiness:** Attempt to move a case with incomplete checkpoints to `Closure Ready`; the engine blocks the move, explaining missing checklist items. For `Closed & Audited`, Team Members trigger a Manager Approval Request, while Estate Managers can close directly or provide an auditable exception reason.
+   - **Reset Demo Data:** Click **"Reset Demo Data"** in the top bar or profile menu at any time to restore initial seeded states.
 
 6. **Test the Case Communication Hub & Message-to-Task Drafting (#076):**
    - Click **Journey** on Case DEMO-001 to open the drawer, then select the **Communications** tab.
@@ -266,11 +295,12 @@ Follow this step-by-step walkthrough to demonstrate the Case Action Centre V2 ca
 The prototype includes an automated regression test suite ensuring business logic, scheduling invariants, ripple intelligence, role boundaries, responsive UX, and Case Action Centre workflows function correctly in Node.js:
 
 ```bash
-# Run all 116 automated prototype tests across 12 suites
+# Run all 128 automated prototype tests across 14 suites
 node --test "prototype/tests/*.test.mjs"
 ```
 
-### Test Coverage Summary (116 tests passing across 12 suites):
+### Test Coverage Summary (128 tests passing across 14 suites):
+- `case-kanban-workflow.test.mjs` (11 tests): Validates Case Action Centre V5 functional drag-and-drop workflow engine (`requestCaseStageTransition`), status transitions across all 5 stages, active blocker constraints, hold reason validation, closure readiness checklist enforcement, manager closure exceptions and approval requests, closed case reopen restrictions, role-based transition access segregation, deterministic classification without duplication, state persistence and resetDemo, and accessible Move to Stage / Transition confirmation modal rendering.
 - `case-action-centre-v4.test.mjs` (6 tests): Validates V4 hero header structure, compact Singapore deadline timestamps, Follow-Up Radar internal card layout (Header, Explanation, Evidence, Actions), 2-row filter toolbar, case table with responsive mobile card data-labels, and CSS media queries.
 - `case-modal-interaction.test.mjs` (8 tests): Validates high-contrast metric CSS tokens, timeline notes logging with validation, follow-up outcome resolution, blocker resolution, closure approval workflow, multi-channel communications, AI Case Brief missing information disclosures, and modal dialog accessibility attributes.
 - `case-action-centre-v3.test.mjs` (7 tests): Validates UI refinement, header single summary presentation, drawer redesign, user-friendly terminology, notification centre, and role consistency.
@@ -283,3 +313,4 @@ node --test "prototype/tests/*.test.mjs"
 - `ripple.test.mjs` (20 tests): Validates Category D dependency cascade propagation, downstream impact scoring, and 3-alternative generation with skill certification matching.
 - `client-requirements.test.mjs` (17 tests): Verifies appointment window protection, statutory deadline enforcement, self-approval prevention, and What-If state isolation.
 - `rebuild-user-journey.test.mjs` (7 tests): Comprehensive suite testing role switching, simulated M365 touchpoints, admin user governance, manager approval workflows, and Ask SyncAI privacy guardrails.
+- `status-codes.test.mjs` (1 test): Validates status codes dictionary, unique keys, and query matching.

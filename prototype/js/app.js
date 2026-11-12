@@ -40,10 +40,13 @@ import {
   generateDraftReply,
   extractTaskDraftFromMessage,
   detectLooseEnds,
+  requestCaseStageTransition,
+  canTransitionCase,
+  normalizeKanbanStage,
 } from './state.js';
 import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog } from './ui.js';
 import { accessibleTask, changeTaskStatus, deleteCapturedTask, taskDateInput, taskDuration } from './taskCapture.js';
-import { accessibleCase, visibleCases } from './cases.js';
+import { accessibleCase, visibleCases, getCaseKanbanColumn } from './cases.js';
 import { deadlineAlert, priorityFactors } from './taskIntelligence.js';
 import { traceDownstream } from './ripple.js';
 import { calendarDay, singaporeInstant, TODAY } from './time.js';
@@ -367,7 +370,130 @@ function renderMain(s) {
   render(main, sec.id === 'cases' ? sec.page.render(s, currentCaseId) : sec.page.render(s));
 }
 
+let isDraggingCard = false;
+let currentDragCaseId = null;
+
+function handleCaseTransitionFlow(caseId, targetStage) {
+  const s = getState();
+  const c = getCase(s, caseId);
+  if (!c) return;
+
+  const check = canTransitionCase(s, caseId, targetStage);
+  if (check.isCurrent) return;
+
+  if (!check.permitted) {
+    toast(`Transition rejected: ${check.reason}`, 'error');
+    return;
+  }
+
+  if (check.requiresReason || check.requiresApproval || check.isException) {
+    caseView.transitionModal = {
+      caseId: c.id,
+      targetStage,
+      currentStage: getCaseKanbanColumn(c),
+      requiresReason: Boolean(check.requiresReason),
+      requiresApproval: Boolean(check.requiresApproval),
+      isException: Boolean(check.isException),
+      reasonHint: check.reason,
+      unresolvedItems: check.unresolvedItems || [],
+      error: null,
+    };
+    renderApp();
+    return;
+  }
+
+  // Straightforward permitted transition
+  update((stateObj) => {
+    const res = requestCaseStageTransition(stateObj, caseId, targetStage);
+    if (!res.success) {
+      toast(res.error, 'error');
+    } else {
+      toast(res.message || 'Case moved successfully.', 'success');
+    }
+  });
+  renderApp();
+}
+
+function setupKanbanDragAndDrop() {
+  document.addEventListener('dragstart', (e) => {
+    const card = e.target.closest('.kanban-case-card');
+    if (!card) return;
+    const cid = card.dataset.caseId || card.dataset.case;
+    if (!cid) return;
+
+    isDraggingCard = true;
+    currentDragCaseId = cid;
+    card.classList.add('is-dragging');
+
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('text/plain', cid);
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  });
+
+  document.addEventListener('dragend', (e) => {
+    const card = e.target.closest('.kanban-case-card');
+    if (card) card.classList.remove('is-dragging');
+    document.querySelectorAll('.kanban-col').forEach((col) => {
+      col.classList.remove('is-drop-target', 'is-invalid-target');
+    });
+    currentDragCaseId = null;
+    setTimeout(() => {
+      isDraggingCard = false;
+    }, 150);
+  });
+
+  document.addEventListener('dragover', (e) => {
+    const col = e.target.closest('.kanban-col');
+    if (!col) return;
+    e.preventDefault();
+
+    const targetColId = col.dataset.colId;
+    if (!targetColId || !currentDragCaseId) return;
+
+    const s = getState();
+    const check = canTransitionCase(s, currentDragCaseId, targetColId);
+
+    if (check.isCurrent) {
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+      col.classList.remove('is-drop-target', 'is-invalid-target');
+    } else if (check.permitted) {
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      col.classList.add('is-drop-target');
+      col.classList.remove('is-invalid-target');
+    } else {
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+      col.classList.add('is-invalid-target');
+      col.classList.remove('is-drop-target');
+    }
+  });
+
+  document.addEventListener('dragleave', (e) => {
+    const col = e.target.closest('.kanban-col');
+    if (!col) return;
+    if (!col.contains(e.relatedTarget)) {
+      col.classList.remove('is-drop-target', 'is-invalid-target');
+    }
+  });
+
+  document.addEventListener('drop', (e) => {
+    const col = e.target.closest('.kanban-col');
+    if (!col) return;
+    e.preventDefault();
+
+    col.classList.remove('is-drop-target', 'is-invalid-target');
+    const targetStage = col.dataset.colId;
+    const caseId = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || currentDragCaseId;
+
+    if (caseId && targetStage) {
+      handleCaseTransitionFlow(caseId, targetStage);
+    }
+  });
+}
+
 function setupEvents() {
+  setupKanbanDragAndDrop();
+
   document.addEventListener('click', (e) => {
     // 0. Mobile Navigation Hamburger & Backdrop
     const mobileNavToggle = e.target.closest('#btn-mobile-nav-toggle');
@@ -934,6 +1060,113 @@ function setupEvents() {
       caseView.activeTab = 'all';
       renderApp();
       return;
+    }
+
+    // Move to Stage Accessible Modal Triggers
+    const moveStageBtn = e.target.closest('[data-action="case-move-stage-dialog"]');
+    if (moveStageBtn) {
+      e.stopPropagation();
+      caseView.moveStageModalCaseId = moveStageBtn.dataset.case;
+      renderApp();
+      return;
+    }
+
+    if (e.target.closest('[data-action="case-move-stage-close"]')) {
+      caseView.moveStageModalCaseId = null;
+      renderApp();
+      return;
+    }
+
+    const selectMoveStageBtn = e.target.closest('[data-action="case-select-move-stage"]');
+    if (selectMoveStageBtn) {
+      const cid = selectMoveStageBtn.dataset.case;
+      const targetStage = selectMoveStageBtn.dataset.target;
+      caseView.moveStageModalCaseId = null;
+      handleCaseTransitionFlow(cid, targetStage);
+      return;
+    }
+
+    const resolveAndMoveBtn = e.target.closest('[data-action="case-resolve-blocker-and-move"]');
+    if (resolveAndMoveBtn) {
+      const cid = resolveAndMoveBtn.dataset.case;
+      const bid = resolveAndMoveBtn.dataset.blocker;
+      const targetStage = resolveAndMoveBtn.dataset.target;
+      caseView.moveStageModalCaseId = null;
+      update((s) => {
+        resolveCaseBlocker(s, cid, bid);
+        const res = requestCaseStageTransition(s, cid, targetStage);
+        if (!res.success) {
+          toast(res.error, 'error');
+        } else {
+          toast(res.message || 'Blocker resolved and case resumed in In Progress.', 'success');
+        }
+      });
+      renderApp();
+      return;
+    }
+
+    // Consequential Stage Transition Confirmation Modal Triggers
+    if (e.target.closest('[data-action="case-transition-cancel"]')) {
+      caseView.transitionModal = null;
+      renderApp();
+      return;
+    }
+
+    const confirmTransitionBtn = e.target.closest('[data-action="case-transition-confirm"]');
+    if (confirmTransitionBtn) {
+      const cid = confirmTransitionBtn.dataset.case;
+      const targetStage = confirmTransitionBtn.dataset.target;
+      const reasonInput = document.getElementById('case-transition-reason-input');
+      const reasonVal = reasonInput ? reasonInput.value.trim() : '';
+
+      const modal = caseView.transitionModal;
+      if (modal && modal.requiresReason && reasonVal.length < 4) {
+        toast('Please enter a valid operational reason (minimum 4 characters).', 'error');
+        return;
+      }
+
+      update((s) => {
+        const res = requestCaseStageTransition(s, cid, targetStage, null, reasonVal);
+        if (!res.success) {
+          toast(res.error, 'error');
+        } else {
+          caseView.transitionModal = null;
+          toast(res.message || 'Stage transition completed.', 'success');
+        }
+      });
+      renderApp();
+      return;
+    }
+
+    // Card Surface Click (opens case if not dragging and not clicking on interactive child elements)
+    const cardSurface = e.target.closest('[data-action="case-card-surface"]');
+    if (cardSurface) {
+      if (isDraggingCard) return;
+      if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.kanban-card-drag-affordance')) {
+        return;
+      }
+      const cid = cardSurface.dataset.caseId || cardSurface.dataset.case;
+      if (cid) {
+        caseView.selectedCaseId = cid;
+        caseView.journeyTab = 'timeline';
+        renderApp();
+        return;
+      }
+    }
+
+    // Table Row Click (opens case if not clicking on interactive child elements)
+    const rowClick = e.target.closest('[data-action="case-row-click"]');
+    if (rowClick) {
+      if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.tag')) {
+        return;
+      }
+      const cid = rowClick.dataset.caseId;
+      if (cid) {
+        caseView.selectedCaseId = cid;
+        caseView.journeyTab = 'timeline';
+        renderApp();
+        return;
+      }
     }
 
     const casePlanNav = e.target.closest('[data-action="case-plan-nav"]');
