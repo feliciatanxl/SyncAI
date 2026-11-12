@@ -296,62 +296,75 @@ function renderOperationalCaseActionCentre(s) {
   const filteredCases = filterCases(s, cases);
 
   return html`
-    <!-- Section A: Page Header with Gradient Hero & Summary Metrics -->
+    <!-- Section A: Page Header with Gradient Hero -->
     <header class="page-hero">
       <span class="page-hero-icon" aria-hidden="true">${icon('cases', 28)}</span>
       <div class="page-hero-text">
         <p class="page-hero-eyebrow">Category C · Task Visibility &amp; Operational Intelligence</p>
-        <h1>Case Action Centre <span class="hero-badge">${mgr ? 'Manager Workspace' : 'Property Officer'}</span></h1>
+        <h1>
+          Case Action Centre
+          <span class="hero-badge">${mgr ? 'Manager Workspace' : 'Property Officer Workspace'}</span>
+          <span class="tag tag-neutral" style="margin-left: 8px; font-size: 0.75rem; vertical-align: middle;">Fictional Demo Environment</span>
+        </h1>
         <p>
           Proactively detects unresolved resident follow-ups, pending contractor quotes, and missing inspection evidence before routine tasks slip through the cracks.
         </p>
-      </div>
-      <div class="page-hero-aside">
-        <div class="hero-stat">
-          <strong>${openCases.length}</strong>
-          <span>Open cases</span>
-        </div>
-        <div class="hero-stat ${allLooseEnds.length > 0 ? 'hero-stat-warn' : ''}">
-          <strong>${allLooseEnds.length}</strong>
-          <span>Loose ends</span>
-        </div>
-        <div class="hero-stat ${blockedCases.length > 0 ? 'hero-stat-warn' : ''}">
-          <strong>${blockedCases.length}</strong>
-          <span>Blocked</span>
-        </div>
-        <div class="hero-stat">
-          <strong>${unreadNotifs.length}</strong>
-          <span>Alerts</span>
-        </div>
       </div>
     </header>
 
     <!-- Section B: Operational Overview — 4 Equal-Width Metric Cards -->
     <div class="stat-grid case-overview-grid" style="margin: 20px 0;">
-      <div class="stat-card">
+      <button
+        type="button"
+        class="stat-card stat-card-interactive ${caseView.activeTab === 'open' ? 'is-selected' : ''}"
+        data-action="case-tab"
+        data-tab="open"
+        aria-label="Filter to open cases"
+      >
         <span class="stat-icon" aria-hidden="true">${icon('folder', 20)}</span>
         <span class="stat-label">Open Cases</span>
         <strong class="stat-value">${openCases.length}</strong>
         <span class="stat-hint">Active estate workflows</span>
-      </div>
-      <div class="stat-card ${allLooseEnds.length > 0 ? 'warn' : ''}">
+      </button>
+
+      <button
+        type="button"
+        class="stat-card stat-card-interactive ${allLooseEnds.length > 0 ? 'warn' : ''} ${caseView.activeTab === 'radar' ? 'is-selected' : ''}"
+        data-action="case-tab"
+        data-tab="radar"
+        aria-label="Filter to outstanding follow-ups"
+      >
         <span class="stat-icon" aria-hidden="true">${icon('radar', 20)}</span>
-        <span class="stat-label">Loose Ends</span>
+        <span class="stat-label">Outstanding Follow-Ups</span>
         <strong class="stat-value">${allLooseEnds.length}</strong>
         <span class="stat-hint">${criticalLooseEnds.length} critical attention item${criticalLooseEnds.length === 1 ? '' : 's'}</span>
-      </div>
-      <div class="stat-card ${blockedCases.length > 0 ? 'warn' : ''}">
+      </button>
+
+      <button
+        type="button"
+        class="stat-card stat-card-interactive ${blockedCases.length > 0 ? 'warn' : ''} ${caseView.activeTab === 'blocked' ? 'is-selected' : ''}"
+        data-action="case-tab"
+        data-tab="blocked"
+        aria-label="Filter to blocked cases"
+      >
         <span class="stat-icon" aria-hidden="true">${icon('alert', 20)}</span>
         <span class="stat-label">Blocked Cases</span>
         <strong class="stat-value">${blockedCases.length}</strong>
         <span class="stat-hint">${blockedCases.length > 0 ? 'Awaiting external / contractor' : 'All workflows unblocked'}</span>
-      </div>
-      <div class="stat-card">
+      </button>
+
+      <button
+        type="button"
+        class="stat-card stat-card-interactive ${caseView.activeTab === 'ready' ? 'is-selected' : ''}"
+        data-action="case-tab"
+        data-tab="ready"
+        aria-label="Filter to closure ready cases"
+      >
         <span class="stat-icon" aria-hidden="true">${icon('check', 20)}</span>
-        <span class="stat-label">Closure Warnings</span>
+        <span class="stat-label">Ready to Close?</span>
         <strong class="stat-value">${readyCases.length}</strong>
         <span class="stat-hint">${readyCases.length > 0 ? 'Ready for manager sign-off' : 'Checklists in progress'}</span>
-      </div>
+      </button>
     </div>
 
     <!-- Section C: Follow-Up Radar — Signature Operational Loose-End Detector -->
@@ -398,9 +411,9 @@ function renderOperationalCaseActionCentre(s) {
           ${[
             ['all', 'All Cases', allCasesCount],
             ['open', 'Open Cases', openCases.length],
-            ['radar', 'Follow-Up Radar', allLooseEnds.length],
+            ['radar', 'Outstanding Follow-Ups', allLooseEnds.length],
             ['blocked', 'Blocked', blockedCases.length],
-            ['ready', 'Closure Ready', readyCases.length],
+            ['ready', 'Ready to Close?', readyCases.length],
             ['closed', 'Closed', cases.filter((c) => c.status === 'closed' || c.status === 'Closed').length],
           ].map(
             ([tabKey, label, count]) => html`
@@ -420,6 +433,7 @@ function renderOperationalCaseActionCentre(s) {
         </div>
 
         <div class="toolbar-actions" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <label for="case-search-input" class="visually-hidden">Search cases</label>
           <div class="search-input" style="min-width: 210px;">
             <span class="search-icon" aria-hidden="true">${icon('search', 16)}</span>
             <input
@@ -427,17 +441,18 @@ function renderOperationalCaseActionCentre(s) {
               id="case-search-input"
               placeholder="Search case #, title, estate, resident..."
               value="${caseView.searchQuery}"
-              aria-label="Search cases"
+              aria-label="Search cases by case number, title, estate, or resident"
               data-action="case-search"
             />
           </div>
 
+          <label for="case-estate-filter" class="visually-hidden">Filter by estate</label>
           <select
             id="case-estate-filter"
             class="filter-tab select-control"
             data-action="case-filter-estate"
             style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-size: 0.8125rem; background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1);"
-            aria-label="Filter by estate"
+            aria-label="Filter cases by estate or block"
           >
             <option value="all">All Estates &amp; Blocks</option>
             <option value="Blk 211" ${caseView.estateFilter === 'Blk 211' ? 'selected' : ''}>Zone A — Blk 211</option>
@@ -448,12 +463,13 @@ function renderOperationalCaseActionCentre(s) {
             <option value="Blk 405" ${caseView.estateFilter === 'Blk 405' ? 'selected' : ''}>Zone C — Blk 405</option>
           </select>
 
+          <label for="case-urgency-filter" class="visually-hidden">Filter by urgency</label>
           <select
             id="case-urgency-filter"
             class="filter-tab select-control"
             data-action="case-filter-urgency"
             style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-size: 0.8125rem; background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1);"
-            aria-label="Filter by urgency"
+            aria-label="Filter cases by urgency level"
           >
             <option value="all">All Urgencies</option>
             <option value="Critical" ${caseView.urgencyFilter === 'Critical' ? 'selected' : ''}>Critical Urgency</option>
@@ -461,10 +477,10 @@ function renderOperationalCaseActionCentre(s) {
             <option value="Medium" ${caseView.urgencyFilter === 'Medium' ? 'selected' : ''}>Medium Urgency</option>
           </select>
 
-          ${caseView.searchQuery || caseView.estateFilter !== 'all' || caseView.urgencyFilter !== 'all'
+          ${caseView.searchQuery || caseView.estateFilter !== 'all' || caseView.urgencyFilter !== 'all' || caseView.activeTab !== 'all'
             ? html`
-                <button type="button" class="btn-subtle btn-sm" data-action="case-clear-filters">
-                  Clear filters
+                <button type="button" class="btn-subtle btn-sm" data-action="case-clear-filters" aria-label="Reset all filters">
+                  ${icon('refresh', 14)} Reset filters
                 </button>
               `
             : ''}
@@ -479,12 +495,6 @@ function renderOperationalCaseActionCentre(s) {
             ? renderCaseKanban(s, filteredCases)
             : renderCaseList(s, filteredCases)}
       </div>
-    </section>
-
-    <!-- EMS case prioritisation order panel -->
-    <section class="panel" aria-labelledby="case-priority-h" style="margin-top: 20px;">
-      <div class="panel-head"><h2 id="case-priority-h">EMS case prioritisation order</h2></div>
-      <ol class="case-priority-order">${CASE_PRIORITY_ORDER.map((item) => html`<li>${item}</li>`)}</ol>
     </section>
 
     <!-- Section E: Case Journey & Insights Drawer -->
@@ -536,13 +546,13 @@ function renderFollowUpRadar(s, allLooseEnds) {
               ${icon('check', 20)}
             </span>
             <div>
-              <h2 id="radar-h" style="font-size: 1.0625rem; margin: 0;">Follow-Up Radar — Operational Loose-End Detector</h2>
+              <h2 id="radar-h" style="font-size: 1.0625rem; margin: 0;">Follow-Up Radar — Outstanding Follow-Ups Detector</h2>
               <p class="muted small" style="margin: 2px 0 0;">
                 All operational commitments, resident follow-ups, and contractor quotes are fully on schedule.
               </p>
             </div>
           </div>
-          <span class="tag tag-success">0 Loose Ends</span>
+          <span class="tag tag-success">0 Follow-Ups</span>
         </div>
       </section>
     `;
@@ -566,7 +576,7 @@ function renderFollowUpRadar(s, allLooseEnds) {
             ${icon('radar', 20)}
           </span>
           <div>
-            <h2 id="radar-h" style="font-size: 1.0625rem; margin: 0;">Follow-Up Radar — Operational Loose-End Detector</h2>
+            <h2 id="radar-h" style="font-size: 1.0625rem; margin: 0;">Follow-Up Radar — Outstanding Follow-Ups Detector</h2>
             <p class="muted small" style="margin: 2px 0 0;">
               Deterministic intelligence highlighting unfulfilled promises, missing evidence, and unconfirmed tenant appointments before they escalate.
             </p>
@@ -633,7 +643,7 @@ function renderLooseEndCard(s, finding) {
           class="btn-ghost btn-sm"
           data-action="case-inspect"
           data-id="${c.id}"
-          title="Inspect case journey"
+          title="Inspect case details"
           style="font-size: 0.75rem; padding: 2px 8px; font-weight: 700; color: var(--colorBrandForeground1); font-family: monospace;"
         >
           ${c.number || c.caseNumber || c.id} →
@@ -649,7 +659,7 @@ function renderLooseEndCard(s, finding) {
       </p>
 
       <div style="font-size: 0.75rem; color: var(--colorNeutralForeground3); background: var(--colorNeutralBackground2); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke3);">
-        <strong>Source Evidence:</strong> ${finding.sourceEvidence}
+        <strong>Supporting Record:</strong> ${finding.sourceEvidence}
       </div>
 
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--colorNeutralStroke2); flex-wrap: wrap;">
@@ -688,13 +698,13 @@ function renderCaseList(s, cases) {
       <table class="data-table capture-table case-table" aria-labelledby="cases-h">
         <thead>
           <tr>
-            <th scope="col" style="width: 250px;">Case # &amp; Title</th>
+            <th scope="col" style="min-width: 250px;">Case # &amp; Title</th>
             <th scope="col" style="width: 130px;">Category</th>
-            <th scope="col" style="width: 120px;">Primary Status</th>
+            <th scope="col" style="width: 130px;">Primary Status</th>
             <th scope="col" style="width: 140px;">Assigned Officer</th>
-            <th scope="col" style="width: 180px;">Deadlines (SGT)</th>
-            <th scope="col" style="width: 130px;">Loose Ends</th>
-            <th scope="col" style="text-align: right; width: 160px;">Actions</th>
+            <th scope="col" style="width: 180px; white-space: nowrap;">Deadlines (SGT)</th>
+            <th scope="col" style="width: 140px;">Follow-Ups</th>
+            <th scope="col" style="text-align: right; width: 120px;">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -718,17 +728,14 @@ function renderCaseList(s, cases) {
                 </td>
                 <td data-label="Assigned officer">${officerName(s, c.ownerId)}</td>
                 <td data-label="Deadlines (SGT)">${recordedDeadlines(c)}</td>
-                <td data-label="Loose Ends">
+                <td data-label="Follow-Ups">
                   ${ends.length === 0
                     ? html`<span class="tag tag-success small" style="display: inline-flex; align-items: center; gap: 4px;">${icon('check', 12)} On Track</span>`
                     : html`<button type="button" class="tag tag-warning small" data-action="case-inspect" data-id="${c.id}" data-tab="loose_ends" style="cursor: pointer; border: 1px solid var(--colorPaletteMarigoldBorderActive); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">${icon('radar', 12)} ${ends.length} Alert${ends.length > 1 ? 's' : ''}</button>`}
                 </td>
                 <td style="text-align: right; white-space: nowrap;">
-                  <button type="button" class="btn-subtle btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="timeline">
-                    Journey
-                  </button>
-                  <button type="button" class="btn-primary btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="readiness">
-                    Readiness
+                  <button type="button" class="btn-primary btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="timeline">
+                    View Case
                   </button>
                 </td>
               </tr>
@@ -798,14 +805,13 @@ function renderCaseKanban(s, cases) {
                                 data-rule="${ends[0].ruleId}"
                                 style="align-self: flex-start; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--colorPaletteMarigoldBorderActive);"
                               >
-                                ${icon('radar', 12)} ${ends.length} Loose End${ends.length > 1 ? 's' : ''} (Explain)
+                                ${icon('radar', 12)} ${ends.length} Follow-Up${ends.length > 1 ? 's' : ''} (Explain)
                               </button>
                             `
                           : ''}
 
                         <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--colorNeutralStroke3);">
-                          <button type="button" class="btn-subtle btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="timeline" style="font-size: 0.75rem; padding: 2px 8px;">Journey</button>
-                          <button type="button" class="btn-primary btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="readiness" style="font-size: 0.75rem; padding: 2px 8px;">Readiness</button>
+                          <button type="button" class="btn-primary btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="timeline" style="font-size: 0.75rem; padding: 2px 10px;">View Case</button>
                         </div>
                       </div>
                     `;
@@ -823,6 +829,7 @@ function renderCaseJourneyModal(s, c) {
   const readiness = checkClosureReadiness(s, c);
   const looseEnds = detectLooseEnds(s, c);
   const comms = getCommunications(s, c.id);
+  const activeBlockers = (c.blockers || []).filter((b) => !b.resolved);
 
   return html`
     <div class="modal-backdrop is-open" data-action="case-modal-close" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: flex-end;">
@@ -834,45 +841,48 @@ function renderCaseJourneyModal(s, c) {
         aria-label="Case details: ${c.title}"
       >
         <!-- Drawer Header -->
-        <div style="padding: 16px 24px; border-bottom: 1px solid var(--colorNeutralStroke2); display: flex; justify-content: space-between; align-items: center; background: var(--colorNeutralBackground2);">
-          <div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-family: monospace; font-size: 0.8125rem; font-weight: 700; color: var(--colorBrandForeground1);">${c.number || c.caseNumber || c.id}</span>
+        <div class="drawer-header" style="padding: 18px 24px; border-bottom: 1px solid var(--colorNeutralStroke2); display: flex; justify-content: space-between; align-items: flex-start; background: var(--colorNeutralBackground2); gap: 16px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span class="case-number" style="font-family: monospace; font-size: 0.8125rem; font-weight: 700; color: var(--colorBrandForeground1);">${c.number || c.caseNumber || c.id}</span>
               <span class="tag ${c.status === 'closed' ? 'tag-neutral' : c.status === 'ready_for_closure' ? 'tag-success' : 'tag-brand'} small">${c.status}</span>
-              ${c.location ? html`<span class="small muted">${c.location}</span>` : ''}
+              ${c.location ? html`<span class="small muted" style="display: inline-flex; align-items: center; gap: 4px;">${icon('pin', 12)} ${c.location}</span>` : ''}
+              <span class="small muted" style="display: inline-flex; align-items: center; gap: 4px; margin-left: auto;">
+                ${icon('users', 12)} Assigned: <strong>${officerName(s, c.ownerId)}</strong>
+              </span>
             </div>
-            <h2 style="font-size: 1.125rem; margin: 4px 0 0;">${c.title}</h2>
+            <h2 style="font-size: 1.1875rem; margin: 8px 0 0; line-height: 1.35; color: var(--colorNeutralForeground1); font-weight: 600;">${c.title}</h2>
           </div>
-          <button type="button" class="btn-icon" data-action="case-modal-close" aria-label="Close drawer">
-            ${icon('close', 20)}
+          <button type="button" class="drawer-close-btn" data-action="case-modal-close" aria-label="Close drawer" title="Close drawer">
+            ${icon('x', 20)}
           </button>
         </div>
 
-        <!-- Navigation Tabs -->
-        <div style="padding: 10px 24px; border-bottom: 1px solid var(--colorNeutralStroke2); display: flex; gap: 6px; background: var(--colorNeutralBackground1); overflow-x: auto;">
+        <!-- Responsive Wrapped Navigation Tabs -->
+        <nav class="drawer-tabs-nav" style="padding: 10px 24px; border-bottom: 1px solid var(--colorNeutralStroke2); display: flex; flex-wrap: wrap; gap: 8px; background: var(--colorNeutralBackground1);" role="tablist" aria-label="Case detail sections">
           ${[
-            ['timeline', 'Timeline'],
-            ['loose_ends', `Loose Ends (${looseEnds.length})`],
-            ['blockers', `Blockers (${(c.blockers || []).filter((b) => !b.resolved).length})`],
-            ['readiness', `Closure Readiness (${readiness.isReady ? 'Ready' : 'Incomplete'})`],
-            ['communications', `Communications (${comms.length})`],
-            ['brief', 'AI Case Brief'],
+            ['timeline', 'Timeline & Notes', null],
+            ['loose_ends', 'Outstanding Follow-Ups', looseEnds.length],
+            ['blockers', 'Blockers', activeBlockers.length],
+            ['readiness', 'Ready to Close?', readiness.isReady ? 'Ready' : 'Incomplete'],
+            ['communications', 'Communications', comms.length],
+            ['brief', 'AI Case Brief', null],
           ].map(
-            ([tabKey, label]) => html`
+            ([tabKey, label, count]) => html`
               <button
                 type="button"
-                class="filter-tab ${caseView.journeyTab === tabKey ? 'is-active' : ''}"
+                class="filter-tab drawer-tab-btn ${caseView.journeyTab === tabKey ? 'is-active' : ''}"
                 data-action="case-journey-tab"
                 data-tab="${tabKey}"
                 role="tab"
                 aria-selected="${caseView.journeyTab === tabKey ? 'true' : 'false'}"
-                style="white-space: nowrap;"
               >
                 ${label}
+                ${count != null ? html`<span class="tab-count ${count > 0 && (tabKey === 'loose_ends' || tabKey === 'blockers') ? 'tab-count-warn' : ''}">${count}</span>` : ''}
               </button>
             `,
           )}
-        </div>
+        </nav>
 
         <!-- Highlighting Source Notice Bar (if returning from inspection) -->
         ${caseView.highlightedSourceId
@@ -904,8 +914,8 @@ function renderCaseJourneyModal(s, c) {
         </div>
 
         <!-- Drawer Footer Actions -->
-        <div style="padding: 16px 24px; border-top: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground2); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
-          <div style="display: flex; gap: 8px;">
+        <div class="drawer-footer" style="padding: 16px 24px; border-top: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground2); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <div style="display: flex; gap: 8px; align-items: center;">
             <button type="button" class="btn-secondary btn-sm" data-action="case-reassign-dialog" data-case="${c.id}">
               ${icon('user-plus', 14)} Reassign Case
             </button>
@@ -913,7 +923,12 @@ function renderCaseJourneyModal(s, c) {
               ${icon('calendar', 14)} View in Planner
             </button>
           </div>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            ${c.status !== 'closed' && !readiness.isReady ? html`
+              <span class="small muted" style="font-size: 0.75rem; color: var(--colorPaletteMarigoldForeground2);">
+                ${readiness.unresolvedItems.length} checklist item${readiness.unresolvedItems.length === 1 ? '' : 's'} pending
+              </span>
+            ` : ''}
             <button
               type="button"
               class="btn-primary"
@@ -921,7 +936,7 @@ function renderCaseJourneyModal(s, c) {
               data-case="${c.id}"
               ${c.status === 'closed' ? 'disabled' : ''}
             >
-              ${c.status === 'closed' ? 'Case Closed' : 'Close Case'}
+              ${c.status === 'closed' ? 'Case Closed &amp; Audited' : 'Close Case'}
             </button>
           </div>
         </div>
@@ -940,7 +955,11 @@ function renderJourneyTimelineTab(s, c) {
       </div>
 
       ${events.length === 0
-        ? html`<p class="muted">No timeline events recorded.</p>`
+        ? html`
+            <div class="empty-state-compact" style="padding: 24px 16px; text-align: center; color: var(--colorNeutralForeground3); background: var(--colorNeutralBackground2); border-radius: 8px; border: 1px dashed var(--colorNeutralStroke2);">
+              <p class="muted" style="margin: 0; font-size: 0.875rem;">No case updates have been recorded yet.</p>
+            </div>
+          `
         : html`
             <div style="border-left: 2px solid var(--colorNeutralStroke2); margin-left: 8px; padding-left: 16px; display: flex; flex-direction: column; gap: 18px;">
               ${events.map((ev) => {
@@ -982,7 +1001,7 @@ function renderJourneyLooseEndsTab(s, c, looseEnds) {
     <div style="display: flex; flex-direction: column; gap: 14px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div>
-          <h3 style="font-size: 0.9375rem; margin: 0;">Operational Loose Ends</h3>
+          <h3 style="font-size: 0.9375rem; margin: 0;">Outstanding Follow-Ups</h3>
           <p class="small muted" style="margin: 2px 0 0;">Unresolved commitments detected by deterministic rules.</p>
         </div>
         <span class="tag tag-warning small">${looseEnds.length} Attention items</span>
@@ -1008,7 +1027,7 @@ function renderJourneyLooseEndsTab(s, c, looseEnds) {
               <p class="small muted" style="margin: 0;">${l.explanation}</p>
 
               <div style="font-size: 0.75rem; color: var(--colorNeutralForeground3); background: var(--colorNeutralBackground1); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke3);">
-                <strong>Source Evidence:</strong> ${l.sourceEvidence}
+                <strong>Supporting Record:</strong> ${l.sourceEvidence}
               </div>
 
               <div class="small" style="background: var(--colorNeutralBackground1); padding: 8px 10px; border-radius: 4px; border: 1px solid var(--colorNeutralStroke2); color: var(--colorBrandForeground1); font-weight: 500;">
@@ -1025,7 +1044,7 @@ function renderJourneyLooseEndsTab(s, c, looseEnds) {
                   data-rule="${l.ruleId}"
                   style="font-size: 0.75rem;"
                 >
-                  ${icon('sparkle', 12)} Explain Finding &amp; Evidence (#117)
+                  ${icon('sparkle', 12)} Why was this flagged?
                 </button>
 
                 <!-- Shortcut to Communication Hub -->
@@ -1060,7 +1079,7 @@ function renderExplanationPanel(s, c, exp) {
       <!-- Breadcrumb / Back button -->
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <button type="button" class="btn-ghost btn-sm" data-action="case-exit-explanation" style="font-weight: 600;">
-          ← Back to Loose Ends List
+          ← Back to Follow-Ups List
         </button>
         <span class="tag tag-brand small">Evidence-Linked Intelligence (#117)</span>
       </div>
@@ -1151,7 +1170,7 @@ function renderExplanationPanel(s, c, exp) {
           data-source-id="${exp.sourceRecordId}"
           title="Jump directly to source record and highlight"
         >
-          Inspect Source Record →
+          View Supporting Record →
         </button>
       </div>
     </div>

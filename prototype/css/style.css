@@ -1505,3 +1505,158 @@ td.cell-risk,
   from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ==========================================================================
+   Case Action Centre V3 — UX Refinements & Drawer Navigation
+   ========================================================================== */
+
+.drawer-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--colorNeutralStroke1);
+  background: var(--colorNeutralBackground1);
+  color: var(--colorNeutralForeground1);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.drawer-close-btn:hover {
+  background: var(--colorNeutralBackground1Hover);
+  color: var(--colorNeutralForeground1Hover);
+  border-color: var(--colorNeutralStroke1Hover);
+}
+
+.drawer-close-btn:focus-visible {
+  outline: 2px solid var(--colorBrandStroke1);
+  outline-offset: 2px;
+}
+
+.drawer-tabs-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--colorNeutralStroke2);
+  background: var(--colorNeutralBackground1);
+}
+
+.drawer-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1px solid var(--colorNeutralStroke1);
+  background: var(--colorNeutralBackground2);
+  color: var(--colorNeutralForeground2);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.drawer-tab-btn:hover {
+  background: var(--colorNeutralBackground1Hover);
+  color: var(--colorNeutralForeground1);
+}
+
+.drawer-tab-btn.is-active {
+  background: var(--colorBrandBackground2);
+  color: var(--colorBrandForeground1);
+  border-color: var(--colorBrandStroke1);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.drawer-tab-btn .tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground2);
+}
+
+.drawer-tab-btn.is-active .tab-count {
+  background: var(--colorBrandBackground1);
+  color: #fff;
+}
+
+.drawer-tab-btn .tab-count-warn {
+  background: var(--colorPaletteMarigoldBackground1) !important;
+  color: var(--colorPaletteMarigoldForeground2) !important;
+  border: 1px solid var(--colorPaletteMarigoldBorderActive);
+}
+
+.stat-card-interactive {
+  text-align: left;
+  border: 1px solid var(--colorNeutralStroke1);
+  background: var(--colorNeutralBackground1);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.stat-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow8);
+  border-color: var(--colorBrandStroke1);
+}
+
+.stat-card-interactive.is-selected {
+  border-color: var(--colorBrandStroke1);
+  box-shadow: 0 0 0 2px var(--colorBrandStroke2);
+  background: var(--colorBrandBackground2);
+}
+
+.case-table th {
+  white-space: nowrap;
+}
+
+.case-table td {
+  vertical-align: middle;
+  padding: 12px 14px;
+}
+
+.case-table .case-deadlines dt {
+  font-size: 0.7rem;
+  color: var(--colorNeutralForeground3);
+  text-transform: uppercase;
+}
+
+.case-table .case-deadlines dd {
+  font-size: 0.75rem;
+  margin: 0 0 4px;
+  white-space: nowrap;
+}
+
+.notification-filter-tabs .btn-subtle.is-active {
+  background: var(--colorBrandBackground2);
+  color: var(--colorBrandForeground1);
+  font-weight: 600;
+}
+
+@media (max-width: 1024px) {
+  .case-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .case-overview-grid {
+    grid-template-columns: 1fr;
+  }
+  .drawer-panel {
+    width: 100% !important;
+  }
+}

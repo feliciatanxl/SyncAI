@@ -36,6 +36,7 @@ export function visibleCases(state) {
   const officers = new Set((state.teams || [])
     .filter((team) => team.managers.some((manager) => manager.id === user.id))
     .flatMap((team) => team.members.map((member) => member.id)));
+  officers.add(user.id);
   return cases.filter((record) => officers.has(record.ownerId));
 }
 

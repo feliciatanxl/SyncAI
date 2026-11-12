@@ -62,15 +62,20 @@ In compliance with prototype design constraints, **Microsoft sign-in is 100% sim
 
 The prototype demonstrates Team 24's **four primary feature areas** collaborating as one unified application:
 
-### A. Task Visibility & Case Action Centre V2 (Category C — Felicia Tan)
+### A. Task Visibility & Case Action Centre V3 (Category C — Felicia Tan)
 Located in the primary navigation (`Overview` → `Ask SyncAI` → `My Tasks` → `Case Action Centre` → `My Plan`):
 
-- **Modern Visual Hierarchy & Layout Redesign:**
-  - **Section A — Page Header:** Consistent navy/blue gradient hero with title, description, and compact summary metrics (Open cases, Loose ends, Blockers, Alerts).
-  - **Section B — Operational Overview:** Four equal-width metric cards (Open Cases, Loose Ends, Blocked Cases, Closure Warnings) with aligned icons, primary values, and actionable subtitle hints.
+- **Modern Visual Hierarchy & Layout Redesign (V3):**
+  - **Section A — Page Header:** Consistent navy/blue gradient hero with title, role badge (`Manager Workspace` / `Property Officer Workspace`), value-focused description, and clear `Fictional Demo Environment` indicator. Clean and compact without duplicate metric counts.
+  - **Section B — Operational Overview:** Four equal-width, interactive metric cards (**Open Cases**, **Outstanding Follow-Ups**, **Blocked Cases**, **Ready to Close?**) with aligned icons, primary values, and clickable filters that immediately filter cases.
   - **Section C — Follow-Up Radar:** High-priority banner with filter tabs (`All`, `Critical`, `Resident Callbacks`, `Contractor`), aligned action cards, and prominent **"Why was this flagged?"** and **"Take Action"** triggers.
-  - **Section D — Operational Cases:** Real-time search by case number, title, estate, or resident, alongside Estate and Urgency filters. Features a responsive view switcher between clean List view and single-column Kanban board.
-  - **Section E — Case Journey & Insights Drawer:** Sliding side drawer providing deep inspection across 6 dedicated tabs: Timeline, Loose Ends & Explanations, Blockers, Closure Readiness, Communications, and AI Case Brief.
+  - **Section D — Operational Cases:** Real-time search by case number, title, estate, or resident with accessible labels, Estate and Urgency filters, and a clear **"Reset filters"** button. Proportional table column widths, non-wrapping Singapore deadline timestamps, and single primary **"View Case"** action buttons.
+  - **Section E — Case Detail Drawer (V3 Redesign):**
+    - *Header:* Monospace case number, primary status badge, location/estate, assigned officer (`Assigned: Aisyah Rahman`), case title, and a clearly visible, accessible **'X' close button** (`drawer-close-btn`).
+    - *Responsive Wrapped Navigation:* Replaces overflowing horizontal tabs with wrapped segmented pills (`Timeline & Notes`, `Outstanding Follow-Ups`, `Blockers`, `Ready to Close?`, `Communications`, `AI Case Brief`), eliminating horizontal scrollbars and off-screen tabs.
+    - *Compact Content:* Dynamic content-driven height. Empty timelines display a compact, helpful notice (*"No case updates have been recorded yet."*) without excessive whitespace.
+    - *Context-Aware Footer:* Action buttons for **Reassign Case**, **View in Planner**, and **Close Case** with checklist validation status.
+  - **Streamlined Layout (Duplicate Panel Removal):** Removed the redundant bottom EMS case prioritisation list from the Case Action Centre, keeping the application clean while preserving the dedicated "How SyncAI decides" page and client priority requirements.
 
 - **Fixed Kanban Single-Column Classification (No Duplication):**
   - Evaluates each case through a single deterministic classifier (`getCaseKanbanColumn`).
@@ -78,20 +83,19 @@ Located in the primary navigation (`Overview` → `Ask SyncAI` → `My Tasks` �
   - Blocked cases in progress (e.g. Ceiling seepage at Blk 211 with upper-unit access blocker) appear strictly in `Awaiting External / Blocked` with secondary priority badges, eliminating duplicate cards across columns.
 
 - **Evidence-Linked Explanations (#117 — Signature Responsible AI Capability):**
-  - **"Why did SyncAI flag this case?"** Interactive explanation panel launched directly from any Loose-End card.
+  - **"Why did SyncAI flag this case?"** Interactive explanation panel launched directly from any Follow-Up card or table alert.
   - Transparent 4-part structured breakdown:
     1. *Verified Recorded Facts:* Concrete case data from site logs, thermography readouts, or OneService intakes.
     2. *Rule-Based Deductions:* Clear logical deductions derived from EMS turnaround rules.
     3. *Missing Information:* Specific unrecorded call logs, pending quotations, or missing documents.
     4. *Proposed Recommendations:* Actionable next steps for the property officer.
-  - *Clickable Evidence References:* Click **"Inspect Source Record"** to jump directly to the verified timeline entry, checkpoint, or blocker, with glowing pulse animation and a **"Back to Explanation"** breadcrumb.
+  - *Clickable Evidence References:* Click **"View Supporting Record →"** to jump directly to the verified timeline entry, checkpoint, or blocker with glowing pulse animation and a **"← Back to Follow-Ups List"** return path.
   - *Responsible AI Guardrail:* Explicitly discloses that findings are deterministic rule-based outputs requiring human review, not generative black-box predictions.
 
-- **Actionable In-App Notifications Centre (#071):**
+- **Actionable Notification Centre (#071):**
   - Reusable notification bell in the portal top bar with dynamic unread count badge.
-  - Meaningful operational notifications: resident follow-ups due, contractor response pending, BCA lift inspection appointments, blocker alerts, and manager approvals.
-  - Filtering by role, mark as read, and **"Mark all read"** bulk action.
-  - One-click navigation (`View Case →`) directly opens the target case drawer.
+  - **14 Realistic Operational Notifications:** Covers resident callbacks due, overdue follow-ups, contractor confirmations pending, repair appointments approaching, missing inspection evidence, blockers identified, reassignment awaiting approval, reassignment approved, new cases assigned, SLA deadlines approaching, case handover notes, closure reviews requested, urgent safety incidents, and governance compliance audits.
+  - Popover with **All** and **Unread** filter tabs, per-item **Mark read**, bulk **Mark all read**, and one-click deep links (`View Case →`) that open the target case drawer directly.
 
 - **Case Communication Hub & Message-to-Task Drafting (#076):**
   - Simulated multi-channel communication timeline supporting `In-App`, `WhatsApp (Proposed)`, `Microsoft Teams (Proposed)`, and `Telegram (Proposed)`.

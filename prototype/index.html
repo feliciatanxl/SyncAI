@@ -67,6 +67,10 @@
                   Mark all read
                 </button>
               </div>
+              <div class="notification-filter-tabs" id="notification-filter-tabs" style="display: flex; gap: 4px; padding: 6px 14px; border-bottom: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground2);">
+                <button type="button" class="btn-subtle btn-sm is-active" data-action="notif-tab" data-tab="all" id="notif-tab-all" style="font-size: 0.75rem; padding: 2px 10px;">All</button>
+                <button type="button" class="btn-subtle btn-sm" data-action="notif-tab" data-tab="unread" id="notif-tab-unread" style="font-size: 0.75rem; padding: 2px 10px;">Unread</button>
+              </div>
               <div class="notification-popover-body" id="notification-list-container">
                 <!-- Dynamically populated -->
               </div>

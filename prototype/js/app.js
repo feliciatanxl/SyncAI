@@ -77,6 +77,7 @@ const SECTIONS = {
 
 let currentSection = 'overview';
 let currentCaseId = null;
+let currentNotificationFilter = 'all';
 
 // Determine allowed sections based on role and status (matches client/src/lib/sections.js)
 function allowedSections(s) {
@@ -239,8 +240,22 @@ function updateHeader(s, user) {
   const notifBadge = document.getElementById('notification-unread-badge');
   const notifLabel = document.getElementById('notification-count-label');
   const notifList = document.getElementById('notification-list-container');
+  const tabAllBtn = document.getElementById('notif-tab-all');
+  const tabUnreadBtn = document.getElementById('notif-tab-unread');
   const visibleNotifs = getVisibleNotifications(s);
   const unreadCount = visibleNotifs.filter((n) => !n.read).length;
+
+  if (tabAllBtn && tabUnreadBtn) {
+    if (currentNotificationFilter === 'unread') {
+      tabUnreadBtn.classList.add('is-active');
+      tabAllBtn.classList.remove('is-active');
+    } else {
+      tabAllBtn.classList.add('is-active');
+      tabUnreadBtn.classList.remove('is-active');
+    }
+    tabAllBtn.textContent = `All (${visibleNotifs.length})`;
+    tabUnreadBtn.textContent = `Unread (${unreadCount})`;
+  }
 
   if (notifBadge) {
     if (unreadCount > 0) {
@@ -256,10 +271,11 @@ function updateHeader(s, user) {
   }
 
   if (notifList) {
-    if (visibleNotifs.length === 0) {
-      notifList.innerHTML = `<div style="text-align: center; padding: 24px 16px; color: var(--colorNeutralForeground3); font-size: 0.8125rem;">No actionable notifications recorded for this role.</div>`;
+    const displayedNotifs = currentNotificationFilter === 'unread' ? visibleNotifs.filter((n) => !n.read) : visibleNotifs;
+    if (displayedNotifs.length === 0) {
+      notifList.innerHTML = `<div style="text-align: center; padding: 24px 16px; color: var(--colorNeutralForeground3); font-size: 0.8125rem;">${currentNotificationFilter === 'unread' ? 'No unread notifications.' : 'No actionable notifications recorded for this role.'}</div>`;
     } else {
-      notifList.innerHTML = visibleNotifs.slice(0, 8).map((n) => `
+      notifList.innerHTML = displayedNotifs.slice(0, 10).map((n) => `
         <div class="notification-item ${n.read ? 'is-read' : 'is-unread'}" style="padding: 10px 14px; border-bottom: 1px solid var(--colorNeutralStroke3); display: flex; flex-direction: column; gap: 4px; background: ${n.read ? 'transparent' : 'var(--colorBrandBackground2)'};">
           <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
             <strong style="font-size: 0.8125rem; color: var(--colorNeutralForeground1);">${n.title}</strong>
@@ -398,11 +414,25 @@ function setupEvents() {
       document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'false');
     }
 
+    // Notification All / Unread tabs
+    const notifTabBtn = e.target.closest('[data-action="notif-tab"]');
+    if (notifTabBtn) {
+      currentNotificationFilter = notifTabBtn.dataset.tab;
+      renderApp();
+      const pop = document.getElementById('notification-popover');
+      if (pop) pop.removeAttribute('hidden');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'true');
+      return;
+    }
+
     // Mark all notifications read
     if (e.target.closest('#btn-mark-all-read')) {
       update((s) => markAllNotificationsRead(s));
       toast('All notifications marked as read.', 'success');
       renderApp();
+      const pop = document.getElementById('notification-popover');
+      if (pop) pop.removeAttribute('hidden');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'true');
       return;
     }
 
@@ -413,6 +443,9 @@ function setupEvents() {
       update((s) => markNotificationRead(s, nid));
       toast('Notification marked as read.', 'info');
       renderApp();
+      const pop = document.getElementById('notification-popover');
+      if (pop) pop.removeAttribute('hidden');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'true');
       return;
     }
 
@@ -849,6 +882,7 @@ function setupEvents() {
       caseView.searchQuery = '';
       caseView.estateFilter = 'all';
       caseView.urgencyFilter = 'all';
+      caseView.activeTab = 'all';
       renderApp();
       return;
     }
@@ -876,6 +910,9 @@ function setupEvents() {
     const navToCaseBtn = e.target.closest('[data-action="nav-to-case"]');
     if (navToCaseBtn) {
       closeModal();
+      const pop = document.getElementById('notification-popover');
+      if (pop) pop.setAttribute('hidden', '');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'false');
       const cid = navToCaseBtn.dataset.case;
       currentSection = 'cases';
       window.location.hash = '#cases';

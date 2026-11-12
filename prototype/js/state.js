@@ -653,7 +653,7 @@ export function getVisibleNotifications(s) {
   if (user.status !== 'active') return [];
   const list = s.notifications || [];
   if (user.role === 'admin') {
-    return list.filter((n) => n.recipientRole === 'admin' || n.type === 'governance_audit' || n.channel === 'in_app');
+    return list.filter((n) => n.recipientRole === 'admin' || n.recipientId === user.id || n.type === 'governance_audit' || n.type === 'governance_compliance_audit');
   }
   if (user.role === 'manager') {
     const teamMemberIds = new Set((s.teams || [])
