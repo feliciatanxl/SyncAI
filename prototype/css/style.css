@@ -3216,6 +3216,18 @@ td.cell-risk,
   min-width: 0;
 }
 
+.case-reassign-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 8px;
+}
+
+.case-reassign-modal-head .modal-title {
+  margin: 5px 0 0;
+}
+
 @media (max-width: 1280px) {
   .kanban-board { grid-template-columns: repeat(3, minmax(230px, 1fr)); }
   .kanban-board .kanban-col:nth-child(n + 4) { min-height: 300px; }

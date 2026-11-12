@@ -20,3 +20,19 @@ test('case workspace close button remains visible at compact widths', () => {
   assert.match(css, /\.case-detail-header\s*>\s*\.drawer-close-btn\s*\{[^}]*position:\s*absolute/s);
   assert.match(css, /@media\s*\(max-width:\s*1100px\)[\s\S]*\.case-detail-main\s*\{[^}]*grid-template-columns:\s*1fr/);
 });
+
+test('reassignment replaces the case workspace with a reason dialog', () => {
+  const handlerStart = appSource.indexOf("const caseReassignBtn = e.target.closest('[data-action=\"case-reassign-dialog\"]')");
+  const modalStart = appSource.indexOf('function showCaseReassignModal');
+  assert.ok(handlerStart >= 0);
+  assert.ok(modalStart > handlerStart);
+
+  const handler = appSource.slice(handlerStart, modalStart);
+  assert.match(handler, /caseView\.selectedCaseId\s*=\s*null/);
+  assert.match(handler, /renderApp\(\);\s*showCaseReassignModal/);
+
+  const modal = appSource.slice(modalStart);
+  assert.match(modal, /id="reassign-reason-input"/);
+  assert.match(modal, /required minlength="4"/);
+  assert.match(modal, /aria-label="Close reassignment dialog"/);
+});

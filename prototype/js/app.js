@@ -1285,6 +1285,13 @@ function setupEvents() {
     const caseReassignBtn = e.target.closest('[data-action="case-reassign-dialog"]');
     if (caseReassignBtn) {
       const cid = caseReassignBtn.dataset.case || caseView.selectedCaseId;
+      // Reassignment is a separate focused workflow. Remove the case workspace
+      // before mounting the generic modal so dialogs never stack visually or
+      // compete for keyboard focus.
+      caseView.selectedCaseId = null;
+      caseView.activeExplanationRuleId = null;
+      caseView.highlightedSourceId = null;
+      renderApp();
       showCaseReassignModal(getState(), cid);
       return;
     }
@@ -2040,7 +2047,15 @@ function showCaseReassignModal(s, caseId) {
     .filter((u) => u.status === 'active' && u.role !== 'admin' && u.id !== c.ownerId);
 
   const content = html`
-    <h2 class="modal-title">Request Case Reassignment</h2>
+    <header class="modal-head case-reassign-modal-head">
+      <div>
+        <span class="case-number-badge">${c.caseNumber || c.number || c.id}</span>
+        <h2 class="modal-title" id="modal-title">Request Case Reassignment</h2>
+      </div>
+      <button type="button" class="drawer-close-btn" data-action="modal-close" aria-label="Close reassignment dialog" title="Close">
+        ${icon('x', 18)}
+      </button>
+    </header>
     <p class="muted small" style="margin-bottom: 14px;">
       Reassign <strong>${c.caseNumber}</strong> (${c.title}). This will submit a formal handover request to Estate Manager Jennifer Ong.
     </p>
@@ -2063,8 +2078,9 @@ function showCaseReassignModal(s, caseId) {
         </div>
 
         <div>
-          <label for="reassign-reason-input" style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Operational Handover Reason</label>
-          <textarea id="reassign-reason-input" rows="3" required placeholder="e.g. Zone boundary re-alignment / site inspection capacity overload..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.875rem; box-sizing: border-box;"></textarea>
+          <label for="reassign-reason-input" style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Operational Handover Reason <span aria-hidden="true">*</span></label>
+          <textarea id="reassign-reason-input" rows="4" required minlength="4" aria-describedby="reassign-reason-help" placeholder="e.g. Zone boundary re-alignment / site inspection capacity overload..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.875rem; box-sizing: border-box;"></textarea>
+          <p id="reassign-reason-help" class="small muted" style="margin: 4px 0 0;">Required for the handover audit trail. Enter at least 4 characters.</p>
         </div>
 
         <div style="padding: 10px 12px; border-radius: 6px; background: var(--colorNeutralBackground2); font-size: 0.75rem; color: var(--colorNeutralForeground3);">
@@ -2093,9 +2109,15 @@ function showCaseReassignModal(s, caseId) {
         return;
       }
 
+      if (!reason || reason.trim().length < 4) {
+        toast('Please enter an operational handover reason (minimum 4 characters).', 'error');
+        document.getElementById('reassign-reason-input')?.focus();
+        return;
+      }
+
       closeModal();
       update((stateObj) => {
-        requestCaseReassignment(stateObj, caseId, targetOfficerId, reason);
+        requestCaseReassignment(stateObj, caseId, targetOfficerId, reason.trim());
       });
       toast(`Reassignment request for ${c.caseNumber} submitted for manager review.`, 'success');
       renderApp();
