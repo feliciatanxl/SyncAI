@@ -39,6 +39,40 @@
             Reset Demo
           </button>
 
+          <!-- Actionable In-App Notifications Bell Trigger (#071) -->
+          <div style="position: relative;">
+            <button
+              type="button"
+              class="btn-icon notification-bell-btn"
+              id="btn-notification-trigger"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-label="Actionable notifications"
+              title="Actionable Notifications"
+            >
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M10 2a6 6 0 0 0-6 6v3.586l-.707.707A1 1 0 0 0 4 14h12a1 1 0 0 0 .707-1.707L16 11.586V8a6 6 0 0 0-6-6ZM8 16a2 2 0 0 0 4 0H8Z" />
+              </svg>
+              <span class="notification-badge" id="notification-unread-badge" hidden>0</span>
+            </button>
+
+            <!-- Notifications Popover Panel -->
+            <div class="notification-popover" id="notification-popover" hidden aria-label="Notifications panel">
+              <div class="notification-popover-header">
+                <div>
+                  <strong>Actionable Notifications</strong>
+                  <span class="small muted" id="notification-count-label" style="display: block; font-size: 0.75rem;">0 unread</span>
+                </div>
+                <button type="button" class="btn-ghost btn-sm" id="btn-mark-all-read" style="font-size: 0.75rem;">
+                  Mark all read
+                </button>
+              </div>
+              <div class="notification-popover-body" id="notification-list-container">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+          </div>
+
           <!-- Microsoft 365 Account Menu Trigger -->
           <div style="position: relative;">
             <button type="button" class="account-trigger" id="account-trigger" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">

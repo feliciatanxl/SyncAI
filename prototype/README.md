@@ -62,22 +62,47 @@ In compliance with prototype design constraints, **Microsoft sign-in is 100% sim
 
 The prototype demonstrates Team 24's **four primary feature areas** collaborating as one unified application:
 
-### A. Task Visibility & Case Action Centre (Category C — Felicia Tan)
+### A. Task Visibility & Case Action Centre V2 (Category C — Felicia Tan)
 Located in the primary navigation (`Overview` → `Ask SyncAI` → `My Tasks` → `Case Action Centre` → `My Plan`):
-- **Interactive Case Workspace:** Search cases by number, title, block, or resident name. Filter by estate zone and urgency, or toggle between **List view** and **Kanban board** grouped by operational lifecycle stages (`Open`, `In Progress`, `Awaiting External / Blocked`, `Closure Ready`, `Closed`).
-- **Operational Loose-End Detector ("Follow-Up Radar"):** A signature deterministic engine identifying hidden operational loose ends before tasks breach SLAs:
-  1. *Outstanding Resident Follow-Up:* Promised callbacks unrecorded after site visits.
-  2. *Pending Contractor Confirmation:* Issued work orders awaiting contractor acknowledgment.
-  3. *Inspection Without Documented Outcome:* Completed inspection blocks lacking recorded results.
-  4. *Stale Case Alert:* Cases without meaningful timeline updates within threshold days.
-  5. *Missing Supporting Evidence:* Completed repairs lacking mandatory photos or notices.
-  6. *Premature Closure Check:* Cases marked ready while required checkpoints remain open.
-  7. *Pending Reassignment Handover:* Assignment changes without receiving officer sign-off.
-  8. *Unconfirmed Repair Appointment:* Scheduled resident visits without confirmed access.
-- **Case Journey Drawer:** Inspect full chronological event timelines (reports, site checks, contractor milestones, resident contacts, manager approvals) and prerequisite checkpoint verifications.
-- **Closure Readiness Checker:** Multi-checkpoint evaluation preventing premature case closure.
-- **Evidence-Linked AI Case Brief:** Deterministic summary generator with one-click clipboard copying.
-- **Case Reassignment Workflow:** Reassignment requests route directly to the Manager Approvals queue.
+
+- **Modern Visual Hierarchy & Layout Redesign:**
+  - **Section A — Page Header:** Consistent navy/blue gradient hero with title, description, and compact summary metrics (Open cases, Loose ends, Blockers, Alerts).
+  - **Section B — Operational Overview:** Four equal-width metric cards (Open Cases, Loose Ends, Blocked Cases, Closure Warnings) with aligned icons, primary values, and actionable subtitle hints.
+  - **Section C — Follow-Up Radar:** High-priority banner with filter tabs (`All`, `Critical`, `Resident Callbacks`, `Contractor`), aligned action cards, and prominent **"Why was this flagged?"** and **"Take Action"** triggers.
+  - **Section D — Operational Cases:** Real-time search by case number, title, estate, or resident, alongside Estate and Urgency filters. Features a responsive view switcher between clean List view and single-column Kanban board.
+  - **Section E — Case Journey & Insights Drawer:** Sliding side drawer providing deep inspection across 6 dedicated tabs: Timeline, Loose Ends & Explanations, Blockers, Closure Readiness, Communications, and AI Case Brief.
+
+- **Fixed Kanban Single-Column Classification (No Duplication):**
+  - Evaluates each case through a single deterministic classifier (`getCaseKanbanColumn`).
+  - Columns: `Open / Intake`, `In Progress`, `Awaiting External / Blocked`, `Closure Ready`, `Closed & Audited`.
+  - Blocked cases in progress (e.g. Ceiling seepage at Blk 211 with upper-unit access blocker) appear strictly in `Awaiting External / Blocked` with secondary priority badges, eliminating duplicate cards across columns.
+
+- **Evidence-Linked Explanations (#117 — Signature Responsible AI Capability):**
+  - **"Why did SyncAI flag this case?"** Interactive explanation panel launched directly from any Loose-End card.
+  - Transparent 4-part structured breakdown:
+    1. *Verified Recorded Facts:* Concrete case data from site logs, thermography readouts, or OneService intakes.
+    2. *Rule-Based Deductions:* Clear logical deductions derived from EMS turnaround rules.
+    3. *Missing Information:* Specific unrecorded call logs, pending quotations, or missing documents.
+    4. *Proposed Recommendations:* Actionable next steps for the property officer.
+  - *Clickable Evidence References:* Click **"Inspect Source Record"** to jump directly to the verified timeline entry, checkpoint, or blocker, with glowing pulse animation and a **"Back to Explanation"** breadcrumb.
+  - *Responsible AI Guardrail:* Explicitly discloses that findings are deterministic rule-based outputs requiring human review, not generative black-box predictions.
+
+- **Actionable In-App Notifications Centre (#071):**
+  - Reusable notification bell in the portal top bar with dynamic unread count badge.
+  - Meaningful operational notifications: resident follow-ups due, contractor response pending, BCA lift inspection appointments, blocker alerts, and manager approvals.
+  - Filtering by role, mark as read, and **"Mark all read"** bulk action.
+  - One-click navigation (`View Case →`) directly opens the target case drawer.
+
+- **Case Communication Hub & Message-to-Task Drafting (#076):**
+  - Simulated multi-channel communication timeline supporting `In-App`, `WhatsApp (Proposed)`, `Microsoft Teams (Proposed)`, and `Telegram (Proposed)`.
+  - Filter communications by channel; track acknowledgment states and view sender roles.
+  - **Manual Communication Logging:** Log resident phone calls or contractor inquiries directly into the case history and timeline.
+  - **Suggested Reply Generator:** One-click contextual draft generator tailored to resident name and case details, with one-click clipboard copying.
+  - **Communication-to-Task Drafting (#076):** Paste or load fictional incoming messages to extract structured tasks (title, category, priority, due date) with mandatory human confirmation before saving to Smart Planner.
+
+- **Closure Readiness Checker & AI Case Brief:**
+  - Multi-checkpoint gate preventing premature closure while statutory checkpoints or evidence files remain incomplete.
+  - Deterministic synthesized case brief with one-click copy to clipboard.
 
 ### B. Smart Planning (Category B — Charlisa Tan)
 - **Schedule Preferences Dialog:** Configure working hours, lunch break window, protected focus periods, daily hours limit, and working days (Monday–Friday).
@@ -165,16 +190,66 @@ In accordance with the competition scope for **Challenge PS 12i (Smart Work Plan
 
 ---
 
-## 8. Verification & Test Suite
+## 8. Five-Minute Case Action Centre V2 Demo Walkthrough
 
-The prototype includes an automated regression test suite ensuring business logic, scheduling invariants, ripple intelligence, and role boundaries function correctly in Node.js:
+Follow this step-by-step walkthrough to demonstrate the Case Action Centre V2 capabilities during stakeholder evaluations:
+
+1. **Start the Local Prototype Server:**
+   ```bash
+   python prototype/serve.py
+   ```
+   Open `http://localhost:8765/index.html` in your browser.
+
+2. **Sign In as Property Officer Aisyah:**
+   - In the top navigation bar, ensure the role selector is set to **Team Member (Aisyah)**.
+   - Click **Case Action Centre** in the left sidebar navigation.
+
+3. **Inspect the Redesigned Visual Hierarchy:**
+   - Note **Section A (Page Header):** Gradient hero with summary counters.
+   - Note **Section B (Operational Overview):** 4 equal-width metric cards (Open Cases, Loose Ends, Blocked Cases, Closure Warnings).
+   - Note **Section C (Follow-Up Radar):** Review the attention items detected by the Loose-End Detector.
+
+4. **Experience Evidence-Linked Explanations (#117):**
+   - In the Follow-Up Radar, click **"Why was this flagged?"** on Case DEMO-001 (Outstanding Resident Callback).
+   - Observe the slide-in drawer showing the **Evidence-Linked Explanation**:
+     - Transparent Responsible AI disclosure banner.
+     - 4-part breakdown: *1. Verified Recorded Facts*, *2. Rule-Based Deductions*, *3. Missing Information*, and *4. Proposed Recommendations*.
+   - Click **"Inspect Source Record →"**: Watch the drawer transition to the verified source event, highlighting it with glowing animation. Click **"← Back to Explanation"** to return.
+
+5. **Verify Single-Column Kanban Classification (No Duplication):**
+   - Scroll to Section D and toggle the view switcher to **Kanban Board View** (columns icon).
+   - Note that Case DEMO-001 (Ceiling seepage at Blk 211) appears **strictly once** under `Awaiting External / Blocked` with a High Priority badge and Blocked tag, and is **not duplicated** in `In Progress`.
+
+6. **Test the Case Communication Hub & Message-to-Task Drafting (#076):**
+   - Click **Journey** on Case DEMO-001 to open the drawer, then select the **Communications** tab.
+   - Filter messages by channel (`In-App`, `WhatsApp`, `Teams`).
+   - Click **"Log Update"** to simulate recording a phone call or resident message into the case timeline.
+   - Click **"Generate Draft"** to synthesize a contextual resident reply, then click **"Copy to Clipboard"**.
+   - Under **Message-to-Task Drafting (#076)**, click **"Sample: Contractor Access"**, then click **"Extract Task Draft"**. Notice the deterministic extraction of case number, priority, and deadline. Click **"Confirm & Create Task in Smart Planner"** to persist it into shared state.
+
+7. **Test Actionable In-App Notifications (#071):**
+   - Look at the top portal header: click the **Notification Bell** icon.
+   - Review unread operational alerts with case links. Click **"View Case →"** on any notification to jump directly into that case workspace.
+   - Click **"Mark all read"** to clear pending badges.
+
+8. **Test Role Governance & Data Minimisation:**
+   - Use the top role dropdown to switch to **Admin (Alex Tan)**.
+   - Open **Case Action Centre**: notice the view switches to **Operational Governance Mode** showing aggregate SLA compliance rules without exposing private resident casework.
+   - Switch back to **Team Member (Aisyah)** to resume operations.
+
+---
+
+## 9. Verification & Test Suite
+
+The prototype includes an automated regression test suite ensuring business logic, scheduling invariants, ripple intelligence, role boundaries, and Case Action Centre V2 workflows function correctly in Node.js:
 
 ```bash
-# Run all 88 automated prototype tests across 8 suites
+# Run all 95 automated prototype tests across 9 suites
 node --test "prototype/tests/*.test.mjs"
 ```
 
-### Test Coverage Summary (88 tests passing across 8 suites):
+### Test Coverage Summary (95 tests passing across 9 suites):
+- `case-action-centre-v2.test.mjs` (7 tests): Validates single-column Kanban classification, 4-part Evidence-Linked Explanations, role-based visibility, Actionable Notifications (#071), Case Communication Hub, and Message-to-Task Drafting (#076).
 - `cases.test.mjs` (5 tests): Validates documented EMS priority order, recorded deadlines, role-based case access, task-case links, and browser persistence after day rollover.
 - `category-c-cases.test.mjs` (5 tests): Validates Category C Case Action Centre role-aware views, 8-rule deterministic Loose-End Detector, Closure Readiness checker, simulated AI Case Brief generator, and reassignment approval workflow.
 - `smart-planning.test.mjs` (8 tests): Validates Category B calendar time-blocking around meetings/appointments, schedule preferences validation & persistence, and weekly planning across Monday–Sunday.

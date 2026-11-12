@@ -28,10 +28,18 @@ import {
   closeCase,
   requestCaseReassignment,
   officerName,
+  getVisibleNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  addCommunication,
+  acknowledgeCommunication,
+  generateDraftReply,
+  extractTaskDraftFromMessage,
+  detectLooseEnds,
 } from './state.js';
 import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog } from './ui.js';
 import { accessibleTask, changeTaskStatus, deleteCapturedTask, taskDateInput, taskDuration } from './taskCapture.js';
-import { accessibleCase } from './cases.js';
+import { accessibleCase, visibleCases } from './cases.js';
 import { deadlineAlert, priorityFactors } from './taskIntelligence.js';
 import { traceDownstream } from './ripple.js';
 import { calendarDay, singaporeInstant, TODAY } from './time.js';
@@ -226,6 +234,46 @@ function updateHeader(s, user) {
     if (isGreenAvatar) avatarCard.classList.add('avatar-green');
     else avatarCard.classList.remove('avatar-green');
   }
+
+  // Update Actionable Notifications UI (#071)
+  const notifBadge = document.getElementById('notification-unread-badge');
+  const notifLabel = document.getElementById('notification-count-label');
+  const notifList = document.getElementById('notification-list-container');
+  const visibleNotifs = getVisibleNotifications(s);
+  const unreadCount = visibleNotifs.filter((n) => !n.read).length;
+
+  if (notifBadge) {
+    if (unreadCount > 0) {
+      notifBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+      notifBadge.hidden = false;
+    } else {
+      notifBadge.hidden = true;
+    }
+  }
+
+  if (notifLabel) {
+    notifLabel.textContent = `${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}`;
+  }
+
+  if (notifList) {
+    if (visibleNotifs.length === 0) {
+      notifList.innerHTML = `<div style="text-align: center; padding: 24px 16px; color: var(--colorNeutralForeground3); font-size: 0.8125rem;">No actionable notifications recorded for this role.</div>`;
+    } else {
+      notifList.innerHTML = visibleNotifs.slice(0, 8).map((n) => `
+        <div class="notification-item ${n.read ? 'is-read' : 'is-unread'}" style="padding: 10px 14px; border-bottom: 1px solid var(--colorNeutralStroke3); display: flex; flex-direction: column; gap: 4px; background: ${n.read ? 'transparent' : 'var(--colorBrandBackground2)'};">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+            <strong style="font-size: 0.8125rem; color: var(--colorNeutralForeground1);">${n.title}</strong>
+            <span class="tag ${n.priority === 'urgent' ? 'tag-danger' : n.priority === 'warning' ? 'tag-warning' : 'tag-neutral'} small">${n.channelLabel || 'In-App'}</span>
+          </div>
+          <p class="small muted" style="margin: 0; font-size: 0.75rem; line-height: 1.35;">${n.summary}</p>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+            ${n.caseId ? `<button type="button" class="btn-subtle btn-sm" data-action="nav-to-case" data-case="${n.caseId}" style="font-size: 0.75rem; padding: 2px 8px;">View Case →</button>` : '<span></span>'}
+            ${!n.read ? `<button type="button" class="btn-ghost btn-sm" data-action="notif-mark-read" data-id="${n.id}" style="font-size: 0.75rem; padding: 2px 6px;">Mark read</button>` : '<span class="small muted" style="font-size: 0.75rem;">Read</span>'}
+          </div>
+        </div>
+      `).join('');
+    }
+  }
 }
 
 function renderNav(s, user, allowed) {
@@ -234,6 +282,12 @@ function renderNav(s, user, allowed) {
 
   const pendingApprovalsCount = getPendingApprovals(s).length;
   const pendingUsersCount = (s.users || []).filter((u) => u.status === 'pending').length;
+
+  const vCases = visibleCases(s);
+  let totalLooseEnds = 0;
+  for (const vc of vCases) {
+    totalLooseEnds += detectLooseEnds(s, vc).length;
+  }
 
   const navHtml = allowed
     .map((secId) => {
@@ -246,6 +300,8 @@ function renderNav(s, user, allowed) {
         badge = html`<span class="tag tag-warning" style="margin-left: auto;">${pendingUsersCount}</span>`;
       } else if (secId === 'team' && pendingApprovalsCount > 0) {
         badge = html`<span class="tag tag-warning" style="margin-left: auto;">${pendingApprovalsCount}</span>`;
+      } else if (secId === 'cases' && totalLooseEnds > 0) {
+        badge = html`<span class="tag tag-warning" style="margin-left: auto;">${totalLooseEnds}</span>`;
       }
 
       return html`
@@ -316,6 +372,48 @@ function setupEvents() {
     if (popover && !popover.contains(e.target)) {
       popover.setAttribute('hidden', '');
       document.getElementById('account-trigger')?.setAttribute('aria-expanded', 'false');
+    }
+
+    // 2b. Notification popover toggle (#071)
+    const notifTrigger = e.target.closest('#btn-notification-trigger');
+    const notifPopover = document.getElementById('notification-popover');
+    if (notifTrigger) {
+      e.stopPropagation();
+      if (notifPopover) {
+        const isHidden = notifPopover.hasAttribute('hidden');
+        if (isHidden) {
+          notifPopover.removeAttribute('hidden');
+          notifTrigger.setAttribute('aria-expanded', 'true');
+          popover?.setAttribute('hidden', '');
+        } else {
+          notifPopover.setAttribute('hidden', '');
+          notifTrigger.setAttribute('aria-expanded', 'false');
+        }
+      }
+      return;
+    }
+
+    if (notifPopover && !notifPopover.contains(e.target) && !e.target.closest('#btn-notification-trigger')) {
+      notifPopover.setAttribute('hidden', '');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'false');
+    }
+
+    // Mark all notifications read
+    if (e.target.closest('#btn-mark-all-read')) {
+      update((s) => markAllNotificationsRead(s));
+      toast('All notifications marked as read.', 'success');
+      renderApp();
+      return;
+    }
+
+    // Mark single notification read
+    const notifReadBtn = e.target.closest('[data-action="notif-mark-read"]');
+    if (notifReadBtn) {
+      const nid = notifReadBtn.dataset.id;
+      update((s) => markNotificationRead(s, nid));
+      toast('Notification marked as read.', 'info');
+      renderApp();
+      return;
     }
 
     // 3. Sign out button
@@ -841,6 +939,192 @@ function setupEvents() {
       return;
     }
 
+    // 14. Evidence-Linked Explanations & Communication Hub events
+    const caseExplainBtn = e.target.closest('[data-action="case-explain-finding"]');
+    if (caseExplainBtn) {
+      const cid = caseExplainBtn.dataset.case;
+      const rule = caseExplainBtn.dataset.rule;
+      caseView.selectedCaseId = cid;
+      caseView.journeyTab = 'loose_ends';
+      caseView.activeExplanationRuleId = rule;
+      caseView.highlightedSourceId = null;
+      renderApp();
+      return;
+    }
+
+    const caseViewExpBtn = e.target.closest('[data-action="case-view-explanation"]');
+    if (caseViewExpBtn) {
+      caseView.activeExplanationRuleId = caseViewExpBtn.dataset.rule;
+      caseView.highlightedSourceId = null;
+      renderApp();
+      return;
+    }
+
+    if (e.target.closest('[data-action="case-exit-explanation"]')) {
+      caseView.activeExplanationRuleId = null;
+      caseView.highlightedSourceId = null;
+      renderApp();
+      return;
+    }
+
+    const radarFilterBtn = e.target.closest('[data-action="case-radar-filter"]');
+    if (radarFilterBtn) {
+      caseView.radarFilter = radarFilterBtn.dataset.filter;
+      renderApp();
+      return;
+    }
+
+    const jumpSourceBtn = e.target.closest('[data-action="case-jump-source"]');
+    if (jumpSourceBtn) {
+      const targetType = jumpSourceBtn.dataset.type;
+      const sourceId = jumpSourceBtn.dataset.sourceId;
+      caseView.highlightedSourceId = sourceId;
+      if (targetType === 'timeline') {
+        caseView.journeyTab = 'timeline';
+      } else if (targetType === 'blocker') {
+        caseView.journeyTab = 'blockers';
+      } else {
+        caseView.journeyTab = 'readiness';
+      }
+      renderApp();
+      return;
+    }
+
+    if (e.target.closest('[data-action="case-return-explanation"]')) {
+      caseView.journeyTab = 'loose_ends';
+      caseView.highlightedSourceId = null;
+      renderApp();
+      return;
+    }
+
+    const resolveBlockerBtn = e.target.closest('[data-action="case-resolve-blocker"]');
+    if (resolveBlockerBtn) {
+      const cid = resolveBlockerBtn.dataset.case;
+      const bid = resolveBlockerBtn.dataset.blocker;
+      update((s) => {
+        const c = getCase(s, cid);
+        const b = (c?.blockers || []).find((item) => item.id === bid);
+        if (b) {
+          b.resolved = true;
+          b.resolvedAt = TODAY;
+          logActivity(s, `Resolved case blocker: ${b.title}`, actorName(s));
+        }
+      });
+      toast('Blocker marked as resolved. Primary case status updated.', 'success');
+      renderApp();
+      return;
+    }
+
+    const commFilterBtn = e.target.closest('[data-action="comm-filter-channel"]');
+    if (commFilterBtn) {
+      caseView.commChannelFilter = commFilterBtn.dataset.channel;
+      renderApp();
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-toggle-log-form"]')) {
+      const formContainer = document.getElementById('comm-log-form-container');
+      if (formContainer) {
+        formContainer.style.display = formContainer.style.display === 'none' ? 'block' : 'none';
+      }
+      return;
+    }
+
+    const commAckBtn = e.target.closest('[data-action="comm-ack"]');
+    if (commAckBtn) {
+      const mid = commAckBtn.dataset.id;
+      update((s) => acknowledgeCommunication(s, mid));
+      toast('Communication marked as acknowledged.', 'success');
+      renderApp();
+      return;
+    }
+
+    const commGenBtn = e.target.closest('[data-action="comm-generate-reply"]');
+    if (commGenBtn) {
+      const cid = commGenBtn.dataset.case;
+      const draft = generateDraftReply(getState(), cid);
+      const box = document.getElementById('comm-draft-reply-box');
+      if (box) box.value = draft;
+      toast('Contextual response draft generated.', 'info');
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-copy-reply"]')) {
+      const box = document.getElementById('comm-draft-reply-box');
+      if (box && box.value) {
+        navigator.clipboard?.writeText(box.value);
+        toast('Draft reply copied to clipboard.', 'success');
+      }
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-load-sample-1"]')) {
+      const inp = document.getElementById('comm-msg-to-task-input');
+      if (inp) {
+        inp.value = 'Hi Officer Aisyah, Eng Seng Plumbing here regarding Blk 211 seepage. We need joint access to #06-12 tomorrow at 14:00 to verify floor trap seal before quote approval.';
+      }
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-load-sample-2"]')) {
+      const inp = document.getElementById('comm-msg-to-task-input');
+      if (inp) {
+        inp.value = 'Hello Town Council, Mdm Tan here from Blk 211 #05-12. Ceiling leak is getting worse after today rain. Please call me back with an update on when contractor can start.';
+      }
+      return;
+    }
+
+    const commParseBtn = e.target.closest('[data-action="comm-parse-task"]');
+    if (commParseBtn) {
+      const cid = commParseBtn.dataset.case;
+      const inp = document.getElementById('comm-msg-to-task-input');
+      const draft = extractTaskDraftFromMessage(inp ? inp.value : '', cid);
+      caseView.extractedTaskDraft = draft;
+      renderApp();
+      toast('Parsed actionable task draft from message. Review and confirm below.', 'info');
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-confirm-task"]')) {
+      const draft = caseView.extractedTaskDraft;
+      if (draft) {
+        update((s) => {
+          const newTask = {
+            id: `t-comm-${Date.now()}`,
+            ownerId: s.currentOfficerId || 'o1',
+            title: draft.title,
+            category: draft.category,
+            priority: draft.priority,
+            due: draft.due,
+            status: 'todo',
+            caseId: draft.caseId,
+            tags: ['Case-Linked', 'Communication-Draft'],
+          };
+          s.tasks.push(newTask);
+          const c = getCase(s, draft.caseId);
+          if (c) {
+            c.taskIds ||= [];
+            c.taskIds.push(newTask.id);
+            c.timeline ||= [];
+            c.timeline.push({
+              id: `ev-${Date.now()}`,
+              at: TODAY,
+              type: 'task_created',
+              title: `Task created: ${newTask.title}`,
+              summary: `Created in Smart Planner from communication draft (${draft.category}).`,
+              source: 'Communication Hub',
+              actor: actorName(s),
+            });
+          }
+          logActivity(s, `Created task "${newTask.title}" from communication draft for Case ${c?.caseNumber || draft.caseId}.`, actorName(s));
+        });
+        caseView.extractedTaskDraft = null;
+        toast('Task confirmed and saved to Smart Planner!', 'success');
+        renderApp();
+      }
+      return;
+    }
+
     const quickRoleBtn = e.target.closest('[data-action="quick-switch-role"]');
     if (quickRoleBtn) {
       switchDemoRole(quickRoleBtn.dataset.role);
@@ -961,8 +1245,35 @@ function setupEvents() {
     }
   });
 
-  // Assistant form submit
+  // Assistant and form submit events
   document.addEventListener('submit', (e) => {
+    if (e.target.id === 'comm-manual-log-form') {
+      e.preventDefault();
+      const form = e.target;
+      const channel = form.channel.value;
+      const category = form.category.value;
+      const content = form.content.value;
+      const cid = caseView.selectedCaseId;
+
+      update((s) => {
+        addCommunication(s, {
+          caseId: cid,
+          channel,
+          direction: 'outbound',
+          sender: `${actorName(s)} (Property Officer)`,
+          recipient: 'Resident / Contractor',
+          category,
+          content,
+          sourceLabel: 'Manually recorded',
+        });
+        logActivity(s, `Logged manual ${channel} communication for Case ${cid}: ${category}`, actorName(s));
+      });
+
+      toast('Simulated communication record saved.', 'success');
+      renderApp();
+      return;
+    }
+
     if (e.target.dataset.action === 'assistant-submit') {
       e.preventDefault();
       const input = document.getElementById('assistant-input-box');
