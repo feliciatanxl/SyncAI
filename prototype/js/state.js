@@ -477,8 +477,11 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
       }
     }
 
-    // Apply approved case reassignment
-    if (approval.caseId) {
+    // Apply approved case closure
+    if (approval.caseId && (approval.requestType === 'case_closure' || approval.requestType === 'closure')) {
+      closeCase(s, approval.caseId, reviewer);
+    } else if (approval.caseId) {
+      // Apply approved case reassignment
       const c = getCase(s, approval.caseId);
       if (c) {
         const targetOfficer = approval.proposedOwnerId || approval.suggestedAssigneeId;
@@ -487,7 +490,7 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
           const newOwnerName = officerName(s, targetOfficer);
           c.ownerId = targetOfficer;
           c.timeline = c.timeline || [];
-          c.timeline.push({
+          c.timeline.unshift({
             id: `ev-appr-${nextId(s, '')}`,
             at: NOW,
             type: 'approval',
@@ -642,6 +645,169 @@ export function markNotificationRead(s, id) {
   if (notif) notif.read = true;
 }
 
+export function markAllNotificationsRead(s) {
+  for (const n of s.notifications || []) {
+    n.read = true;
+  }
+}
+
+export function getVisibleNotifications(s) {
+  const user = getCurrentUser(s);
+  if (user.status !== 'active') return [];
+  const list = s.notifications || [];
+  if (user.role === 'admin') {
+    return list.filter((n) => n.recipientRole === 'admin' || n.recipientId === user.id || n.type === 'governance_audit' || n.type === 'governance_compliance_audit');
+  }
+  if (user.role === 'manager') {
+    const teamMemberIds = new Set((s.teams || [])
+      .filter((t) => t.managers.some((m) => m.id === user.id))
+      .flatMap((t) => t.members.map((m) => m.id)));
+    teamMemberIds.add(user.id);
+    return list.filter((n) => !n.recipientId || teamMemberIds.has(n.recipientId) || n.recipientRole === 'manager' || n.type === 'approval_request');
+  }
+  // team member
+  return list.filter((n) => !n.recipientId || n.recipientId === user.id || n.recipientRole === 'team_member');
+}
+
+// ============================================================================
+// Case Communication Hub — Simulated Multi-Channel Records
+// ============================================================================
+
+export function getCommunications(s, caseId = null) {
+  s.communications ||= [];
+  if (caseId) {
+    return s.communications.filter((m) => m.caseId === caseId);
+  }
+  return s.communications;
+}
+
+export function addCommunication(s, comm) {
+  s.communications ||= [];
+  const id = comm.id || `comm-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const record = {
+    id,
+    caseId: comm.caseId,
+    channel: comm.channel || 'in_app', // 'in_app' | 'whatsapp' | 'teams' | 'telegram'
+    channelLabel: comm.channelLabel || (
+      comm.channel === 'whatsapp' ? 'WhatsApp (Proposed)' :
+      comm.channel === 'teams' ? 'Microsoft Teams (Proposed)' :
+      comm.channel === 'telegram' ? 'Telegram (Proposed)' : 'In-App Portal'
+    ),
+    direction: comm.direction || 'outbound', // 'inbound' | 'outbound'
+    sender: comm.sender || 'Aisyah Rahman (Property Officer)',
+    senderRole: comm.senderRole || 'Property Officer',
+    recipient: comm.recipient || 'Resident / Contractor',
+    timestamp: comm.timestamp || NOW,
+    category: comm.category || 'Resident Follow-up',
+    content: comm.content || '',
+    acknowledged: Boolean(comm.acknowledged),
+    acknowledgedAt: comm.acknowledged ? (comm.acknowledgedAt || NOW) : null,
+    sourceLabel: comm.sourceLabel || (comm.channel === 'in_app' ? 'Simulated notification' : 'Proposed external channel'),
+    linkedTaskId: comm.linkedTaskId || null,
+  };
+  s.communications.unshift(record);
+
+  // If tied to a case, optionally add a corresponding timeline event
+  const c = getCase(s, comm.caseId);
+  if (c && !comm.skipTimeline) {
+    c.timeline ||= [];
+    c.timeline.push({
+      id: `ev-${Date.now()}`,
+      at: record.timestamp,
+      type: 'communication',
+      title: `${record.channelLabel}: ${record.category}`,
+      summary: record.content.length > 90 ? record.content.slice(0, 87) + '...' : record.content,
+      source: record.channelLabel,
+      actor: record.sender,
+    });
+  }
+
+  return record;
+}
+
+export function acknowledgeCommunication(s, commId, ack = null) {
+  const comm = (s.communications || []).find((m) => m.id === commId);
+  if (comm) {
+    comm.acknowledged = ack !== null ? ack : !comm.acknowledged;
+    comm.acknowledgedAt = comm.acknowledged ? NOW : null;
+  }
+  return comm;
+}
+
+export function generateDraftReply(s, caseId, commId = null) {
+  const c = getCase(s, caseId);
+  if (!c) return 'Case not found.';
+  const officer = officerName(s, c.ownerId);
+  const comm = commId ? (s.communications || []).find((m) => m.id === commId) : null;
+  const residentName = c.resident?.name || 'Resident';
+
+  if (comm && comm.category === 'Contractor Query') {
+    return `Hi Eng Seng Plumbing, regarding ${c.title} (${c.caseNumber || c.id}): Zone A officer ${officer} has dispatched the physical inspection notice to upper unit #06-12 today. Joint inspection is tentatively slated for tomorrow. Please hold stand-by quotation pending access confirmation. Regards, EM Services Town Council.`;
+  }
+
+  return `Dear ${residentName}, thank you for contacting EM Services Town Council regarding ${c.title} (${c.caseNumber || c.id}). Property Officer ${officer} has completed the on-site moisture assessment. We are coordinating access with the upper unit for joint rectification. Our next status update will follow by ${c.followUpDue ? c.followUpDue.slice(0, 16) : 'next working day'}. For emergency assistance, please contact the Town Council hotline.`;
+}
+
+/**
+ * Communication-to-Task Drafting (#076)
+ * Deterministic simulation parsing structured actionable intent from fictional messages.
+ * Requires user confirmation; never creates tasks automatically.
+ */
+export function extractTaskDraftFromMessage(text, defaultCaseId = null) {
+  const rawText = text || '';
+  const lower = rawText.toLowerCase();
+
+  let caseId = defaultCaseId || 'case-001';
+  if (lower.includes('blk 211') || lower.includes('seepage') || lower.includes('demo-001') || lower.includes('211-512')) {
+    caseId = 'case-001';
+  } else if (lower.includes('blk 310') || lower.includes('hopper') || lower.includes('demo-002')) {
+    caseId = 'case-002';
+  } else if (lower.includes('blk 405') || lower.includes('drain') || lower.includes('demo-003')) {
+    caseId = 'case-003';
+  } else if (lower.includes('blk 208') || lower.includes('lift') || lower.includes('demo-004')) {
+    caseId = 'case-004';
+  }
+
+  let title = 'Follow-up on operational communication';
+  let category = 'Resident Feedback';
+  let priority = 'Medium';
+  let due = `${TODAY}T17:00`;
+  let suggestedAssignee = 'o1';
+
+  if (lower.includes('quote') || lower.includes('quotation') || lower.includes('contractor') || lower.includes('estimate')) {
+    title = 'Follow up with contractor on pending scope quotation';
+    category = 'Contractor Management';
+    priority = 'High';
+  } else if (lower.includes('moisture') || lower.includes('inspection') || lower.includes('leak') || lower.includes('seepage')) {
+    title = 'Conduct joint ceiling inspection with upper unit tenant';
+    category = 'Inspection';
+    priority = 'High';
+    due = `${TODAY}T14:00`;
+  } else if (lower.includes('call') || lower.includes('callback') || lower.includes('ring') || lower.includes('update resident')) {
+    title = 'Resident progress callback and acknowledgment';
+    category = 'Resident Feedback';
+    priority = 'Medium';
+    due = `${TODAY}T16:00`;
+  } else if (lower.includes('lift') || lower.includes('jolt') || lower.includes('stuck') || lower.includes('emergency')) {
+    title = 'Urgent lift safety audit with technician';
+    category = 'Lift Inspection';
+    priority = 'Critical';
+    due = `${TODAY}T12:00`;
+  }
+
+  return {
+    caseId,
+    title,
+    category,
+    priority,
+    due,
+    suggestedAssignee,
+    extractedSnippet: rawText.length > 80 ? rawText.slice(0, 77) + '...' : rawText,
+    requiresHumanVerification: true,
+    disclaimer: 'Prototype simulation — requires human verification. Untrusted messages never auto-commit.',
+  };
+}
+
 // ============================================================================
 // Category C: Case Action Centre & Operational Loose-End Intelligence
 // ============================================================================
@@ -655,12 +821,13 @@ export function getCase(s, id) {
   return (s.cases || []).find((c) => c.id === id || c.caseNumber === id);
 }
 
-export { visibleCases, accessibleCase, tasksForCase } from './cases.js';
+export { visibleCases, accessibleCase, tasksForCase, getCaseKanbanColumn, KANBAN_COLUMNS } from './cases.js';
 
 /**
  * Operational Loose-End Detector — Signature Feature
  * Deterministic rule-based engine detecting unresolved operational commitments
  * before tasks become overdue or slip through the cracks.
+ * Enriched with Evidence-Linked Explanations (#117) and Responsible AI metadata.
  */
 export function detectLooseEnds(s, c) {
   if (!c) return [];
@@ -674,12 +841,33 @@ export function detectLooseEnds(s, c) {
   const openFeedbackTask = (c.taskIds || []).map((tid) => getTask(s, tid)).find((t) => t && t.category === 'Resident Feedback' && t.status !== 'done');
   if (residentCp || openFeedbackTask) {
     findings.push({
+      findingId: `${c.id}-resident_followup`,
       ruleId: 'resident_followup',
+      ruleCode: 'EMS-LE-01',
+      ruleName: 'Resident Follow-up Commitment',
       severity: 'warning',
       title: 'Outstanding Resident Callback',
       explanation: 'Promised resident update call has not been recorded following the initial site inspection.',
-      sourceEvidence: openFeedbackTask ? `Task ${openFeedbackTask.id} (${openFeedbackTask.title})` : `Checkpoint: ${residentCp?.title || 'Resident Callback'}`,
+      whyDetected: 'Following the on-site moisture assessment, an operational commitment was recorded to update the resident. More than 24 hours have elapsed without a logged telephone call or direct contact acknowledgment in the case timeline.',
+      ruleThreshold: 'Mandatory resident callback within 24 hours of inspection completion (OneService / Town Council Customer Service Charter).',
+      verifiedFacts: [
+        `Inspection recorded at ${c.location || 'site'} with high moisture level (78%).`,
+        `Resident contact on file: ${c.resident?.name || 'Tenant'} (${c.resident?.contact || 'Contact on file'}).`,
+        `Follow-up deadline scheduled for ${c.followUpDue ? c.followUpDue.slice(0, 16) : 'next working day'}.`,
+      ],
+      ruleDeductions: [
+        'No matching contact entry or call log found in timeline since initial inspection.',
+        'Elapsed operational duration exceeds standard 24h resident communication SLA.',
+        'Unfulfilled resident commitments risk public escalation to grassroots/OneService.',
+      ],
+      missingInfo: 'Documented resident phone conversation log, visit note, or SMS acknowledgment.',
       suggestedAction: `Contact resident ${c.resident?.name || 'tenant'} to provide investigation update and record callback.`,
+      sourceEvidence: openFeedbackTask ? `Task ${openFeedbackTask.id} (${openFeedbackTask.title})` : `Checkpoint: ${residentCp?.title || 'Resident Callback'}`,
+      sourceRecordType: openFeedbackTask ? 'task' : residentCp ? 'checkpoint' : 'timeline',
+      sourceRecordId: openFeedbackTask ? openFeedbackTask.id : residentCp ? residentCp.id : 'ev-001-3',
+      sourceRecordRef: openFeedbackTask ? `Task ${openFeedbackTask.id}` : residentCp ? `Checkpoint: ${residentCp.title}` : 'Timeline: Inspection Log',
+      reviewStatus: 'Human review required',
+      disclaimer: 'Deterministic rule-based finding — human review required. Not an autonomous AI prediction.',
       dueDate: openFeedbackTask?.due || residentCp?.due || c.slaDue,
       status: 'confirmed',
     });
@@ -690,12 +878,32 @@ export function detectLooseEnds(s, c) {
   const contractorCp = checkpoints.find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.toLowerCase().includes('contractor'));
   if (contractorBlocker || contractorCp) {
     findings.push({
+      findingId: `${c.id}-contractor_pending`,
       ruleId: 'contractor_pending',
+      ruleCode: 'EMS-LE-02',
+      ruleName: 'Contractor Quotation & Scope Turnaround',
       severity: 'warning',
       title: 'Contractor Quotation & Scope Pending',
       explanation: 'Contractor quotation has exceeded the standard 24h estimation turnaround without recorded submission.',
-      sourceEvidence: contractorBlocker ? `${contractorBlocker.sourceRef} (${contractorBlocker.responsibleParty})` : 'Work Order WO-2026-8812',
+      whyDetected: 'Term contractor was notified of required repair works, but quotation or work schedule confirmation has not been submitted within the 24-hour turnaround SLA.',
+      ruleThreshold: 'Contractor quote submission required within 24 hours of site assessment (EMS Maintenance SLA).',
+      verifiedFacts: [
+        `Repair scope issued to term contractor: ${contractorBlocker?.responsibleParty || 'Eng Seng Plumbing'}.`,
+        `Blocker record active: ${contractorBlocker?.title || 'Contractor quotation pending'}.`,
+        `SLA due date: ${dt(TODAY, '17:00')}.`,
+      ],
+      ruleDeductions: [
+        'No formal quotation document attached in case evidence files.',
+        'Delayed contractor estimation stalls work order creation and upper-unit coordination.',
+      ],
+      missingInfo: 'Contractor itemized scope of works and signed quotation slip.',
       suggestedAction: 'Send automated prompt to term contractor to submit scope quotation.',
+      sourceEvidence: contractorBlocker ? `${contractorBlocker.sourceRef || contractorBlocker.title} (${contractorBlocker.responsibleParty || 'Contractor'})` : 'Work Order WO-2026-8812',
+      sourceRecordType: contractorBlocker ? 'blocker' : 'checkpoint',
+      sourceRecordId: contractorBlocker ? contractorBlocker.id : (contractorCp ? contractorCp.id : 'cp-002-2'),
+      sourceRecordRef: contractorBlocker ? `Blocker: ${contractorBlocker.title}` : `Checkpoint: ${contractorCp?.title || 'Contractor Quota'}`,
+      reviewStatus: 'Human review required',
+      disclaimer: 'Deterministic rule-based finding — human review required. Not an autonomous AI prediction.',
       dueDate: contractorCp?.due || dt(TODAY, '17:00'),
       status: 'confirmed',
     });
@@ -705,12 +913,31 @@ export function detectLooseEnds(s, c) {
   const outcomeCp = checkpoints.find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.includes('findings'));
   if (outcomeCp) {
     findings.push({
+      findingId: `${c.id}-inspection_outcome`,
       ruleId: 'inspection_outcome',
+      ruleCode: 'EMS-LE-03',
+      ruleName: 'Inspection Outcome Documentation',
       severity: 'critical',
       title: 'Site Inspection Lacks Documented Findings',
       explanation: 'Scheduled joint inspection took place, but mandatory statutory outcome findings have not been uploaded.',
-      sourceEvidence: `Case ${c.caseNumber} / Checkpoint: ${outcomeCp.title}`,
+      whyDetected: 'A joint technical inspection was completed according to schedule, but mandatory regulatory findings (checklist and signed technician log) have not been filed.',
+      ruleThreshold: 'BCA & Town Council compliance requires inspection findings logged within 4 hours of site inspection.',
+      verifiedFacts: [
+        `Inspection scheduled at ${c.location || 'site'} with attending technician.`,
+        `Checklist item "${outcomeCp.title}" remains uncompleted.`,
+      ],
+      ruleDeductions: [
+        'Absence of endorsed outcome report prevents statutory compliance sign-off.',
+        'Critical severity assigned due to statutory safety implications.',
+      ],
+      missingInfo: 'Certified technician service log slip and endorsed inspection findings.',
       suggestedAction: 'Upload certified technician service log slip and endorse inspection findings.',
+      sourceEvidence: `Case ${c.caseNumber || c.id} / Checkpoint: ${outcomeCp.title}`,
+      sourceRecordType: 'checkpoint',
+      sourceRecordId: outcomeCp.id,
+      sourceRecordRef: `Checkpoint: ${outcomeCp.title}`,
+      reviewStatus: 'Human review required',
+      disclaimer: 'Deterministic rule-based finding — human review required. Not an autonomous AI prediction.',
       dueDate: outcomeCp.due || dt(TODAY, '14:00'),
       status: 'confirmed',
     });
@@ -723,12 +950,30 @@ export function detectLooseEnds(s, c) {
   const isStale = Boolean(staleCp || (c.status === 'in_progress' && lastAt && (lastAt.includes(workDay(-2)) || lastAt.includes(workDay(-3)) || lastAt.includes(workDay(-4)) || lastAt.includes(workDay(-5)))));
   if (isStale) {
     findings.push({
+      findingId: `${c.id}-stale_case`,
       ruleId: 'stale_case',
+      ruleCode: 'EMS-LE-04',
+      ruleName: 'Case Activity Stalemate Detector',
       severity: 'warning',
       title: 'Stale Case Activity (>48h Inactive)',
       explanation: 'High-urgency open case has received no progress log or site inspection note in the last 48 hours.',
-      sourceEvidence: `Last recorded update: ${c.timeline && c.timeline.length ? c.timeline[c.timeline.length - 1].title : 'Case Intake'}`,
+      whyDetected: 'Open case has remained in progress without an updated timeline entry, progress report, or communication event for more than 48 operational hours.',
+      ruleThreshold: 'Active high-urgency cases must record progress at least once every 48 hours.',
+      verifiedFacts: [
+        `Case status: ${c.status}.`,
+        `Last timeline event: "${lastEvent?.title || 'Case Reported'}" recorded at ${lastAt || 'initial intake'}.`,
+      ],
+      ruleDeductions: [
+        'Zero activity recorded for over 48 hours indicates workflow stagnation or unrecorded offline action.',
+      ],
+      missingInfo: 'Updated site status, resident follow-up note, or contractor progress log.',
       suggestedAction: 'Request status confirmation from attending property officer.',
+      sourceEvidence: `Last recorded update: ${lastEvent ? lastEvent.title : 'Case Intake'}`,
+      sourceRecordType: 'timeline',
+      sourceRecordId: lastEvent ? lastEvent.id : 'ev-001-1',
+      sourceRecordRef: lastEvent ? `Timeline: ${lastEvent.title}` : 'Timeline: Intake',
+      reviewStatus: 'Human review required',
+      disclaimer: 'Deterministic rule-based finding — human review required. Not an autonomous AI prediction.',
       dueDate: c.slaDue,
       status: 'confirmed',
     });
@@ -738,12 +983,30 @@ export function detectLooseEnds(s, c) {
   const missingEvi = evidence.filter((e) => e.missing && e.requiredForClosure);
   if (missingEvi.length > 0) {
     findings.push({
+      findingId: `${c.id}-missing_evidence`,
       ruleId: 'missing_evidence',
+      ruleCode: 'EMS-LE-05',
+      ruleName: 'Mandatory Compliance Evidence Verification',
       severity: 'warning',
       title: 'Required Supporting Evidence Missing',
       explanation: 'Mandatory technical records required by Town Council compliance standards are unattached.',
-      sourceEvidence: missingEvi.map((e) => e.title).join(', '),
+      whyDetected: 'Case requires mandatory documentation (e.g. upper unit joint inspection notice copy, thermographic imaging) before work orders or closures can be certified.',
+      ruleThreshold: 'All mandatory evidence items marked "requiredForClosure" must be uploaded and verified before case completion.',
+      verifiedFacts: [
+        `Required evidence unattached: ${missingEvi.map((e) => e.title).join(', ')}.`,
+        `Verified evidence present: ${evidence.filter((e) => e.verified).map((e) => e.title).join(', ') || 'None'}.`,
+      ],
+      ruleDeductions: [
+        'Missing statutory notices prevent legal compliance under Singapore Building Maintenance and Strata Management guidelines.',
+      ],
+      missingInfo: `Unattached files: ${missingEvi.map((e) => e.sourceRef || e.title).join(', ')}.`,
       suggestedAction: 'Request mandatory photo/document attachments before proceeding to rectification.',
+      sourceEvidence: missingEvi.map((e) => e.title).join(', '),
+      sourceRecordType: 'evidence',
+      sourceRecordId: missingEvi[0].id,
+      sourceRecordRef: `Evidence: ${missingEvi[0].title}`,
+      reviewStatus: 'Human review required',
+      disclaimer: 'Deterministic rule-based finding — human review required. Not an autonomous AI prediction.',
       dueDate: c.slaDue,
       status: 'confirmed',
     });
@@ -753,12 +1016,29 @@ export function detectLooseEnds(s, c) {
   const unclosedCp = checkpoints.filter((cp) => !cp.completed && cp.requiredForClosure);
   if (c.status === 'ready_for_closure' && unclosedCp.length > 0) {
     findings.push({
+      findingId: `${c.id}-unresolved_closure`,
       ruleId: 'unresolved_closure',
+      ruleCode: 'EMS-LE-06',
+      ruleName: 'Closure Prerequisite Completeness Check',
       severity: 'critical',
       title: 'Closure Requested with Incomplete Checkpoints',
       explanation: 'Case is marked ready for closure but prerequisite checkpoints remain incomplete.',
-      sourceEvidence: unclosedCp.map((cp) => cp.title).join('; '),
+      whyDetected: 'Case was submitted for closure review, but mandatory prerequisite checkpoints have not been completed or signed off.',
+      ruleThreshold: 'Zero incomplete mandatory checkpoints permitted at closure sign-off.',
+      verifiedFacts: [
+        `Incomplete prerequisites: ${unclosedCp.map((cp) => cp.title).join('; ')}.`,
+      ],
+      ruleDeductions: [
+        'Premature closure would violate Town Council operational audit procedures.',
+      ],
+      missingInfo: 'Completed checkpoint verifications or authorised manager exception memo.',
       suggestedAction: 'Satisfy all mandatory closure checklist items or obtain authorised exception.',
+      sourceEvidence: unclosedCp.map((cp) => cp.title).join('; '),
+      sourceRecordType: 'checkpoint',
+      sourceRecordId: unclosedCp[0].id,
+      sourceRecordRef: `Checkpoint: ${unclosedCp[0].title}`,
+      reviewStatus: 'Human review required',
+      disclaimer: 'Deterministic rule-based finding — human review required. Not an autonomous AI prediction.',
       dueDate: c.slaDue,
       status: 'confirmed',
     });
@@ -767,12 +1047,31 @@ export function detectLooseEnds(s, c) {
   // Rule 7: Reassignment without completed handover acknowledgement
   if (c.handover && c.handover.status === 'pending_acknowledgement') {
     findings.push({
+      findingId: `${c.id}-pending_handover`,
       ruleId: 'pending_handover',
+      ruleCode: 'EMS-LE-07',
+      ruleName: 'Operational Reassignment Handover Protocol',
       severity: 'warning',
       title: 'Pending Assignment Handover Sign-off',
       explanation: 'Case was reallocated to another officer, but the receiving officer has not acknowledged the handover brief.',
-      sourceEvidence: `Handover from ${officerName(s, c.handover.fromOfficerId)} to ${officerName(s, c.handover.toOfficerId)} (${c.handover.reason || 'Workload adjustment'})`,
+      whyDetected: 'A case reassignment was initiated, but the target officer has not acknowledged receipt and accepted responsibility for upcoming commitments.',
+      ruleThreshold: 'Handover acknowledgment mandatory within 2 working hours of reassignment approval.',
+      verifiedFacts: [
+        `Originating officer: ${officerName(s, c.handover.fromOfficerId)}.`,
+        `Receiving officer: ${officerName(s, c.handover.toOfficerId)}.`,
+        `Handover reason: ${c.handover.reason || 'Workload adjustment'}.`,
+      ],
+      ruleDeductions: [
+        'Unacknowledged handovers cause gaps in resident communications and missed site visits.',
+      ],
+      missingInfo: 'Receiving officer electronic acknowledgment and schedule acceptance.',
       suggestedAction: 'Receiving officer must review documented commitments and acknowledge handover.',
+      sourceEvidence: `Handover from ${officerName(s, c.handover.fromOfficerId)} to ${officerName(s, c.handover.toOfficerId)} (${c.handover.reason || 'Workload adjustment'})`,
+      sourceRecordType: 'timeline',
+      sourceRecordId: 'handover-event',
+      sourceRecordRef: 'Handover Protocol',
+      reviewStatus: 'Human review required',
+      disclaimer: 'Deterministic rule-based finding — human review required. Not an autonomous AI prediction.',
       dueDate: dt(TODAY, '11:30'),
       status: 'confirmed',
     });
@@ -783,12 +1082,30 @@ export function detectLooseEnds(s, c) {
   const aptTask = (c.taskIds || []).map((tid) => getTask(s, tid)).find((t) => t && t.appointmentTime && t.status !== 'done');
   if (unconfirmedApt || aptTask) {
     findings.push({
+      findingId: `${c.id}-unconfirmed_appointment`,
       ruleId: 'unconfirmed_appointment',
+      ruleCode: 'EMS-LE-08',
+      ruleName: 'Fixed Resident Appointment Protection',
       severity: 'warning',
       title: 'Upcoming Appointment Lacks Confirmation',
       explanation: 'Resident unit repair appointment is scheduled within 24 hours without recorded tenant access confirmation.',
-      sourceEvidence: aptTask ? `Task ${aptTask.id} (${aptTask.appointmentTime})` : `Appointment: ${unconfirmedApt?.due ? unconfirmedApt.due.slice(0, 16) : 'Upcoming'} (${c.resident?.contact || 'Resident'})`,
+      whyDetected: 'A fixed resident access appointment is scheduled in the calendar, but resident confirmation has not been recorded within the standard 24h pre-visit window.',
+      ruleThreshold: 'Resident attendance confirmation required 24 hours prior to fixed repair block.',
+      verifiedFacts: [
+        `Appointment: ${aptTask?.appointmentTime || unconfirmedApt?.due?.slice(11, 16) || 'Scheduled today'}.`,
+        `Resident contact: ${c.resident?.name || 'Resident'} (${c.resident?.contact || 'Phone on file'}).`,
+      ],
+      ruleDeductions: [
+        'Unconfirmed appointments risk wasted contractor trips and abortive site visit charges.',
+      ],
+      missingInfo: 'Recorded tenant SMS or call confirming presence at unit during scheduled block.',
       suggestedAction: 'Send SMS/Call resident to verify home access availability.',
+      sourceEvidence: aptTask ? `Task ${aptTask.id} (${aptTask.appointmentTime})` : `Appointment: ${unconfirmedApt?.due ? unconfirmedApt.due.slice(0, 16) : 'Upcoming'} (${c.resident?.contact || 'Resident'})`,
+      sourceRecordType: aptTask ? 'task' : 'checkpoint',
+      sourceRecordId: aptTask ? aptTask.id : (unconfirmedApt ? unconfirmedApt.id : 'cp-001-2'),
+      sourceRecordRef: aptTask ? `Task ${aptTask.id}` : `Checkpoint: ${unconfirmedApt?.title || 'Appointment'}`,
+      reviewStatus: 'Human review required',
+      disclaimer: 'Deterministic rule-based finding — human review required. Not an autonomous AI prediction.',
       dueDate: aptTask?.due || unconfirmedApt?.due || dt(TODAY, '17:00'),
       status: 'confirmed',
     });
@@ -797,10 +1114,17 @@ export function detectLooseEnds(s, c) {
   return findings.map((f) => ({
     ...f,
     caseId: c.id,
-    caseNumber: c.caseNumber,
+    caseNumber: c.caseNumber || c.id,
     caseTitle: c.title,
     caseItem: c,
   }));
+}
+
+export function getExplanationForFinding(s, caseId, ruleId) {
+  const c = getCase(s, caseId);
+  if (!c) return null;
+  const ends = detectLooseEnds(s, c);
+  return ends.find((e) => e.ruleId === ruleId || e.findingId === ruleId) || ends[0] || null;
 }
 
 /**
@@ -864,6 +1188,17 @@ export function generateCaseBrief(s, c) {
   const pendingCp = (c.checkpoints || []).filter((cp) => !cp.completed).map((cp) => cp.title);
   const activeBlockers = (c.blockers || []).filter((b) => !b.resolved);
 
+  const unverifiedEvidence = (c.evidence || []).filter((e) => !e.verified).map((e) => e.title);
+  const missingInfoList = [];
+  if (unverifiedEvidence.length > 0) {
+    missingInfoList.push(`Unverified / missing evidence records: ${unverifiedEvidence.join(', ')}`);
+  }
+  for (const l of looseEnds) {
+    if (l.missingInfo && !missingInfoList.includes(l.missingInfo)) {
+      missingInfoList.push(l.missingInfo);
+    }
+  }
+
   return [
     `=== SIMULATED CASE BRIEF — GENERATED FROM FICTIONAL CASE DATA ===`,
     `Case Reference: ${c.caseNumber} | Title: ${c.title}`,
@@ -893,6 +1228,11 @@ export function generateCaseBrief(s, c) {
     readiness.isReady
       ? '✓ All checkpoints satisfied. Case is eligible for formal closure.'
       : `⚠ Closure blocked by ${readiness.unresolvedItems.length} requirement(s):\n${readiness.unresolvedItems.map((u) => `  - ${u}`).join('\n')}`,
+    ``,
+    `[DISCLOSED MISSING INFORMATION]`,
+    missingInfoList.length > 0
+      ? missingInfoList.map((m) => `• ${m}`).join('\n')
+      : '• All required operational and statutory records are verified in authorized state.',
     ``,
     `[RECOMMENDED NEXT ACTIONS]`,
     looseEnds.length > 0 ? `1. ${looseEnds[0].suggestedAction}` : '1. Continue scheduled routine monitoring.',
@@ -926,7 +1266,7 @@ export function closeCase(s, caseId, actor = null) {
   c.closedAt = NOW;
   c.closedBy = currentActor;
   c.timeline ||= [];
-  c.timeline.push({
+  c.timeline.unshift({
     id: `ev-close-${nextId(s, '')}`,
     at: NOW,
     type: 'closure',
@@ -938,8 +1278,222 @@ export function closeCase(s, caseId, actor = null) {
     actor: currentActor,
   });
 
+  // If any pending closure approval was open for this case, mark it approved
+  for (const a of s.approvals || []) {
+    if (a.caseId === caseId && (a.requestType === 'case_closure' || a.requestType === 'closure') && a.status === 'pending') {
+      a.status = 'approved';
+      a.decidedAt = NOW;
+      a.decidedBy = currentActor;
+      a.decision = 'Case closure verified and authorized by Estate Manager.';
+    }
+  }
+
   logActivity(s, `Closed case ${c.caseNumber} (${c.title})`, currentActor);
   return { success: true, case: c };
+}
+
+/**
+ * Submit closure request for a case (creates manager approval request).
+ * Property Officers use this to request manager sign-off without prematurely closing the case.
+ */
+export function requestCaseClosure(s, caseId, reason = '') {
+  const c = getCase(s, caseId);
+  if (!c) return { success: false, error: 'Case not found.' };
+
+  const existing = (s.approvals || []).find(
+    (a) => a.caseId === caseId && (a.requestType === 'case_closure' || a.requestType === 'closure') && a.status === 'pending'
+  );
+  if (existing) {
+    return { success: false, error: 'A closure approval request is already pending manager sign-off.' };
+  }
+
+  const primaryTaskId = (c.taskIds && c.taskIds[0]) || null;
+  const currentActor = actorName(s);
+
+  const approval = createApprovalRequest(s, {
+    requestType: 'case_closure',
+    taskId: primaryTaskId,
+    caseId: c.id,
+    taskTitle: `Closure Sign-off: Case ${c.caseNumber || c.id} — ${c.title}`,
+    requesterId: s.currentOfficerId,
+    requesterName: currentActor,
+    requesterRole: 'team_member',
+    reason: reason || 'All operational checkpoints completed. Requesting formal manager sign-off and statutory audit.',
+    slaImpact: 'Verified on-schedule resolution',
+    operationalImpact: 'Final case archiving and inspection record closure',
+  });
+
+  c.timeline ||= [];
+  c.timeline.unshift({
+    id: `ev-req-close-${nextId(s, '')}`,
+    at: TODAY,
+    type: 'closure_requested',
+    title: `Closure sign-off requested by ${currentActor}`,
+    summary: reason || 'Submitted to Manager Jennifer Ong for statutory sign-off and closure audit.',
+    source: 'Case Action Centre',
+    actor: currentActor,
+  });
+
+  addNotification(s, {
+    type: 'closure_warning',
+    title: `Closure Sign-Off: Case ${c.caseNumber || c.id}`,
+    message: `${currentActor} requested manager closure sign-off for "${c.title}".`,
+    caseId: c.id,
+    priority: 'medium',
+    actionLabel: 'Review in Approvals',
+    actionUrl: '#team',
+    category: 'compliance',
+    role: 'manager',
+  });
+
+  logActivity(s, `Requested manager closure sign-off for Case ${c.caseNumber || c.id}`, currentActor);
+  return { success: true, approval };
+}
+
+/**
+ * Record follow-up outcome and resolve loose end.
+ */
+export function resolveLooseEnd(s, caseId, ruleId, outcomeNote = '') {
+  const c = getCase(s, caseId);
+  if (!c) return { success: false, error: 'Case not found.' };
+
+  const actor = actorName(s);
+  let resolvedRuleName = ruleId;
+
+  // Rule 1: resident_followup
+  if (ruleId === 'resident_followup' || ruleId === 'EMS-LE-01') {
+    resolvedRuleName = 'Resident Follow-up Commitment';
+    const residentCp = (c.checkpoints || []).find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.includes('resident'));
+    if (residentCp) {
+      residentCp.completed = true;
+      residentCp.completedAt = NOW;
+    }
+    const openFeedbackTask = (c.taskIds || []).map((tid) => getTask(s, tid)).find((t) => t && t.category === 'Resident Feedback' && t.status !== 'done');
+    if (openFeedbackTask) {
+      openFeedbackTask.status = 'done';
+    }
+  } else if (ruleId === 'contractor_pending' || ruleId === 'EMS-LE-02') {
+    resolvedRuleName = 'Contractor Quotation & Scope Turnaround';
+    const contractorBlocker = (c.blockers || []).find((b) => !b.resolved && (b.category === 'Awaiting contractor' || (b.title && b.title.toLowerCase().includes('contractor'))));
+    if (contractorBlocker) {
+      contractorBlocker.resolved = true;
+      contractorBlocker.resolvedAt = TODAY;
+    }
+    const contractorCp = (c.checkpoints || []).find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.toLowerCase().includes('contractor'));
+    if (contractorCp) {
+      contractorCp.completed = true;
+      contractorCp.completedAt = NOW;
+    }
+  } else if (ruleId === 'inspection_outcome' || ruleId === 'EMS-LE-03') {
+    resolvedRuleName = 'Inspection Outcome Documentation';
+    const outcomeCp = (c.checkpoints || []).find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.includes('findings'));
+    if (outcomeCp) {
+      outcomeCp.completed = true;
+      outcomeCp.completedAt = NOW;
+    }
+  } else if (ruleId === 'photo_evidence' || ruleId === 'EMS-LE-04') {
+    resolvedRuleName = 'Photographic Evidence Verification';
+    const photoEvi = (c.evidence || []).find((e) => !e.verified && e.title && e.title.toLowerCase().includes('photo'));
+    if (photoEvi) {
+      photoEvi.verified = true;
+    }
+  } else if (ruleId === 'bca_filing' || ruleId === 'EMS-LE-05') {
+    resolvedRuleName = 'Statutory BCA Filing';
+    const bcaCp = (c.checkpoints || []).find((cp) => !cp.completed && cp.looseEndReason && cp.looseEndReason.includes('BCA'));
+    if (bcaCp) {
+      bcaCp.completed = true;
+      bcaCp.completedAt = NOW;
+    }
+  } else {
+    const matchingCp = (c.checkpoints || []).find((cp) => !cp.completed && (cp.id === ruleId || cp.looseEndReason?.includes(ruleId)));
+    if (matchingCp) {
+      matchingCp.completed = true;
+      matchingCp.completedAt = NOW;
+    }
+  }
+
+  // Add timeline event
+  c.timeline ||= [];
+  c.timeline.unshift({
+    id: `ev-res-${nextId(s, '')}`,
+    at: TODAY,
+    type: 'followup_resolved',
+    title: `Follow-Up Resolved: ${resolvedRuleName}`,
+    summary: outcomeNote || `Operational commitment fulfilled and outcome recorded by ${actor}. Requirement verified.`,
+    source: 'Loose-End Detector',
+    actor,
+  });
+
+  // Mark matching loose-end notification read if any
+  for (const n of s.notifications || []) {
+    if (n.caseId === c.id && n.type === 'loose_end') {
+      n.read = true;
+    }
+  }
+
+  logActivity(s, `Resolved follow-up "${resolvedRuleName}" for Case ${c.caseNumber || c.id}`, actor);
+  return { success: true, case: c };
+}
+
+/**
+ * Resolve case blocker and log activity.
+ */
+export function resolveCaseBlocker(s, caseId, blockerId) {
+  const c = getCase(s, caseId);
+  if (!c) return { success: false, error: 'Case not found.' };
+
+  const b = (c.blockers || []).find((item) => item.id === blockerId);
+  if (!b) return { success: false, error: 'Blocker not found.' };
+
+  b.resolved = true;
+  b.resolvedAt = TODAY;
+
+  const actor = actorName(s);
+  c.timeline ||= [];
+  c.timeline.unshift({
+    id: `ev-blk-${nextId(s, '')}`,
+    at: TODAY,
+    type: 'blocker_resolved',
+    title: `Blocker Resolved: ${b.title}`,
+    summary: `External dependency cleared (${b.responsibleParty || 'External'}). Case unblocked.`,
+    source: 'Blocker Tracker',
+    actor,
+  });
+
+  logActivity(s, `Resolved case blocker: ${b.title} (Case ${c.caseNumber || c.id})`, actor);
+  return { success: true, blocker: b };
+}
+
+/**
+ * Add a progress note to case timeline with input validation.
+ */
+export function addCaseProgressNote(s, caseId, category, content) {
+  const c = getCase(s, caseId);
+  if (!c) return { success: false, error: 'Case not found.' };
+
+  const trimmed = (content || '').trim();
+  if (trimmed.length < 4) {
+    return { success: false, error: 'Progress note must be at least 4 characters.' };
+  }
+
+  const actor = actorName(s);
+  const noteCategory = category || 'Progress Note';
+
+  const newEvent = {
+    id: `ev-note-${nextId(s, '')}`,
+    at: TODAY,
+    type: 'progress_note',
+    title: `${noteCategory}`,
+    summary: trimmed,
+    source: 'Officer Field Note',
+    actor,
+  };
+
+  c.timeline ||= [];
+  c.timeline.unshift(newEvent);
+
+  logActivity(s, `Recorded progress note for Case ${c.caseNumber || c.id}: ${noteCategory}`, actor);
+  return { success: true, event: newEvent };
 }
 
 /**

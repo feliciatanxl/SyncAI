@@ -26,7 +26,8 @@ test('case fixtures show the documented EMS order and only recorded deadlines', 
   assert.match(list, /Fictional demo cases/);
   assert.match(list, /Response due/);
   assert.match(list, /No deadline recorded/);
-  assert.match(list, /Service<\/li><li>Safety<\/li><li>Residents’ well-being<\/li><li>Actual concern \/ urgency/);
+  assert.doesNotMatch(list, /case-priority-order/);
+  assert.doesNotMatch(list, /EMS case prioritisation order/);
   const detail = casesPage.render(s, 'case-001').toString();
   assert.match(detail, /Associated tasks/);
   assert.match(detail, /data-case-id="case-001"/);

@@ -26,12 +26,24 @@ import {
   actorName,
   getCase,
   closeCase,
+  requestCaseClosure,
   requestCaseReassignment,
+  resolveLooseEnd,
+  resolveCaseBlocker,
+  addCaseProgressNote,
   officerName,
+  getVisibleNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  addCommunication,
+  acknowledgeCommunication,
+  generateDraftReply,
+  extractTaskDraftFromMessage,
+  detectLooseEnds,
 } from './state.js';
 import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog } from './ui.js';
 import { accessibleTask, changeTaskStatus, deleteCapturedTask, taskDateInput, taskDuration } from './taskCapture.js';
-import { accessibleCase } from './cases.js';
+import { accessibleCase, visibleCases } from './cases.js';
 import { deadlineAlert, priorityFactors } from './taskIntelligence.js';
 import { traceDownstream } from './ripple.js';
 import { calendarDay, singaporeInstant, TODAY } from './time.js';
@@ -69,6 +81,18 @@ const SECTIONS = {
 
 let currentSection = 'overview';
 let currentCaseId = null;
+let currentNotificationFilter = 'all';
+let lastFocusedTrigger = null;
+
+function closeCaseDrawer() {
+  caseView.selectedCaseId = null;
+  caseView.activeExplanationRuleId = null;
+  caseView.highlightedSourceId = null;
+  renderApp();
+  if (lastFocusedTrigger && typeof lastFocusedTrigger.focus === 'function') {
+    lastFocusedTrigger.focus();
+  }
+}
 
 // Determine allowed sections based on role and status (matches client/src/lib/sections.js)
 function allowedSections(s) {
@@ -226,6 +250,61 @@ function updateHeader(s, user) {
     if (isGreenAvatar) avatarCard.classList.add('avatar-green');
     else avatarCard.classList.remove('avatar-green');
   }
+
+  // Update Actionable Notifications UI (#071)
+  const notifBadge = document.getElementById('notification-unread-badge');
+  const notifLabel = document.getElementById('notification-count-label');
+  const notifList = document.getElementById('notification-list-container');
+  const tabAllBtn = document.getElementById('notif-tab-all');
+  const tabUnreadBtn = document.getElementById('notif-tab-unread');
+  const visibleNotifs = getVisibleNotifications(s);
+  const unreadCount = visibleNotifs.filter((n) => !n.read).length;
+
+  if (tabAllBtn && tabUnreadBtn) {
+    if (currentNotificationFilter === 'unread') {
+      tabUnreadBtn.classList.add('is-active');
+      tabAllBtn.classList.remove('is-active');
+    } else {
+      tabAllBtn.classList.add('is-active');
+      tabUnreadBtn.classList.remove('is-active');
+    }
+    tabAllBtn.textContent = `All (${visibleNotifs.length})`;
+    tabUnreadBtn.textContent = `Unread (${unreadCount})`;
+  }
+
+  if (notifBadge) {
+    if (unreadCount > 0) {
+      notifBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+      notifBadge.hidden = false;
+    } else {
+      notifBadge.hidden = true;
+    }
+  }
+
+  if (notifLabel) {
+    notifLabel.textContent = `${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}`;
+  }
+
+  if (notifList) {
+    const displayedNotifs = currentNotificationFilter === 'unread' ? visibleNotifs.filter((n) => !n.read) : visibleNotifs;
+    if (displayedNotifs.length === 0) {
+      notifList.innerHTML = `<div style="text-align: center; padding: 24px 16px; color: var(--colorNeutralForeground3); font-size: 0.8125rem;">${currentNotificationFilter === 'unread' ? 'No unread notifications.' : 'No actionable notifications recorded for this role.'}</div>`;
+    } else {
+      notifList.innerHTML = displayedNotifs.slice(0, 10).map((n) => `
+        <div class="notification-item ${n.read ? 'is-read' : 'is-unread'}" style="padding: 10px 14px; border-bottom: 1px solid var(--colorNeutralStroke3); display: flex; flex-direction: column; gap: 4px; background: ${n.read ? 'transparent' : 'var(--colorBrandBackground2)'};">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+            <strong style="font-size: 0.8125rem; color: var(--colorNeutralForeground1);">${n.title}</strong>
+            <span class="tag ${n.priority === 'urgent' ? 'tag-danger' : n.priority === 'warning' ? 'tag-warning' : 'tag-neutral'} small">${n.channelLabel || 'In-App'}</span>
+          </div>
+          <p class="small muted" style="margin: 0; font-size: 0.75rem; line-height: 1.35;">${n.summary}</p>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+            ${n.caseId ? `<button type="button" class="btn-subtle btn-sm" data-action="nav-to-case" data-case="${n.caseId}" style="font-size: 0.75rem; padding: 2px 8px;">View Case →</button>` : '<span></span>'}
+            ${!n.read ? `<button type="button" class="btn-ghost btn-sm" data-action="notif-mark-read" data-id="${n.id}" style="font-size: 0.75rem; padding: 2px 6px;">Mark read</button>` : '<span class="small muted" style="font-size: 0.75rem;">Read</span>'}
+          </div>
+        </div>
+      `).join('');
+    }
+  }
 }
 
 function renderNav(s, user, allowed) {
@@ -234,6 +313,12 @@ function renderNav(s, user, allowed) {
 
   const pendingApprovalsCount = getPendingApprovals(s).length;
   const pendingUsersCount = (s.users || []).filter((u) => u.status === 'pending').length;
+
+  const vCases = visibleCases(s);
+  let totalLooseEnds = 0;
+  for (const vc of vCases) {
+    totalLooseEnds += detectLooseEnds(s, vc).length;
+  }
 
   const navHtml = allowed
     .map((secId) => {
@@ -246,6 +331,8 @@ function renderNav(s, user, allowed) {
         badge = html`<span class="tag tag-warning" style="margin-left: auto;">${pendingUsersCount}</span>`;
       } else if (secId === 'team' && pendingApprovalsCount > 0) {
         badge = html`<span class="tag tag-warning" style="margin-left: auto;">${pendingApprovalsCount}</span>`;
+      } else if (secId === 'cases' && totalLooseEnds > 0) {
+        badge = html`<span class="tag tag-warning" style="margin-left: auto;">${totalLooseEnds}</span>`;
       }
 
       return html`
@@ -282,10 +369,37 @@ function renderMain(s) {
 
 function setupEvents() {
   document.addEventListener('click', (e) => {
+    // 0. Mobile Navigation Hamburger & Backdrop
+    const mobileNavToggle = e.target.closest('#btn-mobile-nav-toggle');
+    if (mobileNavToggle) {
+      const nav = document.getElementById('portal-nav');
+      const backdrop = document.getElementById('mobile-nav-backdrop');
+      const isOpen = nav?.classList.toggle('is-open');
+      mobileNavToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      if (backdrop) {
+        if (isOpen) backdrop.removeAttribute('hidden');
+        else backdrop.setAttribute('hidden', '');
+      }
+      return;
+    }
+
+    const mobileBackdrop = e.target.closest('#mobile-nav-backdrop');
+    if (mobileBackdrop) {
+      document.getElementById('portal-nav')?.classList.remove('is-open');
+      mobileBackdrop.setAttribute('hidden', '');
+      document.getElementById('btn-mobile-nav-toggle')?.setAttribute('aria-expanded', 'false');
+      return;
+    }
+
     // 1. Navigation clicks
     const navBtn = e.target.closest('[data-action="nav-go"]');
     if (navBtn) {
       e.preventDefault();
+      // Close mobile navigation drawer if open
+      document.getElementById('portal-nav')?.classList.remove('is-open');
+      document.getElementById('mobile-nav-backdrop')?.setAttribute('hidden', '');
+      document.getElementById('btn-mobile-nav-toggle')?.setAttribute('aria-expanded', 'false');
+
       const sec = navBtn.dataset.section;
       if (sec && SECTIONS[sec]) {
         currentSection = sec;
@@ -316,6 +430,65 @@ function setupEvents() {
     if (popover && !popover.contains(e.target)) {
       popover.setAttribute('hidden', '');
       document.getElementById('account-trigger')?.setAttribute('aria-expanded', 'false');
+    }
+
+    // 2b. Notification popover toggle (#071)
+    const notifTrigger = e.target.closest('#btn-notification-trigger');
+    const notifPopover = document.getElementById('notification-popover');
+    if (notifTrigger) {
+      e.stopPropagation();
+      if (notifPopover) {
+        const isHidden = notifPopover.hasAttribute('hidden');
+        if (isHidden) {
+          notifPopover.removeAttribute('hidden');
+          notifTrigger.setAttribute('aria-expanded', 'true');
+          popover?.setAttribute('hidden', '');
+        } else {
+          notifPopover.setAttribute('hidden', '');
+          notifTrigger.setAttribute('aria-expanded', 'false');
+        }
+      }
+      return;
+    }
+
+    if (notifPopover && !notifPopover.contains(e.target) && !e.target.closest('#btn-notification-trigger')) {
+      notifPopover.setAttribute('hidden', '');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'false');
+    }
+
+    // Notification All / Unread tabs
+    const notifTabBtn = e.target.closest('[data-action="notif-tab"]');
+    if (notifTabBtn) {
+      currentNotificationFilter = notifTabBtn.dataset.tab;
+      renderApp();
+      const pop = document.getElementById('notification-popover');
+      if (pop) pop.removeAttribute('hidden');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'true');
+      return;
+    }
+
+    // Mark all notifications read
+    if (e.target.closest('#btn-mark-all-read')) {
+      update((s) => markAllNotificationsRead(s));
+      toast('All notifications marked as read.', 'success');
+      renderApp();
+      const pop = document.getElementById('notification-popover');
+      if (pop) pop.removeAttribute('hidden');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'true');
+      return;
+    }
+
+    // Mark single notification read
+    const notifReadBtn = e.target.closest('[data-action="notif-mark-read"]');
+    if (notifReadBtn) {
+      const nid = notifReadBtn.dataset.id;
+      update((s) => markNotificationRead(s, nid));
+      toast('Notification marked as read.', 'info');
+      renderApp();
+      const pop = document.getElementById('notification-popover');
+      if (pop) pop.removeAttribute('hidden');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'true');
+      return;
     }
 
     // 3. Sign out button
@@ -722,6 +895,7 @@ function setupEvents() {
 
     const caseInspectBtn = e.target.closest('[data-action="case-inspect"]');
     if (caseInspectBtn) {
+      lastFocusedTrigger = caseInspectBtn;
       const cid = caseInspectBtn.dataset.id;
       caseView.selectedCaseId = cid;
       if (caseInspectBtn.dataset.tab) {
@@ -729,14 +903,20 @@ function setupEvents() {
       } else {
         caseView.journeyTab = 'timeline';
       }
+      if (caseInspectBtn.dataset.rule) {
+        caseView.activeExplanationRuleId = caseInspectBtn.dataset.rule;
+      }
+      caseView.highlightedSourceId = null;
       renderApp();
+      setTimeout(() => {
+        document.querySelector('.drawer-close-btn')?.focus();
+      }, 50);
       return;
     }
 
     const caseModalClose = e.target.closest('[data-action="case-modal-close"]');
     if (caseModalClose) {
-      caseView.selectedCaseId = null;
-      renderApp();
+      closeCaseDrawer();
       return;
     }
 
@@ -751,6 +931,7 @@ function setupEvents() {
       caseView.searchQuery = '';
       caseView.estateFilter = 'all';
       caseView.urgencyFilter = 'all';
+      caseView.activeTab = 'all';
       renderApp();
       return;
     }
@@ -767,9 +948,14 @@ function setupEvents() {
 
     const caseRippleNav = e.target.closest('[data-action="case-ripple-nav"]');
     if (caseRippleNav) {
+      const cid = caseRippleNav.dataset.case;
+      const tid = caseRippleNav.dataset.task;
       caseView.selectedCaseId = null;
       currentSection = 'plan';
       window.location.hash = '#plan';
+      if (tid) {
+        planView.selectedTaskId = tid;
+      }
       toast('Opened What-If Simulator & Ripple Intelligence for case task.', 'info');
       renderApp();
       return;
@@ -778,6 +964,9 @@ function setupEvents() {
     const navToCaseBtn = e.target.closest('[data-action="nav-to-case"]');
     if (navToCaseBtn) {
       closeModal();
+      const pop = document.getElementById('notification-popover');
+      if (pop) pop.setAttribute('hidden', '');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'false');
       const cid = navToCaseBtn.dataset.case;
       currentSection = 'cases';
       window.location.hash = '#cases';
@@ -787,17 +976,66 @@ function setupEvents() {
       return;
     }
 
-    const caseCloseBtn = e.target.closest('[data-action="case-close-action"]');
-    if (caseCloseBtn) {
-      const cid = caseCloseBtn.dataset.case;
+    const caseRequestClosureBtn = e.target.closest('[data-action="case-request-closure"]');
+    if (caseRequestClosureBtn) {
+      const cid = caseRequestClosureBtn.dataset.case;
       update((s) => {
-        const res = closeCase(s, cid);
+        const res = requestCaseClosure(s, cid);
         if (!res.success) {
           toast(res.error, 'error');
         } else {
-          toast(`Case ${res.case.caseNumber} closed successfully.`, 'success');
+          toast('Closure approval request submitted to Manager Jennifer Ong.', 'success');
         }
       });
+      renderApp();
+      return;
+    }
+
+    const caseCloseBtn = e.target.closest('[data-action="case-close-action"]');
+    if (caseCloseBtn) {
+      const cid = caseCloseBtn.dataset.case;
+      const s = getState();
+      if (!isManager(s)) {
+        update((st) => {
+          const res = requestCaseClosure(st, cid);
+          if (!res.success) {
+            toast(res.error, 'error');
+            caseView.journeyTab = 'readiness';
+          } else {
+            toast('Closure approval request submitted to Manager Jennifer Ong.', 'success');
+          }
+        });
+      } else {
+        update((st) => {
+          const res = closeCase(st, cid);
+          if (!res.success) {
+            toast(res.error, 'error');
+            caseView.journeyTab = 'readiness';
+          } else {
+            toast(`Case ${res.case.caseNumber} closed successfully.`, 'success');
+          }
+        });
+      }
+      renderApp();
+      return;
+    }
+
+    const caseSubmitNoteBtn = e.target.closest('[data-action="case-submit-note"]');
+    if (caseSubmitNoteBtn) {
+      const form = document.getElementById('case-add-note-form');
+      if (form) {
+        if (typeof form.requestSubmit === 'function') {
+          form.requestSubmit(caseSubmitNoteBtn);
+        } else {
+          form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
+      }
+      return;
+    }
+
+    const caseRefreshBriefBtn = e.target.closest('[data-action="case-refresh-brief"]');
+    if (caseRefreshBriefBtn) {
+      toast('AI Case Brief refreshed from latest verified case state.', 'info');
       renderApp();
       return;
     }
@@ -814,6 +1052,9 @@ function setupEvents() {
       const el = document.getElementById('case-brief-text');
       if (el) {
         navigator.clipboard?.writeText(el.innerText);
+        const originalText = caseCopyBriefBtn.innerHTML;
+        caseCopyBriefBtn.innerHTML = '✓ Copied!';
+        setTimeout(() => { caseCopyBriefBtn.innerHTML = originalText; }, 2000);
         toast('Case Brief copied to clipboard.', 'success');
       }
       return;
@@ -838,6 +1079,204 @@ function setupEvents() {
         }
       });
       renderApp();
+      return;
+    }
+
+    const resolveFindingBtn = e.target.closest('[data-action="case-resolve-finding"]');
+    if (resolveFindingBtn) {
+      const cid = resolveFindingBtn.dataset.case;
+      const rule = resolveFindingBtn.dataset.rule;
+      update((s) => {
+        resolveLooseEnd(s, cid, rule);
+      });
+      toast('Follow-up outcome recorded and requirement fulfilled.', 'success');
+      renderApp();
+      return;
+    }
+
+    // 14. Evidence-Linked Explanations & Communication Hub events
+    const caseExplainBtn = e.target.closest('[data-action="case-explain-finding"]');
+    if (caseExplainBtn) {
+      const cid = caseExplainBtn.dataset.case;
+      const rule = caseExplainBtn.dataset.rule;
+      caseView.selectedCaseId = cid;
+      caseView.journeyTab = 'loose_ends';
+      caseView.activeExplanationRuleId = rule;
+      caseView.highlightedSourceId = null;
+      renderApp();
+      return;
+    }
+
+    const caseViewExpBtn = e.target.closest('[data-action="case-view-explanation"]');
+    if (caseViewExpBtn) {
+      caseView.activeExplanationRuleId = caseViewExpBtn.dataset.rule;
+      caseView.highlightedSourceId = null;
+      renderApp();
+      return;
+    }
+
+    if (e.target.closest('[data-action="case-exit-explanation"]')) {
+      caseView.activeExplanationRuleId = null;
+      caseView.highlightedSourceId = null;
+      renderApp();
+      return;
+    }
+
+    const radarFilterBtn = e.target.closest('[data-action="case-radar-filter"]');
+    if (radarFilterBtn) {
+      caseView.radarFilter = radarFilterBtn.dataset.filter;
+      renderApp();
+      return;
+    }
+
+    const jumpSourceBtn = e.target.closest('[data-action="case-jump-source"]');
+    if (jumpSourceBtn) {
+      const targetType = jumpSourceBtn.dataset.type;
+      const sourceId = jumpSourceBtn.dataset.sourceId;
+      caseView.highlightedSourceId = sourceId;
+      if (targetType === 'timeline') {
+        caseView.journeyTab = 'timeline';
+      } else if (targetType === 'blocker') {
+        caseView.journeyTab = 'blockers';
+      } else {
+        caseView.journeyTab = 'readiness';
+      }
+      renderApp();
+      return;
+    }
+
+    if (e.target.closest('[data-action="case-return-explanation"]')) {
+      caseView.journeyTab = 'loose_ends';
+      caseView.highlightedSourceId = null;
+      renderApp();
+      return;
+    }
+
+    const resolveBlockerBtn = e.target.closest('[data-action="case-resolve-blocker"]');
+    if (resolveBlockerBtn) {
+      const cid = resolveBlockerBtn.dataset.case;
+      const bid = resolveBlockerBtn.dataset.blocker;
+      update((s) => {
+        resolveCaseBlocker(s, cid, bid);
+      });
+      toast('Blocker marked as resolved. Primary case status updated.', 'success');
+      renderApp();
+      return;
+    }
+
+    const commFilterBtn = e.target.closest('[data-action="comm-filter-channel"]');
+    if (commFilterBtn) {
+      caseView.commChannelFilter = commFilterBtn.dataset.channel;
+      renderApp();
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-toggle-log-form"]')) {
+      const formContainer = document.getElementById('comm-log-form-container');
+      if (formContainer) {
+        formContainer.style.display = formContainer.style.display === 'none' ? 'block' : 'none';
+      }
+      return;
+    }
+
+    const commAckBtn = e.target.closest('[data-action="comm-ack"]');
+    if (commAckBtn) {
+      const mid = commAckBtn.dataset.id;
+      update((s) => acknowledgeCommunication(s, mid));
+      toast('Communication acknowledgement status updated.', 'info');
+      renderApp();
+      return;
+    }
+
+    const commGenBtn = e.target.closest('[data-action="comm-generate-reply"]');
+    if (commGenBtn) {
+      const cid = commGenBtn.dataset.case;
+      const draft = generateDraftReply(getState(), cid);
+      const box = document.getElementById('comm-draft-reply-box');
+      if (box) box.value = draft;
+      toast('Contextual response draft generated.', 'info');
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-copy-reply"]')) {
+      const box = document.getElementById('comm-draft-reply-box');
+      if (box && box.value) {
+        navigator.clipboard?.writeText(box.value);
+        const copyBtn = document.getElementById('btn-copy-draft-reply');
+        if (copyBtn) {
+          const orig = copyBtn.innerHTML;
+          copyBtn.innerHTML = '✓ Copied!';
+          setTimeout(() => { copyBtn.innerHTML = orig; }, 2000);
+        }
+        toast('Draft reply copied to clipboard.', 'success');
+      }
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-load-sample-1"]')) {
+      const inp = document.getElementById('comm-msg-to-task-input');
+      if (inp) {
+        inp.value = 'Hi Officer Aisyah, Eng Seng Plumbing here regarding Blk 211 seepage. We need joint access to #06-12 tomorrow at 14:00 to verify floor trap seal before quote approval.';
+      }
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-load-sample-2"]')) {
+      const inp = document.getElementById('comm-msg-to-task-input');
+      if (inp) {
+        inp.value = 'Hello Town Council, Mdm Tan here from Blk 211 #05-12. Ceiling leak is getting worse after today rain. Please call me back with an update on when contractor can start.';
+      }
+      return;
+    }
+
+    const commParseBtn = e.target.closest('[data-action="comm-parse-task"]');
+    if (commParseBtn) {
+      const cid = commParseBtn.dataset.case;
+      const inp = document.getElementById('comm-msg-to-task-input');
+      const draft = extractTaskDraftFromMessage(inp ? inp.value : '', cid);
+      caseView.extractedTaskDraft = draft;
+      renderApp();
+      toast('Parsed actionable task draft from message. Review and confirm below.', 'info');
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-confirm-task"]')) {
+      const draft = caseView.extractedTaskDraft;
+      if (draft) {
+        update((s) => {
+          const newTask = {
+            id: `t-comm-${Date.now()}`,
+            ownerId: s.currentOfficerId || 'o1',
+            title: draft.title,
+            category: draft.category,
+            priority: draft.priority,
+            due: draft.due,
+            status: 'todo',
+            caseId: draft.caseId,
+            tags: ['Case-Linked', 'Communication-Draft'],
+          };
+          s.tasks.push(newTask);
+          const c = getCase(s, draft.caseId);
+          if (c) {
+            c.taskIds ||= [];
+            c.taskIds.push(newTask.id);
+            c.timeline ||= [];
+            c.timeline.push({
+              id: `ev-${Date.now()}`,
+              at: TODAY,
+              type: 'task_created',
+              title: `Task created: ${newTask.title}`,
+              summary: `Created in Smart Planner from communication draft (${draft.category}).`,
+              source: 'Communication Hub',
+              actor: actorName(s),
+            });
+          }
+          logActivity(s, `Created task "${newTask.title}" from communication draft for Case ${c?.caseNumber || draft.caseId}.`, actorName(s));
+        });
+        caseView.extractedTaskDraft = null;
+        toast('Task confirmed and saved to Smart Planner!', 'success');
+        renderApp();
+      }
       return;
     }
 
@@ -961,8 +1400,63 @@ function setupEvents() {
     }
   });
 
-  // Assistant form submit
+  // Assistant and form submit events
   document.addEventListener('submit', (e) => {
+    if (e.target.id === 'comm-manual-log-form') {
+      e.preventDefault();
+      const form = e.target;
+      const channel = form.channel.value;
+      const category = form.category.value;
+      const content = form.content.value;
+      const cid = caseView.selectedCaseId;
+
+      const trimmed = (content || '').trim();
+      if (trimmed.length < 4) {
+        toast('Please provide valid communication notes (at least 4 characters).', 'error');
+        return;
+      }
+
+      update((s) => {
+        addCommunication(s, {
+          caseId: cid,
+          channel,
+          direction: 'outbound',
+          sender: `${actorName(s)} (Property Officer)`,
+          recipient: 'Resident / Contractor',
+          category,
+          content: trimmed,
+          sourceLabel: 'Manually recorded',
+        });
+        logActivity(s, `Logged manual ${channel} communication for Case ${cid}: ${category}`, actorName(s));
+      });
+
+      toast('Simulated communication record saved.', 'success');
+      renderApp();
+      return;
+    }
+
+    if (e.target.id === 'case-add-note-form') {
+      e.preventDefault();
+      const form = e.target;
+      const cid = form.dataset.case || caseView.selectedCaseId;
+      const category = form.noteCategory?.value || 'Inspection Update';
+      const content = form.noteContent?.value || '';
+
+      const trimmed = (content || '').trim();
+      if (trimmed.length < 4) {
+        toast('Please enter a valid note content (at least 4 characters).', 'error');
+        return;
+      }
+
+      update((s) => {
+        addCaseProgressNote(s, cid, category, trimmed);
+      });
+
+      toast('Progress note recorded and added to timeline.', 'success');
+      renderApp();
+      return;
+    }
+
     if (e.target.dataset.action === 'assistant-submit') {
       e.preventDefault();
       const input = document.getElementById('assistant-input-box');
@@ -970,6 +1464,71 @@ function setupEvents() {
         const text = input.value.trim();
         input.value = '';
         assistantPage.ask(getState(), text, () => renderApp());
+      }
+    }
+  });
+
+  // Global Keyboard Navigation & Focus Trap (Escape and Tab)
+  document.addEventListener('keydown', (e) => {
+    // Escape key handling
+    if (e.key === 'Escape') {
+      // 1. Mobile navigation drawer
+      const mobileNav = document.getElementById('portal-nav');
+      if (mobileNav?.classList.contains('is-open')) {
+        mobileNav.classList.remove('is-open');
+        document.getElementById('mobile-nav-backdrop')?.setAttribute('hidden', '');
+        document.getElementById('btn-mobile-nav-toggle')?.setAttribute('aria-expanded', 'false');
+        return;
+      }
+
+      // 2. Case Journey drawer
+      if (caseView.selectedCaseId) {
+        closeCaseDrawer();
+        return;
+      }
+
+      // 3. Generic modals
+      const modalRoot = document.getElementById('modal-root');
+      if (modalRoot && !modalRoot.hasAttribute('hidden')) {
+        closeModal();
+        return;
+      }
+
+      // 4. Notifications popover
+      const notifPopover = document.getElementById('notification-popover');
+      if (notifPopover && !notifPopover.hasAttribute('hidden')) {
+        notifPopover.setAttribute('hidden', '');
+        document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'false');
+        return;
+      }
+
+      // 5. Account menu popover
+      const accountPopover = document.getElementById('account-popover');
+      if (accountPopover && !accountPopover.hasAttribute('hidden')) {
+        accountPopover.setAttribute('hidden', '');
+        document.getElementById('account-trigger')?.setAttribute('aria-expanded', 'false');
+        return;
+      }
+    }
+
+    // Tab key focus trap inside active drawer
+    if (e.key === 'Tab' && caseView.selectedCaseId) {
+      const drawer = document.querySelector('.drawer-panel');
+      if (drawer) {
+        const focusable = drawer.querySelectorAll(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length > 0) {
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
       }
     }
   });
