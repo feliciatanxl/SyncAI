@@ -2456,6 +2456,7 @@ td.cell-risk,
   color: var(--colorNeutralForeground1);
   text-decoration: none;
   line-height: 1.35;
+  cursor: pointer;
 }
 
 .case-title-link:hover {
@@ -2844,4 +2845,386 @@ td.cell-risk,
     width: 100%;
     justify-content: center;
   }
+}
+
+/* ==========================================================================
+   Case Action Centre V6 — calmer workspace, spacious actions and case detail
+   ========================================================================== */
+
+.case-action-hero {
+  background: linear-gradient(120deg, #0c3b70 0%, #075fae 62%, #0878c9 100%);
+  border-radius: 18px;
+  box-shadow: 0 14px 32px rgba(12, 59, 112, 0.14);
+}
+
+.case-overview-grid {
+  gap: 18px;
+}
+
+.case-stat-card {
+  min-height: 154px;
+  padding: 22px;
+  border-radius: 14px;
+}
+
+.case-workspace-panel {
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(20, 37, 63, 0.06);
+}
+
+.case-workspace-header {
+  padding: 24px 28px 20px;
+}
+
+.case-toolbar-container {
+  padding: 18px 28px 20px;
+  gap: 16px;
+  background: linear-gradient(180deg, var(--colorNeutralBackground1), var(--colorNeutralBackground2));
+}
+
+.case-status-tabs {
+  padding: 4px;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 10px;
+  background: var(--colorNeutralBackground1);
+}
+
+.case-status-tabs .filter-tab {
+  min-height: 36px;
+  border-radius: 7px;
+}
+
+.case-table-wrap {
+  padding: 14px 20px 22px;
+  overflow-x: auto;
+}
+
+.case-table {
+  min-width: 1120px;
+  border-spacing: 0 10px;
+  border-collapse: separate;
+}
+
+.case-table thead th {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--colorNeutralForeground3);
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  font-size: 0.7rem;
+}
+
+.case-table tbody td {
+  padding-top: 20px;
+  padding-bottom: 20px;
+  background: var(--colorNeutralBackground1);
+  border-top: 1px solid var(--colorNeutralStroke2);
+  border-bottom: 1px solid var(--colorNeutralStroke2);
+}
+
+.case-table tbody td:first-child {
+  border-left: 1px solid var(--colorNeutralStroke2);
+  border-radius: 12px 0 0 12px;
+  box-shadow: inset 4px 0 0 var(--colorBrandStroke1);
+}
+
+.case-table tbody td:last-child {
+  border-right: 1px solid var(--colorNeutralStroke2);
+  border-radius: 0 12px 12px 0;
+}
+
+.case-table-row {
+  cursor: pointer;
+  outline: none;
+}
+
+.case-table-row:hover td,
+.case-table-row:focus-visible td {
+  background: var(--colorBrandBackground2);
+  border-color: var(--colorBrandStroke2);
+}
+
+.case-table-row:focus-visible td:first-child {
+  box-shadow: inset 4px 0 0 var(--colorBrandStroke1), 0 0 0 2px var(--colorBrandStroke2);
+}
+
+.case-table .th-case-title { width: 27%; min-width: 260px; }
+.case-table .th-case-category { width: 12%; min-width: 130px; }
+.case-table .th-case-status { width: 14%; min-width: 150px; }
+.case-table .th-case-officer { width: 13%; min-width: 145px; }
+.case-table .th-case-deadlines { width: 17%; min-width: 185px; }
+.case-table .th-case-actions { width: 17%; min-width: 220px; }
+
+.case-cell-primary { gap: 6px; }
+.case-title-link { font-size: 1rem; }
+.case-actions-group {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  justify-content: end;
+  align-items: center;
+  gap: 8px;
+}
+
+.case-actions-group > .tag { grid-column: 1 / -1; justify-self: end; }
+.case-actions-group .btn-sm {
+  min-height: 36px;
+  padding-inline: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.case-view-btn { box-shadow: 0 4px 12px rgba(0, 95, 184, 0.16); }
+
+/* Kanban is a complete board at desktop widths instead of a clipped strip. */
+.kanban-board-container {
+  padding: 18px 20px 24px;
+  background: var(--colorNeutralBackground2);
+}
+
+.kanban-board-guide {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 4px 14px;
+}
+
+.kanban-board-guide > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 650;
+  color: var(--colorNeutralForeground2);
+}
+
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(210px, 1fr));
+  gap: 14px;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.kanban-col {
+  min-width: 0;
+  min-height: 390px;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 14px;
+  background: var(--colorNeutralBackground1);
+  box-shadow: 0 4px 14px rgba(20, 37, 63, 0.04);
+}
+
+.kanban-col-header {
+  min-height: 68px;
+  padding: 14px;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--colorNeutralStroke3);
+  background: linear-gradient(180deg, var(--colorNeutralBackground1), var(--colorNeutralBackground2));
+  border-radius: 14px 14px 0 0;
+}
+
+.kanban-col-header-left,
+.kanban-card-top-left,
+.kanban-card-badges,
+.kanban-meta-item {
+  display: flex;
+  align-items: center;
+}
+
+.kanban-col-header-left { gap: 7px; }
+.kanban-col-icon { color: var(--colorNeutralForeground3); flex: none; }
+.kanban-col-title { line-height: 1.3; }
+.kanban-cards-wrapper { padding: 12px; gap: 12px; }
+
+.kanban-case-card {
+  padding: 14px;
+  gap: 13px;
+  border-radius: 12px;
+  border-left-width: 4px;
+  box-shadow: 0 5px 16px rgba(20, 37, 63, 0.06);
+  cursor: pointer;
+}
+
+.kanban-case-card:hover,
+.kanban-case-card:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(20, 37, 63, 0.11);
+}
+
+.kanban-card-top-left { gap: 6px; }
+.kanban-card-badges { gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.kanban-card-drag-affordance { cursor: grab; display: inline-flex; color: var(--colorNeutralForeground4); }
+.kanban-card-title { margin: 0; font-size: 0.96rem; line-height: 1.4; font-weight: 650; }
+.kanban-card-meta { margin-top: 8px; display: grid; gap: 5px; }
+.kanban-meta-item { gap: 5px; min-width: 0; }
+.kanban-card-indicators { display: flex; flex-direction: column; gap: 7px; }
+.kanban-deadline-tag { display: inline-flex; align-items: flex-start; gap: 5px; font-size: 0.75rem; line-height: 1.35; }
+.kanban-card-footer { display: grid; grid-template-columns: 1fr; gap: 7px; }
+.kanban-card-footer .btn-sm { width: 100%; justify-content: center; min-height: 35px; }
+.kanban-empty-col { min-height: 210px; border-radius: 10px; }
+
+/* Case detail is a centered, navigable workspace rather than a narrow drawer. */
+.case-workspace-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(10, 24, 42, 0.58);
+  backdrop-filter: blur(4px);
+}
+
+.case-detail-workspace {
+  width: min(1180px, calc(100vw - 56px));
+  height: min(820px, calc(100vh - 56px));
+  max-width: none;
+  background: var(--colorNeutralBackground1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 18px;
+  box-shadow: 0 28px 80px rgba(6, 20, 38, 0.32);
+  animation: caseWorkspaceIn 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes caseWorkspaceIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.case-detail-header {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--colorNeutralStroke2);
+  background: linear-gradient(135deg, #f7fbff 0%, var(--colorNeutralBackground1) 70%);
+}
+
+.case-detail-heading { flex: 1; min-width: 0; }
+.case-detail-kicker,
+.case-detail-owner-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.case-detail-kicker .case-number {
+  font: 700 0.78rem/1.2 Consolas, monospace;
+  color: var(--colorBrandForeground1);
+  letter-spacing: 0.02em;
+}
+
+.case-detail-location { display: inline-flex; align-items: center; gap: 4px; }
+.case-detail-heading h2 {
+  margin: 9px 0 10px;
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  line-height: 1.25;
+  color: var(--colorNeutralForeground1);
+}
+
+.case-owner-button { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; }
+.case-detail-readiness {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #745000;
+  background: #fff6d8;
+}
+.case-detail-readiness.is-ready { color: #0b6b43; background: #e7f7ef; }
+
+.case-detail-main {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  background: var(--colorNeutralBackground1);
+}
+
+.case-detail-nav {
+  align-content: start;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: 20px 14px;
+  border: 0;
+  border-right: 1px solid var(--colorNeutralStroke2);
+  background: var(--colorNeutralBackground2);
+}
+
+.case-detail-nav .drawer-tab-btn {
+  width: 100%;
+  min-height: 42px;
+  justify-content: space-between;
+  text-align: left;
+  border-color: transparent;
+  background: transparent;
+  padding: 9px 11px;
+}
+
+.case-detail-nav .drawer-tab-btn:hover { background: var(--colorNeutralBackground1Hover); }
+.case-detail-nav .drawer-tab-btn.is-active {
+  background: var(--colorBrandBackground2);
+  border-color: var(--colorBrandStroke2);
+  box-shadow: inset 3px 0 0 var(--colorBrandStroke1);
+}
+
+.drawer-tab-label { white-space: normal; line-height: 1.25; }
+.case-detail-content { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.case-detail-scroll { flex: 1; overflow-y: auto; padding: 24px 28px 32px; }
+
+.case-detail-footer {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--colorNeutralStroke2);
+  background: var(--colorNeutralBackground2);
+}
+
+@media (max-width: 1280px) {
+  .kanban-board { grid-template-columns: repeat(3, minmax(230px, 1fr)); }
+  .kanban-board .kanban-col:nth-child(n + 4) { min-height: 300px; }
+}
+
+@media (max-width: 900px) {
+  .case-workspace-backdrop { padding: 12px; }
+  .case-detail-workspace { width: calc(100vw - 24px); height: calc(100vh - 24px); border-radius: 14px; }
+  .case-detail-main { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .case-detail-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 10px 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--colorNeutralStroke2);
+  }
+  .case-detail-nav .drawer-tab-btn { width: auto; min-width: max-content; }
+  .case-detail-scroll { padding: 20px; }
+  .kanban-board { grid-template-columns: repeat(2, minmax(240px, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .case-detail-header { padding: 18px; }
+  .case-detail-owner-row { align-items: flex-start; }
+  .case-detail-footer { padding: 12px 16px; }
+  .kanban-board-guide { align-items: flex-start; flex-direction: column; }
+  .kanban-board { grid-template-columns: 1fr !important; }
+  .case-table-wrap { padding: 12px; }
 }

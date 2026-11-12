@@ -1021,6 +1021,10 @@ function setupEvents() {
 
     const caseInspectBtn = e.target.closest('[data-action="case-inspect"]');
     if (caseInspectBtn) {
+      // Case links behave as in-page workspace controls; do not let their
+      // fallback hash navigate away before the detail workspace opens.
+      e.preventDefault();
+      e.stopPropagation();
       lastFocusedTrigger = caseInspectBtn;
       const cid = caseInspectBtn.dataset.id;
       caseView.selectedCaseId = cid;
@@ -1703,6 +1707,23 @@ function setupEvents() {
 
   // Global Keyboard Navigation & Focus Trap (Escape and Tab)
   document.addEventListener('keydown', (e) => {
+    // Rows and Kanban cards expose keyboard-equivalent click behavior.
+    if ((e.key === 'Enter' || e.key === ' ') && !caseView.selectedCaseId) {
+      const caseSurface = e.target.closest('[data-action="case-row-click"], [data-action="case-card-surface"]');
+      if (caseSurface && !e.target.closest('button, a, input, select, textarea')) {
+        e.preventDefault();
+        const cid = caseSurface.dataset.caseId || caseSurface.dataset.case;
+        if (cid) {
+          lastFocusedTrigger = caseSurface;
+          caseView.selectedCaseId = cid;
+          caseView.journeyTab = 'timeline';
+          renderApp();
+          setTimeout(() => document.querySelector('.drawer-close-btn')?.focus(), 50);
+          return;
+        }
+      }
+    }
+
     // Escape key handling
     if (e.key === 'Escape') {
       // 1. Mobile navigation drawer

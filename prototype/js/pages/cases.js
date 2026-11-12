@@ -773,7 +773,7 @@ function renderCaseList(s, cases) {
             const statusClass = c.status === 'closed' || c.status === 'Closed' ? 'tag-neutral' : c.status === 'ready_for_closure' ? 'tag-success' : isBlocked ? 'tag-warning' : 'tag-brand';
 
             return html`
-              <tr class="case-table-row" data-case-id="${c.id}" data-action="case-row-click" tabindex="0">
+              <tr class="case-table-row" data-case-id="${c.id}" data-action="case-row-click" tabindex="0" role="button" aria-label="Open case ${c.number || c.caseNumber || c.id}: ${c.title}">
                 <td data-label="Case / Location">
                   <div class="case-cell-primary">
                     <span class="case-number-badge" data-action="case-inspect" data-id="${c.id}" style="cursor: pointer;">${c.number || c.caseNumber || c.id}</span>
@@ -807,8 +807,8 @@ function renderCaseList(s, cases) {
                           </button>
                         `
                       : ''}
-                    <button type="button" class="btn-primary btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="timeline">
-                      View Case
+                    <button type="button" class="btn-primary btn-sm case-view-btn" data-action="case-inspect" data-id="${c.id}" data-tab="timeline">
+                      ${icon('eye', 14)} View Case
                     </button>
                     <button
                       type="button"
@@ -837,15 +837,19 @@ function renderCaseList(s, cases) {
  */
 function renderCaseKanban(s, cases) {
   return html`
-    <div class="kanban-board-container" style="padding: 20px 24px;">
+    <div class="kanban-board-container">
+      <div class="kanban-board-guide">
+        <span>${icon('columns', 15)} Workflow board</span>
+        <span class="muted small">Drag a card between columns, or use “Move stage” for an accessible workflow.</span>
+      </div>
       <div class="kanban-board">
         ${KANBAN_COLUMNS.map((col) => {
           const colCases = cases.filter((c) => getCaseKanbanColumn(c) === col.id);
           return html`
             <div class="kanban-col" data-col-id="${col.id}">
               <div class="kanban-col-header">
-                <div class="kanban-col-header-left" style="display: flex; align-items: center; gap: 8px;">
-                  <span class="kanban-col-icon" style="color: var(--colorNeutralForeground3);">${icon('columns', 14)}</span>
+                <div class="kanban-col-header-left">
+                  <span class="kanban-col-icon">${icon('columns', 14)}</span>
                   <strong class="kanban-col-title">${col.title}</strong>
                 </div>
                 <span class="tag ${col.badgeClass} small kanban-count-badge">${colCases.length}</span>
@@ -873,32 +877,32 @@ function renderCaseKanban(s, cases) {
                           style="border-left-color: ${ends.length > 0 ? 'var(--colorPaletteMarigoldBorderActive)' : isBlocked ? 'var(--colorPaletteRedBorderActive)' : 'var(--colorBrandStroke1)'};"
                         >
                           <div class="kanban-card-top">
-                            <div class="kanban-card-top-left" style="display: flex; align-items: center; gap: 6px;">
-                              <span class="kanban-card-drag-affordance" title="Drag to move stage" aria-hidden="true" style="cursor: grab; display: inline-flex; align-items: center; color: var(--colorNeutralForeground4);">
+                            <div class="kanban-card-top-left">
+                              <span class="kanban-card-drag-affordance" title="Drag to move stage" aria-hidden="true">
                                 ${icon('menu', 14)}
                               </span>
                               <span class="case-number-badge" data-action="case-inspect" data-id="${c.id}" style="cursor: pointer;">${c.number || c.caseNumber || c.id}</span>
                             </div>
-                            <div class="kanban-card-badges" style="display: flex; gap: 4px; flex-wrap: wrap;">
+                            <div class="kanban-card-badges">
                               ${isBlocked ? html`<span class="tag tag-danger small" style="display: inline-flex; align-items: center; gap: 4px;">${icon('alert', 12)} Blocked</span>` : ''}
                               <span class="tag ${c.urgency === 'Critical' ? 'tag-danger' : 'tag-neutral'} small">${c.urgency || 'Standard'}</span>
                             </div>
                           </div>
 
                           <div class="kanban-card-body">
-                            <h3 class="kanban-card-title" style="margin: 0; font-size: 0.9375rem; line-height: 1.35; font-weight: 600;">
+                            <h3 class="kanban-card-title">
                               <a href="#cases/${c.id}" class="kanban-card-link" data-action="case-inspect" data-id="${c.id}">${c.title}</a>
                             </h3>
 
-                            <div class="kanban-card-meta muted" style="margin-top: 6px;">
-                              <span class="kanban-meta-item" style="display: inline-flex; align-items: center; gap: 4px;">
+                            <div class="kanban-card-meta muted">
+                              <span class="kanban-meta-item">
                                 ${icon('users', 12)} ${officerName(s, c.ownerId)}
                               </span>
-                              ${c.location ? html`<span class="kanban-meta-item" style="display: inline-flex; align-items: center; gap: 4px;">${icon('pin', 12)} ${c.location}</span>` : ''}
+                              ${c.location ? html`<span class="kanban-meta-item">${icon('pin', 12)} ${c.location}</span>` : ''}
                             </div>
                           </div>
 
-                          <div class="kanban-card-indicators" style="display: flex; flex-direction: column; gap: 6px;">
+                          <div class="kanban-card-indicators">
                             ${ends.length > 0
                               ? html`
                                   <button
@@ -915,7 +919,7 @@ function renderCaseKanban(s, cases) {
                               : ''}
                             ${c.slaDue
                               ? html`
-                                  <span class="kanban-deadline-tag small muted" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem;">
+                                  <span class="kanban-deadline-tag small muted">
                                     ${icon('clock', 12)} SLA Due: ${fmtCompactDeadline(c.slaDue)}
                                   </span>
                                 `
@@ -923,8 +927,8 @@ function renderCaseKanban(s, cases) {
                           </div>
 
                           <div class="kanban-card-footer">
-                            <button type="button" class="btn-primary btn-sm" data-action="case-inspect" data-id="${c.id}" data-tab="timeline">
-                              View Case
+                            <button type="button" class="btn-primary btn-sm case-view-btn" data-action="case-inspect" data-id="${c.id}" data-tab="timeline">
+                              ${icon('eye', 14)} View Case
                             </button>
                             <button
                               type="button"
@@ -1203,36 +1207,39 @@ function renderCaseJourneyModal(s, c) {
   );
 
   return html`
-    <div class="modal-backdrop is-open" data-action="case-modal-close" style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: flex-end;">
+    <div class="modal-backdrop is-open case-workspace-backdrop" data-action="case-modal-close">
       <div
-        class="drawer-panel"
+        class="drawer-panel case-detail-workspace"
         onclick="event.stopPropagation()"
-        style="width: min(100%, 720px); height: 100%; background: var(--colorNeutralBackground1); display: flex; flex-direction: column; box-shadow: var(--shadow64); animation: slideInRight 0.25s cubic-bezier(0,0,0.2,1);"
         role="dialog"
         aria-modal="true"
         aria-labelledby="case-drawer-title"
         tabindex="-1"
       >
         <!-- Drawer Header -->
-        <div class="drawer-header" style="padding: 18px 24px; border-bottom: 1px solid var(--colorNeutralStroke2); display: flex; justify-content: space-between; align-items: flex-start; background: var(--colorNeutralBackground2); gap: 16px;">
-          <div style="flex: 1; min-width: 0;">
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-              <span class="case-number" style="font-family: monospace; font-size: 0.8125rem; font-weight: 700; color: var(--colorBrandForeground1);">${c.number || c.caseNumber || c.id}</span>
+        <div class="drawer-header case-detail-header">
+          <div class="case-detail-heading">
+            <div class="case-detail-kicker">
+              <span class="case-number">${c.number || c.caseNumber || c.id}</span>
               <span class="tag ${c.status === 'closed' ? 'tag-neutral' : c.status === 'ready_for_closure' ? 'tag-success' : 'tag-brand'} small">${c.status}</span>
               ${pendingClosure ? html`<span class="tag tag-warning small">${icon('clock', 12)} Pending Sign-Off</span>` : ''}
-              ${c.location ? html`<span class="small muted" style="display: inline-flex; align-items: center; gap: 4px;">${icon('pin', 12)} ${c.location}</span>` : ''}
+              ${c.location ? html`<span class="small muted case-detail-location">${icon('pin', 12)} ${c.location}</span>` : ''}
+            </div>
+            <h2 id="case-drawer-title">${c.title}</h2>
+            <div class="case-detail-owner-row">
               <button
                 type="button"
-                class="btn-ghost btn-sm"
+                class="btn-ghost btn-sm case-owner-button"
                 data-action="case-reassign-dialog"
                 data-case="${c.id}"
                 title="Click to reassign this case"
-                style="display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-size: 0.8125rem; padding: 2px 8px; border-radius: 4px; cursor: pointer;"
               >
                 ${icon('users', 12)} Assigned: <strong>${officerName(s, c.ownerId)}</strong>
               </button>
+              <span class="case-detail-readiness ${readiness.isReady ? 'is-ready' : ''}">
+                ${icon(readiness.isReady ? 'check' : 'clock', 13)} ${readiness.isReady ? 'Ready for closure' : `${readiness.unresolvedItems.length} closure item${readiness.unresolvedItems.length === 1 ? '' : 's'} pending`}
+              </span>
             </div>
-            <h2 id="case-drawer-title" style="font-size: 1.1875rem; margin: 8px 0 0; line-height: 1.35; color: var(--colorNeutralForeground1); font-weight: 600;">${c.title}</h2>
           </div>
           <button type="button" class="drawer-close-btn" data-action="case-modal-close" aria-label="Close drawer" title="Close drawer">
             ${icon('x', 20)}
@@ -1240,7 +1247,8 @@ function renderCaseJourneyModal(s, c) {
         </div>
 
         <!-- Responsive Wrapped Navigation Tabs -->
-        <nav class="drawer-tabs-nav" style="padding: 10px 24px; border-bottom: 1px solid var(--colorNeutralStroke2); display: flex; flex-wrap: wrap; gap: 8px; background: var(--colorNeutralBackground1);" role="tablist" aria-label="Case detail sections">
+        <div class="case-detail-main">
+        <nav class="drawer-tabs-nav case-detail-nav" role="tablist" aria-label="Case detail sections">
           ${[
             ['timeline', 'Timeline & Notes', null],
             ['loose_ends', 'Outstanding Follow-Ups', looseEnds.length],
@@ -1258,12 +1266,14 @@ function renderCaseJourneyModal(s, c) {
                 role="tab"
                 aria-selected="${caseView.journeyTab === tabKey ? 'true' : 'false'}"
               >
-                ${label}
+                <span class="drawer-tab-label">${label}</span>
                 ${count != null ? html`<span class="tab-count ${count > 0 && (tabKey === 'loose_ends' || tabKey === 'blockers') ? 'tab-count-warn' : ''}">${count}</span>` : ''}
               </button>
             `,
           )}
         </nav>
+
+        <div class="case-detail-content">
 
         <!-- Highlighting Source Notice Bar (if returning from inspection) -->
         ${caseView.highlightedSourceId
@@ -1280,7 +1290,7 @@ function renderCaseJourneyModal(s, c) {
           : ''}
 
         <!-- Tab Body -->
-        <div style="flex: 1; overflow-y: auto; padding: 20px 24px;">
+        <div class="case-detail-scroll">
           ${caseView.journeyTab === 'timeline'
             ? renderJourneyTimelineTab(s, c)
             : caseView.journeyTab === 'loose_ends'
@@ -1294,8 +1304,11 @@ function renderCaseJourneyModal(s, c) {
                     : renderJourneyBriefTab(s, c)}
         </div>
 
+        </div>
+        </div>
+
         <!-- Drawer Footer Actions -->
-        <div class="drawer-footer" style="padding: 16px 24px; border-top: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground2); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <div class="drawer-footer case-detail-footer">
           <div style="display: flex; gap: 8px; align-items: center;">
             <button type="button" class="btn-secondary btn-sm" data-action="case-reassign-dialog" data-case="${c.id}">
               ${icon('user-plus', 14)} Reassign Case
