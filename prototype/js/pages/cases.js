@@ -2420,8 +2420,7 @@ function renderJourneyEvidenceTab(s, c) {
                         </div>
 
                         <h5 style="font-size: 0.875rem; font-weight: 600; margin: 0 0 6px; color: var(--colorNeutralForeground1); line-height: 1.35; min-height: 2.7em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" title="${e.title}">${e.title}</h5>
-                        <p class="small muted" style="margin: 0 0 8px; font-size: 0.75rem; display: flex; align-items: center; gap: 5px;">
-                          ${icon('document', 12)}
+                        <p class="small muted" style="margin: 0 0 8px; font-size: 0.75rem;">
                           <span>${e.fileName || 'document.pdf'} · ${e.fileSize || '1.5 MB'}</span>
                         </p>
                         <p style="font-size: 0.8125rem; color: var(--colorNeutralForeground2); line-height: 1.45; margin: 0 0 10px; min-height: 2.9em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${e.description || 'No description provided.'}</p>
@@ -2465,8 +2464,8 @@ function renderJourneyEvidenceTab(s, c) {
 
       <!-- Demo Local Upload Box -->
       <div class="evidence-upload-section" style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 16px;">
-        <h4 style="font-size: 0.875rem; font-weight: 600; margin: 0 0 4px; color: var(--colorNeutralForeground1); display: flex; align-items: center; gap: 6px;">
-          ${icon('upload', 16)} Attach Operational Evidence (Safe Demo Upload)
+        <h4 style="font-size: 0.875rem; font-weight: 600; margin: 0 0 4px; color: var(--colorNeutralForeground1);">
+          Attach Operational Evidence (Safe Demo Upload)
         </h4>
         <p class="small muted" style="margin: 0 0 12px; font-size: 0.75rem;">
           Upload inspection photos, completion notes, or BCA compliance reports. Local demo storage validated up to 5MB.
