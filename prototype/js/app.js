@@ -43,6 +43,8 @@ import {
   requestCaseStageTransition,
   canTransitionCase,
   normalizeKanbanStage,
+  addCaseEvidence,
+  verifyCaseEvidence,
 } from './state.js';
 import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog } from './ui.js';
 import { accessibleTask, changeTaskStatus, deleteCapturedTask, taskDateInput, taskDuration } from './taskCapture.js';
@@ -444,6 +446,13 @@ function setupKanbanDragAndDrop() {
   });
 
   document.addEventListener('dragover', (e) => {
+    const dropzone = e.target.closest('#evidence-dropzone');
+    if (dropzone) {
+      e.preventDefault();
+      dropzone.classList.add('is-dragover');
+      return;
+    }
+
     const col = e.target.closest('.kanban-col');
     if (!col) return;
     e.preventDefault();
@@ -469,6 +478,12 @@ function setupKanbanDragAndDrop() {
   });
 
   document.addEventListener('dragleave', (e) => {
+    const dropzone = e.target.closest('#evidence-dropzone');
+    if (dropzone && !dropzone.contains(e.relatedTarget)) {
+      dropzone.classList.remove('is-dragover');
+      return;
+    }
+
     const col = e.target.closest('.kanban-col');
     if (!col) return;
     if (!col.contains(e.relatedTarget)) {
@@ -477,6 +492,18 @@ function setupKanbanDragAndDrop() {
   });
 
   document.addEventListener('drop', (e) => {
+    const dropzone = e.target.closest('#evidence-dropzone');
+    if (dropzone) {
+      e.preventDefault();
+      dropzone.classList.remove('is-dragover');
+      const fileInput = document.getElementById('evidence-file-input');
+      if (fileInput && e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return;
+    }
+
     const col = e.target.closest('.kanban-col');
     if (!col) return;
     e.preventDefault();
@@ -515,6 +542,16 @@ function setupEvents() {
       mobileBackdrop.setAttribute('hidden', '');
       document.getElementById('btn-mobile-nav-toggle')?.setAttribute('aria-expanded', 'false');
       return;
+    }
+
+    // Evidence file dropzone click
+    const evidenceDropzone = e.target.closest('#evidence-dropzone');
+    if (evidenceDropzone) {
+      const fileInput = document.getElementById('evidence-file-input');
+      if (fileInput && e.target !== fileInput) {
+        fileInput.click();
+        return;
+      }
     }
 
     // 1. Navigation clicks
@@ -1055,6 +1092,8 @@ function setupEvents() {
     if (journeyTabBtn) {
       caseView.journeyTab = journeyTabBtn.dataset.tab;
       renderApp();
+      const scrollEl = document.querySelector('.case-detail-scroll');
+      if (scrollEl) scrollEl.scrollTop = 0;
       return;
     }
 
@@ -1343,6 +1382,51 @@ function setupEvents() {
       return;
     }
 
+    const verifyEvidenceBtn = e.target.closest('[data-action="case-verify-evidence"]');
+    if (verifyEvidenceBtn) {
+      const cid = verifyEvidenceBtn.dataset.case;
+      const eid = verifyEvidenceBtn.dataset.evidence;
+      update((s) => {
+        const res = verifyCaseEvidence(s, cid, eid, 'verify', actorName(s));
+        if (res.success) {
+          toast('Evidence record verified successfully.', 'success');
+        } else {
+          toast(res.error || 'Failed to verify evidence.', 'error');
+        }
+      });
+      renderApp();
+      return;
+    }
+
+    const rejectEvidenceBtn = e.target.closest('[data-action="case-reject-evidence"]');
+    if (rejectEvidenceBtn) {
+      const cid = rejectEvidenceBtn.dataset.case;
+      const eid = rejectEvidenceBtn.dataset.evidence;
+      const reason = window.prompt('Enter rejection reason for audit register (minimum 4 characters):');
+      if (reason != null) {
+        if (reason.trim().length < 4) {
+          toast('Rejection reason must be at least 4 characters.', 'error');
+        } else {
+          update((s) => {
+            const res = verifyCaseEvidence(s, cid, eid, 'reject', actorName(s), reason.trim());
+            if (res.success) {
+              toast('Evidence record rejected and audit logged.', 'info');
+            } else {
+              toast(res.error || 'Failed to reject evidence.', 'error');
+            }
+          });
+          renderApp();
+        }
+      }
+      return;
+    }
+
+    const previewEvidenceBtn = e.target.closest('[data-action="case-preview-evidence"]');
+    if (previewEvidenceBtn) {
+      toast('Opening simulated evidence preview for demo purposes.', 'info');
+      return;
+    }
+
     // 14. Evidence-Linked Explanations & Communication Hub events
     const caseExplainBtn = e.target.closest('[data-action="case-explain-finding"]');
     if (caseExplainBtn) {
@@ -1548,6 +1632,22 @@ function setupEvents() {
 
   // Filter changes
   document.addEventListener('change', (e) => {
+    if (e.target.id === 'evidence-file-input') {
+      const file = e.target.files && e.target.files[0];
+      const display = document.getElementById('evidence-filename-display');
+      if (file && display) {
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+        display.textContent = `✓ Selected: ${file.name} (${sizeMb} MB)`;
+        display.style.color = 'var(--colorPaletteGreenForeground1)';
+        const titleInput = document.getElementById('evidence-title-input');
+        if (titleInput && !titleInput.value.trim()) {
+          const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[_\-+]+/g, ' ').trim();
+          titleInput.value = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+        }
+      }
+      return;
+    }
+
     if (e.target.dataset.action === 'admin-change-role') {
       const userId = e.target.dataset.id;
       const newRole = e.target.value;
@@ -1706,6 +1806,51 @@ function setupEvents() {
       return;
     }
 
+    if (e.target.id === 'case-evidence-upload-form') {
+      e.preventDefault();
+      const form = e.target;
+      const cid = form.dataset.case || caseView.selectedCaseId;
+      const title = document.getElementById('evidence-title-input')?.value?.trim();
+      const type = document.getElementById('evidence-type-select')?.value || 'document';
+      const fileInput = document.getElementById('evidence-file-input');
+      const reqCheckbox = document.getElementById('evidence-required-checkbox');
+      const desc = document.getElementById('evidence-desc-input')?.value?.trim() || '';
+
+      if (!title || title.length < 3) {
+        toast('Evidence title must be at least 3 characters.', 'error');
+        return;
+      }
+
+      let fileName = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.pdf`;
+      let fileSize = '1.2 MB';
+
+      if (fileInput && fileInput.files && fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        if (file.size > 5 * 1024 * 1024) {
+          toast('File size exceeds the 5MB demo limit. Please select a smaller file.', 'error');
+          return;
+        }
+        fileName = file.name;
+        fileSize = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+      }
+
+      update((s) => {
+        addCaseEvidence(s, cid, {
+          title,
+          fileName,
+          type,
+          fileSize,
+          description: desc,
+          requiredForClosure: reqCheckbox ? reqCheckbox.checked : false,
+          isLocalUpload: true,
+        });
+      });
+
+      toast(`Evidence "${title}" attached and queued for manager review.`, 'success');
+      renderApp();
+      return;
+    }
+
     if (e.target.dataset.action === 'assistant-submit') {
       e.preventDefault();
       const input = document.getElementById('assistant-input-box');
@@ -1734,6 +1879,13 @@ function setupEvents() {
           return;
         }
       }
+    }
+
+    // Evidence dropzone keyboard trigger
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('#evidence-dropzone')) {
+      e.preventDefault();
+      document.getElementById('evidence-file-input')?.click();
+      return;
     }
 
     // Escape key handling

@@ -48,5 +48,19 @@ export function tasksForCase(state, id) {
   return accessibleCase(state, id) ? visibleTasks(state).filter((task) => task.caseId === id) : [];
 }
 
-export { requestCaseStageTransition, canTransitionCase, normalizeKanbanStage } from './state.js';
+export {
+  requestCaseStageTransition,
+  canTransitionCase,
+  normalizeKanbanStage,
+  getCaseEvidence,
+  addCaseEvidence,
+  verifyCaseEvidence,
+  getEvidenceTypeLabel,
+  recordCaseChange,
+  getCaseChangeHistory,
+  getCaseAssigneeHistory,
+  getOfficerZone,
+  getStructuredCaseBrief,
+  syncDeadlineNotifications,
+} from './state.js';
 

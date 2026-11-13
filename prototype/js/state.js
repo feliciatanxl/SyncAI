@@ -2,7 +2,7 @@
 // from the same object so dashboards, tasks, plans and simulations agree.
 
 import { addDemoCases, addPlanningDemoData, createSeedState, DATA_VERSION } from './data.js';
-import { TODAY, NOW, dt, workDay } from './time.js';
+import { TODAY, NOW, dt, workDay, getDeadlineCountdown } from './time.js';
 
 const STORAGE_KEY = 'syncai.prototype.state';
 
@@ -158,6 +158,13 @@ export function getCurrentUser(s) {
 
 export function setCurrentUser(s, userOrRole) {
   if (typeof userOrRole === 'string') {
+    const userObj = (s.users || []).find((u) => u.id === userOrRole);
+    if (userObj) {
+      s.role = userObj.role;
+      s.status = userObj.status || 'active';
+      s.currentOfficerId = userObj.id;
+      return;
+    }
     if (userOrRole === 'admin') {
       s.role = 'admin';
       s.status = 'active';
@@ -486,9 +493,55 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
       if (c) {
         const targetOfficer = approval.proposedOwnerId || approval.suggestedAssigneeId;
         if (targetOfficer && targetOfficer !== c.ownerId) {
-          const prevOwnerName = officerName(s, c.ownerId);
+          const prevOwnerId = c.ownerId;
+          const prevOwnerName = officerName(s, prevOwnerId);
           const newOwnerName = officerName(s, targetOfficer);
           c.ownerId = targetOfficer;
+
+          // Cross-module sync: Synchronize linked tasks for this case
+          const relatedTasks = (s.tasks || []).filter((task) => task.caseId === c.id && task.ownerId === prevOwnerId);
+          relatedTasks.forEach((task) => {
+            task.ownerId = targetOfficer;
+          });
+
+          // Update change history record
+          c.changeHistory ||= [];
+          const pendingChange = c.changeHistory.find((ch) => ch.approvalId === approval.id || (ch.changeType === 'reassignment' && ch.approvalStatus === 'pending'));
+          if (pendingChange) {
+            pendingChange.approvalStatus = 'approved';
+            pendingChange.approver = reviewer;
+            pendingChange.approverId = getCurrentUser(s).id;
+            pendingChange.decidedAt = NOW;
+            pendingChange.decisionNote = note || approval.decision || 'Approved by manager';
+            pendingChange.after.assigneeId = targetOfficer;
+            pendingChange.after.assigneeName = newOwnerName;
+          } else {
+            recordCaseChange(s, c.id, {
+              changeType: 'reassignment',
+              approvalId: approval.id,
+              approvalStatus: 'approved',
+              requestedBy: approval.requesterName || 'Property Officer',
+              requestedById: approval.requesterId || null,
+              approver: reviewer,
+              approverId: getCurrentUser(s).id,
+              reason: approval.reason || 'Approved operational reassignment',
+              before: {
+                assigneeId: prevOwnerId,
+                assigneeName: prevOwnerName,
+                stage: c.status,
+                due: c.followUpDue || c.responseDue || c.slaDue,
+                priority: c.priority || c.urgency,
+              },
+              after: {
+                assigneeId: targetOfficer,
+                assigneeName: newOwnerName,
+                stage: c.status,
+                due: c.followUpDue || c.responseDue || c.slaDue,
+                priority: c.priority || c.urgency,
+              },
+            });
+          }
+
           c.timeline = c.timeline || [];
           c.timeline.unshift({
             id: `ev-appr-${nextId(s, '')}`,
@@ -540,6 +593,15 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
     if (approval.caseId) {
       const c = getCase(s, approval.caseId);
       if (c) {
+        c.changeHistory ||= [];
+        const pendingChange = c.changeHistory.find((ch) => ch.approvalId === approval.id || (ch.changeType === 'reassignment' && ch.approvalStatus === 'pending'));
+        if (pendingChange) {
+          pendingChange.approvalStatus = 'rejected';
+          pendingChange.approver = reviewer;
+          pendingChange.approverId = getCurrentUser(s).id;
+          pendingChange.decidedAt = NOW;
+          pendingChange.decisionNote = note || approval.decision || 'Declined by manager';
+        }
         c.timeline = c.timeline || [];
         c.timeline.push({
           id: `ev-rej-${nextId(s, '')}`,
@@ -1177,12 +1239,39 @@ export function checkClosureReadiness(s, c) {
 }
 
 /**
+ * Resolves the operational zone for an officer dynamically.
+ * Derives from teams, officer record, or case estate information.
+ */
+export function getOfficerZone(s, officerId, c = null) {
+  if (!officerId) return '';
+  const team = (s?.teams || []).find((t) =>
+    (t.members || []).some((m) => m.id === officerId) ||
+    (t.managers || []).some((m) => m.id === officerId)
+  );
+  if (team?.name) {
+    const m = team.name.match(/Zone\s+[A-Z]/i);
+    return m ? m[0] : team.name;
+  }
+  const officer = (s?.officers || []).find((o) => o.id === officerId);
+  if (officer?.zone) {
+    const m = officer.zone.match(/Zone\s+[A-Z]/i);
+    return m ? m[0] : officer.zone;
+  }
+  if (c?.estate) {
+    const m = c.estate.match(/Zone\s+[A-Z]/i);
+    if (m) return m[0];
+  }
+  return 'Zone A';
+}
+
+/**
  * AI-Ready Handover & Case Brief Generator
  * Deterministic template simulating synthesized case intelligence from factual records.
  */
 export function generateCaseBrief(s, c) {
   if (!c) return 'No case selected.';
   const officer = officerName(s, c.ownerId);
+  const zone = getOfficerZone(s, c.ownerId, c);
   const looseEnds = detectLooseEnds(s, c);
   const readiness = checkClosureReadiness(s, c);
   const completedCp = (c.checkpoints || []).filter((cp) => cp.completed).map((cp) => cp.title);
@@ -1200,29 +1289,48 @@ export function generateCaseBrief(s, c) {
     }
   }
 
+  const officerLine = zone ? `Assigned Property Officer: ${officer} (${zone})` : `Assigned Property Officer: ${officer}`;
+  const caseRef = c.caseNumber || c.number || c.id || 'N/A';
+  const caseTitle = c.title || 'Untitled Case';
+  const locationLine = [c.estate || c.location || '', c.unit ? `(Unit: ${c.unit})` : ''].filter(Boolean).join(' ') || 'Location details pending';
+  const statusStr = (c.status || 'Open').toUpperCase();
+  const urgencyStr = c.urgency || 'Standard';
+  const slaTypeStr = c.slaType || 'Standard SLA';
+  const slaDueStr = c.slaDue || c.responseDue || 'None recorded';
+
   return [
     `=== SIMULATED CASE BRIEF — GENERATED FROM FICTIONAL CASE DATA ===`,
-    `Case Reference: ${c.caseNumber} | Title: ${c.title}`,
-    `Category: ${c.category} | Location: ${c.estate} (Unit: ${c.unit})`,
-    `Assigned Property Officer: ${officer} (Zone A Operations)`,
+    `Case Reference: ${caseRef} | Title: ${caseTitle}`,
+    `Category: ${c.category || 'Estate Issue'} | Location: ${locationLine}`,
+    officerLine,
     ``,
     `[CURRENT STATUS]`,
-    `Status: ${c.status.toUpperCase()} | Urgency: ${c.urgency} | SLA: ${c.slaType} (Due: ${c.slaDue})`,
+    `Status: ${statusStr} | Urgency: ${urgencyStr} | SLA: ${slaTypeStr} (Due: ${slaDueStr})`,
     ``,
     `[EXECUTIVE SUMMARY]`,
-    c.summary || 'Operational estate case under active investigation.',
+    c.summary || c.description || 'Operational estate case under active investigation.',
     ``,
     `[WORK COMPLETED]`,
-    completedCp.length > 0 ? completedCp.map((t) => `✓ ${t}`).join('\n') : '• Case reported and initial triage logged.',
+    completedCp.length > 0
+      ? completedCp.map((t) => {
+          const isVerified = (c.evidence || []).some((e) => e.verified && (e.title.toLowerCase().includes(t.toLowerCase()) || e.checkpointRef));
+          return isVerified ? `✓ ${t} (Verified with supporting evidence)` : `✓ ${t} (Recorded on-site)`;
+        }).join('\n')
+      : '• Case reported and initial triage logged.',
     ``,
     `[OUTSTANDING COMMITMENTS & LOOSE ENDS] (${looseEnds.length} detected)`,
     looseEnds.length > 0
-      ? looseEnds.map((l) => `! [${l.severity.toUpperCase()}] ${l.title}: ${l.suggestedAction} (Evidence: ${l.sourceEvidence})`).join('\n')
+      ? looseEnds.map((l) => `! [${(l.severity || 'warning').toUpperCase()}] ${l.title}: ${l.suggestedAction} (Evidence: ${l.sourceEvidence})`).join('\n')
       : '• All documented follow-up commitments are currently on track.',
     ``,
     `[DOCUMENTED BLOCKERS]`,
     activeBlockers.length > 0
-      ? activeBlockers.map((b) => `• ${b.title} [Responsible: ${b.responsibleParty}]`).join('\n')
+      ? activeBlockers.map((b) => {
+          const resp = (b.responsibleParty && typeof b.responsibleParty === 'string' && b.responsibleParty.trim().length > 0)
+            ? b.responsibleParty.trim()
+            : 'Responsible party not yet recorded.';
+          return `• ${b.title || 'Blocker'} [Responsible: ${resp}]`;
+        }).join('\n')
       : '• No active blockers recorded.',
     ``,
     `[CLOSURE READINESS CHECK]`,
@@ -1243,6 +1351,406 @@ export function generateCaseBrief(s, c) {
     `Source: SyncAI Case Action Centre · Deterministic Prototype Simulator`,
   ].join('\n');
 }
+
+/**
+ * Structured Case Brief Data Generator for Accessible Rich UI Presentation.
+ * Human-readable sections with clean data attributes for interactive links.
+ */
+export function getStructuredCaseBrief(s, c) {
+  if (!c) return null;
+  const officer = officerName(s, c.ownerId);
+  const zone = getOfficerZone(s, c.ownerId, c);
+  const looseEnds = detectLooseEnds(s, c);
+  const readiness = checkClosureReadiness(s, c);
+  const activeBlockers = (c.blockers || []).filter((b) => !b.resolved);
+  const evidence = c.evidence || [];
+  const checkpoints = c.checkpoints || [];
+  const completedCheckpoints = checkpoints.filter((cp) => cp.completed);
+
+  const officerZoneDisplay = zone ? `${officer} (${zone})` : officer;
+
+  const blockersList = activeBlockers.map((b) => ({
+    id: b.id,
+    title: b.title || 'Active Blocker',
+    responsibleParty: (b.responsibleParty && typeof b.responsibleParty === 'string' && b.responsibleParty.trim().length > 0)
+      ? b.responsibleParty.trim()
+      : 'Responsible party not yet recorded.',
+    recordedAt: b.recordedAt || null,
+    suggestedAction: b.suggestedAction || 'Resolve external blocker to proceed.',
+  }));
+
+  const recommendations = [];
+  if (looseEnds.length > 0) {
+    recommendations.push({
+      action: looseEnds[0].suggestedAction,
+      reason: `Flagged by ${looseEnds[0].ruleCode || 'deterministic rule'} from ${looseEnds[0].sourceEvidence || 'recorded timeline'}.`,
+    });
+  }
+  if (blockersList.length > 0) {
+    recommendations.push({
+      action: blockersList[0].suggestedAction,
+      reason: `Required to unblock progression on ${blockersList[0].title}.`,
+    });
+  }
+  recommendations.push({
+    action: 'Align follow-up blocks in Smart Planner with officer calendar buffer.',
+    reason: 'Protects committed resident appointments and technician inspection slots.',
+  });
+  if (recommendations.length < 3) {
+    recommendations.push({
+      action: 'Evaluate alternatives in Ripple Intelligence before executing reassignment.',
+      reason: 'Prevents cascade schedule conflicts across team member workloads.',
+    });
+  }
+
+  const completedWork = [];
+  completedCheckpoints.forEach((cp) => {
+    const isVerified = evidence.some((e) => e.verified && (e.checkpointRef === cp.id || e.title.toLowerCase().includes(cp.title.toLowerCase())));
+    completedWork.push({
+      id: cp.id,
+      title: cp.title,
+      isVerified,
+      note: isVerified ? 'Verified with supporting evidence' : 'Recorded on-site',
+      completedAt: cp.completedAt || null,
+      actor: cp.actor || officer,
+    });
+  });
+  if (completedWork.length === 0) {
+    completedWork.push({
+      id: 'cp-intake',
+      title: 'Initial intake and triage assessment completed',
+      isVerified: true,
+      note: 'Case recorded into OneService / SyncAI system',
+      completedAt: c.timeline?.[0]?.at || null,
+      actor: officer,
+    });
+  }
+
+  const unverifiedReqEvidence = evidence.filter((e) => e.requiredForClosure && (!e.verified || e.missing));
+  const missingInfoList = [];
+  if (unverifiedReqEvidence.length > 0) {
+    missingInfoList.push(`Unverified or missing evidence: ${unverifiedReqEvidence.map((e) => e.title).join(', ')}`);
+  }
+  for (const l of looseEnds) {
+    if (l.missingInfo && !missingInfoList.includes(l.missingInfo)) {
+      missingInfoList.push(l.missingInfo);
+    }
+  }
+
+  return {
+    caseId: c.id,
+    caseNumber: c.caseNumber || c.number || c.id || 'N/A',
+    title: c.title || 'Untitled Case',
+    category: c.category || 'Estate Issue',
+    location: [c.estate || c.location || '', c.unit ? `(Unit: ${c.unit})` : ''].filter(Boolean).join(' ') || 'Location details pending',
+    estate: c.estate || c.location || '',
+    unit: c.unit || '',
+    officer,
+    zone,
+    officerZoneDisplay,
+    stage: c.status || 'Open',
+    urgency: c.urgency || 'Standard',
+    priority: c.priority || c.urgency || 'Standard',
+    responseDue: c.responseDue || null,
+    followUpDue: c.followUpDue || null,
+    slaDue: c.slaDue || null,
+    summary: c.summary || c.description || 'Operational estate case under active investigation.',
+    completedWork,
+    looseEnds,
+    activeBlockers: blockersList,
+    recommendations: recommendations.slice(0, 3),
+    readiness,
+    missingInfoList,
+    evidence,
+    tasks: (s.tasks || []).filter((t) => t.caseId === c.id),
+    timeline: c.timeline || [],
+  };
+}
+
+// ============================================================================
+// #027 — Evidence Attachments & Verification Engine
+// ============================================================================
+
+export function getEvidenceTypeLabel(type) {
+  switch (type) {
+    case 'photo':
+    case 'inspection_photo':
+      return 'Inspection Photo';
+    case 'contractor_photo':
+      return 'Contractor Completion Photo';
+    case 'inspection_report':
+      return 'Inspection Report';
+    case 'completion_record':
+      return 'Work Completion Record';
+    case 'resident_ack':
+      return 'Resident Acknowledgement';
+    case 'document':
+    default:
+      return 'Supporting Document';
+  }
+}
+
+export function getCaseEvidence(s, caseId) {
+  const c = getCase(s, caseId);
+  return c?.evidence || [];
+}
+
+export function addCaseEvidence(s, caseId, evidenceData) {
+  const c = getCase(s, caseId);
+  if (!c) return { success: false, error: 'Case not found.' };
+
+  const title = (evidenceData.title || '').trim();
+  if (title.length < 3) {
+    return { success: false, error: 'Evidence title must be at least 3 characters.' };
+  }
+
+  c.evidence ||= [];
+  const currentActor = actorName(s);
+  const currentUserId = getCurrentUser(s).id;
+  const newId = evidenceData.id || `evi-${nextId(s, '')}`;
+  const type = evidenceData.type || 'document';
+
+  const evidenceItem = {
+    id: newId,
+    caseId: c.id,
+    title,
+    fileName: evidenceData.fileName || `${title.replace(/\s+/g, '_')}.pdf`,
+    type,
+    typeLabel: evidenceData.typeLabel || getEvidenceTypeLabel(type),
+    uploadedAt: NOW,
+    uploadedBy: currentActor,
+    uploadedById: currentUserId,
+    fileSize: evidenceData.fileSize || '1.5 MB',
+    description: (evidenceData.description || '').trim() || 'Operational evidence attached for manager verification.',
+    status: 'pending_review',
+    verified: false,
+    verifiedBy: null,
+    verifiedAt: null,
+    verificationNote: null,
+    checkpointRef: evidenceData.checkpointRef || null,
+    taskId: evidenceData.taskId || null,
+    requiredForClosure: Boolean(evidenceData.requiredForClosure ?? false),
+    previewUrl: evidenceData.previewUrl || null,
+    isLocalUpload: Boolean(evidenceData.isLocalUpload ?? true),
+  };
+
+  c.evidence.push(evidenceItem);
+
+  c.timeline ||= [];
+  c.timeline.unshift({
+    id: `ev-evi-${nextId(s, '')}`,
+    at: NOW,
+    type: 'evidence',
+    title: `Evidence Attached: ${evidenceItem.title}`,
+    summary: `${evidenceItem.typeLabel} attached by ${currentActor}. Awaiting manager review.`,
+    source: 'Evidence Management',
+    actor: currentActor,
+    evidenceId: evidenceItem.id,
+  });
+
+  logActivity(s, `Attached evidence "${evidenceItem.title}" to Case ${c.caseNumber || c.id}`, currentActor);
+
+  addNotification(s, {
+    type: 'evidence_review',
+    channel: 'in_app',
+    channelLabel: 'In-App',
+    recipientRole: 'manager',
+    title: `Evidence Review Required: ${c.caseNumber || c.id}`,
+    summary: `${currentActor} attached "${evidenceItem.title}" for Case ${c.caseNumber || c.id}.`,
+    caseId: c.id,
+    priority: 'medium',
+  });
+
+  return { success: true, evidence: evidenceItem };
+}
+
+export function verifyCaseEvidence(s, caseId, evidenceId, decision, reviewer = null, note = '') {
+  const c = getCase(s, caseId);
+  if (!c) return { success: false, error: 'Case not found.' };
+
+  const evidenceItem = (c.evidence || []).find((e) => e.id === evidenceId);
+  if (!evidenceItem) return { success: false, error: 'Evidence record not found.' };
+
+  const currentActor = reviewer || actorName(s);
+  const user = getCurrentUser(s);
+
+  if (user.role !== 'manager' && user.role !== 'supervisor') {
+    return { success: false, error: 'Only authorized Estate Managers can verify or reject evidence records.' };
+  }
+
+  const trimmedNote = (note || '').trim();
+
+  if (decision === 'verify') {
+    evidenceItem.status = 'verified';
+    evidenceItem.verified = true;
+    evidenceItem.verifiedBy = currentActor;
+    evidenceItem.verifiedAt = NOW;
+    evidenceItem.verificationNote = trimmedNote || 'Verified by Estate Manager.';
+
+    if (evidenceItem.checkpointRef) {
+      const cp = (c.checkpoints || []).find((p) => p.id === evidenceItem.checkpointRef);
+      if (cp) {
+        cp.completed = true;
+        cp.completedAt = NOW;
+      }
+    }
+
+    c.timeline ||= [];
+    c.timeline.unshift({
+      id: `ev-ver-${nextId(s, '')}`,
+      at: NOW,
+      type: 'evidence_verified',
+      title: `Evidence Verified: ${evidenceItem.title}`,
+      summary: `Verified by ${currentActor}. ${trimmedNote ? `Note: ${trimmedNote}` : ''}`,
+      source: 'Evidence Management',
+      actor: currentActor,
+      evidenceId: evidenceItem.id,
+    });
+
+    logActivity(s, `Evidence verified for Case ${c.caseNumber || c.id}: ${evidenceItem.title}`, currentActor);
+
+    return { success: true, status: 'verified', evidence: evidenceItem };
+  }
+
+  if (decision === 'reject') {
+    if (trimmedNote.length < 4) {
+      return { success: false, error: 'Rejection reason required (minimum 4 characters).' };
+    }
+
+    evidenceItem.status = 'rejected';
+    evidenceItem.verified = false;
+    evidenceItem.rejectedBy = currentActor;
+    evidenceItem.rejectedAt = NOW;
+    evidenceItem.rejectionReason = trimmedNote;
+
+    c.timeline ||= [];
+    c.timeline.unshift({
+      id: `ev-rej-evi-${nextId(s, '')}`,
+      at: NOW,
+      type: 'evidence_rejected',
+      title: `Evidence Rejected: ${evidenceItem.title}`,
+      summary: `Rejected by ${currentActor}. Reason: ${trimmedNote}`,
+      source: 'Evidence Management',
+      actor: currentActor,
+      evidenceId: evidenceItem.id,
+    });
+
+    logActivity(s, `Evidence rejected for Case ${c.caseNumber || c.id}: ${evidenceItem.title} (${trimmedNote})`, currentActor);
+
+    addNotification(s, {
+      type: 'evidence_rejected',
+      channel: 'in_app',
+      channelLabel: 'In-App',
+      recipientId: c.ownerId,
+      title: `Evidence Rejected: Case ${c.caseNumber || c.id}`,
+      summary: `Manager ${currentActor} requested replacement for "${evidenceItem.title}": ${trimmedNote}`,
+      caseId: c.id,
+      priority: 'high',
+    });
+
+    return { success: true, status: 'rejected', evidence: evidenceItem };
+  }
+
+  return { success: false, error: 'Invalid verification decision.' };
+}
+
+// ============================================================================
+// #024 + #029 — Assignee History & Task Change Comparison Engine
+// ============================================================================
+
+export function recordCaseChange(s, caseId, changeData) {
+  const c = getCase(s, caseId);
+  if (!c) return null;
+
+  c.changeHistory ||= [];
+  const currentActor = actorName(s);
+  const user = getCurrentUser(s);
+
+  const changeRecord = {
+    id: changeData.id || `chg-${nextId(s, '')}`,
+    caseId: c.id,
+    caseNumber: c.caseNumber || c.number || c.id,
+    timestamp: changeData.timestamp || NOW,
+    changeType: changeData.changeType || 'reassignment',
+    requestedBy: changeData.requestedBy || currentActor,
+    requestedById: changeData.requestedById || user.id,
+    approver: changeData.approver || null,
+    approverId: changeData.approverId || null,
+    approvalStatus: changeData.approvalStatus || 'approved',
+    approvalId: changeData.approvalId || null,
+    reason: changeData.reason || 'Operational adjustment',
+    decidedAt: changeData.decidedAt || null,
+    decisionNote: changeData.decisionNote || null,
+    before: {
+      assigneeId: changeData.before?.assigneeId || null,
+      assigneeName: changeData.before?.assigneeName || null,
+      stage: changeData.before?.stage || null,
+      due: changeData.before?.due || null,
+      priority: changeData.before?.priority || null,
+    },
+    after: {
+      assigneeId: changeData.after?.assigneeId || null,
+      assigneeName: changeData.after?.assigneeName || null,
+      stage: changeData.after?.stage || null,
+      due: changeData.after?.due || null,
+      priority: changeData.after?.priority || null,
+    },
+  };
+
+  c.changeHistory.unshift(changeRecord);
+  return changeRecord;
+}
+
+export function getCaseChangeHistory(s, caseId) {
+  const c = getCase(s, caseId);
+  return c?.changeHistory || [];
+}
+
+export function getCaseAssigneeHistory(s, caseId) {
+  const c = getCase(s, caseId);
+  if (!c) return [];
+  return (c.changeHistory || []).filter((ch) => ch.changeType === 'reassignment');
+}
+
+export function syncDeadlineNotifications(s) {
+  if (!s || !Array.isArray(s.cases)) return;
+  const now = NOW;
+
+  for (const c of s.cases) {
+    if (c.status === 'closed' || c.status === 'Closed') continue;
+    const deadlines = [
+      { key: 'response', val: c.responseDue, label: 'Response deadline' },
+      { key: 'followUp', val: c.followUpDue, label: 'Follow-up commitment' },
+      { key: 'sla', val: c.slaDue, label: 'Case SLA deadline' },
+    ].filter((d) => d.val);
+
+    for (const d of deadlines) {
+      const countdown = getDeadlineCountdown(d.val, now);
+      if (countdown.isOverdue || (countdown.isDueSoon && countdown.diffMs < 4 * 3600 * 1000)) {
+        const notifId = `notif-dl-${c.id}-${d.key}`;
+        const alreadyExists = (s.notifications || []).some(
+          (n) => n.id === notifId || (n.caseId === c.id && n.deadlineKey === d.key)
+        );
+        if (!alreadyExists) {
+          addNotification(s, {
+            id: notifId,
+            type: 'deadline_alert',
+            channel: 'in_app',
+            channelLabel: 'In-App',
+            recipientId: c.ownerId,
+            recipientRole: 'member',
+            caseId: c.id,
+            deadlineKey: d.key,
+            title: `${countdown.isOverdue ? 'Overdue Deadline' : 'Approaching Deadline'}: ${c.caseNumber || c.id}`,
+            summary: `${d.label} for "${c.title}" is ${countdown.text}. Attention required.`,
+            priority: countdown.isOverdue ? 'critical' : 'high',
+          });
+        }
+      }
+    }
+  }
+}
+
 
 /**
  * Close a case with readiness validation.
@@ -1512,10 +2020,36 @@ export function requestCaseReassignment(s, caseId, targetOfficerId, reason = '')
   const approval = createApprovalRequest(s, {
     requestType: 'reassign',
     taskId: primaryTaskId,
-    taskTitle: `Reassign ${c.caseNumber}: ${c.title}`,
+    taskTitle: `Reassign ${c.caseNumber || c.number || c.id}: ${c.title}`,
     caseId: c.id,
     proposedOwnerId: targetOfficerId,
     reason: reason || `Workload adjustment / emergency case reassignment from ${currentOfficer} to ${targetOfficer}.`,
+  });
+
+  // Record pending change in change history
+  recordCaseChange(s, c.id, {
+    changeType: 'reassignment',
+    approvalId: approval.id,
+    approvalStatus: 'pending',
+    requestedBy: actorName(s),
+    requestedById: getCurrentUser(s).id,
+    approver: s.supervisor?.name || 'Jennifer Ong',
+    approverId: 's1',
+    reason: reason || `Workload adjustment from ${currentOfficer} to ${targetOfficer}.`,
+    before: {
+      assigneeId: c.ownerId,
+      assigneeName: currentOfficer,
+      stage: c.status,
+      due: c.followUpDue || c.responseDue || c.slaDue,
+      priority: c.priority || c.urgency,
+    },
+    after: {
+      assigneeId: targetOfficerId,
+      assigneeName: targetOfficer,
+      stage: c.status,
+      due: c.followUpDue || c.responseDue || c.slaDue,
+      priority: c.priority || c.urgency,
+    },
   });
 
   c.timeline ||= [];
@@ -1712,6 +2246,30 @@ export function requestCaseStageTransition(s, caseId, targetStage, actorId = nul
   const currentActorName = effectiveUser.displayName || officerName(s, currentActorId) || actorName(s);
   const isMgr = effectiveUser.role === 'manager' || effectiveUser.role === 'supervisor';
 
+  const commitStageChange = (fromStage, toStage, reasonText) => {
+    recordCaseChange(s, c.id, {
+      changeType: 'stage_transition',
+      approvalStatus: 'direct',
+      requestedBy: currentActorName,
+      requestedById: effectiveUser.id,
+      reason: reasonText || `Transitioned from ${fromStage} to ${toStage}`,
+      before: {
+        assigneeId: c.ownerId,
+        assigneeName: officerName(s, c.ownerId),
+        stage: fromStage,
+        due: c.followUpDue || c.responseDue || c.slaDue,
+        priority: c.priority || c.urgency,
+      },
+      after: {
+        assigneeId: c.ownerId,
+        assigneeName: officerName(s, c.ownerId),
+        stage: toStage,
+        due: c.followUpDue || c.responseDue || c.slaDue,
+        priority: c.priority || c.urgency,
+      },
+    });
+  };
+
   // Status check: inactive/pending/disabled users are denied
   if (effectiveUser.status !== 'active') {
     return {
@@ -1835,6 +2393,7 @@ export function requestCaseStageTransition(s, caseId, targetStage, actorId = nul
         actor: currentActorName,
       });
       logActivity(s, `Reopened closed case ${c.caseNumber || c.id} to Intake: ${trimmedReason}`, currentActorName);
+      commitStageChange(previousStage, 'open', trimmedReason);
       return {
         success: true,
         caseId: c.id,
@@ -1860,6 +2419,7 @@ export function requestCaseStageTransition(s, caseId, targetStage, actorId = nul
       actor: currentActorName,
     });
     logActivity(s, `Moved Case ${c.caseNumber || c.id} to Open / Intake`, currentActorName);
+    commitStageChange(previousStage, 'open', trimmedReason);
     return {
       success: true,
       caseId: c.id,
@@ -1913,6 +2473,7 @@ export function requestCaseStageTransition(s, caseId, targetStage, actorId = nul
         actor: currentActorName,
       });
       logActivity(s, `Reopened closed case ${c.caseNumber || c.id} to In Progress: ${trimmedReason}`, currentActorName);
+      commitStageChange(previousStage, 'in_progress', trimmedReason);
       return {
         success: true,
         caseId: c.id,
@@ -1954,6 +2515,7 @@ export function requestCaseStageTransition(s, caseId, targetStage, actorId = nul
       actor: currentActorName,
     });
     logActivity(s, `Case ${c.caseNumber || c.id} transitioned to In Progress`, currentActorName);
+    commitStageChange(previousStage, 'in_progress', trimmedReason);
     return {
       success: true,
       caseId: c.id,
@@ -2008,6 +2570,7 @@ export function requestCaseStageTransition(s, caseId, targetStage, actorId = nul
       actor: currentActorName,
     });
     logActivity(s, `Placed Case ${c.caseNumber || c.id} on hold: ${trimmedReason}`, currentActorName);
+    commitStageChange(previousStage, 'pending_external', trimmedReason);
     return {
       success: true,
       caseId: c.id,
@@ -2051,6 +2614,7 @@ export function requestCaseStageTransition(s, caseId, targetStage, actorId = nul
       actor: currentActorName,
     });
     logActivity(s, `Case ${c.caseNumber || c.id} marked Closure Ready`, currentActorName);
+    commitStageChange(previousStage, 'ready_for_closure', trimmedReason);
     return {
       success: true,
       caseId: c.id,
@@ -2129,6 +2693,7 @@ export function requestCaseStageTransition(s, caseId, targetStage, actorId = nul
       };
     }
 
+    commitStageChange(previousStage, 'closed', trimmedReason || 'Formally closed and audited.');
     return {
       success: true,
       caseId: c.id,

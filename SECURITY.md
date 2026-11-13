@@ -11,7 +11,6 @@ SyncAI is an AI-enabled Smart Work Planner for Town Council officers (EMS Challe
 | Component | Status | Security Fixes |
 | --- | --- | --- |
 | `main` branch | Release branch | Supported |
-| `feature/frontend-design` | Active development branch | Supported |
 | `prototype/` | Static design prototype (fictional data only) | Best effort |
 | Stale forks / legacy branches | Archived exploration | Unsupported |
 
