@@ -2626,6 +2626,20 @@ td.cell-risk,
   border: 1px solid var(--colorPaletteMarigoldBorderActive);
 }
 
+/* Keep counts readable when their tab is selected. The generic active-tab badge rule
+   uses white text, which disappears against the pale selected-tab treatment. */
+.case-detail-nav .drawer-tab-btn.is-active .tab-count:not(.tab-count-alert-circle):not(.tab-count-success) {
+  background: var(--colorNeutralBackground3, #f0f0f0) !important;
+  color: var(--colorNeutralForeground2, #424242) !important;
+}
+
+/* Attention counts retain their warning colour while also using dark text. */
+.case-detail-nav .drawer-tab-btn.is-active .tab-count-warn {
+  background: var(--colorPaletteMarigoldBackground1, #fff4ce) !important;
+  color: var(--colorPaletteMarigoldForeground2, #8a4b00) !important;
+  border-color: var(--colorPaletteMarigoldBorderActive, #eaa300) !important;
+}
+
 .stat-card-interactive {
   text-align: left;
   border: 1px solid var(--colorNeutralStroke1);
@@ -3188,7 +3202,7 @@ td.cell-risk,
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 252px minmax(0, 1fr);
   background: var(--colorNeutralBackground1);
 }
 
@@ -3216,6 +3230,23 @@ td.cell-risk,
   align-items: center;
   gap: 8px;
   font-size: 0.8125rem;
+}
+
+.case-detail-nav .drawer-tab-btn-content {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.case-detail-nav .drawer-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.case-detail-nav .tab-count {
+  flex: 0 0 auto;
+  min-width: 24px;
+  margin-left: 10px;
+  text-align: center;
 }
 
 .case-detail-nav .drawer-tab-btn:hover { background: var(--colorNeutralBackground1Hover); }
@@ -3306,11 +3337,9 @@ td.cell-risk,
   .case-detail-owner-row {
     gap: 6px;
   }
-  .case-detail-main {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
+  .case-detail-main { grid-template-columns: 248px minmax(0, 1fr); }
   .case-detail-nav {
-    width: 220px;
+    width: 248px;
     padding: 12px 8px;
     gap: 4px;
   }
@@ -3355,7 +3384,7 @@ td.cell-risk,
   .case-table th:first-child,
   .case-table td:first-child { padding-left: 18px; }
   .case-table th:last-child,
-  .case-table td:last-child { padding-right: 18px; }
+  .case-table td:last-child { padding-right: 28px; }
   .case-table .th-case-title { width: 32%; }
   .case-table .th-case-workflow { width: 27%; }
   .case-table .th-case-deadlines { width: 23%; }
@@ -3363,6 +3392,58 @@ td.cell-risk,
   .case-actions-group { flex-direction: column; align-items: stretch; }
   .case-actions-group > .tag { flex-basis: auto; }
   .case-actions-group .btn-sm { width: 100%; }
+}
+
+/* Laptop / display-scaled layout: preserve a left-to-right summary so each case can
+   be understood at a glance, while giving the dense deadline content room to wrap. */
+@media (max-width: 1320px) and (min-width: 769px) {
+  .case-table-wrap { padding-inline: 10px; }
+  .case-table { border-spacing: 0 8px; }
+  .case-table .th-case-title { width: 29%; }
+  .case-table .th-case-workflow { width: 21%; }
+  .case-table .th-case-deadlines { width: 26%; }
+  .case-table .th-case-actions { width: 24%; text-align: left !important; }
+  .case-table th,
+  .case-table td { padding-inline: 10px; }
+  .case-table th:first-child,
+  .case-table td:first-child { padding-left: 18px; }
+  .case-table th:last-child,
+  .case-table td:last-child { padding-right: 18px; }
+  .case-table .th-case-deadlines,
+  .case-table td[data-label="Deadlines (SGT)"] { padding-left: 26px; }
+  .case-table tbody td { padding-top: 16px; padding-bottom: 16px; }
+  .case-table .case-title-link { line-height: 1.3; }
+  .case-table .case-workflow-cell { gap: 8px; }
+  .case-table .case-deadlines { gap: 8px; }
+  .case-table .deadline-val {
+    display: grid;
+    justify-items: start;
+    gap: 4px;
+    white-space: normal;
+    line-height: 1.35;
+  }
+  .case-table .deadline-val time { white-space: nowrap; }
+  .case-actions-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 220px;
+    align-items: stretch;
+    gap: 8px;
+    white-space: normal;
+  }
+  .case-actions-group > .tag {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+  }
+  .case-actions-group .btn-sm {
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    padding-inline: 8px;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 600px) {
