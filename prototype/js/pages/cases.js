@@ -1377,11 +1377,17 @@ function renderCaseJourneyModal(s, c) {
                 role="tab"
                 aria-selected="${caseView.journeyTab === tabKey ? 'true' : 'false'}"
               >
-                <span class="drawer-tab-btn-content" style="display: inline-flex; align-items: center; gap: 8px;">
+                <span class="drawer-tab-btn-content" style="display: inline-flex; align-items: center; gap: 8px; min-width: 0;">
                   <span class="drawer-tab-icon" style="display: inline-flex; flex-shrink: 0;">${icon(iconName, 14)}</span>
-                  <span class="drawer-tab-label">${label}</span>
+                  <span class="drawer-tab-label" style="white-space: nowrap;">${label}</span>
                 </span>
-                ${count != null ? html`<span class="tab-count ${count > 0 && (tabKey === 'loose_ends' || tabKey === 'blockers') ? 'tab-count-warn' : tabKey === 'readiness' && count === 'Ready' ? 'tab-count-success' : count === 'Incomplete' ? 'tab-count-incomplete' : ''}" data-status="${String(count).toLowerCase()}" style="${count === 'Incomplete' ? 'color: #000000 !important; font-weight: 700; background: #f1f5f9; border: 1px solid #94a3b8;' : ''}">${count}</span>` : ''}
+                ${tabKey === 'readiness' && count === 'Incomplete'
+                  ? html`<span class="tab-count tab-count-incomplete tab-count-alert-circle" data-status="incomplete" title="Incomplete: ${readiness.unresolvedItems.length} checklist requirement(s) pending" aria-label="Incomplete requirements" style="color: #ffffff !important; background: var(--colorPaletteRedBackground3, #d13438) !important; border: 1px solid #b2262a !important; width: 20px; height: 20px; min-width: 20px; max-width: 20px; border-radius: 50% !important; padding: 0 !important; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.75rem; line-height: 1; flex-shrink: 0; box-shadow: 0 1px 3px rgba(209, 52, 56, 0.35);">!</span>`
+                  : tabKey === 'readiness' && count === 'Ready'
+                    ? html`<span class="tab-count tab-count-success" data-status="ready" title="Ready for closure" aria-label="Ready for closure" style="color: #ffffff !important; background: #107c10 !important; border: 1px solid #0e6b0e; width: 20px; height: 20px; min-width: 20px; max-width: 20px; border-radius: 50% !important; padding: 0 !important; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; line-height: 1; flex-shrink: 0;">✓</span>`
+                    : count != null
+                      ? html`<span class="tab-count ${count > 0 && (tabKey === 'loose_ends' || tabKey === 'blockers') ? 'tab-count-warn' : ''}">${count}</span>`
+                      : ''}
               </button>
             `,
           )}
@@ -2384,31 +2390,41 @@ function renderJourneyEvidenceTab(s, c) {
 
       <!-- Evidence List -->
       <div class="evidence-list-section">
-        <h4 style="font-size: 0.875rem; font-weight: 600; margin: 0 0 10px; color: var(--colorNeutralForeground1);">Attached Records (${evidence.length})</h4>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+          <h4 style="font-size: 0.875rem; font-weight: 600; margin: 0; color: var(--colorNeutralForeground1); display: inline-flex; align-items: center; gap: 6px;">
+            ${icon('folder', 14)} Attached Records (${evidence.length})
+          </h4>
+          <span class="small muted" style="font-size: 0.75rem;">Verified on-site documentation and statutory inspection attachments</span>
+        </div>
         ${evidence.length === 0
           ? html`<div class="empty-state" style="padding: 24px; text-align: center; background: var(--colorNeutralBackground2); border-radius: 8px;">
               <p class="muted small" style="margin: 0;">No evidence records attached yet. Use the demo upload form below to attach inspection documents.</p>
             </div>`
           : html`
-              <div class="evidence-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+              <div class="evidence-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px;">
                 ${evidence.map((e) => {
                   const isVerified = e.status === 'verified' || e.verified;
                   const isRejected = e.status === 'rejected';
                   const isPending = !isVerified && !isRejected;
 
                   return html`
-                    <div class="evidence-card ${isVerified ? 'is-verified' : isRejected ? 'is-rejected' : 'is-pending'}" style="background: var(--colorNeutralBackground1); border: 1px solid ${isVerified ? 'var(--colorPaletteGreenBorderActive, #107c10)' : isRejected ? 'var(--colorPaletteRedBorderActive, #d13438)' : 'var(--colorPaletteMarigoldBorderActive, #f9a825)'}; border-radius: 8px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; box-shadow: var(--shadow4);">
+                    <div class="evidence-card ${isVerified ? 'is-verified' : isRejected ? 'is-rejected' : 'is-pending'}" style="background: var(--colorNeutralBackground1); border: 1px solid ${isVerified ? 'var(--colorPaletteGreenBorderActive, #107c10)' : isRejected ? 'var(--colorPaletteRedBorderActive, #d13438)' : 'var(--colorPaletteMarigoldBorderActive, #f9a825)'}; border-radius: 8px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; box-shadow: var(--shadow4); box-sizing: border-box; overflow: hidden;">
                       <div>
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
-                          <span class="tag ${isVerified ? 'tag-success' : isRejected ? 'tag-danger' : 'tag-warning'} small" style="font-weight: 600;">
+                        <div class="evidence-card-badges" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
+                          <span class="tag ${isVerified ? 'tag-success' : isRejected ? 'tag-danger' : 'tag-warning'} small" style="font-weight: 600; flex-shrink: 0;">
                             ${isVerified ? '✓ Verified' : isRejected ? '✗ Rejected' : '⏳ Pending Review'}
                           </span>
-                          <span class="tag tag-neutral small">${e.typeLabel || getEvidenceTypeLabel(e.type)}</span>
+                          <span class="tag tag-neutral small evidence-type-pill" style="font-size: 0.71875rem; padding: 2px 8px; border-radius: 999px; flex-shrink: 0;" title="${e.typeLabel || getEvidenceTypeLabel(e.type)}">
+                            ${(e.typeLabel || getEvidenceTypeLabel(e.type)).replace(/Supporting Document/i, 'Document')}
+                          </span>
                         </div>
 
-                        <h5 style="font-size: 0.875rem; font-weight: 600; margin: 0 0 4px; color: var(--colorNeutralForeground1); line-height: 1.35;">${e.title}</h5>
-                        <p class="small muted" style="margin: 0 0 8px; font-size: 0.75rem;">${e.fileName || 'document.pdf'} · ${e.fileSize || '1.5 MB'}</p>
-                        <p style="font-size: 0.8125rem; color: var(--colorNeutralForeground2); line-height: 1.4; margin: 0 0 10px;">${e.description || 'No description provided.'}</p>
+                        <h5 style="font-size: 0.875rem; font-weight: 600; margin: 0 0 6px; color: var(--colorNeutralForeground1); line-height: 1.35; min-height: 2.7em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" title="${e.title}">${e.title}</h5>
+                        <p class="small muted" style="margin: 0 0 8px; font-size: 0.75rem; display: flex; align-items: center; gap: 5px;">
+                          ${icon('document', 12)}
+                          <span>${e.fileName || 'document.pdf'} · ${e.fileSize || '1.5 MB'}</span>
+                        </p>
+                        <p style="font-size: 0.8125rem; color: var(--colorNeutralForeground2); line-height: 1.45; margin: 0 0 10px; min-height: 2.9em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${e.description || 'No description provided.'}</p>
                       </div>
 
                       <div style="border-top: 1px solid var(--colorNeutralStroke2); padding-top: 10px; display: flex; flex-direction: column; gap: 8px;">

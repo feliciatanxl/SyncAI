@@ -3180,7 +3180,7 @@ td.cell-risk,
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr);
+  grid-template-columns: 245px minmax(0, 1fr);
   background: var(--colorNeutralBackground1);
 }
 
@@ -3203,7 +3203,10 @@ td.cell-risk,
   text-align: left;
   border-color: transparent;
   background: transparent;
-  padding: 9px 11px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .case-detail-nav .drawer-tab-btn:hover { background: var(--colorNeutralBackground1Hover); }
@@ -3213,7 +3216,7 @@ td.cell-risk,
   box-shadow: inset 3px 0 0 var(--colorBrandStroke1);
 }
 
-.drawer-tab-label { white-space: normal; line-height: 1.25; }
+.drawer-tab-label { white-space: nowrap; line-height: 1.25; }
 .case-detail-content { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .case-detail-scroll { flex: 1; overflow-y: auto; padding: 24px 28px 32px; }
 
@@ -3368,15 +3371,17 @@ td.cell-risk,
 
 .evidence-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
 }
 
 .evidence-card {
   background: var(--colorNeutralBackground1);
   border-radius: 8px;
-  padding: 14px;
+  padding: 16px;
   box-shadow: var(--shadow4);
+  box-sizing: border-box;
+  overflow: hidden;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -3617,6 +3622,30 @@ td.cell-risk,
   border: 1px solid #94a3b8 !important;
   font-weight: 700 !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Red Circle with Exclamation Mark for Tab Incomplete Notification */
+.tab-count-alert-circle,
+.drawer-tab-btn .tab-count-alert-circle,
+.drawer-tab-btn.is-active .tab-count-alert-circle,
+.case-detail-nav .drawer-tab-btn .tab-count-alert-circle,
+.case-detail-nav .drawer-tab-btn.is-active .tab-count-alert-circle {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  max-width: 20px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 800 !important;
+  font-size: 0.75rem !important;
+  line-height: 1 !important;
+  background: var(--colorPaletteRedBackground3, #d13438) !important;
+  color: #ffffff !important;
+  border: 1px solid #b2262a !important;
+  box-shadow: 0 1px 3px rgba(209, 52, 56, 0.35) !important;
 }
 
 /* Readiness & Communications Polish */
