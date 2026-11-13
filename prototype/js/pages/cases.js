@@ -26,9 +26,18 @@ import {
   requestCaseStageTransition,
   canTransitionCase,
   normalizeKanbanStage,
+  getCaseEvidence,
+  addCaseEvidence,
+  verifyCaseEvidence,
+  getEvidenceTypeLabel,
+  recordCaseChange,
+  getCaseChangeHistory,
+  getCaseAssigneeHistory,
+  getOfficerZone,
+  getStructuredCaseBrief,
 } from '../state.js';
 import { CAPTURE_STATUSES, taskDateInput } from '../taskCapture.js';
-import { TODAY, fmtDue, fmtLongDay, fmtTime, parseDate, timePart } from '../time.js';
+import { TODAY, fmtDue, fmtLongDay, fmtTime, parseDate, timePart, getDeadlineCountdown } from '../time.js';
 import { emptyState, html, icon, priorityBadge, riskBadge, raw } from '../ui.js';
 
 const COMPACT_DATE_FMT = new Intl.DateTimeFormat('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -46,6 +55,24 @@ export function fmtCompactDeadline(iso) {
   return `${dateStr} · ${h12}:${mm} ${suffix}`;
 }
 
+export function renderDeadlineBadge(countdown) {
+  if (!countdown || countdown.state === 'none' || countdown.isNone) {
+    return html`<span class="deadline-badge deadline-badge-none" title="No deadline recorded">No deadline</span>`;
+  }
+  let iconName = 'clock';
+  let badgeClass = 'deadline-badge-upcoming';
+  if (countdown.isOverdue) {
+    iconName = 'alert';
+    badgeClass = 'deadline-badge-overdue';
+  } else if (countdown.isDueSoon) {
+    iconName = 'clock';
+    badgeClass = 'deadline-badge-soon';
+  }
+  return html`<span class="deadline-badge ${badgeClass}" title="${countdown.text}">
+    ${icon(iconName, 12)} ${countdown.text}
+  </span>`;
+}
+
 // Module view state
 export const caseView = {
   activeTab: 'all', // 'all' | 'open' | 'radar' | 'blocked' | 'ready' | 'closed'
@@ -55,7 +82,7 @@ export const caseView = {
   urgencyFilter: 'all',
   radarFilter: 'all', // 'all' | 'critical' | 'resident' | 'contractor'
   selectedCaseId: null,
-  journeyTab: 'timeline', // 'timeline' | 'loose_ends' | 'blockers' | 'readiness' | 'communications' | 'brief'
+  journeyTab: 'timeline', // 'timeline' | 'loose_ends' | 'blockers' | 'readiness' | 'evidence' | 'history' | 'communications' | 'brief'
   activeExplanationRuleId: null, // when viewing an Evidence-Linked Explanation
   highlightedSourceId: null, // ID of source record to highlight
   commChannelFilter: 'all', // 'all' | 'in_app' | 'whatsapp' | 'teams' | 'telegram'
@@ -71,10 +98,16 @@ function recordedDeadlines(record) {
   ].filter(([, value]) => value);
   if (!deadlines.length) return html`<span class="muted">No deadline recorded</span>`;
   return html`<dl class="case-deadlines">
-    ${deadlines.map(([label, value]) => html`<div class="deadline-item">
-      <dt class="deadline-label">${label}</dt>
-      <dd class="deadline-val"><time datetime="${value}+08:00">${fmtCompactDeadline(value)}</time></dd>
-    </div>`)}
+    ${deadlines.map(([label, value]) => {
+      const countdown = getDeadlineCountdown(value);
+      return html`<div class="deadline-item">
+        <dt class="deadline-label">${label}</dt>
+        <dd class="deadline-val">
+          <time datetime="${value}+08:00">${fmtCompactDeadline(value)}</time>
+          ${renderDeadlineBadge(countdown)}
+        </dd>
+      </div>`;
+    })}
   </dl>`;
 }
 
@@ -919,11 +952,14 @@ function renderCaseKanban(s, cases) {
                                   </button>
                                 `
                               : ''}
-                            ${c.slaDue
+                            ${(c.responseDue || c.followUpDue || c.slaDue)
                               ? html`
-                                  <span class="kanban-deadline-tag small muted">
-                                    ${icon('clock', 12)} SLA Due: ${fmtCompactDeadline(c.slaDue)}
-                                  </span>
+                                  <div class="kanban-deadline-tag-wrap" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 4px;">
+                                    ${renderDeadlineBadge(getDeadlineCountdown(c.responseDue || c.followUpDue || c.slaDue))}
+                                    <span class="small muted" style="font-size: 0.6875rem;">
+                                      ${fmtCompactDeadline(c.responseDue || c.followUpDue || c.slaDue)}
+                                    </span>
+                                  </div>
                                 `
                               : ''}
                           </div>
@@ -1024,7 +1060,7 @@ function renderCaseMoveStageModal(s, caseId) {
                               data-target="${col.id}"
                               style="white-space: nowrap;"
                             >
-                              ${check.requiresApproval ? 'Request Sign-Off' : check.requiresReason ? 'Enter Reason & Move' : 'Move Here'}
+                              ${check.requiresApproval ? 'Request Approval' : check.requiresReason ? 'Enter Reason & Move' : 'Move Here'}
                             </button>
                           `
                         : check.canResolveBlocker
@@ -1063,7 +1099,7 @@ function renderCaseMoveStageModal(s, caseId) {
 }
 
 /**
- * Consequential Stage Transition Confirmation Modal.
+ * Consequential Stage Transition Confirmation Modal (7-step readable workflow).
  * Opens for hold reasons, manager approval requests, and manager exceptions.
  */
 function renderCaseTransitionModal(s) {
@@ -1133,7 +1169,7 @@ function renderCaseTransitionModal(s) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="transition-confirm-title"
-        style="max-width: 520px; width: 100%; background: var(--colorNeutralBackground1); border-radius: 10px; box-shadow: var(--shadow64); padding: 22px; display: flex; flex-direction: column; gap: 14px;"
+        style="max-width: 560px; width: 100%; background: var(--colorNeutralBackground1); border-radius: 10px; box-shadow: var(--shadow64); padding: 22px; display: flex; flex-direction: column; gap: 14px;"
       >
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--colorNeutralStroke2); padding-bottom: 10px;">
           <div>
@@ -1149,24 +1185,60 @@ function renderCaseTransitionModal(s) {
           </button>
         </div>
 
-        <!-- Stage progression comparison -->
-        <div style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <!-- 7-Step Workflow Layout -->
+
+        <!-- Step 1: Case Summary -->
+        <div class="transition-step transition-step-summary" style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 10px 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px;">
+            <span class="case-number-badge">${c.number || c.caseNumber || c.id}</span>
+            <span class="tag tag-neutral small">${c.category || 'Estate Case'}</span>
+          </div>
+          <strong style="font-size: 0.875rem; color: var(--colorNeutralForeground1); display: block; margin-bottom: 2px;">${c.title}</strong>
+          <div class="small muted" style="font-size: 0.75rem;">
+            <span>${icon('users', 12)} Officer: <strong>${officerName(s, c.ownerId)}</strong></span>
+            ${c.location ? html` · <span>${icon('pin', 12)} ${c.location}</span>` : ''}
+          </div>
+        </div>
+
+        <!-- Step 2: Stage Progression -->
+        <div class="transition-step transition-step-progression" style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
           <div style="text-align: left;">
             <span class="small muted" style="display: block; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.5px;">Current Stage</span>
             <span class="tag ${fromCol?.badgeClass || 'tag-neutral'}" style="margin-top: 2px;">${fromTitle}</span>
           </div>
-          <span style="color: var(--colorNeutralForeground3); font-size: 1.25rem;">→</span>
+          <span style="color: var(--colorNeutralForeground3); font-size: 1.25rem; font-weight: 700;">→</span>
           <div style="text-align: right;">
-            <span class="small muted" style="display: block; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.5px;">Proposed Stage</span>
+            <span class="small muted" style="display: block; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.5px;">Target Stage</span>
             <span class="tag ${toCol?.badgeClass || 'tag-brand'}" style="margin-top: 2px;">${toTitle}</span>
           </div>
         </div>
 
+        <!-- Step 3: Statutory & Compliance Justification Banner -->
         ${bannerHtml}
 
+        <!-- Step 4: Checklist & Prerequisites Inspection -->
+        <div class="transition-step transition-step-requirements" style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 10px 14px;">
+          <span class="small" style="font-weight: 600; display: block; margin-bottom: 6px; color: var(--colorNeutralForeground1);">
+            Prerequisites &amp; Statutory Checklist:
+          </span>
+          ${(c.checkpoints && c.checkpoints.length > 0)
+            ? html`
+                <ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem;">
+                  ${c.checkpoints.map((cp) => html`
+                    <li style="display: flex; align-items: center; gap: 6px; color: ${cp.completed ? 'var(--colorPaletteGreenForeground1)' : 'var(--colorPaletteMarigoldForeground1)'};">
+                      <span>${cp.completed ? '✓' : '○'}</span>
+                      <span>${cp.title} — <strong>${cp.completed ? 'Verified' : 'Pending'}</strong></span>
+                    </li>
+                  `)}
+                </ul>
+              `
+            : html`<span class="small muted">Standard operational verification criteria apply.</span>`}
+        </div>
+
+        <!-- Step 5: Auditable Memo / Reason Input -->
         <div>
           <label for="case-transition-reason-input" class="small" style="font-weight: 600; display: block; margin-bottom: 4px; color: var(--colorNeutralForeground1);">
-            ${reasonLabel}
+            ${reasonLabel} <span style="color: var(--colorPaletteRedForeground1);">*</span>
           </label>
           <textarea
             id="case-transition-reason-input"
@@ -1175,8 +1247,15 @@ function renderCaseTransitionModal(s) {
             style="width: 100%; box-sizing: border-box; font-family: inherit; font-size: 0.875rem; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1);"
             placeholder="${placeholder}"
           ></textarea>
+          <p class="small muted" style="margin: 3px 0 0; font-size: 0.6875rem;">Minimum 4 characters required for statutory audit compliance.</p>
         </div>
 
+        <!-- Step 6: Post-Submission Explanation -->
+        <div class="transition-step transition-step-post-submission" style="background: var(--colorNeutralBackground3); border-radius: 6px; padding: 8px 12px; font-size: 0.75rem; color: var(--colorNeutralForeground3); line-height: 1.4;">
+          <strong>Post-Submission Effect:</strong> Upon confirmation, this change is written to the immutable audit ledger. Notifications are dispatched to relevant team officers and Town Council stakeholders.
+        </div>
+
+        <!-- Step 7: Action Controls -->
         <div style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 8px; border-top: 1px solid var(--colorNeutralStroke2);">
           <button type="button" class="btn-ghost btn-sm" data-action="case-transition-cancel">Cancel</button>
           <button
@@ -1203,8 +1282,10 @@ function renderCaseJourneyModal(s, c) {
   const activeBlockers = (c.blockers || []).filter((b) => !b.resolved);
 
   const pendingClosure = (s.approvals || []).find(
-    (a) => a.caseId === c.id && (a.requestType === 'case_closure' || a.requestType === 'closure') && a.status === 'pending'
+    (a) => a.caseId === c.id && (a.requestType === 'case_closure' || a.requestType === 'closure') && a.status === 'pending',
   );
+  const evidenceList = getCaseEvidence(s, c.id);
+  const changeHistory = getCaseChangeHistory(s, c.id);
 
   return html`
     <div class="modal-backdrop is-open case-workspace-backdrop" data-action="case-modal-close">
@@ -1253,6 +1334,8 @@ function renderCaseJourneyModal(s, c) {
             ['loose_ends', 'Outstanding Follow-Ups', looseEnds.length],
             ['blockers', 'Blockers', activeBlockers.length],
             ['readiness', 'Ready to Close?', readiness.isReady ? 'Ready' : 'Incomplete'],
+            ['evidence', 'Evidence & Docs', evidenceList.length],
+            ['history', 'History & Changes', changeHistory.length],
             ['communications', 'Communications', comms.length],
             ['brief', 'AI Case Brief', null],
           ].map(
@@ -1298,9 +1381,13 @@ function renderCaseJourneyModal(s, c) {
                 ? renderJourneyBlockersTab(s, c)
                 : caseView.journeyTab === 'readiness'
                   ? renderJourneyReadinessTab(s, c, readiness)
-                  : caseView.journeyTab === 'communications'
-                    ? renderJourneyCommunicationsTab(s, c, comms)
-                    : renderJourneyBriefTab(s, c)}
+                  : caseView.journeyTab === 'evidence'
+                    ? renderJourneyEvidenceTab(s, c)
+                    : caseView.journeyTab === 'history'
+                      ? renderJourneyHistoryTab(s, c)
+                      : caseView.journeyTab === 'communications'
+                        ? renderJourneyCommunicationsTab(s, c, comms)
+                        : renderJourneyBriefTab(s, c)}
         </div>
 
         </div>
@@ -1985,20 +2072,512 @@ function renderJourneyCommunicationsTab(s, c, comms) {
 
 function renderJourneyBriefTab(s, c) {
   const briefText = generateCaseBrief(s, c);
+  const structured = getStructuredCaseBrief(s, c);
+  if (!structured) {
+    return html`<div class="empty-state">No brief available</div>`;
+  }
+
+  const primaryDeadline = structured.responseDue || structured.followUpDue || structured.slaDue;
+  const countdown = primaryDeadline ? getDeadlineCountdown(primaryDeadline) : null;
+
   return html`
-    <div style="display: flex; flex-direction: column; gap: 12px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-        <span class="small muted">Deterministic Template · Factual State Intelligence</span>
-        <div style="display: flex; gap: 6px;">
+    <div class="case-brief-structured" style="display: flex; flex-direction: column; gap: 16px;">
+      <!-- Hidden pre containing clean plaintext for copy button -->
+      <pre id="case-brief-text" style="display: none;" aria-hidden="true">${briefText}</pre>
+
+      <!-- Action bar -->
+      <div class="brief-action-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--colorNeutralStroke2); padding-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span class="tag tag-brand small" style="display: inline-flex; align-items: center; gap: 4px;">
+            ${icon('sparkle', 12)} Deterministic Template
+          </span>
+          <span class="small muted">Factual State Intelligence · Town Council Protocol</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
           <button type="button" class="btn-subtle btn-sm" data-action="case-refresh-brief" data-case="${c.id}">
             ${icon('sparkle', 14)} Refresh Brief
           </button>
           <button type="button" class="btn-secondary btn-sm" id="btn-copy-case-brief" data-action="case-copy-brief" data-case="${c.id}">
-            ${icon('copy', 14)} Copy Case Brief
+            ${icon('copy', 14)} Copy Plaintext Brief
           </button>
         </div>
       </div>
-      <pre id="case-brief-text" style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 14px; font-family: monospace; font-size: 0.8125rem; line-height: 1.5; white-space: pre-wrap; margin: 0;">${briefText}</pre>
+
+      <!-- 1. Case Overview Card -->
+      <div class="brief-card brief-overview-card" style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
+              <span class="case-number-badge">${structured.caseNumber}</span>
+              <span class="tag ${structured.stage === 'closed' ? 'tag-neutral' : structured.stage === 'ready_for_closure' ? 'tag-success' : 'tag-brand'} small">${structured.stage}</span>
+              <span class="tag ${structured.urgency === 'Critical' ? 'tag-danger' : 'tag-neutral'} small">${structured.urgency}</span>
+              ${countdown ? renderDeadlineBadge(countdown) : ''}
+            </div>
+            <h3 style="font-size: 1.125rem; font-weight: 600; margin: 0 0 4px; color: var(--colorNeutralForeground1);">${structured.title}</h3>
+            <p class="small muted" style="margin: 0;">${structured.category} · ${structured.location}</p>
+          </div>
+          <div style="text-align: right;">
+            <div class="small muted">Assigned Officer</div>
+            <strong style="font-size: 0.875rem; color: var(--colorNeutralForeground1);">${structured.officerZoneDisplay}</strong>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--colorNeutralStroke2);">
+          <div>
+            <span class="small muted" style="display: block;">Response Due</span>
+            <span style="font-size: 0.8125rem; font-weight: 600;">${structured.responseDue ? fmtCompactDeadline(structured.responseDue) : 'None'}</span>
+          </div>
+          <div>
+            <span class="small muted" style="display: block;">Follow-Up Due</span>
+            <span style="font-size: 0.8125rem; font-weight: 600;">${structured.followUpDue ? fmtCompactDeadline(structured.followUpDue) : 'None'}</span>
+          </div>
+          <div>
+            <span class="small muted" style="display: block;">SLA Due</span>
+            <span style="font-size: 0.8125rem; font-weight: 600;">${structured.slaDue ? fmtCompactDeadline(structured.slaDue) : 'None'}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. What Happened? (Executive Summary) -->
+      <div class="brief-card" style="border: 1px solid var(--colorNeutralStroke1); border-radius: 8px; padding: 16px;">
+        <h4 style="font-size: 0.9375rem; font-weight: 600; margin: 0 0 8px; color: var(--colorNeutralForeground1); display: flex; align-items: center; gap: 6px;">
+          ${icon('info', 16)} What Happened? (Executive Summary)
+        </h4>
+        <p style="font-size: 0.875rem; line-height: 1.5; color: var(--colorNeutralForeground2); margin: 0;">
+          ${structured.summary}
+        </p>
+      </div>
+
+      <!-- 3. Work Completed -->
+      <div class="brief-card" style="border: 1px solid var(--colorNeutralStroke1); border-radius: 8px; padding: 16px;">
+        <h4 style="font-size: 0.9375rem; font-weight: 600; margin: 0 0 10px; color: var(--colorNeutralForeground1); display: flex; align-items: center; gap: 6px;">
+          ${icon('check', 16)} Work Completed
+        </h4>
+        <ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px;">
+          ${structured.completedWork.map(
+            (w) => html`
+              <li style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; background: var(--colorNeutralBackground2); border-radius: 6px; font-size: 0.8125rem; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="color: var(--colorPaletteGreenForeground1);">${icon('check', 14)}</span>
+                  <span><strong>${w.title}</strong></span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="tag ${w.isVerified ? 'tag-success' : 'tag-neutral'} small">${w.note}</span>
+                  ${w.actor ? html`<span class="small muted">by ${w.actor}</span>` : ''}
+                </div>
+              </li>
+            `,
+          )}
+        </ul>
+      </div>
+
+      <!-- 4. Outstanding Commitments & Loose Ends -->
+      <div class="brief-card" style="border: 1px solid ${structured.looseEnds.length > 0 ? 'var(--colorPaletteMarigoldBorderActive)' : 'var(--colorNeutralStroke1)'}; border-radius: 8px; padding: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h4 style="font-size: 0.9375rem; font-weight: 600; margin: 0; color: var(--colorNeutralForeground1); display: flex; align-items: center; gap: 6px;">
+            ${icon('radar', 16)} Outstanding Commitments &amp; Loose Ends (${structured.looseEnds.length})
+          </h4>
+          ${structured.looseEnds.length > 0
+            ? html`
+                <button type="button" class="btn-ghost btn-sm" data-action="case-journey-tab" data-tab="loose_ends" style="font-size: 0.75rem;">
+                  View in Follow-Ups Tab →
+                </button>
+              `
+            : ''}
+        </div>
+        ${structured.looseEnds.length === 0
+          ? html`<p class="small muted" style="margin: 0;">No unfulfilled operational loose ends detected.</p>`
+          : html`
+              <ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px;">
+                ${structured.looseEnds.map(
+                  (l) => html`
+                    <li style="padding: 10px 12px; background: var(--colorPaletteMarigoldBackground1); border: 1px solid var(--colorPaletteMarigoldBorderActive); border-radius: 6px;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                        <strong style="font-size: 0.8125rem; color: var(--colorNeutralForeground1);">${l.ruleName}</strong>
+                        <span class="tag tag-danger small">${l.ruleCode || 'Unresolved'}</span>
+                      </div>
+                      <p class="small" style="margin: 4px 0 6px; color: var(--colorNeutralForeground2);">${l.whyMatters}</p>
+                      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; flex-wrap: wrap; gap: 6px;">
+                        <span class="muted">Action: ${l.suggestedAction}</span>
+                        <button type="button" class="btn-secondary btn-sm" data-action="case-explain-finding" data-case="${c.id}" data-rule="${l.ruleId}" style="font-size: 0.75rem; padding: 2px 8px;">
+                          Inspect Finding
+                        </button>
+                      </div>
+                    </li>
+                  `,
+                )}
+              </ul>
+            `}
+      </div>
+
+      <!-- 5. Recommended Next Actions -->
+      <div class="brief-card" style="border: 1px solid var(--colorNeutralStroke1); border-radius: 8px; padding: 16px;">
+        <h4 style="font-size: 0.9375rem; font-weight: 600; margin: 0 0 10px; color: var(--colorNeutralForeground1); display: flex; align-items: center; gap: 6px;">
+          ${icon('arrow', 16)} Recommended Next Actions
+        </h4>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          ${structured.recommendations.map(
+            (r, i) => html`
+              <div style="display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; background: var(--colorNeutralBackground2); border-radius: 6px;">
+                <span class="badge" style="background: var(--colorBrandBackground); color: #fff; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0;">${i + 1}</span>
+                <div>
+                  <strong style="font-size: 0.8125rem; color: var(--colorNeutralForeground1);">${r.action}</strong>
+                  <p class="small muted" style="margin: 2px 0 0;">${r.reason}</p>
+                </div>
+              </div>
+            `,
+          )}
+        </div>
+      </div>
+
+      <!-- 6. Statutory Closure Readiness Progress -->
+      <div class="brief-card" style="border: 1px solid var(--colorNeutralStroke1); border-radius: 8px; padding: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h4 style="font-size: 0.9375rem; font-weight: 600; margin: 0; color: var(--colorNeutralForeground1); display: flex; align-items: center; gap: 6px;">
+            ${icon('check', 16)} Statutory Closure Readiness (${structured.readiness.isReady ? 'Ready' : 'Incomplete'})
+          </h4>
+          <button type="button" class="btn-ghost btn-sm" data-action="case-journey-tab" data-tab="readiness" style="font-size: 0.75rem;">
+            Full Checklist →
+          </button>
+        </div>
+        <p class="small" style="margin: 0 0 10px; color: var(--colorNeutralForeground2);">
+          ${structured.readiness.isReady
+            ? 'All mandatory operational checkpoints and evidence requirements have been verified. Ready for Estate Manager closure sign-off.'
+            : `Pending requirements: ${structured.readiness.unresolvedItems.join(', ')}.`}
+        </p>
+      </div>
+
+      <!-- 7. Supporting Records Jump Links -->
+      <div class="brief-card" style="border: 1px solid var(--colorNeutralStroke1); border-radius: 8px; padding: 14px 16px; background: var(--colorNeutralBackground2);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <span class="small" style="font-weight: 600; color: var(--colorNeutralForeground1);">Jump to Supporting Case Records:</span>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn-secondary btn-sm" data-action="case-journey-tab" data-tab="evidence" style="font-size: 0.75rem;">
+              ${icon('folder', 12)} Evidence &amp; Docs (${structured.evidence.length})
+            </button>
+            <button type="button" class="btn-secondary btn-sm" data-action="case-journey-tab" data-tab="history" style="font-size: 0.75rem;">
+              ${icon('clock', 12)} History &amp; Changes
+            </button>
+            <button type="button" class="btn-secondary btn-sm" data-action="case-journey-tab" data-tab="communications" style="font-size: 0.75rem;">
+              ${icon('mail', 12)} Resident Comms
+            </button>
+            <button type="button" class="btn-secondary btn-sm" data-action="case-journey-tab" data-tab="timeline" style="font-size: 0.75rem;">
+              ${icon('menu', 12)} Timeline &amp; Notes
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 8. Responsible AI Disclosures -->
+      <div class="brief-card brief-disclaimer-card" style="background: var(--colorNeutralBackground3); border-radius: 8px; padding: 12px 14px; font-size: 0.75rem; color: var(--colorNeutralForeground3); line-height: 1.45;">
+        <strong style="color: var(--colorNeutralForeground2); display: block; margin-bottom: 2px;">Responsible AI &amp; Town Council Governance Disclosure:</strong>
+        This case brief is deterministically compiled from operational state records, checklist verifications, and Singapore Town Council statutory protocols. It does not generate hallucinations or invent unrecorded site facts. Factual gaps and missing evidence are explicitly identified. Officers must confirm physical site conditions before authorizing formal closure.
+      </div>
+    </div>
+  `;
+}
+
+function renderJourneyEvidenceTab(s, c) {
+  const evidence = getCaseEvidence(s, c.id);
+  const isMgr = isManager(s);
+  const verifiedCount = evidence.filter((e) => e.verified).length;
+  const pendingCount = evidence.filter((e) => e.status === 'pending_review' || (!e.verified && !e.rejectedBy)).length;
+
+  return html`
+    <div class="evidence-tab-container" style="display: flex; flex-direction: column; gap: 18px;">
+      <!-- Summary Bar -->
+      <div class="evidence-summary-bar" style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <strong style="font-size: 0.9375rem; color: var(--colorNeutralForeground1);">Evidence &amp; Verification Vault</strong>
+          <p class="small muted" style="margin: 2px 0 0;">Mandatory documentation, inspection photos, and statutory completion sign-offs (#027).</p>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span class="tag tag-success small">${verifiedCount} Verified</span>
+          <span class="tag ${pendingCount > 0 ? 'tag-warning' : 'tag-neutral'} small">${pendingCount} Pending Review</span>
+        </div>
+      </div>
+
+      <!-- Evidence List -->
+      <div class="evidence-list-section">
+        <h4 style="font-size: 0.875rem; font-weight: 600; margin: 0 0 10px; color: var(--colorNeutralForeground1);">Attached Records (${evidence.length})</h4>
+        ${evidence.length === 0
+          ? html`<div class="empty-state" style="padding: 24px; text-align: center; background: var(--colorNeutralBackground2); border-radius: 8px;">
+              <p class="muted small" style="margin: 0;">No evidence records attached yet. Use the demo upload form below to attach inspection documents.</p>
+            </div>`
+          : html`
+              <div class="evidence-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+                ${evidence.map((e) => {
+                  const isVerified = e.status === 'verified' || e.verified;
+                  const isRejected = e.status === 'rejected';
+                  const isPending = !isVerified && !isRejected;
+
+                  return html`
+                    <div class="evidence-card ${isVerified ? 'is-verified' : isRejected ? 'is-rejected' : 'is-pending'}" style="background: var(--colorNeutralBackground1); border: 1px solid ${isVerified ? 'var(--colorPaletteGreenBorderActive, #107c10)' : isRejected ? 'var(--colorPaletteRedBorderActive, #d13438)' : 'var(--colorPaletteMarigoldBorderActive, #f9a825)'}; border-radius: 8px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; box-shadow: var(--shadow4);">
+                      <div>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
+                          <span class="tag ${isVerified ? 'tag-success' : isRejected ? 'tag-danger' : 'tag-warning'} small" style="font-weight: 600;">
+                            ${isVerified ? '✓ Verified' : isRejected ? '✗ Rejected' : '⏳ Pending Review'}
+                          </span>
+                          <span class="tag tag-neutral small">${e.typeLabel || getEvidenceTypeLabel(e.type)}</span>
+                        </div>
+
+                        <h5 style="font-size: 0.875rem; font-weight: 600; margin: 0 0 4px; color: var(--colorNeutralForeground1); line-height: 1.35;">${e.title}</h5>
+                        <p class="small muted" style="margin: 0 0 8px; font-size: 0.75rem;">${e.fileName || 'document.pdf'} · ${e.fileSize || '1.5 MB'}</p>
+                        <p style="font-size: 0.8125rem; color: var(--colorNeutralForeground2); line-height: 1.4; margin: 0 0 10px;">${e.description || 'No description provided.'}</p>
+                      </div>
+
+                      <div style="border-top: 1px solid var(--colorNeutralStroke2); padding-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                        <div class="small muted" style="font-size: 0.6875rem; line-height: 1.3;">
+                          <div>Uploaded by <strong>${e.uploadedBy || 'Property Officer'}</strong> on ${fmtCompactDeadline(e.uploadedAt)}</div>
+                          ${isVerified ? html`<div style="color: var(--colorPaletteGreenForeground1); margin-top: 2px;">Verified by <strong>${e.verifiedBy}</strong> on ${fmtCompactDeadline(e.verifiedAt)}</div>` : ''}
+                          ${isRejected ? html`<div style="color: var(--colorPaletteRedForeground1); margin-top: 2px;">Rejected by <strong>${e.rejectedBy}</strong>: ${e.rejectionReason}</div>` : ''}
+                          ${e.requiredForClosure ? html`<div style="color: var(--colorBrandForeground1); font-weight: 600; margin-top: 2px;">★ Required for Case Closure</div>` : ''}
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap;">
+                          <button type="button" class="btn-ghost btn-sm" data-action="case-preview-evidence" data-case="${c.id}" data-evidence="${e.id}" style="font-size: 0.75rem; padding: 2px 8px;">
+                            ${icon('eye', 12)} View Document
+                          </button>
+
+                          ${isPending && isMgr
+                            ? html`
+                                <div style="display: flex; gap: 4px;">
+                                  <button type="button" class="btn-primary btn-sm" data-action="case-verify-evidence" data-case="${c.id}" data-evidence="${e.id}" style="font-size: 0.75rem; padding: 2px 8px;">
+                                    ${icon('check', 12)} Verify
+                                  </button>
+                                  <button type="button" class="btn-secondary btn-sm" data-action="case-reject-evidence" data-case="${c.id}" data-evidence="${e.id}" style="font-size: 0.75rem; padding: 2px 8px;">
+                                    ${icon('x', 12)} Reject
+                                  </button>
+                                </div>
+                              `
+                            : ''}
+                        </div>
+                      </div>
+                    </div>
+                  `;
+                })}
+              </div>
+            `}
+      </div>
+
+      <!-- Demo Local Upload Box -->
+      <div class="evidence-upload-section" style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 16px;">
+        <h4 style="font-size: 0.875rem; font-weight: 600; margin: 0 0 4px; color: var(--colorNeutralForeground1); display: flex; align-items: center; gap: 6px;">
+          ${icon('upload', 16)} Attach Operational Evidence (Safe Demo Upload)
+        </h4>
+        <p class="small muted" style="margin: 0 0 12px; font-size: 0.75rem;">
+          Upload inspection photos, completion notes, or BCA compliance reports. Local demo storage validated up to 5MB.
+        </p>
+
+        <form id="case-evidence-upload-form" data-case="${c.id}" style="display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label for="evidence-title-input" class="small" style="font-weight: 600; display: block; margin-bottom: 4px; color: var(--colorNeutralForeground1);">
+                Evidence Title <span style="color: var(--colorPaletteRedForeground1);">*</span>
+              </label>
+              <input
+                id="evidence-title-input"
+                type="text"
+                class="search-input"
+                required
+                minlength="3"
+                placeholder="e.g. Blk 211 Joint Inspection Moisture Meter Readings"
+                style="width: 100%; box-sizing: border-box; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1);"
+              />
+            </div>
+            <div>
+              <label for="evidence-type-select" class="small" style="font-weight: 600; display: block; margin-bottom: 4px; color: var(--colorNeutralForeground1);">
+                Evidence Category
+              </label>
+              <select
+                id="evidence-type-select"
+                class="search-input"
+                style="width: 100%; box-sizing: border-box; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1);"
+              >
+                <option value="photo">Inspection Photo</option>
+                <option value="inspection_report">Inspection Report</option>
+                <option value="completion_record">Work Completion Record</option>
+                <option value="resident_ack">Resident Acknowledgement</option>
+                <option value="document">Supporting Document</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label for="evidence-file-input" class="small" style="font-weight: 600; display: block; margin-bottom: 4px; color: var(--colorNeutralForeground1);">
+                Select File (Max 5MB)
+              </label>
+              <input
+                id="evidence-file-input"
+                type="file"
+                accept="image/*,.pdf,.doc,.docx"
+                style="width: 100%; font-size: 0.8125rem; box-sizing: border-box;"
+              />
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; padding-top: 18px;">
+              <input id="evidence-required-checkbox" type="checkbox" />
+              <label for="evidence-required-checkbox" class="small" style="font-weight: 600; color: var(--colorNeutralForeground1); cursor: pointer;">
+                Mandatory Checkpoint for Statutory Case Closure
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label for="evidence-desc-input" class="small" style="font-weight: 600; display: block; margin-bottom: 4px; color: var(--colorNeutralForeground1);">
+              Findings &amp; Verification Note
+            </label>
+            <textarea
+              id="evidence-desc-input"
+              class="search-input"
+              rows="2"
+              placeholder="Record observations, equipment measurements, or contractor verification details..."
+              style="width: 100%; box-sizing: border-box; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.8125rem;"
+            ></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px;">
+            <span class="small muted" style="font-size: 0.6875rem;">
+              Local client-side simulation. Files are processed within browser state.
+            </span>
+            <button type="submit" class="btn-primary btn-sm" data-action="case-submit-evidence">
+              ${icon('plus', 12)} Attach Evidence
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function renderJourneyHistoryTab(s, c) {
+  const assigneeHistory = getCaseAssigneeHistory(s, c.id);
+  const changeHistory = getCaseChangeHistory(s, c.id);
+
+  return html`
+    <div class="history-tab-container" style="display: flex; flex-direction: column; gap: 20px;">
+      <!-- Section 1: Assignee History (#024) -->
+      <div class="assignee-history-section" style="border: 1px solid var(--colorNeutralStroke1); border-radius: 8px; padding: 16px; background: var(--colorNeutralBackground1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h4 style="font-size: 0.9375rem; font-weight: 600; margin: 0; color: var(--colorNeutralForeground1); display: flex; align-items: center; gap: 6px;">
+              ${icon('users', 16)} Assignee History &amp; Handover Audit (#024)
+            </h4>
+            <p class="small muted" style="margin: 2px 0 0;">Historical record of case ownership transitions and manager authorizations.</p>
+          </div>
+          <button type="button" class="btn-secondary btn-sm" data-action="case-reassign-dialog" data-case="${c.id}">
+            ${icon('user-plus', 14)} Request Reassignment
+          </button>
+        </div>
+
+        ${assigneeHistory.length === 0
+          ? html`<div class="empty-state" style="padding: 18px; text-align: center; background: var(--colorNeutralBackground2); border-radius: 6px;">
+              <p class="muted small" style="margin: 0;">No previous reassignment recorded.</p>
+            </div>`
+          : html`
+              <div class="assignee-history-list" style="display: flex; flex-direction: column; gap: 10px;">
+                ${assigneeHistory.map((h) => {
+                  const isApproved = h.approvalStatus === 'approved';
+                  const isRejected = h.approvalStatus === 'rejected';
+                  const isPending = h.approvalStatus === 'pending';
+
+                  return html`
+                    <div class="history-card" style="padding: 12px 14px; background: var(--colorNeutralBackground2); border-left: 3px solid ${isApproved ? 'var(--colorPaletteGreenBorderActive, #107c10)' : isRejected ? 'var(--colorPaletteRedBorderActive, #d13438)' : 'var(--colorPaletteMarigoldBorderActive, #f9a825)'}; border-radius: 6px;">
+                      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap;">
+                        <div>
+                          <span style="font-size: 0.875rem; font-weight: 600; color: var(--colorNeutralForeground1);">
+                            ${h.before?.assigneeName || 'Previous Officer'} → <strong>${h.after?.assigneeName || 'New Officer'}</strong>
+                          </span>
+                          <div class="small muted" style="margin-top: 2px;">
+                            Requested by <strong>${h.requestedBy}</strong> on ${fmtCompactDeadline(h.timestamp)}
+                          </div>
+                        </div>
+                        <span class="tag ${isApproved ? 'tag-success' : isRejected ? 'tag-danger' : 'tag-warning'} small">
+                          ${isApproved ? '✓ Handover Approved' : isRejected ? '✗ Handover Declined' : '⏳ Pending Approval'}
+                        </span>
+                      </div>
+
+                      <p class="small" style="margin: 8px 0 4px; color: var(--colorNeutralForeground2);">
+                        <strong>Reason:</strong> ${h.reason}
+                      </p>
+                      ${h.approver
+                        ? html`
+                            <div class="small muted" style="font-size: 0.75rem;">
+                              Decided by <strong>${h.approver}</strong> ${h.decidedAt ? `on ${fmtCompactDeadline(h.decidedAt)}` : ''}
+                              ${h.decisionNote ? ` · "${h.decisionNote}"` : ''}
+                            </div>
+                          `
+                        : ''}
+                    </div>
+                  `;
+                })}
+              </div>
+            `}
+      </div>
+
+      <!-- Section 2: Task & Case Change Comparison (#029) -->
+      <div class="change-comparison-section" style="border: 1px solid var(--colorNeutralStroke1); border-radius: 8px; padding: 16px; background: var(--colorNeutralBackground1);">
+        <div style="margin-bottom: 12px;">
+          <h4 style="font-size: 0.9375rem; font-weight: 600; margin: 0; color: var(--colorNeutralForeground1); display: flex; align-items: center; gap: 6px;">
+            ${icon('columns', 16)} Task &amp; Case Change Comparison (#029)
+          </h4>
+          <p class="small muted" style="margin: 2px 0 0;">Before-and-after snapshots of case attributes (Assignee, Due Date, Stage, Priority).</p>
+        </div>
+
+        ${changeHistory.length === 0
+          ? html`<div class="empty-state" style="padding: 18px; text-align: center; background: var(--colorNeutralBackground2); border-radius: 6px;">
+              <p class="muted small" style="margin: 0;">No change snapshots recorded yet.</p>
+            </div>`
+          : html`
+              <div class="change-history-list" style="display: flex; flex-direction: column; gap: 14px;">
+                ${changeHistory.map((ch) => {
+                  return html`
+                    <div class="change-comparison-card" style="border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 12px 14px; background: var(--colorNeutralBackground2);">
+                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+                        <span class="tag tag-neutral small" style="font-weight: 600; text-transform: capitalize;">
+                          ${ch.changeType.replace('_', ' ')}
+                        </span>
+                        <span class="small muted">${fmtCompactDeadline(ch.timestamp)} · by ${ch.requestedBy}</span>
+                      </div>
+
+                      <!-- Before vs After Grid -->
+                      <div class="before-after-grid" style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center;">
+                        <!-- Before Box -->
+                        <div class="change-box before-box" style="background: var(--colorNeutralBackground1); border: 1px solid var(--colorNeutralStroke2); border-radius: 6px; padding: 10px; font-size: 0.75rem;">
+                          <strong class="muted" style="display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Before State</strong>
+                          <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <div><strong>Assignee:</strong> ${ch.before?.assigneeName || 'Unassigned'}</div>
+                            <div><strong>Stage:</strong> ${ch.before?.stage || 'N/A'}</div>
+                            <div><strong>Due:</strong> ${ch.before?.due ? fmtCompactDeadline(ch.before.due) : 'None'}</div>
+                            <div><strong>Priority:</strong> ${ch.before?.priority || 'Standard'}</div>
+                          </div>
+                        </div>
+
+                        <!-- Transition Arrow -->
+                        <div style="font-size: 1.25rem; color: var(--colorBrandForeground1); font-weight: 700;">→</div>
+
+                        <!-- After Box -->
+                        <div class="change-box after-box" style="background: var(--colorBrandBackground2); border: 1px solid var(--colorBrandStroke2); border-radius: 6px; padding: 10px; font-size: 0.75rem;">
+                          <strong style="color: var(--colorBrandForeground1); display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">After State</strong>
+                          <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <div><strong>Assignee:</strong> ${ch.after?.assigneeName || 'Unassigned'}</div>
+                            <div><strong>Stage:</strong> ${ch.after?.stage || 'N/A'}</div>
+                            <div><strong>Due:</strong> ${ch.after?.due ? fmtCompactDeadline(ch.after.due) : 'None'}</div>
+                            <div><strong>Priority:</strong> ${ch.after?.priority || 'Standard'}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="small" style="margin-top: 8px; color: var(--colorNeutralForeground2);">
+                        <strong>Audit Note:</strong> ${ch.reason}
+                        ${ch.decisionNote ? html` · <em>Manager Decision: ${ch.decisionNote}</em>` : ''}
+                      </div>
+                    </div>
+                  `;
+                })}
+              </div>
+            `}
+      </div>
     </div>
   `;
 }

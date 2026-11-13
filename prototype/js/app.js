@@ -43,6 +43,8 @@ import {
   requestCaseStageTransition,
   canTransitionCase,
   normalizeKanbanStage,
+  addCaseEvidence,
+  verifyCaseEvidence,
 } from './state.js';
 import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog } from './ui.js';
 import { accessibleTask, changeTaskStatus, deleteCapturedTask, taskDateInput, taskDuration } from './taskCapture.js';
@@ -1343,6 +1345,51 @@ function setupEvents() {
       return;
     }
 
+    const verifyEvidenceBtn = e.target.closest('[data-action="case-verify-evidence"]');
+    if (verifyEvidenceBtn) {
+      const cid = verifyEvidenceBtn.dataset.case;
+      const eid = verifyEvidenceBtn.dataset.evidence;
+      update((s) => {
+        const res = verifyCaseEvidence(s, cid, eid, 'verify', actorName(s));
+        if (res.success) {
+          toast('Evidence record verified successfully.', 'success');
+        } else {
+          toast(res.error || 'Failed to verify evidence.', 'error');
+        }
+      });
+      renderApp();
+      return;
+    }
+
+    const rejectEvidenceBtn = e.target.closest('[data-action="case-reject-evidence"]');
+    if (rejectEvidenceBtn) {
+      const cid = rejectEvidenceBtn.dataset.case;
+      const eid = rejectEvidenceBtn.dataset.evidence;
+      const reason = window.prompt('Enter rejection reason for audit register (minimum 4 characters):');
+      if (reason != null) {
+        if (reason.trim().length < 4) {
+          toast('Rejection reason must be at least 4 characters.', 'error');
+        } else {
+          update((s) => {
+            const res = verifyCaseEvidence(s, cid, eid, 'reject', actorName(s), reason.trim());
+            if (res.success) {
+              toast('Evidence record rejected and audit logged.', 'info');
+            } else {
+              toast(res.error || 'Failed to reject evidence.', 'error');
+            }
+          });
+          renderApp();
+        }
+      }
+      return;
+    }
+
+    const previewEvidenceBtn = e.target.closest('[data-action="case-preview-evidence"]');
+    if (previewEvidenceBtn) {
+      toast('Opening simulated evidence preview for demo purposes.', 'info');
+      return;
+    }
+
     // 14. Evidence-Linked Explanations & Communication Hub events
     const caseExplainBtn = e.target.closest('[data-action="case-explain-finding"]');
     if (caseExplainBtn) {
@@ -1702,6 +1749,51 @@ function setupEvents() {
       });
 
       toast('Progress note recorded and added to timeline.', 'success');
+      renderApp();
+      return;
+    }
+
+    if (e.target.id === 'case-evidence-upload-form') {
+      e.preventDefault();
+      const form = e.target;
+      const cid = form.dataset.case || caseView.selectedCaseId;
+      const title = document.getElementById('evidence-title-input')?.value?.trim();
+      const type = document.getElementById('evidence-type-select')?.value || 'document';
+      const fileInput = document.getElementById('evidence-file-input');
+      const reqCheckbox = document.getElementById('evidence-required-checkbox');
+      const desc = document.getElementById('evidence-desc-input')?.value?.trim() || '';
+
+      if (!title || title.length < 3) {
+        toast('Evidence title must be at least 3 characters.', 'error');
+        return;
+      }
+
+      let fileName = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.pdf`;
+      let fileSize = '1.2 MB';
+
+      if (fileInput && fileInput.files && fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        if (file.size > 5 * 1024 * 1024) {
+          toast('File size exceeds the 5MB demo limit. Please select a smaller file.', 'error');
+          return;
+        }
+        fileName = file.name;
+        fileSize = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+      }
+
+      update((s) => {
+        addCaseEvidence(s, cid, {
+          title,
+          fileName,
+          type,
+          fileSize,
+          description: desc,
+          requiredForClosure: reqCheckbox ? reqCheckbox.checked : false,
+          isLocalUpload: true,
+        });
+      });
+
+      toast(`Evidence "${title}" attached and queued for manager review.`, 'success');
       renderApp();
       return;
     }
