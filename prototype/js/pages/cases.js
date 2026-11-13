@@ -2401,7 +2401,7 @@ function renderJourneyEvidenceTab(s, c) {
               <p class="muted small" style="margin: 0;">No evidence records attached yet. Use the demo upload form below to attach inspection documents.</p>
             </div>`
           : html`
-              <div class="evidence-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px;">
+              <div class="evidence-grid">
                 ${evidence.map((e) => {
                   const isVerified = e.status === 'verified' || e.verified;
                   const isRejected = e.status === 'rejected';
@@ -2472,7 +2472,7 @@ function renderJourneyEvidenceTab(s, c) {
         </p>
 
         <form id="case-evidence-upload-form" data-case="${c.id}" style="display: flex; flex-direction: column; gap: 12px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="evidence-form-row">
             <div>
               <label for="evidence-title-input" class="small" style="font-weight: 600; display: block; margin-bottom: 4px; color: var(--colorNeutralForeground1);">
                 Evidence Title <span style="color: var(--colorPaletteRedForeground1);">*</span>
@@ -2505,7 +2505,7 @@ function renderJourneyEvidenceTab(s, c) {
             </div>
           </div>
 
-          <div class="evidence-upload-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start;">
+          <div class="evidence-upload-grid">
             <div>
               <label class="small" style="font-weight: 600; display: block; margin-bottom: 6px; color: var(--colorNeutralForeground1);">
                 Attach File (Photo / Report / Doc)

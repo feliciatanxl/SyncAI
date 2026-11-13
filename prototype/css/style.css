@@ -3248,6 +3248,76 @@ td.cell-risk,
   margin: 5px 0 0;
 }
 
+/* Laptop Viewport Scaling & Compact Layout Adaptation (1025px - 1400px width / <= 850px height) */
+@media (max-width: 1400px) {
+  .kanban-board { grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+  .kanban-board .kanban-col:nth-child(n + 4) { min-height: 300px; }
+}
+
+@media (max-width: 1366px) and (min-width: 1025px) {
+  .portal-body {
+    grid-template-columns: 215px minmax(0, 1fr);
+  }
+  .portal-nav {
+    padding: 16px 8px;
+  }
+  .portal-nav-item {
+    padding: 0 10px;
+    font-size: 0.875rem;
+    gap: 8px;
+  }
+  .portal-main {
+    padding: 20px 22px 36px;
+  }
+  .stat-grid,
+  .case-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (max-height: 850px), (max-width: 1366px) and (min-width: 1101px) {
+  .case-workspace-backdrop {
+    padding: 14px;
+  }
+  .case-detail-workspace {
+    width: min(1180px, calc(100vw - 28px));
+    height: min(840px, calc(100vh - 28px));
+    border-radius: 14px;
+  }
+  .case-detail-header {
+    padding: 14px 60px 12px 20px;
+    gap: 12px;
+  }
+  .case-detail-heading h2 {
+    margin: 4px 0 6px;
+    font-size: 1.3rem;
+  }
+  .case-detail-kicker,
+  .case-detail-owner-row {
+    gap: 6px;
+  }
+  .case-detail-main {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .case-detail-nav {
+    width: 220px;
+    padding: 12px 8px;
+    gap: 4px;
+  }
+  .case-detail-nav .drawer-tab-btn {
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 0.8125rem;
+  }
+  .case-detail-scroll {
+    padding: 16px 22px 20px;
+  }
+  .case-detail-footer {
+    padding: 10px 22px;
+  }
+}
+
 @media (max-width: 1280px) {
   .kanban-board { grid-template-columns: repeat(3, minmax(230px, 1fr)); }
   .kanban-board .kanban-col:nth-child(n + 4) { min-height: 300px; }
@@ -3371,8 +3441,21 @@ td.cell-risk,
 
 .evidence-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(285px, 1fr));
   gap: 14px;
+}
+
+.evidence-form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.evidence-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 12px;
+  align-items: start;
 }
 
 .evidence-card {
@@ -3722,6 +3805,7 @@ td.cell-risk,
     margin: -4px 0;
   }
   #case-evidence-upload-form > div[style*="grid-template-columns"],
+  .evidence-form-row,
   .evidence-upload-grid {
     grid-template-columns: 1fr !important;
   }
