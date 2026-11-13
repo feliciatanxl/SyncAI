@@ -1137,7 +1137,7 @@ function renderCaseTransitionModal(s) {
     headerTitle = 'Manager Exception Case Closure';
     bannerHtml = html`
       <div class="callout callout-warning" style="background: var(--colorPaletteMarigoldBackground1); border: 1px solid var(--colorPaletteMarigoldBorderActive); border-radius: 6px; padding: 10px 12px; font-size: 0.8125rem; color: var(--colorNeutralForeground1);">
-        <strong>${icon('alert', 14)} Incomplete Checklist Exception:</strong> This case has incomplete prerequisites: <em>${modal.unresolvedItems?.join(', ') || 'Requirements pending'}</em>. Estate Manager authorization requires an auditable exception memo.
+        <strong style="color: #000000;">${icon('alert', 14)} Incomplete Checklist Exception:</strong> This case has incomplete prerequisites: <strong style="color: #000000;">${modal.unresolvedItems?.join(', ') || 'Requirements pending'}</strong>. Estate Manager authorization requires an auditable exception memo.
       </div>
     `;
     reasonLabel = 'Auditable Manager Exception Memo (Required)';
@@ -1290,6 +1290,17 @@ function renderCaseJourneyModal(s, c) {
   const evidenceList = getCaseEvidence(s, c.id);
   const changeHistory = getCaseChangeHistory(s, c.id);
 
+  const STAGE_LABELS = {
+    new: 'New Intake',
+    investigating: 'Active Investigation',
+    pending_action: 'Pending Action',
+    ready_for_closure: 'Closure Ready',
+    closed: 'Closed & Audited',
+  };
+  const humanStatus = STAGE_LABELS[c.status] || c.status;
+  const caseDeadline = c.responseDue || c.followUpDue || c.slaDue;
+  const countdown = caseDeadline ? getDeadlineCountdown(caseDeadline) : null;
+
   return html`
     <div class="modal-backdrop is-open case-workspace-backdrop" data-action="case-modal-close">
       <div
@@ -1304,8 +1315,11 @@ function renderCaseJourneyModal(s, c) {
           <div class="case-detail-heading">
             <div class="case-detail-kicker">
               <span class="case-number">${c.number || c.caseNumber || c.id}</span>
-              <span class="tag ${c.status === 'closed' ? 'tag-neutral' : c.status === 'ready_for_closure' ? 'tag-success' : 'tag-brand'} small">${c.status}</span>
-              ${pendingClosure ? html`<span class="tag tag-warning small">${icon('clock', 12)} Pending Sign-Off</span>` : ''}
+              <span class="tag ${c.status === 'closed' ? 'tag-neutral' : c.status === 'ready_for_closure' ? 'tag-success' : 'tag-brand'} small" style="font-weight: 600;">${humanStatus}</span>
+              ${c.category ? html`<span class="tag tag-neutral small" style="font-weight: 600;">${c.category.toUpperCase()}</span>` : ''}
+              ${countdown ? renderDeadlineBadge(countdown) : ''}
+              ${pendingClosure ? html`<span class="tag tag-warning small" style="color: #000000; font-weight: 700;">${icon('clock', 12)} Pending Sign-Off</span>` : ''}
+              ${c.safetyHazard ? html`<span class="tag tag-danger small" style="font-weight: 600;" title="${c.safetyDetails || 'Safety Hazard'}">${icon('alert', 12)} Safety Hazard</span>` : ''}
               ${c.location ? html`<span class="small muted case-detail-location">${icon('pin', 12)} ${c.location}</span>` : ''}
             </div>
             <h2 id="case-drawer-title">${c.title}</h2>
@@ -1319,9 +1333,21 @@ function renderCaseJourneyModal(s, c) {
               >
                 ${icon('users', 12)} Assigned: <strong>${officerName(s, c.ownerId)}</strong>
               </button>
-              <span class="case-detail-readiness ${readiness.isReady ? 'is-ready' : ''}">
+              <span class="case-detail-readiness ${readiness.isReady ? 'is-ready' : ''}" style="${!readiness.isReady ? 'color: #000000 !important; font-weight: 700;' : ''}">
                 ${icon(readiness.isReady ? 'check' : 'clock', 13)} ${readiness.isReady ? 'Ready for closure' : `${readiness.unresolvedItems.length} closure item${readiness.unresolvedItems.length === 1 ? '' : 's'} pending`}
               </span>
+              ${c.status !== 'closed' ? html`
+                <button
+                  type="button"
+                  class="btn-subtle btn-sm"
+                  data-action="case-move-stage-dialog"
+                  data-case="${c.id}"
+                  style="font-size: 0.75rem; padding: 2px 8px; font-weight: 600;"
+                  title="Move case workflow stage"
+                >
+                  ${icon('trend', 12)} Move Stage...
+                </button>
+              ` : ''}
             </div>
           </div>
           <button type="button" class="drawer-close-btn" data-action="case-modal-close" aria-label="Close drawer" title="Close drawer">
@@ -1355,7 +1381,7 @@ function renderCaseJourneyModal(s, c) {
                   <span class="drawer-tab-icon" style="display: inline-flex; flex-shrink: 0;">${icon(iconName, 14)}</span>
                   <span class="drawer-tab-label">${label}</span>
                 </span>
-                ${count != null ? html`<span class="tab-count ${count > 0 && (tabKey === 'loose_ends' || tabKey === 'blockers') ? 'tab-count-warn' : tabKey === 'readiness' && count === 'Ready' ? 'tab-count-success' : ''}">${count}</span>` : ''}
+                ${count != null ? html`<span class="tab-count ${count > 0 && (tabKey === 'loose_ends' || tabKey === 'blockers') ? 'tab-count-warn' : tabKey === 'readiness' && count === 'Ready' ? 'tab-count-success' : count === 'Incomplete' ? 'tab-count-incomplete' : ''}" data-status="${String(count).toLowerCase()}" style="${count === 'Incomplete' ? 'color: #000000 !important; font-weight: 700; background: #f1f5f9; border: 1px solid #94a3b8;' : ''}">${count}</span>` : ''}
               </button>
             `,
           )}
@@ -1401,17 +1427,22 @@ function renderCaseJourneyModal(s, c) {
 
         <!-- Drawer Footer Actions -->
         <div class="drawer-footer case-detail-footer">
-          <div style="display: flex; gap: 8px; align-items: center;">
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
             <button type="button" class="btn-secondary btn-sm" data-action="case-reassign-dialog" data-case="${c.id}">
               ${icon('user-plus', 14)} Reassign Case
             </button>
+            ${c.status !== 'closed' ? html`
+              <button type="button" class="btn-secondary btn-sm" data-action="case-move-stage-dialog" data-case="${c.id}">
+                ${icon('trend', 14)} Move Stage...
+              </button>
+            ` : ''}
             <button type="button" class="btn-subtle btn-sm" data-action="case-plan-nav" data-case="${c.id}">
               ${icon('calendar', 14)} View in Planner
             </button>
           </div>
           <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
             ${pendingClosure
-              ? html`<span class="tag tag-warning small" style="display: inline-flex; align-items: center; gap: 4px;">${icon('clock', 12)} Closure Pending Manager Sign-off</span>`
+              ? html`<span class="tag tag-warning small" style="display: inline-flex; align-items: center; gap: 4px; color: #000000; font-weight: 700;">${icon('clock', 12)} Closure Pending Manager Sign-off</span>`
               : c.status !== 'closed' && !readiness.isReady ? html`
               <button
                 type="button"
@@ -1419,7 +1450,7 @@ function renderCaseJourneyModal(s, c) {
                 data-action="case-journey-tab"
                 data-tab="readiness"
                 title="View closure readiness checklist"
-                style="font-size: 0.75rem; color: var(--colorPaletteMarigoldForeground2); text-decoration: underline; cursor: pointer; padding: 2px 6px;"
+                style="font-size: 0.75rem; color: #000000; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 2px 6px;"
               >
                 ${readiness.unresolvedItems.length} checklist item${readiness.unresolvedItems.length === 1 ? '' : 's'} pending
               </button>
@@ -1825,12 +1856,12 @@ function renderJourneyReadinessTab(s, c, readiness) {
 
       <div class="readiness-summary-card" style="padding: 16px; border-radius: 10px; border: 1px solid ${readiness.isReady ? 'var(--colorPaletteGreenBorderActive, #107c10)' : 'var(--colorPaletteMarigoldBorderActive, #f9a825)'}; background: ${readiness.isReady ? 'var(--colorPaletteGreenBackground1, #e7f7ef)' : 'var(--colorPaletteMarigoldBackground1, #fff8e1)'};">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-          <strong style="color: ${readiness.isReady ? 'var(--colorPaletteGreenForeground1, #0b6b43)' : 'var(--colorPaletteMarigoldForeground2, #7a4d00)'}; display: flex; align-items: center; gap: 8px; font-size: 0.9375rem;">
+          <strong style="color: ${readiness.isReady ? 'var(--colorPaletteGreenForeground1, #0b6b43)' : '#000000'}; display: flex; align-items: center; gap: 8px; font-size: 0.9375rem;">
             ${icon(readiness.isReady ? 'check' : 'alert', 18)}
             ${readiness.isReady ? 'All Checkpoints Satisfied — Ready for Closure' : `Closure Incomplete — ${readiness.unresolvedItems.length} Requirements Outstanding`}
           </strong>
-          <span class="tag ${readiness.isReady ? 'tag-success' : 'tag-warning'} small" style="font-weight: 600;">
-            ${readiness.isReady ? 'Compliant &amp; Ready' : `${readiness.unresolvedItems.length} Pending`}
+          <span class="tag ${readiness.isReady ? 'tag-success' : 'tag-warning'} small" style="font-weight: 700; color: #000000;">
+            ${readiness.isReady ? 'Compliant &amp; Ready' : `${readiness.unresolvedItems.length} Incomplete`}
           </span>
         </div>
         ${readiness.isReady
@@ -1843,24 +1874,37 @@ function renderJourneyReadinessTab(s, c, readiness) {
                 ${readiness.unresolvedItems.map((item) => {
                   let tagClass = 'tag-warning';
                   let itemType = 'Checkpoint';
+                  let itemIcon = 'check';
                   let cleanText = item;
+                  let shortcutAction = html`<span class="small muted" style="font-size: 0.71875rem; flex-shrink: 0;">Check off below ↓</span>`;
+
                   if (item.toLowerCase().startsWith('active blocker:')) {
                     tagClass = 'tag-danger';
                     itemType = 'Active Blocker';
+                    itemIcon = 'alert';
                     cleanText = item.replace(/^active blocker:\s*/i, '');
+                    shortcutAction = html`<button type="button" class="btn-subtle btn-sm" data-action="case-journey-tab" data-tab="blockers" style="font-size: 0.75rem; padding: 2px 8px; font-weight: 600; color: var(--colorBrandForeground1); flex-shrink: 0;">Resolve in Blockers →</button>`;
                   } else if (item.toLowerCase().startsWith('missing required evidence:')) {
                     tagClass = 'tag-danger';
                     itemType = 'Missing Evidence';
+                    itemIcon = 'folder';
                     cleanText = item.replace(/^missing required evidence:\s*/i, '');
+                    shortcutAction = html`<button type="button" class="btn-subtle btn-sm" data-action="case-journey-tab" data-tab="evidence" style="font-size: 0.75rem; padding: 2px 8px; font-weight: 600; color: var(--colorBrandForeground1); flex-shrink: 0;">Upload in Evidence →</button>`;
                   } else if (item.toLowerCase().startsWith('incomplete prerequisite:')) {
                     tagClass = 'tag-warning';
                     itemType = 'Prerequisite';
+                    itemIcon = 'check';
                     cleanText = item.replace(/^incomplete prerequisite:\s*/i, '');
                   }
                   return html`
-                    <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 0.8125rem; background: var(--colorNeutralBackground1); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke3);">
-                      <span class="tag ${tagClass} small" style="flex-shrink: 0; font-size: 0.6875rem; font-weight: 600; padding: 2px 7px;">${itemType}</span>
-                      <span style="color: var(--colorNeutralForeground1); line-height: 1.4;">${cleanText}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 0.8125rem; background: var(--colorNeutralBackground1); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke3); flex-wrap: wrap;">
+                      <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                        <span class="tag ${tagClass} small" style="flex-shrink: 0; font-size: 0.6875rem; font-weight: 700; padding: 2px 7px; color: #000000; display: inline-flex; align-items: center; gap: 4px;">
+                          ${icon(itemIcon, 11)} ${itemType}
+                        </span>
+                        <span style="color: #000000; font-weight: 500; line-height: 1.4;">${cleanText}</span>
+                      </div>
+                      ${shortcutAction}
                     </div>
                   `;
                 })}
@@ -2274,8 +2318,8 @@ function renderJourneyBriefTab(s, c) {
       <!-- 6. Statutory Closure Readiness Progress -->
       <div class="brief-card" style="border: 1px solid var(--colorNeutralStroke1); border-radius: 8px; padding: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <h4 style="font-size: 0.9375rem; font-weight: 600; margin: 0; color: var(--colorNeutralForeground1); display: flex; align-items: center; gap: 6px;">
-            ${icon('check', 16)} Statutory Closure Readiness (${structured.readiness.isReady ? 'Ready' : 'Incomplete'})
+          <h4 style="font-size: 0.9375rem; font-weight: 600; margin: 0; color: var(--colorNeutralForeground1); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            ${icon('check', 16)} Statutory Closure Readiness <span class="tag ${structured.readiness.isReady ? 'tag-success' : 'tag-warning'}" style="color: #000000; font-weight: 700; font-size: 0.75rem; padding: 1px 8px; border-radius: 999px;">${structured.readiness.isReady ? 'Ready' : 'Incomplete'}</span>
           </h4>
           <button type="button" class="btn-ghost btn-sm" data-action="case-journey-tab" data-tab="readiness" style="font-size: 0.75rem;">
             Full Checklist →
@@ -2369,7 +2413,7 @@ function renderJourneyEvidenceTab(s, c) {
 
                       <div style="border-top: 1px solid var(--colorNeutralStroke2); padding-top: 10px; display: flex; flex-direction: column; gap: 8px;">
                         <div class="small muted" style="font-size: 0.6875rem; line-height: 1.3;">
-                          <div>Uploaded by <strong>${e.uploadedBy || 'Property Officer'}</strong> on ${fmtCompactDeadline(e.uploadedAt)}</div>
+                          <div>Uploaded by <strong>${e.uploadedBy || 'Property Officer'}</strong> ${e.uploadedAt ? `on ${fmtCompactDeadline(e.uploadedAt)}` : html`· <span style="color: #64748b; font-style: italic;">Pending site upload</span>`}</div>
                           ${isVerified ? html`<div style="color: var(--colorPaletteGreenForeground1); margin-top: 2px;">Verified by <strong>${e.verifiedBy}</strong> on ${fmtCompactDeadline(e.verifiedAt)}</div>` : ''}
                           ${isRejected ? html`<div style="color: var(--colorPaletteRedForeground1); margin-top: 2px;">Rejected by <strong>${e.rejectedBy}</strong>: ${e.rejectionReason}</div>` : ''}
                           ${e.requiredForClosure ? html`<div style="color: var(--colorBrandForeground1); font-weight: 600; margin-top: 2px;">★ Required for Case Closure</div>` : ''}
@@ -2382,16 +2426,18 @@ function renderJourneyEvidenceTab(s, c) {
 
                           ${isPending && isMgr
                             ? html`
-                                <div style="display: flex; gap: 4px;">
-                                  <button type="button" class="btn-primary btn-sm" data-action="case-verify-evidence" data-case="${c.id}" data-evidence="${e.id}" style="font-size: 0.75rem; padding: 2px 8px;">
+                                <div style="display: flex; gap: 6px; align-items: center;">
+                                  <button type="button" class="btn-primary btn-sm" data-action="case-verify-evidence" data-case="${c.id}" data-evidence="${e.id}" style="font-size: 0.75rem; padding: 3px 8px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" title="Verify record as meeting statutory standards">
                                     ${icon('check', 12)} Verify
                                   </button>
-                                  <button type="button" class="btn-secondary btn-sm" data-action="case-reject-evidence" data-case="${c.id}" data-evidence="${e.id}" style="font-size: 0.75rem; padding: 2px 8px;">
+                                  <button type="button" class="btn-secondary btn-sm" data-action="case-reject-evidence" data-case="${c.id}" data-evidence="${e.id}" style="font-size: 0.75rem; padding: 3px 8px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; color: var(--colorPaletteRedForeground1); border-color: var(--colorPaletteRedBorderActive);" title="Reject with mandatory reason">
                                     ${icon('x', 12)} Reject
                                   </button>
                                 </div>
                               `
-                            : ''}
+                            : isPending && !isMgr
+                              ? html`<span class="small muted" style="font-size: 0.71875rem; font-style: italic;">Awaiting Manager sign-off</span>`
+                              : ''}
                         </div>
                       </div>
                     </div>
@@ -2444,23 +2490,51 @@ function renderJourneyEvidenceTab(s, c) {
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="evidence-upload-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start;">
             <div>
-              <label for="evidence-file-input" class="small" style="font-weight: 600; display: block; margin-bottom: 4px; color: var(--colorNeutralForeground1);">
-                Select File (Max 5MB)
+              <label class="small" style="font-weight: 600; display: block; margin-bottom: 6px; color: var(--colorNeutralForeground1);">
+                Attach File (Photo / Report / Doc)
               </label>
-              <input
-                id="evidence-file-input"
-                type="file"
-                accept="image/*,.pdf,.doc,.docx"
-                style="width: 100%; font-size: 0.8125rem; box-sizing: border-box;"
-              />
+              <div
+                id="evidence-dropzone"
+                class="evidence-dropzone"
+                tabindex="0"
+                role="button"
+                aria-label="Upload evidence file. Click or drag file here."
+              >
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; pointer-events: none;">
+                  <span style="color: var(--colorBrandForeground1);">${icon('upload', 20)}</span>
+                  <span id="evidence-filename-display" style="font-size: 0.8125rem; font-weight: 600; color: var(--colorNeutralForeground1);">
+                    Click to browse or drop file here
+                  </span>
+                  <span class="small muted" style="font-size: 0.6875rem;">
+                    Supports JPG, PNG, PDF, DOC (max 5MB demo simulation)
+                  </span>
+                </div>
+                <input
+                  id="evidence-file-input"
+                  type="file"
+                  accept="image/*,.pdf,.doc,.docx"
+                  style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0;"
+                />
+              </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px; padding-top: 18px;">
-              <input id="evidence-required-checkbox" type="checkbox" />
-              <label for="evidence-required-checkbox" class="small" style="font-weight: 600; color: var(--colorNeutralForeground1); cursor: pointer;">
-                Mandatory Checkpoint for Statutory Case Closure
+
+            <div>
+              <label class="small" style="font-weight: 600; display: block; margin-bottom: 6px; color: var(--colorNeutralForeground1);">
+                Statutory Closure Gate
               </label>
+              <div class="evidence-closure-gate-tile" style="display: flex; align-items: flex-start; gap: 10px; padding: 12px; background: var(--colorNeutralBackground1); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; min-height: 72px; box-sizing: border-box;">
+                <input id="evidence-required-checkbox" type="checkbox" style="margin-top: 3px; cursor: pointer; width: 16px; height: 16px; flex-shrink: 0;" />
+                <div>
+                  <label for="evidence-required-checkbox" class="small" style="font-weight: 700; color: #000000; cursor: pointer; display: block; line-height: 1.3;">
+                    Mandatory Checkpoint for Statutory Case Closure
+                  </label>
+                  <span class="small muted" style="font-size: 0.71875rem; line-height: 1.35; display: block; margin-top: 3px;">
+                    When checked, this case cannot be closed until an Estate Manager reviews and signs off on this document.
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 

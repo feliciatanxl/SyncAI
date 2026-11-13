@@ -3603,6 +3603,22 @@ td.cell-risk,
   border: 1px solid var(--colorPaletteGreenBorderActive, #107c10);
 }
 
+/* High-Contrast Incomplete Badges & Labels (Ensures pitch-black text for tech and non-tech users) */
+.tab-count-incomplete,
+.drawer-tab-btn .tab-count-incomplete,
+.drawer-tab-btn.is-active .tab-count-incomplete,
+.case-detail-nav .drawer-tab-btn.is-active .tab-count-incomplete,
+.case-detail-nav .drawer-tab-btn .tab-count-incomplete,
+.tab-count[data-status="incomplete"],
+.drawer-tab-btn.is-active .tab-count[data-status="incomplete"],
+.tag-incomplete {
+  color: #000000 !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #94a3b8 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
 /* Readiness & Communications Polish */
 .readiness-summary-card {
   box-shadow: var(--shadow2);
@@ -3620,11 +3636,49 @@ td.cell-risk,
   transition: background-color 0.12s ease, color 0.12s ease;
 }
 
-/* Responsive Layout Refinements across screen widths */
+/* Evidence Safe Demo Dropzone & Vault Styles */
+.evidence-dropzone {
+  position: relative;
+  border: 2px dashed var(--colorBrandStroke2);
+  border-radius: 8px;
+  background: var(--colorNeutralBackground1);
+  padding: 14px 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  user-select: none;
+}
+.evidence-dropzone:hover,
+.evidence-dropzone:focus-visible {
+  border-color: var(--colorBrandStroke1);
+  background: var(--colorBrandBackground2);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--colorBrandStroke2);
+}
+.evidence-dropzone.is-dragover {
+  border-color: var(--colorBrandStroke1) !important;
+  background: var(--colorBrandBackground2) !important;
+  transform: scale(1.01);
+}
+.evidence-closure-gate-tile {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.evidence-closure-gate-tile:hover {
+  border-color: var(--colorBrandStroke2);
+  box-shadow: var(--shadow2);
+}
+
+/* ==========================================================================
+   Comprehensive Screen Responsiveness (Desktop down to 320px Mobile)
+   ========================================================================== */
+
 @media (max-width: 1024px) {
   .case-actions-group {
     flex-wrap: wrap;
     gap: 6px;
+  }
+  .case-detail-header {
+    padding: 20px 68px 18px 20px;
   }
 }
 
@@ -3638,43 +3692,130 @@ td.cell-risk,
     text-align: center;
     margin: -4px 0;
   }
-  #case-evidence-upload-form > div[style*="grid-template-columns"] {
+  #case-evidence-upload-form > div[style*="grid-template-columns"],
+  .evidence-upload-grid {
     grid-template-columns: 1fr !important;
   }
-}
-
-@media (max-width: 430px) {
-  .case-detail-workspace {
-    width: 100vw;
-    height: 100vh;
-    border-radius: 0;
+  .case-detail-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    padding: 8px 12px;
+    gap: 6px;
+    border-right: 0;
+    border-bottom: 1px solid var(--colorNeutralStroke2);
   }
-  .case-workspace-backdrop {
-    padding: 0;
+  .case-detail-nav .drawer-tab-btn {
+    width: auto;
+    flex-shrink: 0;
+    padding: 8px 12px;
   }
   .evidence-grid {
     grid-template-columns: 1fr;
   }
+  .case-detail-scroll {
+    padding: 16px 14px 24px;
+  }
+  .case-detail-footer {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+  .modal-card {
+    max-width: calc(100vw - 20px);
+    padding: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .case-detail-workspace {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    max-height: 100vh;
+  }
+  .case-workspace-backdrop {
+    padding: 0;
+  }
+  .case-detail-header {
+    padding: 14px 48px 12px 12px;
+  }
+  .case-detail-header > .drawer-close-btn {
+    top: 12px;
+    right: 12px;
+    width: 34px;
+    height: 34px;
+  }
+  .case-detail-heading h2 {
+    font-size: 1.125rem;
+    line-height: 1.3;
+    margin: 6px 0 8px;
+  }
+  .case-detail-kicker,
+  .case-detail-owner-row {
+    gap: 6px;
+  }
   .case-stage-option-row {
     flex-direction: column;
     align-items: flex-start;
+    gap: 8px;
+  }
+  .case-stage-option-row button {
+    width: 100%;
+    justify-content: center;
+  }
+  .case-detail-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .case-detail-footer > div {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .case-detail-footer .btn-primary,
+  .case-detail-footer .btn-secondary,
+  .case-detail-footer .btn-subtle,
+  .case-detail-footer .btn-ghost {
+    width: 100%;
+    justify-content: center;
+    min-height: 40px;
+  }
+  .kanban-board {
+    grid-template-columns: 1fr !important;
+  }
+  .brief-card {
+    padding: 12px !important;
+  }
+  .filter-tabs {
+    gap: 4px;
+  }
+  .filter-tab {
+    padding: 6px 10px;
+    font-size: 0.75rem;
   }
 }
 
 @media (max-width: 320px) {
   .drawer-header {
-    padding: 14px 48px 14px 12px;
+    padding: 12px 42px 12px 10px;
   }
   .case-detail-nav {
-    padding: 8px 10px;
+    padding: 6px 8px;
   }
   .case-detail-nav .drawer-tab-btn {
-    font-size: 0.75rem;
-    padding: 6px 10px;
+    font-size: 0.71875rem;
+    padding: 5px 8px;
   }
   .btn-sm {
-    padding: 4px 8px;
-    font-size: 0.75rem;
+    padding: 4px 6px;
+    font-size: 0.71875rem;
+  }
+  .case-detail-heading h2 {
+    font-size: 1rem;
   }
 }
+
 

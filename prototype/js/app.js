@@ -446,6 +446,13 @@ function setupKanbanDragAndDrop() {
   });
 
   document.addEventListener('dragover', (e) => {
+    const dropzone = e.target.closest('#evidence-dropzone');
+    if (dropzone) {
+      e.preventDefault();
+      dropzone.classList.add('is-dragover');
+      return;
+    }
+
     const col = e.target.closest('.kanban-col');
     if (!col) return;
     e.preventDefault();
@@ -471,6 +478,12 @@ function setupKanbanDragAndDrop() {
   });
 
   document.addEventListener('dragleave', (e) => {
+    const dropzone = e.target.closest('#evidence-dropzone');
+    if (dropzone && !dropzone.contains(e.relatedTarget)) {
+      dropzone.classList.remove('is-dragover');
+      return;
+    }
+
     const col = e.target.closest('.kanban-col');
     if (!col) return;
     if (!col.contains(e.relatedTarget)) {
@@ -479,6 +492,18 @@ function setupKanbanDragAndDrop() {
   });
 
   document.addEventListener('drop', (e) => {
+    const dropzone = e.target.closest('#evidence-dropzone');
+    if (dropzone) {
+      e.preventDefault();
+      dropzone.classList.remove('is-dragover');
+      const fileInput = document.getElementById('evidence-file-input');
+      if (fileInput && e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return;
+    }
+
     const col = e.target.closest('.kanban-col');
     if (!col) return;
     e.preventDefault();
@@ -517,6 +542,16 @@ function setupEvents() {
       mobileBackdrop.setAttribute('hidden', '');
       document.getElementById('btn-mobile-nav-toggle')?.setAttribute('aria-expanded', 'false');
       return;
+    }
+
+    // Evidence file dropzone click
+    const evidenceDropzone = e.target.closest('#evidence-dropzone');
+    if (evidenceDropzone) {
+      const fileInput = document.getElementById('evidence-file-input');
+      if (fileInput && e.target !== fileInput) {
+        fileInput.click();
+        return;
+      }
     }
 
     // 1. Navigation clicks
@@ -1597,6 +1632,22 @@ function setupEvents() {
 
   // Filter changes
   document.addEventListener('change', (e) => {
+    if (e.target.id === 'evidence-file-input') {
+      const file = e.target.files && e.target.files[0];
+      const display = document.getElementById('evidence-filename-display');
+      if (file && display) {
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+        display.textContent = `✓ Selected: ${file.name} (${sizeMb} MB)`;
+        display.style.color = 'var(--colorPaletteGreenForeground1)';
+        const titleInput = document.getElementById('evidence-title-input');
+        if (titleInput && !titleInput.value.trim()) {
+          const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[_\-+]+/g, ' ').trim();
+          titleInput.value = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+        }
+      }
+      return;
+    }
+
     if (e.target.dataset.action === 'admin-change-role') {
       const userId = e.target.dataset.id;
       const newRole = e.target.value;
@@ -1828,6 +1879,13 @@ function setupEvents() {
           return;
         }
       }
+    }
+
+    // Evidence dropzone keyboard trigger
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('#evidence-dropzone')) {
+      e.preventDefault();
+      document.getElementById('evidence-file-input')?.click();
+      return;
     }
 
     // Escape key handling
