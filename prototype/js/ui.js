@@ -245,16 +245,23 @@ export function toast(message, kind = 'success') {
 let lastFocus = null;
 
 export function openModal(content, { wide = false, onClose } = {}) {
-  closeModal();
-  lastFocus = document.activeElement;
   const root = document.getElementById('modal-root');
+  const opener = root.hidden ? document.activeElement : lastFocus;
+  closeModal();
+  lastFocus = opener;
   root.innerHTML = fmt(html`<div class="modal-backdrop" data-action="modal-close"></div>
     <div class="modal modal-surface ${wide ? 'modal-wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">${content}</div>`);
   root.hidden = false;
+  document.getElementById('portal-root').inert = true;
+  const dialog = root.querySelector('.modal');
+  const heading = dialog?.querySelector('h2');
+  if (heading && !heading.id) heading.id = 'modal-title';
+  if (heading) dialog.setAttribute('aria-labelledby', heading.id);
+  root.addEventListener('keydown', modalKeydown);
   root._onClose = onClose;
   const first =
     root.querySelector('[autofocus]') ||
-    root.querySelector('input:not([type="hidden"]), select, textarea, button:not([data-action="modal-close"])');
+    focusableControls(root)[0];
   (first || root.querySelector('.modal')).focus();
 }
 
@@ -262,10 +269,21 @@ export function closeModal() {
   const root = document.getElementById('modal-root');
   if (!root || root.hidden) return;
   root.hidden = true;
+  root.removeEventListener('keydown', modalKeydown);
+  document.getElementById('portal-root').inert = false;
   root.innerHTML = '';
   if (root._onClose) root._onClose();
   root._onClose = null;
-  if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+  if (lastFocus?.isConnected && !lastFocus.disabled) lastFocus.focus();
+  else document.getElementById('main-content')?.focus();
+  lastFocus = null;
+}
+
+function modalKeydown(event) {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeModal();
+  } else trapFocus(event);
 }
 
 export function confirmDialog({ title, body, confirmLabel = 'Confirm', danger = false }) {
@@ -275,8 +293,8 @@ export function confirmDialog({ title, body, confirmLabel = 'Confirm', danger = 
       html`<header class="modal-head"><h2 id="modal-title">${title}</h2></header>
       <div class="modal-body"><p>${body}</p></div>
       <footer class="modal-foot">
-        <button class="btn" data-confirm="no">Cancel</button>
-        <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-confirm="yes" autofocus>${confirmLabel}</button>
+        <button class="btn-secondary" data-confirm="no" autofocus>Cancel</button>
+        <button class="${danger ? 'btn-danger' : 'btn-primary'}" data-confirm="yes">${confirmLabel}</button>
       </footer>`,
       { onClose: () => !answered && resolve(false) },
     );
@@ -290,18 +308,27 @@ export function confirmDialog({ title, body, confirmLabel = 'Confirm', danger = 
   });
 }
 
+function focusableControls(root) {
+  return [...root.querySelectorAll('button, [href], input, select, textarea, summary, [tabindex]')]
+    .filter((element) => element.tabIndex >= 0 && !element.disabled && element.getClientRects().length
+      && getComputedStyle(element).visibility === 'visible');
+}
+
 /** Keep keyboard focus inside the open modal. */
 export function trapFocus(e) {
   const root = document.getElementById('modal-root');
   if (root.hidden || e.key !== 'Tab') return;
-  const items = [...root.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((x) => !x.disabled && x.offsetParent !== null);
-  if (!items.length) return;
+  const items = focusableControls(root);
+  if (!items.length) {
+    e.preventDefault();
+    return;
+  }
   const first = items[0];
   const last = items[items.length - 1];
-  if (e.shiftKey && document.activeElement === first) {
+  if (e.shiftKey && (document.activeElement === first || !items.includes(document.activeElement))) {
     last.focus();
     e.preventDefault();
-  } else if (!e.shiftKey && document.activeElement === last) {
+  } else if (!e.shiftKey && (document.activeElement === last || !items.includes(document.activeElement))) {
     first.focus();
     e.preventDefault();
   }

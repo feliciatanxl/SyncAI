@@ -87,7 +87,7 @@ export default {
         </div>
 
         <!-- Three Alternatives Comparison Grid -->
-        <h3 style="margin-bottom: 12px; font-size: 1rem;">Compare 3 Operational Alternatives:</h3>
+        <h3 style="margin-bottom: 12px; font-size: 1rem;">Illustrative comparison of three alternatives</h3>
         <div class="alternatives-grid">
           <!-- Alt A -->
           <div
@@ -102,7 +102,7 @@ export default {
             <strong>No Action</strong>
             <p class="small muted">Accept disruption without schedule changes. Exposes unmitigated SLA breaches.</p>
             <div class="small" style="margin-top: auto; padding-top: 8px; border-top: 1px solid var(--colorNeutralStroke3);">
-              <span class="tag tag-danger" style="margin-bottom: 4px;">2 SLA Breaches</span><br />
+              <span class="tag tag-danger" style="margin-bottom: 4px;">Recorded deadlines at risk</span><br />
               <span class="muted">Resident appointment displaced</span>
             </div>
           </div>
@@ -120,7 +120,7 @@ export default {
             <strong>Reschedule Lower-Impact</strong>
             <p class="small muted">Postpones routine administrative work orders. Keeps safety inspection intact.</p>
             <div class="small" style="margin-top: auto; padding-top: 8px; border-top: 1px solid var(--colorNeutralStroke3);">
-              <span class="tag tag-success" style="margin-bottom: 4px;">0 Safety Breaches</span><br />
+              <span class="tag tag-success" style="margin-bottom: 4px;">Safety work protected in this example</span><br />
               <span class="muted">Defers CleanPro review to tomorrow</span>
             </div>
           </div>
@@ -145,7 +145,7 @@ export default {
         </div>
 
         <!-- Simulation Action -->
-        <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; align-items: center;">
+        <div class="simulation-actions">
           <span class="small muted">
             Selected Alternative: <strong>Alternative ${planView.selectedAltId.toUpperCase()}</strong>
           </span>

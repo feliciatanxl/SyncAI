@@ -1155,6 +1155,8 @@ td.cell-risk,
 }
 .alt-card:hover { border-color: var(--colorBrandStroke1); box-shadow: var(--shadow8); }
 .alt-card.selected { border-color: var(--colorBrandBackground); background: var(--colorBrandBackground2); }
+.simulation-actions { margin-top: 20px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; align-items: center; }
+.simulation-actions button { max-width: 100%; white-space: normal; }
 .alt-letter {
   display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
   background: var(--colorBrandBackground); color: #fff; font-weight: 700; font-size: 0.8125rem;
@@ -1199,7 +1201,7 @@ td.cell-risk,
 }
 
 /* Toasts */
-.toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 10px; }
+.toast-container { position: fixed; bottom: 20px; right: 20px; max-width: calc(100% - 40px); z-index: 200; display: flex; flex-direction: column; gap: 10px; overflow-wrap: anywhere; }
 .toast {
   padding: 12px 18px; border-radius: 8px; background: var(--colorNeutralBackground1);
   border: 1px solid var(--colorNeutralStroke1); box-shadow: var(--shadow16); font-size: 0.875rem; font-weight: 500;
@@ -1958,10 +1960,15 @@ td.cell-risk,
 
 @media (max-width: 560px) {
   .portal-header { padding: 0 10px; min-height: 54px; gap: 6px; }
+  .portal-header-actions, .role-pill-select, .role-pill-select select { min-width: 0; }
+  .role-pill-select { flex: 1 1 auto; }
+  .role-pill-select select { width: 100%; text-overflow: ellipsis; }
+  #btn-quick-reset { display: none; }
+  .cal-head, .cal-bar, .cal-bar-text { flex-wrap: wrap; overflow-wrap: anywhere; }
+  .cal-bar-text { min-width: 0; flex-basis: 100%; }
   .portal-tag, .hide-sm { display: none; }
   .role-pill-select { padding: 2px 6px; font-size: 0.72rem; max-width: 130px; }
   .role-pill-select span { display: none; }
-  #btn-quick-reset { font-size: 0.72rem; padding: 4px 8px; }
   .stat-grid { grid-template-columns: 1fr; }
   .factor-cards, .principles, .suggestion-cards { grid-template-columns: 1fr; }
   .queue li { grid-template-columns: auto minmax(0, 1fr); }
@@ -1974,7 +1981,6 @@ td.cell-risk,
 @media (max-width: 380px) {
   .portal-header-actions { gap: 4px; }
   .role-pill-select { max-width: 95px; }
-  #btn-quick-reset { padding: 3px 6px; font-size: 0.68rem; }
   .brand span { font-size: 0.9375rem; }
 }
 

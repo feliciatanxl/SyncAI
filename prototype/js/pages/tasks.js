@@ -218,7 +218,9 @@ export default {
 
         <!-- Table View -->
         ${filtered.length === 0
-          ? html`<div class="empty" role="status">${icon('check', 24)}<p>${baseTasks.length ? 'No tasks match the selected filters.' : 'No tasks yet.'}</p></div>`
+          ? html`<div class="empty">${icon('check', 24)}<p role="status">${baseTasks.length ? 'No tasks match the selected filters.' : 'No tasks yet.'}</p>
+              ${baseTasks.length ? html`<button type="button" class="btn-secondary btn-sm" data-action="tasks-clear-filters">Clear filters</button>` : ''}
+            </div>`
           : html`
               <div class="table-wrap">
                 <table class="data-table capture-table" aria-label="Operational tasks">

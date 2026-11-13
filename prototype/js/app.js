@@ -3,6 +3,7 @@ import {
   getState,
   loadState,
   resetState,
+  storage,
   update,
   subscribe,
   getCurrentUser,
@@ -22,7 +23,6 @@ import {
   createApprovalRequest,
   decideApproval,
   isOpen,
-  officerName,
   logActivity,
   actorName,
   getCase,
@@ -52,6 +52,7 @@ import { accessibleTask, changeTaskStatus, deleteCapturedTask, taskDateInput, ta
 import { accessibleCase, visibleCases, getCaseKanbanColumn } from './cases.js';
 import { deadlineAlert, priorityFactors } from './taskIntelligence.js';
 import { traceDownstream } from './ripple.js';
+import { acceptDraft, discardDraft, generateDraft, reviewDraft } from './scheduleReview.js';
 import { calendarDay, singaporeInstant, TODAY } from './time.js';
 
 // Page modules
@@ -60,7 +61,7 @@ import casesPage, { caseView } from './pages/cases.js';
 import tasksPage, { tasksView } from './pages/tasks.js';
 import { openTaskCapture } from './pages/taskCaptureDialog.js';
 import planPage, { planView } from './pages/plan.js';
-import { currentPlanningOfficer, planningDates, planningView } from './pages/smartPlan.js';
+import { currentPlanningOfficer, planningDates, planningView, scheduleRange, visibleDraft } from './pages/smartPlan.js';
 import { openSchedulePreferences } from './pages/schedulePreferencesDialog.js';
 import teamPage from './pages/team.js';
 import peoplePage from './pages/people.js';
@@ -74,7 +75,6 @@ import assistantPage from './pages/assistant.js';
 const SECTIONS = {
   overview: { id: 'overview', label: 'Overview', icon: 'grid', page: overviewPage },
   assistant: { id: 'assistant', label: 'Ask SyncAI', icon: 'sparkle', page: assistantPage },
-  cases: { id: 'cases', label: 'Cases', icon: 'folder', page: casesPage },
   tasks: { id: 'tasks', label: 'My tasks', icon: 'tasks', page: tasksPage },
   cases: { id: 'cases', label: 'Case Action Centre', icon: 'cases', page: casesPage },
   plan: { id: 'plan', label: 'My plan', icon: 'calendar', page: planPage },
@@ -149,13 +149,27 @@ function init() {
   }
 
   // Restore theme & text preferences
-  const theme = localStorage.getItem('syncai_theme') || 'system';
-  const textSize = localStorage.getItem('syncai_text_size') || 'standard';
-  if (theme !== 'system') document.documentElement.setAttribute('data-theme', theme);
-  if (textSize !== 'standard') document.documentElement.setAttribute('data-text-size', textSize);
+  let theme, textSize;
+  try {
+    theme = localStorage.getItem('syncai_theme');
+    textSize = localStorage.getItem('syncai_text_size');
+  } catch {
+    // The demo can still run in memory when browser storage is unavailable.
+  }
+  if (theme && theme !== 'system') document.documentElement.setAttribute('data-theme', theme);
+  if (textSize && textSize !== 'standard') document.documentElement.setAttribute('data-text-size', textSize);
 
   // Read section from URL hash
   readPortalRoute(s);
+  const officer = currentPlanningOfficer(s);
+  const accepted = s.acceptedSchedules?.[officer?.id];
+  if (accepted && !accepted[TODAY]) {
+    const latest = Object.values(accepted).sort((a, b) => b.acceptedAt.localeCompare(a.acceptedAt))[0];
+    if (latest) {
+      planningView.date = latest.day.date;
+      planningView.mode = latest.dates.length > 1 ? 'weekly' : 'daily';
+    }
+  }
 
   // Subscribe to state updates
   subscribe(() => renderApp());
@@ -556,6 +570,14 @@ function setupEvents() {
       }
     }
 
+    if (e.target.closest('[data-action="settings-reset-defaults"]')) {
+      saveDisplaySetting('theme', 'system');
+      saveDisplaySetting('text-size', 'standard');
+      toast('Display settings reset.', 'info');
+      renderApp();
+      document.querySelector('[data-action="settings-reset-defaults"]')?.focus();
+      return;
+    }
     // 1. Navigation clicks
     const navBtn = e.target.closest('[data-action="nav-go"]');
     if (navBtn) {
@@ -672,6 +694,8 @@ function setupEvents() {
 
     // 5. Reset demo buttons
     if (e.target.closest('#btn-quick-reset') || e.target.closest('#btn-reset-demo-card') || e.target.closest('[data-action="settings-reset-demo-data"]')) {
+      planningView.drafts.clear();
+      Object.assign(planningView, { date: TODAY, mode: 'daily', officerId: null });
       resetState();
       toast('Demo state reset to default seed.', 'success');
       renderApp();
@@ -706,6 +730,13 @@ function setupEvents() {
       return;
     }
 
+    if (e.target.closest('[data-action="tasks-clear-filters"]')) {
+      Object.assign(tasksView, { q: '', status: 'all', priority: 'all', category: 'all', tag: '', owner: 'all', dueDate: '', page: 1 });
+      renderApp();
+      document.querySelector('[data-action="tasks-search"]')?.focus();
+      return;
+    }
+
     const taskDelete = e.target.closest('[data-action="capture-delete"]');
     if (taskDelete) {
       const task = accessibleTask(getState(), taskDelete.dataset.id);
@@ -719,6 +750,7 @@ function setupEvents() {
           if (!confirmed || !accessibleTask(getState(), task.id)?.manualCapture) return;
           update((s) => deleteCapturedTask(s, task.id));
           toast('Task deleted.', 'success');
+          document.querySelector('[data-action="tasks-search"]')?.focus();
         });
       }
       return;
@@ -797,7 +829,16 @@ function setupEvents() {
         openSchedulePreferences(officer);
         return;
       }
-      if (action === 'plan-generate') planningView.generation = { officerId: officer.id, dates: planningDates() };
+      const draft = visibleDraft(officer.id);
+      if (action === 'plan-accept' || action === 'plan-discard') {
+        if (draft) resolveScheduleDraft(draft, action === 'plan-accept');
+        return;
+      }
+      if (action === 'plan-generate') {
+        const dates = draft && reviewDraft(getState(), draft).changed.length ? draft.dates : planningDates();
+        planningView.drafts.set(officer.id, generateDraft(getState(), officer.id, dates));
+        toast('Draft schedule generated.', 'info');
+      }
       if (action === 'plan-view') planningView.mode = mode;
       if (action === 'plan-today') planningView.date = TODAY;
       if (action === 'plan-shift') planningView.date = calendarDay(planningView.date, Number(offset) * (planningView.mode === 'weekly' ? 7 : 1));
@@ -847,7 +888,7 @@ function setupEvents() {
           taskId: 't103',
           taskTitle: 'Site check: ceiling seepage at Blk 211 #05-12',
           reason: `Alternative ${alt.toUpperCase()} schedule adjustment submitted from What-If Simulator.`,
-          slaImpact: 'Protects 24h response commitment while handling safety delay.',
+          slaImpact: 'Protects the fictional response deadline while handling the disruption.',
           operationalImpact: 'Rebalances inspection workload across Zone A.',
         });
       });
@@ -1703,18 +1744,18 @@ function setupEvents() {
 
     if (e.target.dataset.action === 'settings-change-theme') {
       const val = e.target.value;
-      localStorage.setItem('syncai_theme', val);
-      if (val === 'system') document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme', val);
+      saveDisplaySetting('theme', val);
       toast(`Appearance set to ${val}.`, 'info');
+      renderApp();
+      document.querySelector('[name="appearance"]:checked')?.focus();
     }
 
     if (e.target.dataset.action === 'settings-change-text') {
       const val = e.target.value;
-      localStorage.setItem('syncai_text_size', val);
-      if (val === 'standard') document.documentElement.removeAttribute('data-text-size');
-      else document.documentElement.setAttribute('data-text-size', val);
+      saveDisplaySetting('text-size', val);
       toast(`Text size set to ${val}.`, 'info');
+      renderApp();
+      document.querySelector('[name="textSize"]:checked')?.focus();
     }
 
     if (e.target.dataset.action === 'case-filter-estate') {
@@ -1866,6 +1907,7 @@ function setupEvents() {
 
   // Global Keyboard Navigation & Focus Trap (Escape and Tab)
   document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented) return;
     // Rows and Kanban cards expose keyboard-equivalent click behavior.
     if ((e.key === 'Enter' || e.key === ' ') && !caseView.selectedCaseId) {
       const caseSurface = e.target.closest('[data-action="case-row-click"], [data-action="case-card-surface"]');
@@ -1961,6 +2003,16 @@ function setupEvents() {
   });
 }
 
+function saveDisplaySetting(key, value) {
+  if (value === 'system' || value === 'standard') document.documentElement.removeAttribute(`data-${key}`);
+  else document.documentElement.setAttribute(`data-${key}`, value);
+  try {
+    localStorage.setItem(`syncai_${key.replace('-', '_')}`, value);
+  } catch {
+    // Apply the selected display setting for the current session.
+  }
+}
+
 function switchDemoRole(roleKey) {
   const s = getState();
   setCurrentUser(s, roleKey);
@@ -2020,6 +2072,42 @@ function showAccountSwitchModal() {
       switchDemoRole(r);
     }
   }, { once: true });
+}
+
+async function resolveScheduleDraft(draft, accept) {
+  const range = scheduleRange(draft.dates);
+  const review = reviewDraft(getState(), draft);
+  const details = [
+    review.replaced.length ? `Replaces ${review.replaced.length} accepted day(s).` : '',
+    review.warningCount ? `${review.warningCount} conflict warning(s) stay visible.` : '',
+    review.unscheduledCount ? `${review.unscheduledCount} unscheduled task(s) stay listed for review.` : '',
+  ].filter(Boolean).join(' ');
+  const confirmed = await confirmDialog({
+    title: accept ? 'Accept schedule?' : 'Discard draft?',
+    body: accept ? `${range}. ${details || 'Save these proposed blocks in this browser.'}`
+      : `${range}. Return to the accepted schedule or protected calendar for these dates.`,
+    confirmLabel: accept ? 'Accept Schedule' : 'Discard Draft',
+    danger: !accept,
+  });
+  if (!confirmed || planningView.drafts.get(draft.officerId) !== draft || currentPlanningOfficer(getState())?.id !== draft.officerId) return;
+  if (accept) {
+    try {
+      update((state) => {
+        acceptDraft(state, draft, { acknowledged: true });
+        discardDraft(planningView.drafts, draft, true);
+      });
+      toast(storage.ok ? 'Schedule accepted and saved.' : 'Schedule accepted for this session. Browser storage could not save it.',
+        storage.ok ? 'success' : 'error');
+    } catch (error) {
+      renderApp();
+      toast(error.message, 'error');
+    }
+  } else {
+    discardDraft(planningView.drafts, draft, true);
+    renderApp();
+    toast('Draft discarded.', 'info');
+  }
+  document.getElementById('smart-plan-h')?.focus();
 }
 
 function showTaskDetailModal(s, t) {
@@ -2096,7 +2184,7 @@ function showTaskDetailModal(s, t) {
     </div>
 
     <div class="modal-actions">
-      ${t.manualCapture ? '' : !mgr
+      ${!t.manualCapture && !mgr
         ? html`
             <button
               type="button"
@@ -2107,16 +2195,8 @@ function showTaskDetailModal(s, t) {
               Request Schedule Change
             </button>
           `
-        : html`
-            <button
-              type="button"
-              class="btn-primary btn-sm"
-              data-action="reassign-task-direct"
-              data-id="${t.id}"
-            >
-              Reassign Task
-            </button>
-          `}
+        : ''}
+      <button type="button" class="btn-secondary btn-sm" data-action="capture-edit" data-id="${t.id}">Edit task</button>
       <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button>
     </div>
   `;
@@ -2132,7 +2212,7 @@ function showTaskDetailModal(s, t) {
           taskId: t.id,
           taskTitle: t.title,
           reason: 'Officer requested schedule change due to operational buffer constraint.',
-          slaImpact: 'Maintains required response window.',
+          slaImpact: 'Maintains the fictional response deadline.',
           operationalImpact: 'Prevents overload during site visits.',
         });
       });

@@ -211,7 +211,7 @@ Located in the primary navigation (`Overview` → `Ask SyncAI` → `My Tasks` �
 ### B. Smart Planning (Category B — Charlisa Tan)
 - **Schedule Preferences Dialog:** Configure working hours, lunch break window, protected focus periods, daily hours limit, and working days (Monday–Friday).
 - **Calendar-Aware Time Blocking:** Places flexible tasks around protected Outlook meetings, fixed repair appointments, and travel buffers (`prototype/js/smartSchedule.js`).
-- **Daily & Weekly Plan Generation:** Visual timeline of proposed time blocks for the day, and a weekly planning grid balancing workloads across Monday–Sunday without task duplication.
+- **Daily & Weekly Schedule Review:** Generate a daily or Monday–Sunday draft around fictional protected commitments. Review warnings and unscheduled work, then choose **Accept Schedule** or **Discard Draft**. Accepted dates persist in the browser. Changes to planning inputs require regenerating a draft before acceptance.
 - **Task Capture with Case Linking:** Create work orders (`taskCaptureDialog.js`) with manual priority, category tags, optional case linking, and offset-aware Singapore deadlines.
 
 ### C. Operational Ripple Intelligence (Category D — Shamreen Rizmiya)

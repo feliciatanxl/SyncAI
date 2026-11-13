@@ -5,6 +5,7 @@ import { planningView, renderSmartPlan } from '../js/pages/smartPlan.js';
 import tasksPage, { tasksView } from '../js/pages/tasks.js';
 import { saveSchedulePreferences, schedulePreferences } from '../js/schedulePreferences.js';
 import { buildSmartSchedule } from '../js/smartSchedule.js';
+import { generateDraft } from '../js/scheduleReview.js';
 import { getOfficer, loadState, replaceState, setCurrentUser } from '../js/state.js';
 import { saveCapturedTask } from '../js/taskCapture.js';
 import { deadlineAlert, parseTaskTags, priorityFactors, suggestCategory, taskDeadline } from '../js/taskIntelligence.js';
@@ -168,7 +169,7 @@ test('weekly plan covers Monday through Sunday without duplicating tasks and hon
   assert.ok(result.days.filter(({ date }) => date !== next).every((day) => day.proposed.length === 0));
   const savedView = { ...planningView };
   try {
-    Object.assign(planningView, { date: next, mode: 'weekly', generation: { officerId: 'o1', dates } });
+    Object.assign(planningView, { date: next, mode: 'weekly', drafts: new Map([['o1', generateDraft(s, 'o1', dates)]]) });
     const page = renderSmartPlan(s, getOfficer(s, 'o1')).toString();
     assert.equal((page.match(/class="smart-week-day /g) || []).length, 7);
     assert.match(page, /1h total scheduled workload/);

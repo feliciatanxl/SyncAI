@@ -12,6 +12,29 @@ const listeners = new Set();
 
 export const storage = { ok: true, notice: null };
 
+function refreshDemoSlaCopy(saved) {
+  let changed = false;
+  for (const task of saved.tasks || []) {
+    if (task.slaType && !task.slaType.startsWith('Fictional ')) {
+      task.slaType = 'Fictional SLA deadline';
+      changed = true;
+    }
+  }
+  for (const approval of saved.approvals || []) {
+    if (/24h|\brequired response window\b/i.test(approval.slaImpact || '')) {
+      approval.slaImpact = 'Protects the fictional resident response deadline.';
+      changed = true;
+    }
+  }
+  for (const notification of saved.notifications || []) {
+    if (/BCA 4h/.test(notification.summary || '')) {
+      notification.summary = 'Fictional lift inspection deadline at 12:00.';
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 /** Give a state object a fresh revision so memoised calculations recompute. */
 export function bumpRev(s) {
   s.rev = ++revCounter;
@@ -27,6 +50,7 @@ export function loadState() {
     storage.ok = false;
     storage.notice = 'Browser storage is unavailable, so changes will not be kept after you close this tab.';
   }
+  const refreshedCopy = saved?.version === DATA_VERSION && refreshDemoSlaCopy(saved);
   if (saved?.version === DATA_VERSION) {
     // The previous Add task dialog used a four-digit ID and saved a UTC deadline without source metadata.
     for (const task of saved.tasks || []) {
@@ -40,13 +64,14 @@ export function loadState() {
     else if (saved.role === 'supervisor' || saved.role === 'hq') saved.role = 'manager';
     const needsDemoData = !Array.isArray(saved.cases) || !Array.isArray(saved.appointments);
     state = addPlanningDemoData(addDemoCases(saved));
-    if (needsDemoData) persist();
+    if (needsDemoData || refreshedCopy) persist();
   } else {
     state = createSeedState();
     if (saved) {
       if (saved.version === DATA_VERSION) {
         if (Array.isArray(saved.cases)) state.cases = saved.cases;
         if (saved.schedulePreferences) state.schedulePreferences = saved.schedulePreferences;
+        if (saved.acceptedSchedules) state.acceptedSchedules = saved.acceptedSchedules;
         const savedTasks = new Map((saved.tasks || []).map((task) => [task.id, task]));
         for (const task of state.tasks) {
           const previous = savedTasks.get(task.id);
