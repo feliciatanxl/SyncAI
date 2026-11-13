@@ -25,17 +25,38 @@ import {
   officerName,
   logActivity,
   actorName,
+  getCase,
+  closeCase,
+  requestCaseClosure,
+  requestCaseReassignment,
+  resolveLooseEnd,
+  resolveCaseBlocker,
+  addCaseProgressNote,
+  officerName,
+  getVisibleNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  addCommunication,
+  acknowledgeCommunication,
+  generateDraftReply,
+  extractTaskDraftFromMessage,
+  detectLooseEnds,
+  requestCaseStageTransition,
+  canTransitionCase,
+  normalizeKanbanStage,
+  addCaseEvidence,
+  verifyCaseEvidence,
 } from './state.js';
 import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog } from './ui.js';
 import { accessibleTask, changeTaskStatus, deleteCapturedTask, taskDateInput, taskDuration } from './taskCapture.js';
-import { accessibleCase } from './cases.js';
+import { accessibleCase, visibleCases, getCaseKanbanColumn } from './cases.js';
 import { deadlineAlert, priorityFactors } from './taskIntelligence.js';
 import { traceDownstream } from './ripple.js';
 import { calendarDay, singaporeInstant, TODAY } from './time.js';
 
 // Page modules
 import overviewPage from './pages/overview.js';
-import casesPage from './pages/cases.js';
+import casesPage, { caseView } from './pages/cases.js';
 import tasksPage, { tasksView } from './pages/tasks.js';
 import { openTaskCapture } from './pages/taskCaptureDialog.js';
 import planPage, { planView } from './pages/plan.js';
@@ -55,6 +76,7 @@ const SECTIONS = {
   assistant: { id: 'assistant', label: 'Ask SyncAI', icon: 'sparkle', page: assistantPage },
   cases: { id: 'cases', label: 'Cases', icon: 'folder', page: casesPage },
   tasks: { id: 'tasks', label: 'My tasks', icon: 'tasks', page: tasksPage },
+  cases: { id: 'cases', label: 'Case Action Centre', icon: 'cases', page: casesPage },
   plan: { id: 'plan', label: 'My plan', icon: 'calendar', page: planPage },
   team: { id: 'team', label: 'My team', icon: 'team', page: teamPage },
   people: { id: 'people', label: 'People', icon: 'users', page: peoplePage },
@@ -66,6 +88,18 @@ const SECTIONS = {
 
 let currentSection = 'overview';
 let currentCaseId = null;
+let currentNotificationFilter = 'all';
+let lastFocusedTrigger = null;
+
+function closeCaseDrawer() {
+  caseView.selectedCaseId = null;
+  caseView.activeExplanationRuleId = null;
+  caseView.highlightedSourceId = null;
+  renderApp();
+  if (lastFocusedTrigger && typeof lastFocusedTrigger.focus === 'function') {
+    lastFocusedTrigger.focus();
+  }
+}
 
 // Determine allowed sections based on role and status (matches client/src/lib/sections.js)
 function allowedSections(s) {
@@ -74,13 +108,13 @@ function allowedSections(s) {
     return ['overview', 'assistant', 'decides', 'settings'];
   }
   if (isAdmin(s)) {
-    return ['overview', 'assistant', 'people', 'teams', 'activity', 'decides', 'settings'];
+    return ['overview', 'assistant', 'cases', 'people', 'teams', 'activity', 'decides', 'settings'];
   }
   if (isManager(s)) {
-    return ['overview', 'assistant', 'cases', 'tasks', 'plan', 'team', 'decides', 'settings'];
+    return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'team', 'decides', 'settings'];
   }
   // Member
-  return ['overview', 'assistant', 'cases', 'tasks', 'plan', 'decides', 'settings'];
+  return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'decides', 'settings'];
 }
 
 function readPortalRoute(s) {
@@ -223,6 +257,61 @@ function updateHeader(s, user) {
     if (isGreenAvatar) avatarCard.classList.add('avatar-green');
     else avatarCard.classList.remove('avatar-green');
   }
+
+  // Update Actionable Notifications UI (#071)
+  const notifBadge = document.getElementById('notification-unread-badge');
+  const notifLabel = document.getElementById('notification-count-label');
+  const notifList = document.getElementById('notification-list-container');
+  const tabAllBtn = document.getElementById('notif-tab-all');
+  const tabUnreadBtn = document.getElementById('notif-tab-unread');
+  const visibleNotifs = getVisibleNotifications(s);
+  const unreadCount = visibleNotifs.filter((n) => !n.read).length;
+
+  if (tabAllBtn && tabUnreadBtn) {
+    if (currentNotificationFilter === 'unread') {
+      tabUnreadBtn.classList.add('is-active');
+      tabAllBtn.classList.remove('is-active');
+    } else {
+      tabAllBtn.classList.add('is-active');
+      tabUnreadBtn.classList.remove('is-active');
+    }
+    tabAllBtn.textContent = `All (${visibleNotifs.length})`;
+    tabUnreadBtn.textContent = `Unread (${unreadCount})`;
+  }
+
+  if (notifBadge) {
+    if (unreadCount > 0) {
+      notifBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+      notifBadge.hidden = false;
+    } else {
+      notifBadge.hidden = true;
+    }
+  }
+
+  if (notifLabel) {
+    notifLabel.textContent = `${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}`;
+  }
+
+  if (notifList) {
+    const displayedNotifs = currentNotificationFilter === 'unread' ? visibleNotifs.filter((n) => !n.read) : visibleNotifs;
+    if (displayedNotifs.length === 0) {
+      notifList.innerHTML = `<div style="text-align: center; padding: 24px 16px; color: var(--colorNeutralForeground3); font-size: 0.8125rem;">${currentNotificationFilter === 'unread' ? 'No unread notifications.' : 'No actionable notifications recorded for this role.'}</div>`;
+    } else {
+      notifList.innerHTML = displayedNotifs.slice(0, 10).map((n) => `
+        <div class="notification-item ${n.read ? 'is-read' : 'is-unread'}" style="padding: 10px 14px; border-bottom: 1px solid var(--colorNeutralStroke3); display: flex; flex-direction: column; gap: 4px; background: ${n.read ? 'transparent' : 'var(--colorBrandBackground2)'};">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+            <strong style="font-size: 0.8125rem; color: var(--colorNeutralForeground1);">${n.title}</strong>
+            <span class="tag ${n.priority === 'urgent' ? 'tag-danger' : n.priority === 'warning' ? 'tag-warning' : 'tag-neutral'} small">${n.channelLabel || 'In-App'}</span>
+          </div>
+          <p class="small muted" style="margin: 0; font-size: 0.75rem; line-height: 1.35;">${n.summary}</p>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+            ${n.caseId ? `<button type="button" class="btn-subtle btn-sm" data-action="nav-to-case" data-case="${n.caseId}" style="font-size: 0.75rem; padding: 2px 8px;">View Case →</button>` : '<span></span>'}
+            ${!n.read ? `<button type="button" class="btn-ghost btn-sm" data-action="notif-mark-read" data-id="${n.id}" style="font-size: 0.75rem; padding: 2px 6px;">Mark read</button>` : '<span class="small muted" style="font-size: 0.75rem;">Read</span>'}
+          </div>
+        </div>
+      `).join('');
+    }
+  }
 }
 
 function renderNav(s, user, allowed) {
@@ -231,6 +320,12 @@ function renderNav(s, user, allowed) {
 
   const pendingApprovalsCount = getPendingApprovals(s).length;
   const pendingUsersCount = (s.users || []).filter((u) => u.status === 'pending').length;
+
+  const vCases = visibleCases(s);
+  let totalLooseEnds = 0;
+  for (const vc of vCases) {
+    totalLooseEnds += detectLooseEnds(s, vc).length;
+  }
 
   const navHtml = allowed
     .map((secId) => {
@@ -243,6 +338,8 @@ function renderNav(s, user, allowed) {
         badge = html`<span class="tag tag-warning" style="margin-left: auto;">${pendingUsersCount}</span>`;
       } else if (secId === 'team' && pendingApprovalsCount > 0) {
         badge = html`<span class="tag tag-warning" style="margin-left: auto;">${pendingApprovalsCount}</span>`;
+      } else if (secId === 'cases' && totalLooseEnds > 0) {
+        badge = html`<span class="tag tag-warning" style="margin-left: auto;">${totalLooseEnds}</span>`;
       }
 
       return html`
@@ -277,12 +374,197 @@ function renderMain(s) {
   render(main, sec.id === 'cases' ? sec.page.render(s, currentCaseId) : sec.page.render(s));
 }
 
+let isDraggingCard = false;
+let currentDragCaseId = null;
+
+function handleCaseTransitionFlow(caseId, targetStage) {
+  const s = getState();
+  const c = getCase(s, caseId);
+  if (!c) return;
+
+  const check = canTransitionCase(s, caseId, targetStage);
+  if (check.isCurrent) return;
+
+  if (!check.permitted) {
+    toast(`Transition rejected: ${check.reason}`, 'error');
+    return;
+  }
+
+  if (check.requiresReason || check.requiresApproval || check.isException) {
+    caseView.transitionModal = {
+      caseId: c.id,
+      targetStage,
+      currentStage: getCaseKanbanColumn(c),
+      requiresReason: Boolean(check.requiresReason),
+      requiresApproval: Boolean(check.requiresApproval),
+      isException: Boolean(check.isException),
+      reasonHint: check.reason,
+      unresolvedItems: check.unresolvedItems || [],
+      error: null,
+    };
+    renderApp();
+    return;
+  }
+
+  // Straightforward permitted transition
+  update((stateObj) => {
+    const res = requestCaseStageTransition(stateObj, caseId, targetStage);
+    if (!res.success) {
+      toast(res.error, 'error');
+    } else {
+      toast(res.message || 'Case moved successfully.', 'success');
+    }
+  });
+  renderApp();
+}
+
+function setupKanbanDragAndDrop() {
+  document.addEventListener('dragstart', (e) => {
+    const card = e.target.closest('.kanban-case-card');
+    if (!card) return;
+    const cid = card.dataset.caseId || card.dataset.case;
+    if (!cid) return;
+
+    isDraggingCard = true;
+    currentDragCaseId = cid;
+    card.classList.add('is-dragging');
+
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('text/plain', cid);
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  });
+
+  document.addEventListener('dragend', (e) => {
+    const card = e.target.closest('.kanban-case-card');
+    if (card) card.classList.remove('is-dragging');
+    document.querySelectorAll('.kanban-col').forEach((col) => {
+      col.classList.remove('is-drop-target', 'is-invalid-target');
+    });
+    currentDragCaseId = null;
+    setTimeout(() => {
+      isDraggingCard = false;
+    }, 150);
+  });
+
+  document.addEventListener('dragover', (e) => {
+    const dropzone = e.target.closest('#evidence-dropzone');
+    if (dropzone) {
+      e.preventDefault();
+      dropzone.classList.add('is-dragover');
+      return;
+    }
+
+    const col = e.target.closest('.kanban-col');
+    if (!col) return;
+    e.preventDefault();
+
+    const targetColId = col.dataset.colId;
+    if (!targetColId || !currentDragCaseId) return;
+
+    const s = getState();
+    const check = canTransitionCase(s, currentDragCaseId, targetColId);
+
+    if (check.isCurrent) {
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+      col.classList.remove('is-drop-target', 'is-invalid-target');
+    } else if (check.permitted) {
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      col.classList.add('is-drop-target');
+      col.classList.remove('is-invalid-target');
+    } else {
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+      col.classList.add('is-invalid-target');
+      col.classList.remove('is-drop-target');
+    }
+  });
+
+  document.addEventListener('dragleave', (e) => {
+    const dropzone = e.target.closest('#evidence-dropzone');
+    if (dropzone && !dropzone.contains(e.relatedTarget)) {
+      dropzone.classList.remove('is-dragover');
+      return;
+    }
+
+    const col = e.target.closest('.kanban-col');
+    if (!col) return;
+    if (!col.contains(e.relatedTarget)) {
+      col.classList.remove('is-drop-target', 'is-invalid-target');
+    }
+  });
+
+  document.addEventListener('drop', (e) => {
+    const dropzone = e.target.closest('#evidence-dropzone');
+    if (dropzone) {
+      e.preventDefault();
+      dropzone.classList.remove('is-dragover');
+      const fileInput = document.getElementById('evidence-file-input');
+      if (fileInput && e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return;
+    }
+
+    const col = e.target.closest('.kanban-col');
+    if (!col) return;
+    e.preventDefault();
+
+    col.classList.remove('is-drop-target', 'is-invalid-target');
+    const targetStage = col.dataset.colId;
+    const caseId = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || currentDragCaseId;
+
+    if (caseId && targetStage) {
+      handleCaseTransitionFlow(caseId, targetStage);
+    }
+  });
+}
+
 function setupEvents() {
+  setupKanbanDragAndDrop();
+
   document.addEventListener('click', (e) => {
+    // 0. Mobile Navigation Hamburger & Backdrop
+    const mobileNavToggle = e.target.closest('#btn-mobile-nav-toggle');
+    if (mobileNavToggle) {
+      const nav = document.getElementById('portal-nav');
+      const backdrop = document.getElementById('mobile-nav-backdrop');
+      const isOpen = nav?.classList.toggle('is-open');
+      mobileNavToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      if (backdrop) {
+        if (isOpen) backdrop.removeAttribute('hidden');
+        else backdrop.setAttribute('hidden', '');
+      }
+      return;
+    }
+
+    const mobileBackdrop = e.target.closest('#mobile-nav-backdrop');
+    if (mobileBackdrop) {
+      document.getElementById('portal-nav')?.classList.remove('is-open');
+      mobileBackdrop.setAttribute('hidden', '');
+      document.getElementById('btn-mobile-nav-toggle')?.setAttribute('aria-expanded', 'false');
+      return;
+    }
+
+    // Evidence file dropzone click
+    const evidenceDropzone = e.target.closest('#evidence-dropzone');
+    if (evidenceDropzone) {
+      const fileInput = document.getElementById('evidence-file-input');
+      if (fileInput && e.target !== fileInput) {
+        fileInput.click();
+        return;
+      }
+    }
+
     // 1. Navigation clicks
     const navBtn = e.target.closest('[data-action="nav-go"]');
     if (navBtn) {
       e.preventDefault();
+      // Close mobile navigation drawer if open
+      document.getElementById('portal-nav')?.classList.remove('is-open');
+      document.getElementById('mobile-nav-backdrop')?.setAttribute('hidden', '');
+      document.getElementById('btn-mobile-nav-toggle')?.setAttribute('aria-expanded', 'false');
+
       const sec = navBtn.dataset.section;
       if (sec && SECTIONS[sec]) {
         currentSection = sec;
@@ -313,6 +595,65 @@ function setupEvents() {
     if (popover && !popover.contains(e.target)) {
       popover.setAttribute('hidden', '');
       document.getElementById('account-trigger')?.setAttribute('aria-expanded', 'false');
+    }
+
+    // 2b. Notification popover toggle (#071)
+    const notifTrigger = e.target.closest('#btn-notification-trigger');
+    const notifPopover = document.getElementById('notification-popover');
+    if (notifTrigger) {
+      e.stopPropagation();
+      if (notifPopover) {
+        const isHidden = notifPopover.hasAttribute('hidden');
+        if (isHidden) {
+          notifPopover.removeAttribute('hidden');
+          notifTrigger.setAttribute('aria-expanded', 'true');
+          popover?.setAttribute('hidden', '');
+        } else {
+          notifPopover.setAttribute('hidden', '');
+          notifTrigger.setAttribute('aria-expanded', 'false');
+        }
+      }
+      return;
+    }
+
+    if (notifPopover && !notifPopover.contains(e.target) && !e.target.closest('#btn-notification-trigger')) {
+      notifPopover.setAttribute('hidden', '');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'false');
+    }
+
+    // Notification All / Unread tabs
+    const notifTabBtn = e.target.closest('[data-action="notif-tab"]');
+    if (notifTabBtn) {
+      currentNotificationFilter = notifTabBtn.dataset.tab;
+      renderApp();
+      const pop = document.getElementById('notification-popover');
+      if (pop) pop.removeAttribute('hidden');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'true');
+      return;
+    }
+
+    // Mark all notifications read
+    if (e.target.closest('#btn-mark-all-read')) {
+      update((s) => markAllNotificationsRead(s));
+      toast('All notifications marked as read.', 'success');
+      renderApp();
+      const pop = document.getElementById('notification-popover');
+      if (pop) pop.removeAttribute('hidden');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'true');
+      return;
+    }
+
+    // Mark single notification read
+    const notifReadBtn = e.target.closest('[data-action="notif-mark-read"]');
+    if (notifReadBtn) {
+      const nid = notifReadBtn.dataset.id;
+      update((s) => markNotificationRead(s, nid));
+      toast('Notification marked as read.', 'info');
+      renderApp();
+      const pop = document.getElementById('notification-popover');
+      if (pop) pop.removeAttribute('hidden');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'true');
+      return;
     }
 
     // 3. Sign out button
@@ -701,6 +1042,584 @@ function setupEvents() {
       }
       return;
     }
+
+    // 13. Case Action Centre events
+    const caseTabBtn = e.target.closest('[data-action="case-tab"]');
+    if (caseTabBtn) {
+      caseView.activeTab = caseTabBtn.dataset.tab;
+      renderApp();
+      return;
+    }
+
+    const caseViewModeBtn = e.target.closest('[data-action="case-view-mode"]');
+    if (caseViewModeBtn) {
+      caseView.viewMode = caseViewModeBtn.dataset.mode;
+      renderApp();
+      return;
+    }
+
+    const caseInspectBtn = e.target.closest('[data-action="case-inspect"]');
+    if (caseInspectBtn) {
+      // Case links behave as in-page workspace controls; do not let their
+      // fallback hash navigate away before the detail workspace opens.
+      e.preventDefault();
+      e.stopPropagation();
+      lastFocusedTrigger = caseInspectBtn;
+      const cid = caseInspectBtn.dataset.id;
+      caseView.selectedCaseId = cid;
+      if (caseInspectBtn.dataset.tab) {
+        caseView.journeyTab = caseInspectBtn.dataset.tab;
+      } else {
+        caseView.journeyTab = 'timeline';
+      }
+      if (caseInspectBtn.dataset.rule) {
+        caseView.activeExplanationRuleId = caseInspectBtn.dataset.rule;
+      }
+      caseView.highlightedSourceId = null;
+      renderApp();
+      setTimeout(() => {
+        document.querySelector('.drawer-close-btn')?.focus();
+      }, 50);
+      return;
+    }
+
+    const caseModalClose = e.target.closest('button[data-action="case-modal-close"]');
+    const caseBackdropClose = e.target.matches('.case-workspace-backdrop[data-action="case-modal-close"]');
+    if (caseModalClose || caseBackdropClose) {
+      closeCaseDrawer();
+      return;
+    }
+
+    const journeyTabBtn = e.target.closest('[data-action="case-journey-tab"]');
+    if (journeyTabBtn) {
+      caseView.journeyTab = journeyTabBtn.dataset.tab;
+      renderApp();
+      const scrollEl = document.querySelector('.case-detail-scroll');
+      if (scrollEl) scrollEl.scrollTop = 0;
+      return;
+    }
+
+    if (e.target.closest('[data-action="case-clear-filters"]')) {
+      caseView.searchQuery = '';
+      caseView.estateFilter = 'all';
+      caseView.urgencyFilter = 'all';
+      caseView.activeTab = 'all';
+      renderApp();
+      return;
+    }
+
+    // Move to Stage Accessible Modal Triggers
+    const moveStageBtn = e.target.closest('[data-action="case-move-stage-dialog"]');
+    if (moveStageBtn) {
+      e.stopPropagation();
+      caseView.moveStageModalCaseId = moveStageBtn.dataset.case;
+      renderApp();
+      return;
+    }
+
+    const moveStageClose = e.target.closest('button[data-action="case-move-stage-close"]');
+    const moveStageBackdropClose = e.target.matches('.modal-backdrop[data-action="case-move-stage-close"]');
+    if (moveStageClose || moveStageBackdropClose) {
+      caseView.moveStageModalCaseId = null;
+      renderApp();
+      return;
+    }
+
+    const selectMoveStageBtn = e.target.closest('[data-action="case-select-move-stage"]');
+    if (selectMoveStageBtn) {
+      const cid = selectMoveStageBtn.dataset.case;
+      const targetStage = selectMoveStageBtn.dataset.target;
+      caseView.moveStageModalCaseId = null;
+      handleCaseTransitionFlow(cid, targetStage);
+      return;
+    }
+
+    const resolveAndMoveBtn = e.target.closest('[data-action="case-resolve-blocker-and-move"]');
+    if (resolveAndMoveBtn) {
+      const cid = resolveAndMoveBtn.dataset.case;
+      const bid = resolveAndMoveBtn.dataset.blocker;
+      const targetStage = resolveAndMoveBtn.dataset.target;
+      caseView.moveStageModalCaseId = null;
+      update((s) => {
+        resolveCaseBlocker(s, cid, bid);
+        const res = requestCaseStageTransition(s, cid, targetStage);
+        if (!res.success) {
+          toast(res.error, 'error');
+        } else {
+          toast(res.message || 'Blocker resolved and case resumed in In Progress.', 'success');
+        }
+      });
+      renderApp();
+      return;
+    }
+
+    // Consequential Stage Transition Confirmation Modal Triggers
+    const transitionCancel = e.target.closest('button[data-action="case-transition-cancel"]');
+    const transitionBackdropCancel = e.target.matches('.modal-backdrop[data-action="case-transition-cancel"]');
+    if (transitionCancel || transitionBackdropCancel) {
+      caseView.transitionModal = null;
+      renderApp();
+      return;
+    }
+
+    const confirmTransitionBtn = e.target.closest('[data-action="case-transition-confirm"]');
+    if (confirmTransitionBtn) {
+      const cid = confirmTransitionBtn.dataset.case;
+      const targetStage = confirmTransitionBtn.dataset.target;
+      const reasonInput = document.getElementById('case-transition-reason-input');
+      const reasonVal = reasonInput ? reasonInput.value.trim() : '';
+
+      const modal = caseView.transitionModal;
+      if (modal && modal.requiresReason && reasonVal.length < 4) {
+        toast('Please enter a valid operational reason (minimum 4 characters).', 'error');
+        return;
+      }
+
+      update((s) => {
+        const res = requestCaseStageTransition(s, cid, targetStage, null, reasonVal);
+        if (!res.success) {
+          toast(res.error, 'error');
+        } else {
+          caseView.transitionModal = null;
+          toast(res.message || 'Stage transition completed.', 'success');
+        }
+      });
+      renderApp();
+      return;
+    }
+
+    // Card Surface Click (opens case if not dragging and not clicking on interactive child elements)
+    const cardSurface = e.target.closest('[data-action="case-card-surface"]');
+    if (cardSurface) {
+      if (isDraggingCard) return;
+      if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.kanban-card-drag-affordance')) {
+        return;
+      }
+      const cid = cardSurface.dataset.caseId || cardSurface.dataset.case;
+      if (cid) {
+        caseView.selectedCaseId = cid;
+        caseView.journeyTab = 'timeline';
+        renderApp();
+        return;
+      }
+    }
+
+    // Table Row Click (opens case if not clicking on interactive child elements)
+    const rowClick = e.target.closest('[data-action="case-row-click"]');
+    if (rowClick) {
+      if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.tag')) {
+        return;
+      }
+      const cid = rowClick.dataset.caseId;
+      if (cid) {
+        caseView.selectedCaseId = cid;
+        caseView.journeyTab = 'timeline';
+        renderApp();
+        return;
+      }
+    }
+
+    const casePlanNav = e.target.closest('[data-action="case-plan-nav"]');
+    if (casePlanNav) {
+      caseView.selectedCaseId = null;
+      currentSection = 'plan';
+      window.location.hash = '#plan';
+      toast('Navigated to Smart Planner for scheduled case commitments.', 'info');
+      renderApp();
+      return;
+    }
+
+    const caseRippleNav = e.target.closest('[data-action="case-ripple-nav"]');
+    if (caseRippleNav) {
+      const cid = caseRippleNav.dataset.case;
+      const tid = caseRippleNav.dataset.task;
+      caseView.selectedCaseId = null;
+      currentSection = 'plan';
+      window.location.hash = '#plan';
+      if (tid) {
+        planView.selectedTaskId = tid;
+      }
+      toast('Opened What-If Simulator & Ripple Intelligence for case task.', 'info');
+      renderApp();
+      return;
+    }
+
+    const navToCaseBtn = e.target.closest('[data-action="nav-to-case"]');
+    if (navToCaseBtn) {
+      closeModal();
+      const pop = document.getElementById('notification-popover');
+      if (pop) pop.setAttribute('hidden', '');
+      document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'false');
+      const cid = navToCaseBtn.dataset.case;
+      currentSection = 'cases';
+      window.location.hash = '#cases';
+      caseView.selectedCaseId = cid;
+      caseView.journeyTab = 'timeline';
+      renderApp();
+      return;
+    }
+
+    const caseRequestClosureBtn = e.target.closest('[data-action="case-request-closure"]');
+    if (caseRequestClosureBtn) {
+      const cid = caseRequestClosureBtn.dataset.case;
+      update((s) => {
+        const res = requestCaseClosure(s, cid);
+        if (!res.success) {
+          toast(res.error, 'error');
+        } else {
+          toast('Closure approval request submitted to Manager Jennifer Ong.', 'success');
+        }
+      });
+      renderApp();
+      return;
+    }
+
+    const caseCloseBtn = e.target.closest('[data-action="case-close-action"]');
+    if (caseCloseBtn) {
+      const cid = caseCloseBtn.dataset.case;
+      const s = getState();
+      if (!isManager(s)) {
+        update((st) => {
+          const res = requestCaseClosure(st, cid);
+          if (!res.success) {
+            toast(res.error, 'error');
+            caseView.journeyTab = 'readiness';
+          } else {
+            toast('Closure approval request submitted to Manager Jennifer Ong.', 'success');
+          }
+        });
+      } else {
+        update((st) => {
+          const res = closeCase(st, cid);
+          if (!res.success) {
+            toast(res.error, 'error');
+            caseView.journeyTab = 'readiness';
+          } else {
+            toast(`Case ${res.case.caseNumber} closed successfully.`, 'success');
+          }
+        });
+      }
+      renderApp();
+      return;
+    }
+
+    const caseSubmitNoteBtn = e.target.closest('[data-action="case-submit-note"]');
+    if (caseSubmitNoteBtn) {
+      const form = document.getElementById('case-add-note-form');
+      if (form) {
+        if (typeof form.requestSubmit === 'function') {
+          form.requestSubmit(caseSubmitNoteBtn);
+        } else {
+          form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
+      }
+      return;
+    }
+
+    const caseRefreshBriefBtn = e.target.closest('[data-action="case-refresh-brief"]');
+    if (caseRefreshBriefBtn) {
+      toast('AI Case Brief refreshed from latest verified case state.', 'info');
+      renderApp();
+      return;
+    }
+
+    const caseReassignBtn = e.target.closest('[data-action="case-reassign-dialog"]');
+    if (caseReassignBtn) {
+      const cid = caseReassignBtn.dataset.case || caseView.selectedCaseId;
+      // Reassignment is a separate focused workflow. Remove the case workspace
+      // before mounting the generic modal so dialogs never stack visually or
+      // compete for keyboard focus.
+      caseView.selectedCaseId = null;
+      caseView.activeExplanationRuleId = null;
+      caseView.highlightedSourceId = null;
+      renderApp();
+      showCaseReassignModal(getState(), cid);
+      return;
+    }
+
+    const caseCopyBriefBtn = e.target.closest('[data-action="case-copy-brief"]');
+    if (caseCopyBriefBtn) {
+      const el = document.getElementById('case-brief-text');
+      if (el) {
+        navigator.clipboard?.writeText(el.innerText);
+        const originalText = caseCopyBriefBtn.innerHTML;
+        caseCopyBriefBtn.innerHTML = '✓ Copied!';
+        setTimeout(() => { caseCopyBriefBtn.innerHTML = originalText; }, 2000);
+        toast('Case Brief copied to clipboard.', 'success');
+      }
+      return;
+    }
+
+    const toggleCp = e.target.closest('[data-action="case-toggle-checkpoint"]');
+    if (toggleCp) {
+      const cid = toggleCp.dataset.case;
+      const cpid = toggleCp.dataset.cp;
+      update((s) => {
+        const c = s.cases?.find((item) => item.id === cid);
+        const cp = c?.checkpoints?.find((item) => item.id === cpid);
+        if (cp) {
+          cp.completed = toggleCp.checked;
+          if (cp.completed) {
+            cp.completedAt = new Date().toISOString();
+            toast(`Checkpoint "${cp.title}" marked completed.`, 'success');
+          } else {
+            cp.completedAt = null;
+            toast(`Checkpoint "${cp.title}" marked pending.`, 'info');
+          }
+        }
+      });
+      renderApp();
+      return;
+    }
+
+    const resolveFindingBtn = e.target.closest('[data-action="case-resolve-finding"]');
+    if (resolveFindingBtn) {
+      const cid = resolveFindingBtn.dataset.case;
+      const rule = resolveFindingBtn.dataset.rule;
+      update((s) => {
+        resolveLooseEnd(s, cid, rule);
+      });
+      toast('Follow-up outcome recorded and requirement fulfilled.', 'success');
+      renderApp();
+      return;
+    }
+
+    const verifyEvidenceBtn = e.target.closest('[data-action="case-verify-evidence"]');
+    if (verifyEvidenceBtn) {
+      const cid = verifyEvidenceBtn.dataset.case;
+      const eid = verifyEvidenceBtn.dataset.evidence;
+      update((s) => {
+        const res = verifyCaseEvidence(s, cid, eid, 'verify', actorName(s));
+        if (res.success) {
+          toast('Evidence record verified successfully.', 'success');
+        } else {
+          toast(res.error || 'Failed to verify evidence.', 'error');
+        }
+      });
+      renderApp();
+      return;
+    }
+
+    const rejectEvidenceBtn = e.target.closest('[data-action="case-reject-evidence"]');
+    if (rejectEvidenceBtn) {
+      const cid = rejectEvidenceBtn.dataset.case;
+      const eid = rejectEvidenceBtn.dataset.evidence;
+      const reason = window.prompt('Enter rejection reason for audit register (minimum 4 characters):');
+      if (reason != null) {
+        if (reason.trim().length < 4) {
+          toast('Rejection reason must be at least 4 characters.', 'error');
+        } else {
+          update((s) => {
+            const res = verifyCaseEvidence(s, cid, eid, 'reject', actorName(s), reason.trim());
+            if (res.success) {
+              toast('Evidence record rejected and audit logged.', 'info');
+            } else {
+              toast(res.error || 'Failed to reject evidence.', 'error');
+            }
+          });
+          renderApp();
+        }
+      }
+      return;
+    }
+
+    const previewEvidenceBtn = e.target.closest('[data-action="case-preview-evidence"]');
+    if (previewEvidenceBtn) {
+      toast('Opening simulated evidence preview for demo purposes.', 'info');
+      return;
+    }
+
+    // 14. Evidence-Linked Explanations & Communication Hub events
+    const caseExplainBtn = e.target.closest('[data-action="case-explain-finding"]');
+    if (caseExplainBtn) {
+      const cid = caseExplainBtn.dataset.case;
+      const rule = caseExplainBtn.dataset.rule;
+      caseView.selectedCaseId = cid;
+      caseView.journeyTab = 'loose_ends';
+      caseView.activeExplanationRuleId = rule;
+      caseView.highlightedSourceId = null;
+      renderApp();
+      return;
+    }
+
+    const caseViewExpBtn = e.target.closest('[data-action="case-view-explanation"]');
+    if (caseViewExpBtn) {
+      caseView.activeExplanationRuleId = caseViewExpBtn.dataset.rule;
+      caseView.highlightedSourceId = null;
+      renderApp();
+      return;
+    }
+
+    if (e.target.closest('[data-action="case-exit-explanation"]')) {
+      caseView.activeExplanationRuleId = null;
+      caseView.highlightedSourceId = null;
+      renderApp();
+      return;
+    }
+
+    const radarFilterBtn = e.target.closest('[data-action="case-radar-filter"]');
+    if (radarFilterBtn) {
+      caseView.radarFilter = radarFilterBtn.dataset.filter;
+      renderApp();
+      return;
+    }
+
+    const jumpSourceBtn = e.target.closest('[data-action="case-jump-source"]');
+    if (jumpSourceBtn) {
+      const targetType = jumpSourceBtn.dataset.type;
+      const sourceId = jumpSourceBtn.dataset.sourceId;
+      caseView.highlightedSourceId = sourceId;
+      if (targetType === 'timeline') {
+        caseView.journeyTab = 'timeline';
+      } else if (targetType === 'blocker') {
+        caseView.journeyTab = 'blockers';
+      } else {
+        caseView.journeyTab = 'readiness';
+      }
+      renderApp();
+      return;
+    }
+
+    if (e.target.closest('[data-action="case-return-explanation"]')) {
+      caseView.journeyTab = 'loose_ends';
+      caseView.highlightedSourceId = null;
+      renderApp();
+      return;
+    }
+
+    const resolveBlockerBtn = e.target.closest('[data-action="case-resolve-blocker"]');
+    if (resolveBlockerBtn) {
+      const cid = resolveBlockerBtn.dataset.case;
+      const bid = resolveBlockerBtn.dataset.blocker;
+      update((s) => {
+        resolveCaseBlocker(s, cid, bid);
+      });
+      toast('Blocker marked as resolved. Primary case status updated.', 'success');
+      renderApp();
+      return;
+    }
+
+    const commFilterBtn = e.target.closest('[data-action="comm-filter-channel"]');
+    if (commFilterBtn) {
+      caseView.commChannelFilter = commFilterBtn.dataset.channel;
+      renderApp();
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-toggle-log-form"]')) {
+      const formContainer = document.getElementById('comm-log-form-container');
+      if (formContainer) {
+        formContainer.style.display = formContainer.style.display === 'none' ? 'block' : 'none';
+      }
+      return;
+    }
+
+    const commAckBtn = e.target.closest('[data-action="comm-ack"]');
+    if (commAckBtn) {
+      const mid = commAckBtn.dataset.id;
+      update((s) => acknowledgeCommunication(s, mid));
+      toast('Communication acknowledgement status updated.', 'info');
+      renderApp();
+      return;
+    }
+
+    const commGenBtn = e.target.closest('[data-action="comm-generate-reply"]');
+    if (commGenBtn) {
+      const cid = commGenBtn.dataset.case;
+      const draft = generateDraftReply(getState(), cid);
+      const box = document.getElementById('comm-draft-reply-box');
+      if (box) box.value = draft;
+      toast('Contextual response draft generated.', 'info');
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-copy-reply"]')) {
+      const box = document.getElementById('comm-draft-reply-box');
+      if (box && box.value) {
+        navigator.clipboard?.writeText(box.value);
+        const copyBtn = document.getElementById('btn-copy-draft-reply');
+        if (copyBtn) {
+          const orig = copyBtn.innerHTML;
+          copyBtn.innerHTML = '✓ Copied!';
+          setTimeout(() => { copyBtn.innerHTML = orig; }, 2000);
+        }
+        toast('Draft reply copied to clipboard.', 'success');
+      }
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-load-sample-1"]')) {
+      const inp = document.getElementById('comm-msg-to-task-input');
+      if (inp) {
+        inp.value = 'Hi Officer Aisyah, Eng Seng Plumbing here regarding Blk 211 seepage. We need joint access to #06-12 tomorrow at 14:00 to verify floor trap seal before quote approval.';
+      }
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-load-sample-2"]')) {
+      const inp = document.getElementById('comm-msg-to-task-input');
+      if (inp) {
+        inp.value = 'Hello Town Council, Mdm Tan here from Blk 211 #05-12. Ceiling leak is getting worse after today rain. Please call me back with an update on when contractor can start.';
+      }
+      return;
+    }
+
+    const commParseBtn = e.target.closest('[data-action="comm-parse-task"]');
+    if (commParseBtn) {
+      const cid = commParseBtn.dataset.case;
+      const inp = document.getElementById('comm-msg-to-task-input');
+      const draft = extractTaskDraftFromMessage(inp ? inp.value : '', cid);
+      caseView.extractedTaskDraft = draft;
+      renderApp();
+      toast('Parsed actionable task draft from message. Review and confirm below.', 'info');
+      return;
+    }
+
+    if (e.target.closest('[data-action="comm-confirm-task"]')) {
+      const draft = caseView.extractedTaskDraft;
+      if (draft) {
+        update((s) => {
+          const newTask = {
+            id: `t-comm-${Date.now()}`,
+            ownerId: s.currentOfficerId || 'o1',
+            title: draft.title,
+            category: draft.category,
+            priority: draft.priority,
+            due: draft.due,
+            status: 'todo',
+            caseId: draft.caseId,
+            tags: ['Case-Linked', 'Communication-Draft'],
+          };
+          s.tasks.push(newTask);
+          const c = getCase(s, draft.caseId);
+          if (c) {
+            c.taskIds ||= [];
+            c.taskIds.push(newTask.id);
+            c.timeline ||= [];
+            c.timeline.push({
+              id: `ev-${Date.now()}`,
+              at: TODAY,
+              type: 'task_created',
+              title: `Task created: ${newTask.title}`,
+              summary: `Created in Smart Planner from communication draft (${draft.category}).`,
+              source: 'Communication Hub',
+              actor: actorName(s),
+            });
+          }
+          logActivity(s, `Created task "${newTask.title}" from communication draft for Case ${c?.caseNumber || draft.caseId}.`, actorName(s));
+        });
+        caseView.extractedTaskDraft = null;
+        toast('Task confirmed and saved to Smart Planner!', 'success');
+        renderApp();
+      }
+      return;
+    }
+
+    const quickRoleBtn = e.target.closest('[data-action="quick-switch-role"]');
+    if (quickRoleBtn) {
+      switchDemoRole(quickRoleBtn.dataset.role);
+      return;
+    }
   });
 
   // Role select dropdown change
@@ -715,6 +1634,22 @@ function setupEvents() {
 
   // Filter changes
   document.addEventListener('change', (e) => {
+    if (e.target.id === 'evidence-file-input') {
+      const file = e.target.files && e.target.files[0];
+      const display = document.getElementById('evidence-filename-display');
+      if (file && display) {
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+        display.textContent = `✓ Selected: ${file.name} (${sizeMb} MB)`;
+        display.style.color = 'var(--colorPaletteGreenForeground1)';
+        const titleInput = document.getElementById('evidence-title-input');
+        if (titleInput && !titleInput.value.trim()) {
+          const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[_\-+]+/g, ' ').trim();
+          titleInput.value = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+        }
+      }
+      return;
+    }
+
     if (e.target.dataset.action === 'admin-change-role') {
       const userId = e.target.dataset.id;
       const newRole = e.target.value;
@@ -781,6 +1716,16 @@ function setupEvents() {
       else document.documentElement.setAttribute('data-text-size', val);
       toast(`Text size set to ${val}.`, 'info');
     }
+
+    if (e.target.dataset.action === 'case-filter-estate') {
+      caseView.estateFilter = e.target.value;
+      renderApp();
+    }
+
+    if (e.target.dataset.action === 'case-filter-urgency') {
+      caseView.urgencyFilter = e.target.value;
+      renderApp();
+    }
   });
 
   // Search input events
@@ -800,10 +1745,114 @@ function setupEvents() {
       pv.page = 1;
       renderApp();
     }
+    if (e.target.dataset.action === 'case-search') {
+      caseView.searchQuery = e.target.value;
+      renderApp();
+    }
   });
 
-  // Assistant form submit
+  // Assistant and form submit events
   document.addEventListener('submit', (e) => {
+    if (e.target.id === 'comm-manual-log-form') {
+      e.preventDefault();
+      const form = e.target;
+      const channel = form.channel.value;
+      const category = form.category.value;
+      const content = form.content.value;
+      const cid = caseView.selectedCaseId;
+
+      const trimmed = (content || '').trim();
+      if (trimmed.length < 4) {
+        toast('Please provide valid communication notes (at least 4 characters).', 'error');
+        return;
+      }
+
+      update((s) => {
+        addCommunication(s, {
+          caseId: cid,
+          channel,
+          direction: 'outbound',
+          sender: `${actorName(s)} (Property Officer)`,
+          recipient: 'Resident / Contractor',
+          category,
+          content: trimmed,
+          sourceLabel: 'Manually recorded',
+        });
+        logActivity(s, `Logged manual ${channel} communication for Case ${cid}: ${category}`, actorName(s));
+      });
+
+      toast('Simulated communication record saved.', 'success');
+      renderApp();
+      return;
+    }
+
+    if (e.target.id === 'case-add-note-form') {
+      e.preventDefault();
+      const form = e.target;
+      const cid = form.dataset.case || caseView.selectedCaseId;
+      const category = form.noteCategory?.value || 'Inspection Update';
+      const content = form.noteContent?.value || '';
+
+      const trimmed = (content || '').trim();
+      if (trimmed.length < 4) {
+        toast('Please enter a valid note content (at least 4 characters).', 'error');
+        return;
+      }
+
+      update((s) => {
+        addCaseProgressNote(s, cid, category, trimmed);
+      });
+
+      toast('Progress note recorded and added to timeline.', 'success');
+      renderApp();
+      return;
+    }
+
+    if (e.target.id === 'case-evidence-upload-form') {
+      e.preventDefault();
+      const form = e.target;
+      const cid = form.dataset.case || caseView.selectedCaseId;
+      const title = document.getElementById('evidence-title-input')?.value?.trim();
+      const type = document.getElementById('evidence-type-select')?.value || 'document';
+      const fileInput = document.getElementById('evidence-file-input');
+      const reqCheckbox = document.getElementById('evidence-required-checkbox');
+      const desc = document.getElementById('evidence-desc-input')?.value?.trim() || '';
+
+      if (!title || title.length < 3) {
+        toast('Evidence title must be at least 3 characters.', 'error');
+        return;
+      }
+
+      let fileName = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.pdf`;
+      let fileSize = '1.2 MB';
+
+      if (fileInput && fileInput.files && fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        if (file.size > 5 * 1024 * 1024) {
+          toast('File size exceeds the 5MB demo limit. Please select a smaller file.', 'error');
+          return;
+        }
+        fileName = file.name;
+        fileSize = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+      }
+
+      update((s) => {
+        addCaseEvidence(s, cid, {
+          title,
+          fileName,
+          type,
+          fileSize,
+          description: desc,
+          requiredForClosure: reqCheckbox ? reqCheckbox.checked : false,
+          isLocalUpload: true,
+        });
+      });
+
+      toast(`Evidence "${title}" attached and queued for manager review.`, 'success');
+      renderApp();
+      return;
+    }
+
     if (e.target.dataset.action === 'assistant-submit') {
       e.preventDefault();
       const input = document.getElementById('assistant-input-box');
@@ -811,6 +1860,95 @@ function setupEvents() {
         const text = input.value.trim();
         input.value = '';
         assistantPage.ask(getState(), text, () => renderApp());
+      }
+    }
+  });
+
+  // Global Keyboard Navigation & Focus Trap (Escape and Tab)
+  document.addEventListener('keydown', (e) => {
+    // Rows and Kanban cards expose keyboard-equivalent click behavior.
+    if ((e.key === 'Enter' || e.key === ' ') && !caseView.selectedCaseId) {
+      const caseSurface = e.target.closest('[data-action="case-row-click"], [data-action="case-card-surface"]');
+      if (caseSurface && !e.target.closest('button, a, input, select, textarea')) {
+        e.preventDefault();
+        const cid = caseSurface.dataset.caseId || caseSurface.dataset.case;
+        if (cid) {
+          lastFocusedTrigger = caseSurface;
+          caseView.selectedCaseId = cid;
+          caseView.journeyTab = 'timeline';
+          renderApp();
+          setTimeout(() => document.querySelector('.drawer-close-btn')?.focus(), 50);
+          return;
+        }
+      }
+    }
+
+    // Evidence dropzone keyboard trigger
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('#evidence-dropzone')) {
+      e.preventDefault();
+      document.getElementById('evidence-file-input')?.click();
+      return;
+    }
+
+    // Escape key handling
+    if (e.key === 'Escape') {
+      // 1. Mobile navigation drawer
+      const mobileNav = document.getElementById('portal-nav');
+      if (mobileNav?.classList.contains('is-open')) {
+        mobileNav.classList.remove('is-open');
+        document.getElementById('mobile-nav-backdrop')?.setAttribute('hidden', '');
+        document.getElementById('btn-mobile-nav-toggle')?.setAttribute('aria-expanded', 'false');
+        return;
+      }
+
+      // 2. Case Journey drawer
+      if (caseView.selectedCaseId) {
+        closeCaseDrawer();
+        return;
+      }
+
+      // 3. Generic modals
+      const modalRoot = document.getElementById('modal-root');
+      if (modalRoot && !modalRoot.hasAttribute('hidden')) {
+        closeModal();
+        return;
+      }
+
+      // 4. Notifications popover
+      const notifPopover = document.getElementById('notification-popover');
+      if (notifPopover && !notifPopover.hasAttribute('hidden')) {
+        notifPopover.setAttribute('hidden', '');
+        document.getElementById('btn-notification-trigger')?.setAttribute('aria-expanded', 'false');
+        return;
+      }
+
+      // 5. Account menu popover
+      const accountPopover = document.getElementById('account-popover');
+      if (accountPopover && !accountPopover.hasAttribute('hidden')) {
+        accountPopover.setAttribute('hidden', '');
+        document.getElementById('account-trigger')?.setAttribute('aria-expanded', 'false');
+        return;
+      }
+    }
+
+    // Tab key focus trap inside active drawer
+    if (e.key === 'Tab' && caseView.selectedCaseId) {
+      const drawer = document.querySelector('.drawer-panel');
+      if (drawer) {
+        const focusable = drawer.querySelectorAll(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length > 0) {
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
       }
     }
   });
@@ -851,7 +1989,7 @@ function showAccountSwitchModal() {
       </button>
       <button type="button" class="btn-secondary" style="justify-content: flex-start; text-align: left; padding: 12px 14px;" data-action="pick-role-modal" data-role="admin">
         <div>
-          <strong>TAN XIU LI, FELICIA (Admin)</strong>
+          <strong>TAN, ALEX (Admin)</strong>
           <span class="small muted" style="display: block;">Town Council Administrator. User directory, pending account approval, team setup.</span>
         </div>
       </button>
@@ -916,6 +2054,22 @@ function showTaskDetailModal(s, t) {
       ${t.remarks ? html`<div class="capture-text"><strong>Remarks:</strong> ${t.remarks}</div>` : ''}
       ${t.appointmentTime
         ? html`<div><strong>Resident Commitment:</strong> <span class="tag tag-brand">${t.appointmentTime}</span></div>`
+        : ''}
+      ${t.caseId
+        ? html`
+            <div>
+              <strong>Linked Case:</strong>
+              <button
+                type="button"
+                class="tag tag-brand"
+                data-action="nav-to-case"
+                data-case="${t.caseId}"
+                style="cursor: pointer; border: 1px solid var(--colorBrandStroke2); background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-family: monospace; font-weight: 700; margin-left: 6px;"
+              >
+                ${icon('cases', 12)} ${t.caseId} → Open in Case Action Centre
+              </button>
+            </div>
+          `
         : ''}
       ${t.consequence
         ? html`<div><strong>Long-term Consequence Risk:</strong> <span class="muted">${t.consequence}</span></div>`
@@ -1036,6 +2190,93 @@ function showCreateTeamModal(s) {
     toast(`Team "${name}" created.`, 'success');
     renderApp();
   });
+}
+
+function showCaseReassignModal(s, caseId) {
+  const c = getCase(s, caseId);
+  if (!c) return;
+
+  const currentOwner = officerName(s, c.ownerId);
+  const eligibleOfficers = (s.users || [])
+    .filter((u) => u.status === 'active' && u.role !== 'admin' && u.id !== c.ownerId);
+
+  const content = html`
+    <header class="modal-head case-reassign-modal-head">
+      <div>
+        <span class="case-number-badge">${c.caseNumber || c.number || c.id}</span>
+        <h2 class="modal-title" id="modal-title">Request Case Reassignment</h2>
+      </div>
+      <button type="button" class="drawer-close-btn" data-action="modal-close" aria-label="Close reassignment dialog" title="Close">
+        ${icon('x', 18)}
+      </button>
+    </header>
+    <p class="muted small" style="margin-bottom: 14px;">
+      Reassign <strong>${c.caseNumber}</strong> (${c.title}). This will submit a formal handover request to Estate Manager Jennifer Ong.
+    </p>
+
+    <form id="case-reassign-form">
+      <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+        <div>
+          <label style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Current Case Officer</label>
+          <input type="text" value="${currentOwner}" readonly style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground2); box-sizing: border-box;" />
+        </div>
+
+        <div>
+          <label for="reassign-target-officer" style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Assign To</label>
+          <select id="reassign-target-officer" required style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); box-sizing: border-box;">
+            <option value="">Select receiving officer...</option>
+            ${eligibleOfficers.map(
+              (o) => html`<option value="${o.id}">${o.displayName} (${o.role === 'manager' ? 'Estate Manager' : 'Property Officer'})</option>`,
+            )}
+          </select>
+        </div>
+
+        <div>
+          <label for="reassign-reason-input" style="display: block; font-size: 0.8125rem; font-weight: 600; margin-bottom: 4px;">Operational Handover Reason <span aria-hidden="true">*</span></label>
+          <textarea id="reassign-reason-input" rows="4" required minlength="4" aria-describedby="reassign-reason-help" placeholder="e.g. Zone boundary re-alignment / site inspection capacity overload..." style="width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.875rem; box-sizing: border-box;"></textarea>
+          <p id="reassign-reason-help" class="small muted" style="margin: 4px 0 0;">Required for the handover audit trail. Enter at least 4 characters.</p>
+        </div>
+
+        <div style="padding: 10px 12px; border-radius: 6px; background: var(--colorNeutralBackground2); font-size: 0.75rem; color: var(--colorNeutralForeground3);">
+          ${icon('info', 14)} Connected to Approvals & Audit: Estate Manager Jennifer Ong must approve before ownership and task assignments update.
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Cancel</button>
+        <button type="submit" class="btn-primary btn-sm">Submit Request</button>
+      </div>
+    </form>
+  `;
+
+  openModal(content);
+
+  const form = document.getElementById('case-reassign-form');
+  if (form) {
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const targetOfficerId = document.getElementById('reassign-target-officer')?.value;
+      const reason = document.getElementById('reassign-reason-input')?.value;
+
+      if (!targetOfficerId) {
+        toast('Please select an active officer.', 'error');
+        return;
+      }
+
+      if (!reason || reason.trim().length < 4) {
+        toast('Please enter an operational handover reason (minimum 4 characters).', 'error');
+        document.getElementById('reassign-reason-input')?.focus();
+        return;
+      }
+
+      closeModal();
+      update((stateObj) => {
+        requestCaseReassignment(stateObj, caseId, targetOfficerId, reason.trim());
+      });
+      toast(`Reassignment request for ${c.caseNumber} submitted for manager review.`, 'success');
+      renderApp();
+    });
+  }
 }
 
 // Start application when DOM is ready

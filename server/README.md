@@ -126,7 +126,7 @@ sequenceDiagram
 | --- | --- | --- | --- |
 | `GET` | `/api/my-teams` | Active Manager | Returns only the teams managed by the caller, with member names, emails, and activity states. |
 
-*(Note: Task scheduling, calendar time-blocking, and ripple intelligence endpoints are currently implemented in the prototype and are planned for migration to the Express API in the upcoming development phase.)*
+*(Note: Task and case visibility (Category C), smart planning (Category B), ripple intelligence (Category D), and management approval workflows (Category G) are currently demonstrated in the static prototype and are planned for migration to the Express API in the upcoming development phase.)*
 
 ---
 

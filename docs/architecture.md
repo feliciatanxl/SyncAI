@@ -10,15 +10,16 @@ This document details the architectural design of SyncAI, separating the **imple
 
 | PS 12i Requirement | Architectural Solution | Implementation Status |
 | --- | --- | --- |
-| **Organise tasks and schedules** | Centralised task management with time-blocking around calendar commitments, meetings, and travel buffers. | • Static Prototype: Implemented (`prototype/js/planner.js`)<br/>• Full-Stack: Team and user foundation built; task engine migration in development. |
+| **Organise tasks and schedules** | Centralised task management with time-blocking around calendar commitments, meetings, and travel buffers. | • Static Prototype: Implemented (`prototype/js/planner.js`, `smartSchedule.js`)<br/>• Full-Stack: Team and user foundation built; task engine migration in development. |
+| **Task & Case Visibility (Category C)** | Interactive Case Action Centre, List & Kanban views, and deterministic Loose-End Detector ("Follow-Up Radar") flagging unresolved commitments. | • Static Prototype: Implemented (`prototype/js/pages/cases.js`)<br/>• Full-Stack: Read-only Graph To Do tasks in client (`Tasks.Read`); persistent case and task engine in development. |
 | **Prioritise work by deadline and effort** | Explainable, deterministic priority scoring evaluating safety, statutory compliance, service impact, and long-term consequences. | • Static Prototype: Implemented (`prototype/js/ai.js`)<br/>• Full-Stack: Logic documented and tested; API port planned. |
-| **Suggest realistic daily or weekly plans** | Capacity-aware scheduling engine detecting overbooked days, meeting conflicts, and mathematically impossible deadlines. | • Static Prototype: Implemented (`prototype/js/planner.js`)<br/>• Full-Stack: API port planned. |
-| **Operational Ripple Intelligence (USP Differentiator)** | Multi-level dependency cascade analysis evaluating the downstream effect of disruptions and comparing 3 operational alternatives. | • Static Prototype: Implemented (`prototype/js/ripple.js`)<br/>• Full-Stack: API port planned. |
-| **Enterprise Identity & Governance** | Microsoft Entra ID single sign-on, role-based access control, admin approval workflows, and append-only audit logging. | • Full-Stack: **Implemented** in React (`client/`) and Express (`server/`) with PostgreSQL. |
+| **Suggest realistic daily or weekly plans (Category B)** | Capacity-aware scheduling engine detecting overbooked days, meeting conflicts, and mathematically impossible deadlines. | • Static Prototype: Implemented (`prototype/js/smartSchedule.js`, `planner.js`)<br/>• Full-Stack: Read-only Outlook Calendar in client (`Calendars.Read`); API port planned. |
+| **Operational Ripple Intelligence (Category D — USP Differentiator)** | Multi-level dependency cascade analysis evaluating the downstream effect of disruptions and comparing 3 operational alternatives. | • Static Prototype: Implemented (`prototype/js/ripple.js`)<br/>• Full-Stack: API port planned. |
+| **Enterprise Identity & Governance (Category G)** | Microsoft Entra ID single sign-on, role-based access control, admin approval workflows, and append-only audit logging. | • Full-Stack: **Implemented** in React (`client/`) and Express (`server/`) with PostgreSQL.<br/>• Static Prototype: Implemented hierarchical manager approval workflow and audit trails. |
 
 ### Core Differentiators
 
-- **Flagship USP — Operationally Aware AI Scheduling:** Unlike traditional schedulers that blindly sort by due date or complaint frequency, SyncAI plans around operational consequence, statutory non-negotiables, and physical capacity.
+- **Flagship USP — Operationally Aware AI Scheduling:** Unlike traditional schedulers that blindly sort by due date or complaint frequency, SyncAI plans around operational consequence, statutory non-negotiables, and physical capacity across three core pillars: Consequence-Aware Priority, Capacity-Aware Planning, and Operational Ripple Intelligence.
 - **Signature Differentiator — Operational Ripple Intelligence:** Understands how delaying an inspection or shifting an officer cascades across secondary inspections, contractor work orders, and compliance certificates, providing a 3-alternative decision matrix.
 
 ---
@@ -166,7 +167,7 @@ The React client (not the Express API) calls Microsoft Graph with the signed-in 
 
 ### 3.3 Implemented Static Prototype Intelligence
 
-Demonstrated in `prototype/` with **57 passing automated tests**:
+Demonstrated in `prototype/` with **88 passing automated tests across 8 suites**:
 
 1. **Deterministic Priority Scoring & Client-Criteria Alignment (`prototype/js/ai.js`):**
    - Scores tasks on a 0–100 scale:
@@ -179,30 +180,37 @@ Demonstrated in `prototype/` with **57 passing automated tests**:
    - **Operational Safeguards:** Routine service requests **never** automatically outrank genuine imminent physical danger or statutory compliance obligations.
    - **Repeat Complaints (0 pts):** Resident complaint volume awards 0 points to prevent loudest-voice bias.
    - **Explicit Disclaimer:** Explanations clearly state that scoring weights represent Team 24's proposed operational model awaiting formal validation with EMS.
-2. **SLA-Aware Scheduling & Fixed Appointment Feasibility (`prototype/js/planner.js`):**
-   - Calculates working hours against Outlook meetings, lunch breaks, and travel buffers.
+2. **Task Visibility & Case Action Centre (`prototype/js/pages/cases.js` — Category C):**
+   - **Interactive Case Workspace:** Directory of operational cases with List view and Kanban board view, filtered by estate, urgency, and lifecycle status.
+   - **Operational Loose-End Detector ("Follow-Up Radar"):** Deterministic 8-rule engine flagging unfulfilled commitments: outstanding resident callbacks, pending contractor work order confirmations, inspections lacking documented findings, stale cases, missing photographic/notice evidence, premature closure checkpoint violations, uncompleted reassignments, and unconfirmed tenant appointments.
+   - **Case Journey Drawer:** Chronological event timeline linking inspections, contractor updates, resident calls, and management decisions to source records.
+   - **Closure Readiness Checker:** Multi-checkpoint evaluation preventing premature archival of unverified cases.
+   - **Evidence-Linked AI Case Brief:** Deterministic summary generator with one-click clipboard copying.
+3. **Smart Planning & Schedule Preferences (`prototype/js/smartSchedule.js` & `planner.js` — Category B):**
+   - Calculates working hours against Outlook meetings, lunch breaks, focus periods, and travel buffers.
+   - **Schedule Preferences:** Configures custom working days, daily hour caps, and lunch windows.
    - **SLA Deadline Engine:** Monitors `slaDue` cut-offs, raising high-risk alerts for breached SLAs and medium warnings for tight margins (<60m).
    - **Fixed Resident Appointments:** Protects specific site appointment windows (`appointmentTime`, `commitmentWindow`), ensuring disruption re-plans do not displace committed resident appointments.
-   - Proactively flags mathematically impossible deadlines where task effort exceeds available free hours before deadline.
-3. **Operational Ripple Intelligence (`prototype/js/ripple.js`):**
+   - **Weekly Plan Balancing:** Generates balanced Monday–Sunday schedule proposals without task duplication.
+4. **Operational Ripple Intelligence (`prototype/js/ripple.js` — Category D):**
    - Multi-level dependency traversal with cycle detection (e.g. `t103` → `t104` → `t112`).
    - Assesses capacity deficits resulting from emergency incidents or staff medical leave.
    - Identifies exposed statutory deadlines, SLA breach risks, and long-term defect risks across the downstream cascade.
-4. **Three-Alternative Scenario Evaluation (`prototype/js/ripple.js`):**
+5. **Three-Alternative Scenario Evaluation (`prototype/js/ripple.js` — Category D):**
    - Side-by-side evaluation of **Alternative A: No Action**, **Alternative B: Reschedule Lower-Impact Work**, and **Alternative C: Reassign Eligible Work**.
    - Validates candidate officer qualifications against category requirements (e.g., lift specialist certifications), flagging officers who have free time but lack required domain qualifications.
    - Evaluates SLA protection and appointment protection across all three options.
    - Enforces hierarchical management governance: highlights when reassignments or schedule slips require authorised supervisory sign-off.
-5. **Hierarchical Management Approval Engine (`prototype/js/state.js`):**
+6. **Hierarchical Management Approval Engine (`prototype/js/state.js` — Category G):**
    - Implements structured operational change governance:
      $$\text{Team Member proposes} \longrightarrow \text{Assigned Manager reviews} \longrightarrow \text{Escalate / Approve / Reject} \longrightarrow \text{Immutable audit record}$$
    - **Self-Approval Guardrail:** A Property Officer (`team_member`) cannot self-approve restricted schedule changes or cross-officer reassignments.
    - Full audit trail captured in state with requester, approver, reason, operational impact, and decision timestamp.
-6. **Multi-Channel Simulated Notification Adapter Architecture (`prototype/js/state.js` & `pages/alerts.js`):**
+7. **Multi-Channel Simulated Notification Adapter Architecture (`prototype/js/state.js` & `pages/alerts.js`):**
    - Models external notification dispatch across **In-App**, **Microsoft Teams (proposed)**, and **WhatsApp (proposed)**.
    - **Zero External API / Meta Dependencies:** Operates strictly as a local simulated adapter—no real WhatsApp Business API, Meta credentials, or external network requests.
    - **Privacy & Security Safeguards:** Previews contain zero sensitive resident personal data. Notifications contain deep links (`syncai://approval/...`) directing users into SyncAI for authenticated in-app approval and audit recording.
-7. **Operations Command Centre (OCC) Data Integration Boundary:**
+8. **Operations Command Centre (OCC) Data Integration Boundary:**
    - Complements OCC situational visibility rather than duplicating PS 12g Operations Hub.
    - Ingests mock emergency telemetries and incident reports clearly labelled as `OCC (Mock)`.
 
@@ -275,35 +283,60 @@ The architecture directly addresses feedback obtained during EM Services project
 
 ---
 
-## 8. Development Handoff
+## 8. Team Workstreams & Interconnected Integration Foundation
 
-A starting point for splitting the next phase of work. The workstreams are proposals, not final ownership.
+Team 24 has four members with agreed primary feature ownership areas:
 
-### Three kinds of data, kept separate
+| Team Member | Primary Workstream | Scope & Key Responsibilities |
+| --- | --- | --- |
+| **Charlisa Tan** | **Smart Planning (Category B)** | Calendar-aware scheduling, daily and weekly planning, officer availability, and realistic workload arrangements around meetings and travel buffers. |
+| **Felicia Tan** | **Task Visibility (Category C)** | Task and case visibility, Case Action Centre, Operational Loose-End Intelligence, case progress, blockers, outstanding commitments, and follow-ups. |
+| **Shamreen Rizmiya** | **Ripple Intelligence (Category D)** | Task dependency analysis, disruption impact, downstream consequences, and alternative scheduling and reassignment strategies. |
+| **Nann** | **Approvals & Audit (Category G)** | Management approval workflows, approval hierarchy, decision tracking, and auditability. |
 
-| | What it is | Where it lives today | State |
-| :--- | :--- | :--- | :--- |
-| **1. External Microsoft Graph data** | A person's own Outlook events and Microsoft To Do tasks | Fetched by the browser with the person's delegated token (`client/src/lib/graph.js`, `client/src/auth/useGraph.js`). Never sent to Express, never stored | Implemented, read-only |
-| **2. SyncAI's own tasks** | Town Council work items with SLA, priority, assignee and approval state | Not built in the full-stack app. PostgreSQL holds only users, teams and audit activity. `/prototype` uses fictional in-browser data | Planned |
-| **3. Scheduling and Ripple Intelligence** | Priority scoring, capacity-aware plans, what-if and ripple analysis | Deterministic JavaScript in `/prototype` only (`ai.js`, `planner.js`, `ripple.js`) | Planned migration to Express |
+> **Implementation Scope Note:** These define primary feature ownership, but individual subfeatures remain subject to implementation feasibility (not every exploratory brainstorming idea is required to be built). Team members contribute across the full stack—frontend, backend, testing, and documentation.
 
-Rules worth keeping: Graph data is input, not SyncAI's record. Importing an Outlook event or To Do task into (2) must be an explicit, audited step, and server-side use of Graph data needs its own design (the server holds no Graph token today). The Express API keeps accepting only `api://<client-id>/access_as_user` tokens.
+### The Single Shared Workflow
 
-### Proposed workstreams
+SyncAI is **one interconnected product**, not four independent modules. The four areas interact in a continuous operational loop:
 
-**A — Task management, SLA rules and PostgreSQL APIs**
-- Schema and migrations for tasks (owner, team, category, SLA deadline, status, dependencies) in `server/src/db.js`.
-- Express endpoints with the existing role and status checks (`server/src/app.js`): members see their own tasks, managers their teams', admins none.
-- Replace the *My Tasks* "Coming soon" card with the real list; keep the Microsoft To Do panel separate from it.
-- Port the SLA and priority rules from `prototype/js/ai.js` with tests.
+1. **Task Visibility** identifies cases, blockers, and outstanding commitments.
+2. **Smart Planning** builds realistic plans using tasks, calendars, and officer availability.
+3. **Ripple Intelligence** analyses disruption consequences and compares feasible alternatives.
+4. **Approvals & Audit** routes changes requiring authorisation to the correct manager and records the decision.
+5. **Approved changes feed back** into task visibility, schedules, case histories, and audit records.
 
-**B — Calendar-aware scheduling, capacity planning and Ripple Intelligence**
-- Port `planner.js` and `ripple.js` into server modules that take tasks (A) plus busy periods as input.
-- Decide how calendar busy time reaches the planner: sent by the client per request, or fetched server-side with an on-behalf-of flow. The second needs a new consent and security review.
-- Replace the *My Plan* placeholder and the manager *Team* workload view with real output.
+```
+┌──────────────────┐    Tasks & Checkpoints    ┌──────────────────┐
+│  Task Visibility ├──────────────────────────►│  Smart Planning  │
+│  (Category C)    │                           │  (Category B)    │
+└────────▲─────────┘                           └────────┬─────────┘
+         │                                              │ Schedule Conflicts
+         │ Audit & Status Update                        ▼
+┌────────┴─────────┐    Approved Reassignment  ┌──────────────────┐
+│ Approvals & Audit│◄──────────────────────────┤Ripple Intelligence│
+│ (Category G)     │                           │  (Category D)    │
+└──────────────────┘                           └──────────────────┘
+```
 
-**C — Hierarchical approvals, audit events and notification integration research**
-- Approval requests for reassignments and re-plans, enforcing the manager hierarchy and no self-approval, recorded through the existing append-only activity log (`server/src/activity.js`).
-- Research only, no build yet: Teams and Power Automate notifications, WhatsApp options, and what each needs from the EMS tenant (see section 7).
+### Shared Data Contracts & Integration Foundation
 
-**Dependencies:** A defines the task model that B and C both read, so agree its shape first. B and C can then proceed in parallel against it.
+The integration foundation connecting the four workstreams is defined by shared data contracts:
+
+1. **Shared Task Entity (`Task`):**
+   - Identity: `id` (e.g. `t101`), `ownerId` (e.g. `o1`), `teamId` (e.g. `team-1`), `caseId` (optional link to case, e.g. `case-001`).
+   - Priority & Constraints: `priority` (High/Med/Low), `safety` (boolean), `statutory` (boolean), `due` (ISO 8601), `slaDue` (deadline timestamp), `slaType` (string).
+   - Dependencies: `dependsOn` (array of upstream task IDs).
+   - State: `status` (`pending`, `review`, `in_progress`, `done`).
+2. **Shared Case Entity (`Case`):**
+   - Identity: `id` (`case-001`), `number` (`DEMO-001`), `ownerId`, `estate`, `block`, `unit`.
+   - Health & Verification: `checkpoints` (array of `{ id, title, completed, requiredForClosure }`), `evidence` (array of verified/missing docs), `blockers` (active issues).
+   - Loose-End Flags: Detected by the 8-rule engine and consumed by Smart Planning and Ripple Intelligence.
+3. **Shared Approval Request Entity (`ApprovalRequest`):**
+   - Routing: `id`, `requestType` (`reassign`, `schedule_adjustment`), `taskId`, `caseId`, `requesterId`, `assignedManagerId`, `proposedOwnerId`, `proposedSchedule`.
+   - Decision & Audit: `status` (`pending`, `approved`, `rejected`), `decidedBy`, `decidedAt`, `decision`, `auditTrail`.
+
+### Flagship Product USP
+
+All four workstreams unite under SyncAI's single core product differentiator:  
+**Operationally Aware AI Scheduling** — combining Consequence-Aware Priority, Capacity-Aware Planning, and Operational Ripple Intelligence. Four workstreams do not represent four separate products or competing value propositions.

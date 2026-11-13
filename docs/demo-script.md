@@ -8,15 +8,14 @@
 
 ## Demonstration Overview & Timings
 
-| Segment | Speaker Focus | Screen / View | Duration |
-| --- | --- | --- | --- |
-| **0. Opening & Context** | The Town Council Property Officer scheduling dilemma; our USP | Public Landing Page | 0:30 |
-| **1. Property Officer Workflow** | SLAs, fixed appointments, client prioritisation, and capacity time-blocking | Officer Dashboard & Commitments | 1:45 |
-| **2. The Signature Disruption** | Emergency lift entrapment arrives at Blk 214 (OCC mock telemetry) | What-If Simulator Scenario Setup | 0:45 |
-| **3. Operational Ripple Analysis** | Multi-level cascade, statutory risks, SLA breaches, and appointment preservation | Disruption Cascade & Dependency Chain | 1:15 |
-| **4. Three Alternatives Compared** | No Action vs. Reschedule vs. Reassign; skill validation and governance | Three Operational Alternatives Grid | 1:15 |
-| **5. Hierarchical Approvals & Alerts** | Manager approval queue, self-approval guardrails, WhatsApp/Teams alerts | Manager Dashboard & Alerts View | 1:00 |
-| **6. Closing & Architecture** | Human sign-off, OCC complementarity, full-stack roadmap | Governance & Summary | 0:30 |
+| Segment | Speaker Focus | Workstream & Feature Owner | Screen / View | Duration |
+| --- | --- | --- | --- | --- |
+| **0. Opening & Context** | The Town Council Property Officer scheduling dilemma; single USP | All Team 24 Workstreams | Public Landing Page | 0:30 |
+| **1. Task Visibility & Loose Ends** | Case Action Centre, Follow-Up Radar, Case Journey timeline, and closure readiness | **Task Visibility (Category C)** — Felicia Tan | Case Action Centre & Drawer | 1:30 |
+| **2. Smart Planning** | Schedule preferences, meetings/appointment time-blocking, and weekly workload balancing | **Smart Planning (Category B)** — Charlisa Tan | My Plan & Schedule Preferences | 1:15 |
+| **3. The Signature Disruption** | Emergency lift entrapment at Blk 214; multi-level cascade, 3 alternatives compared | **Ripple Intelligence (Category D)** — Shamreen Rizmiya | What-If Simulator & Alternatives | 1:45 |
+| **4. Hierarchical Approvals & Audit** | Manager approval queue, self-approval prevention, audit logging, simulated alerts | **Approvals & Audit (Category G)** — Nann | Manager Approvals & Alerts | 1:00 |
+| **5. Closing & Architecture** | Human sign-off, OCC complementarity, full-stack vs prototype roadmap | Unified Architecture Foundation | Governance & Summary | 0:30 |
 
 ---
 
@@ -181,9 +180,9 @@
 2. **Complementing Existing Systems:**
    > "SyncAI does not replace the Operations Command Centre. The OCC gives real-time situational tracking; SyncAI provides forward-looking operational planning, SLA compliance, and downstream consequence intelligence."
 3. **Current Build vs. Roadmap Truthfulness:**
-   > "What you have seen in this demonstration is our interactive prototype running deterministic, explainable intelligence with 57 automated tests.
+   > "What you have seen in this demonstration is our interactive prototype running deterministic, explainable intelligence with 88 automated tests across 8 test suites.
    >
-   > In our separate production repository, we have already implemented the full-stack foundation: React 19, Express 5, PostgreSQL, and enterprise Microsoft Entra ID single sign-on with role-based access control and a 12-month audit trail.
+   > In our separate production repository, we have already implemented the full-stack foundation: React 19, Express 5, PostgreSQL, and enterprise Microsoft Entra ID single sign-on with role-based access control, a 12-month audit trail, and read-only Microsoft Graph calendar and To Do integrations.
    >
    > Our active next step is migrating these proven scheduling and ripple intelligence algorithms into the Express backend and connecting with Microsoft Graph."
 

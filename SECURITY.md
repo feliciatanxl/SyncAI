@@ -11,7 +11,6 @@ SyncAI is an AI-enabled Smart Work Planner for Town Council officers (EMS Challe
 | Component | Status | Security Fixes |
 | --- | --- | --- |
 | `main` branch | Release branch | Supported |
-| `feature/frontend-design` | Active development branch | Supported |
 | `prototype/` | Static design prototype (fictional data only) | Best effort |
 | Stale forks / legacy branches | Archived exploration | Unsupported |
 
@@ -70,7 +69,8 @@ SyncAI is an AI-enabled Smart Work Planner for Town Council officers (EMS Challe
 - The client acquires Microsoft Entra ID tokens via MSAL (PKCE flow). Tokens must never be stored in persistent unencrypted cookies.
 - The Express server cryptographically validates access tokens on every request using `jose` against Microsoft's public JWKS endpoints.
 - Role and account approval status are queried directly from the PostgreSQL database on every request; client-provided role claims are never trusted for authorization.
-- System administrators cannot participate in operational teams, enforcing separation of duties.
+- System administrators cannot participate in operational teams, and have no access to private officer calendars or confidential resident casework, enforcing strict data minimisation and separation of duties.
+- Prototype browser-level access controls demonstrate UI behaviour only and do not provide production security; all production authorization is cryptographically enforced server-side.
 
 ### 3. Personal Data Protection (PDPA) & Privacy
 - **Fictional Datasets Only:** Use strictly fictional data in code, tests, documentation, and screenshots. Never commit real resident names, unit numbers, telephone numbers, NRIC/FIN identifiers, or case notes.

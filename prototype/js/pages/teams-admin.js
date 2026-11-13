@@ -94,6 +94,24 @@ function renderAdminTeamCard(s, team, eligibleUsers) {
             <div class="team-card-content">
               <div class="team-section-box">
                 <div class="team-section-header">
+                  <h3>${icon('shield', 16)} Supervising Manager</h3>
+                  <span class="team-section-count">1</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-radius: 8px; background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke3);">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="account-avatar sm">JO</div>
+                    <div>
+                      <strong>Jennifer Ong</strong>
+                      <span class="small muted" style="display: block;">jennifer.ong@towncouncil.gov.sg</span>
+                    </div>
+                  </div>
+                  <span class="tag tag-brand small">Estate Manager</span>
+                </div>
+                <p class="muted small" style="margin: 0;">Supervises zone operations, reviews schedule change requests, and approves AI planning decisions.</p>
+              </div>
+
+              <div class="team-section-box">
+                <div class="team-section-header">
                   <h3>${icon('users', 16)} Team Members</h3>
                   <span class="team-section-count">${members.length}</span>
                 </div>
@@ -130,9 +148,9 @@ function renderAdminTeamCard(s, team, eligibleUsers) {
                     `}
 
                 <!-- Add member form -->
-                <div style="margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--colorNeutralStroke2); display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <div style="margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--colorNeutralStroke2); display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                   <label for="assign-select-${team.id}" class="small muted" style="font-weight: 600;">Add officer:</label>
-                  <select id="assign-select-${team.id}" class="filter-tab" style="flex: 1 1 200px; border: 1px solid var(--colorNeutralStroke1); border-radius: 6px; padding: 6px 10px; cursor: pointer;">
+                  <select id="assign-select-${team.id}" class="filter-tab" style="flex: 1 1 180px; border: 1px solid var(--colorNeutralStroke1); border-radius: 6px; padding: 5px 8px; cursor: pointer;">
                     <option value="">Select an active officer...</option>
                     ${availableToAssign.map(
                       (u) => html`<option value="${u.id}">${u.displayName} (${u.email})</option>`,

@@ -28,6 +28,7 @@ export default {
       { id: 'first', title: 'What should I work on first?' },
       { id: 'capacity', title: 'Can I finish everything today?' },
       { id: 'sla', title: 'Which tasks are close to their SLA?' },
+      { id: 'loose_ends', title: 'Why was Case DEMO-001 flagged by SyncAI?' },
       { id: 'lift', title: 'What happens if an urgent lift incident occurs?' },
       { id: 'mc', title: 'What happens if an officer is on MC?' },
       { id: 'delay', title: 'Which tasks are affected by this delay?' },
@@ -205,6 +206,11 @@ function generateLocalAnswer(s, query) {
       q.includes('all officers private'))
   ) {
     return 'Privacy Notice: As a Team Member, you are only authorised to view your own assigned work orders and schedule. Other officers’ personal calendars and administrator controls are restricted under Singapore PDPA policy.';
+  }
+
+  // Case loose ends & explanation question (#117)
+  if (q.includes('demo-001') || q.includes('flagged') || q.includes('loose end') || q.includes('seepage')) {
+    return `SyncAI flagged Case DEMO-001 (Ceiling seepage at Blk 211) due to two deterministic rule triggers:\n\n1. Rule EMS-LE-01 (Resident Follow-up Commitment): A moisture assessment was completed (reading: 78%), but no follow-up callback was recorded within the 24-hour SLA window.\n2. Rule EMS-LE-02 (Contractor Confirmation): Term contractor Eng Seng Plumbing has an active blocker pending upper unit access confirmation.\n\nResponsible AI Note: This is a deterministic rule-based finding — human review required. Click "Case Action Centre" in the sidebar to review the Evidence-Linked Explanation and log a follow-up.`;
   }
 
   // 1. What should I work on first?
