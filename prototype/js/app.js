@@ -1057,6 +1057,8 @@ function setupEvents() {
     if (journeyTabBtn) {
       caseView.journeyTab = journeyTabBtn.dataset.tab;
       renderApp();
+      const scrollEl = document.querySelector('.case-detail-scroll');
+      if (scrollEl) scrollEl.scrollTop = 0;
       return;
     }
 

@@ -893,8 +893,11 @@ function renderCaseKanban(s, cases) {
               <div class="kanban-cards-wrapper" data-col-id="${col.id}">
                 ${colCases.length === 0
                   ? html`<div class="kanban-empty-col" data-col-id="${col.id}">
-                      <span style="display: block; font-size: 1.25rem; opacity: 0.6; margin-bottom: 4px;">📂</span>
-                      No cases in this stage
+                      <div class="kanban-empty-col-inner">
+                        <span class="kanban-empty-icon" aria-hidden="true">${icon('columns', 20)}</span>
+                        <span class="kanban-empty-text">No cases in stage</span>
+                        <span class="kanban-empty-sub">Drag cards here</span>
+                      </div>
                     </div>`
                   : colCases.map((c) => {
                       const ends = detectLooseEnds(s, c);
@@ -919,8 +922,8 @@ function renderCaseKanban(s, cases) {
                               <span class="case-number-badge" data-action="case-inspect" data-id="${c.id}" style="cursor: pointer;">${c.number || c.caseNumber || c.id}</span>
                             </div>
                             <div class="kanban-card-badges">
-                              ${isBlocked ? html`<span class="tag tag-danger small" style="display: inline-flex; align-items: center; gap: 4px;">${icon('alert', 12)} Blocked</span>` : ''}
-                              <span class="tag ${c.urgency === 'Critical' ? 'tag-danger' : 'tag-neutral'} small">${c.urgency || 'Standard'}</span>
+                              ${isBlocked ? html`<span class="tag tag-danger small kanban-chip-blocked" style="display: inline-flex; align-items: center; gap: 3px;">${icon('alert', 11)} Blocked</span>` : ''}
+                              <span class="tag ${c.urgency === 'Critical' ? 'tag-danger' : c.urgency === 'High' ? 'tag-warning' : 'tag-neutral'} small kanban-chip-urgency">${c.urgency || 'Standard'}</span>
                             </div>
                           </div>
 
@@ -948,15 +951,15 @@ function renderCaseKanban(s, cases) {
                                     data-rule="${ends[0].ruleId}"
                                     title="${ends.length} Attention items"
                                   >
-                                    ${icon('radar', 12)} ${ends.length} Follow-Up${ends.length > 1 ? 's' : ''} (Explain)
+                                    ${icon('radar', 12)} <span>${ends.length} Follow-Up${ends.length > 1 ? 's' : ''} (Explain)</span>
                                   </button>
                                 `
                               : ''}
                             ${(c.responseDue || c.followUpDue || c.slaDue)
                               ? html`
-                                  <div class="kanban-deadline-tag-wrap" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 4px;">
+                                  <div class="kanban-deadline-tag-wrap" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                                     ${renderDeadlineBadge(getDeadlineCountdown(c.responseDue || c.followUpDue || c.slaDue))}
-                                    <span class="small muted" style="font-size: 0.6875rem;">
+                                    <span class="small muted kanban-deadline-date" style="font-size: 0.6875rem;">
                                       ${fmtCompactDeadline(c.responseDue || c.followUpDue || c.slaDue)}
                                     </span>
                                   </div>
@@ -1330,16 +1333,16 @@ function renderCaseJourneyModal(s, c) {
         <div class="case-detail-main">
         <nav class="drawer-tabs-nav case-detail-nav" role="tablist" aria-label="Case detail sections">
           ${[
-            ['timeline', 'Timeline & Notes', null],
-            ['loose_ends', 'Outstanding Follow-Ups', looseEnds.length],
-            ['blockers', 'Blockers', activeBlockers.length],
-            ['readiness', 'Ready to Close?', readiness.isReady ? 'Ready' : 'Incomplete'],
-            ['evidence', 'Evidence & Docs', evidenceList.length],
-            ['history', 'History & Changes', changeHistory.length],
-            ['communications', 'Communications', comms.length],
-            ['brief', 'AI Case Brief', null],
+            ['timeline', 'Timeline & Notes', null, 'history'],
+            ['loose_ends', 'Outstanding Follow-Ups', looseEnds.length, 'radar'],
+            ['blockers', 'Blockers', activeBlockers.length, 'alert'],
+            ['readiness', 'Ready to Close?', readiness.isReady ? 'Ready' : 'Incomplete', 'check'],
+            ['evidence', 'Evidence & Docs', evidenceList.length, 'folder'],
+            ['history', 'History & Changes', changeHistory.length, 'clock'],
+            ['communications', 'Communications', comms.length, 'message'],
+            ['brief', 'AI Case Brief', null, 'sparkle'],
           ].map(
-            ([tabKey, label, count]) => html`
+            ([tabKey, label, count, iconName]) => html`
               <button
                 type="button"
                 class="filter-tab drawer-tab-btn ${caseView.journeyTab === tabKey ? 'is-active' : ''}"
@@ -1348,8 +1351,11 @@ function renderCaseJourneyModal(s, c) {
                 role="tab"
                 aria-selected="${caseView.journeyTab === tabKey ? 'true' : 'false'}"
               >
-                <span class="drawer-tab-label">${label}</span>
-                ${count != null ? html`<span class="tab-count ${count > 0 && (tabKey === 'loose_ends' || tabKey === 'blockers') ? 'tab-count-warn' : ''}">${count}</span>` : ''}
+                <span class="drawer-tab-btn-content" style="display: inline-flex; align-items: center; gap: 8px;">
+                  <span class="drawer-tab-icon" style="display: inline-flex; flex-shrink: 0;">${icon(iconName, 14)}</span>
+                  <span class="drawer-tab-label">${label}</span>
+                </span>
+                ${count != null ? html`<span class="tab-count ${count > 0 && (tabKey === 'loose_ends' || tabKey === 'blockers') ? 'tab-count-warn' : tabKey === 'readiness' && count === 'Ready' ? 'tab-count-success' : ''}">${count}</span>` : ''}
               </button>
             `,
           )}
@@ -1817,14 +1823,49 @@ function renderJourneyReadinessTab(s, c, readiness) {
           `
         : ''}
 
-      <div style="padding: 14px 16px; border-radius: 8px; border: 1px solid ${readiness.isReady ? 'var(--colorPaletteGreenBorderActive)' : 'var(--colorPaletteMarigoldBorderActive)'}; background: ${readiness.isReady ? 'var(--colorPaletteGreenBackground1)' : 'var(--colorPaletteMarigoldBackground1)'};">
-        <strong style="color: ${readiness.isReady ? 'var(--colorPaletteGreenForeground1)' : 'var(--colorPaletteMarigoldForeground2)'}; display: flex; align-items: center; gap: 8px; font-size: 0.9375rem;">
-          ${icon(readiness.isReady ? 'check' : 'alert', 18)}
-          ${readiness.isReady ? 'All Checkpoints Satisfied — Ready for Closure' : 'Closure Incomplete — Requirements Outstanding'}
-        </strong>
-        <p class="small" style="margin: 6px 0 0; color: var(--colorNeutralForeground1);">
-          ${readiness.isReady ? 'All statutory and operational requirements verified. Eligible for manager sign-off.' : `Blocked by ${readiness.unresolvedItems.length} requirement(s): ${readiness.unresolvedItems.join(', ')}.`}
-        </p>
+      <div class="readiness-summary-card" style="padding: 16px; border-radius: 10px; border: 1px solid ${readiness.isReady ? 'var(--colorPaletteGreenBorderActive, #107c10)' : 'var(--colorPaletteMarigoldBorderActive, #f9a825)'}; background: ${readiness.isReady ? 'var(--colorPaletteGreenBackground1, #e7f7ef)' : 'var(--colorPaletteMarigoldBackground1, #fff8e1)'};">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <strong style="color: ${readiness.isReady ? 'var(--colorPaletteGreenForeground1, #0b6b43)' : 'var(--colorPaletteMarigoldForeground2, #7a4d00)'}; display: flex; align-items: center; gap: 8px; font-size: 0.9375rem;">
+            ${icon(readiness.isReady ? 'check' : 'alert', 18)}
+            ${readiness.isReady ? 'All Checkpoints Satisfied — Ready for Closure' : `Closure Incomplete — ${readiness.unresolvedItems.length} Requirements Outstanding`}
+          </strong>
+          <span class="tag ${readiness.isReady ? 'tag-success' : 'tag-warning'} small" style="font-weight: 600;">
+            ${readiness.isReady ? 'Compliant &amp; Ready' : `${readiness.unresolvedItems.length} Pending`}
+          </span>
+        </div>
+        ${readiness.isReady
+          ? html`<p class="small" style="margin: 8px 0 0; color: var(--colorNeutralForeground1);">All statutory and operational requirements verified. Case is fully compliant and eligible for manager sign-off.</p>`
+          : html`
+              <p class="small" style="margin: 6px 0 10px; color: var(--colorNeutralForeground1); font-weight: 500;">
+                The following mandatory criteria must be resolved before this case can be closed:
+              </p>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                ${readiness.unresolvedItems.map((item) => {
+                  let tagClass = 'tag-warning';
+                  let itemType = 'Checkpoint';
+                  let cleanText = item;
+                  if (item.toLowerCase().startsWith('active blocker:')) {
+                    tagClass = 'tag-danger';
+                    itemType = 'Active Blocker';
+                    cleanText = item.replace(/^active blocker:\s*/i, '');
+                  } else if (item.toLowerCase().startsWith('missing required evidence:')) {
+                    tagClass = 'tag-danger';
+                    itemType = 'Missing Evidence';
+                    cleanText = item.replace(/^missing required evidence:\s*/i, '');
+                  } else if (item.toLowerCase().startsWith('incomplete prerequisite:')) {
+                    tagClass = 'tag-warning';
+                    itemType = 'Prerequisite';
+                    cleanText = item.replace(/^incomplete prerequisite:\s*/i, '');
+                  }
+                  return html`
+                    <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 0.8125rem; background: var(--colorNeutralBackground1); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke3);">
+                      <span class="tag ${tagClass} small" style="flex-shrink: 0; font-size: 0.6875rem; font-weight: 600; padding: 2px 7px;">${itemType}</span>
+                      <span style="color: var(--colorNeutralForeground1); line-height: 1.4;">${cleanText}</span>
+                    </div>
+                  `;
+                })}
+              </div>
+            `}
       </div>
 
       <div>
@@ -1975,21 +2016,21 @@ function renderJourneyCommunicationsTab(s, c, comms) {
         ${filteredComms.length === 0
           ? html`<p class="muted small" style="text-align: center; padding: 20px;">No communication records found for this channel.</p>`
           : filteredComms.map((m) => html`
-              <div style="background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px;">
+              <div class="comm-message-card" style="background: var(--colorNeutralBackground1); border: 1px solid var(--colorNeutralStroke2); border-left: 3px solid ${m.channel === 'whatsapp' ? '#25d366' : m.channel === 'teams' ? '#5b5fc7' : m.channel === 'telegram' ? '#229ed9' : 'var(--colorBrandStroke1)'}; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow2);">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
-                  <div style="display: flex; align-items: center; gap: 6px;">
-                    <span class="tag ${m.channel === 'whatsapp' ? 'tag-success' : m.channel === 'teams' ? 'tag-brand' : m.channel === 'telegram' ? 'tag-brand' : 'tag-neutral'} small">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="tag ${m.channel === 'whatsapp' ? 'tag-success' : m.channel === 'teams' ? 'tag-brand' : m.channel === 'telegram' ? 'tag-brand' : 'tag-neutral'} small" style="font-weight: 600;">
                       ${m.channelLabel}
                     </span>
-                    <strong style="font-size: 0.8125rem;">${m.sender}</strong>
+                    <strong style="font-size: 0.8125rem; color: var(--colorNeutralForeground1);">${m.sender}</strong>
                   </div>
-                  <span class="small muted">${fmtTime(timePart(m.timestamp)) || m.timestamp}</span>
+                  <span class="small muted" style="font-size: 0.75rem;">${fmtTime(timePart(m.timestamp)) || m.timestamp}</span>
                 </div>
-                <p style="margin: 0; font-size: 0.8125rem; color: var(--colorNeutralForeground1); line-height: 1.4;">${m.content}</p>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--colorNeutralStroke3); font-size: 0.75rem;" class="muted">
+                <p style="margin: 0; font-size: 0.8125rem; color: var(--colorNeutralForeground1); line-height: 1.45;">${m.content}</p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px; padding-top: 6px; border-top: 1px solid var(--colorNeutralStroke3); font-size: 0.75rem;" class="muted">
                   <span>Source: <em>${m.sourceLabel}</em></span>
-                  <button type="button" class="btn-subtle btn-sm" data-action="comm-ack" data-id="${m.id}" style="font-size: 0.75rem; padding: 2px 8px;">
-                    ${m.acknowledged ? '✓ Acknowledged (Click to undo)' : `${icon('check', 12)} Mark Acknowledged`}
+                  <button type="button" class="btn-subtle btn-sm comm-ack-btn" data-action="comm-ack" data-id="${m.id}" style="font-size: 0.75rem; padding: 2px 8px; display: inline-flex; align-items: center; gap: 4px;">
+                    ${m.acknowledged ? '✓ Acknowledged (Click to undo)' : html`${icon('check', 12)} Mark Acknowledged`}
                   </button>
                 </div>
               </div>
@@ -2191,16 +2232,16 @@ function renderJourneyBriefTab(s, c) {
               <ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px;">
                 ${structured.looseEnds.map(
                   (l) => html`
-                    <li style="padding: 10px 12px; background: var(--colorPaletteMarigoldBackground1); border: 1px solid var(--colorPaletteMarigoldBorderActive); border-radius: 6px;">
+                    <li style="padding: 12px 14px; background: var(--colorPaletteMarigoldBackground1); border: 1px solid var(--colorPaletteMarigoldBorderActive); border-radius: 8px;">
                       <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
                         <strong style="font-size: 0.8125rem; color: var(--colorNeutralForeground1);">${l.ruleName}</strong>
-                        <span class="tag tag-danger small">${l.ruleCode || 'Unresolved'}</span>
+                        <span class="tag tag-danger small" style="font-weight: 600;">${l.ruleCode || 'Unresolved'}</span>
                       </div>
-                      <p class="small" style="margin: 4px 0 6px; color: var(--colorNeutralForeground2);">${l.whyMatters}</p>
-                      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; flex-wrap: wrap; gap: 6px;">
-                        <span class="muted">Action: ${l.suggestedAction}</span>
-                        <button type="button" class="btn-secondary btn-sm" data-action="case-explain-finding" data-case="${c.id}" data-rule="${l.ruleId}" style="font-size: 0.75rem; padding: 2px 8px;">
-                          Inspect Finding
+                      <p class="small" style="margin: 4px 0 8px; color: var(--colorNeutralForeground2); line-height: 1.4;">${l.whyMatters}</p>
+                      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; flex-wrap: wrap; gap: 8px; border-top: 1px dashed var(--colorPaletteMarigoldBorderActive); padding-top: 8px;">
+                        <span class="muted" style="line-height: 1.35;"><strong>Action:</strong> ${l.suggestedAction}</span>
+                        <button type="button" class="btn-secondary btn-sm" data-action="case-explain-finding" data-case="${c.id}" data-rule="${l.ruleId}" style="font-size: 0.75rem; padding: 3px 10px; white-space: nowrap; flex-shrink: 0;">
+                          ${icon('eye', 12)} Inspect Finding
                         </button>
                       </div>
                     </li>
