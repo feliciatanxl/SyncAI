@@ -1009,9 +1009,9 @@ function renderCaseMoveStageModal(s, caseId) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="move-stage-title"
-        style="max-width: 540px; width: 100%; background: var(--colorNeutralBackground1); border-radius: 10px; box-shadow: var(--shadow64); padding: 22px; display: flex; flex-direction: column; gap: 16px;"
+        style="max-width: 520px; width: 100%; max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box; background: var(--colorNeutralBackground1); border-radius: 10px; box-shadow: var(--shadow64); padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;"
       >
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--colorNeutralStroke2); padding-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--colorNeutralStroke2); padding-bottom: 8px;">
           <div>
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
               <span class="case-number-badge">${c.number || c.caseNumber || c.id}</span>
@@ -1027,9 +1027,9 @@ function renderCaseMoveStageModal(s, caseId) {
           </button>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; flex-direction: column; gap: 8px;">
           <p class="small" style="font-weight: 600; color: var(--colorNeutralForeground2); margin: 0;">Select Destination Workflow Stage:</p>
-          <div class="case-stage-options-list" role="radiogroup" aria-label="Workflow stages" style="display: flex; flex-direction: column; gap: 8px;">
+          <div class="case-stage-options-list" role="radiogroup" aria-label="Workflow stages" style="display: flex; flex-direction: column; gap: 6px;">
             ${KANBAN_COLUMNS.map((col) => {
               const check = canTransitionCase(s, c.id, col.id);
               const isCurrent = check.isCurrent;
@@ -1037,7 +1037,7 @@ function renderCaseMoveStageModal(s, caseId) {
               return html`
                 <div
                   class="case-stage-option-row ${isCurrent ? 'is-current' : check.permitted ? 'is-permitted' : 'is-disabled'}"
-                  style="border: 1px solid ${isCurrent ? 'var(--colorBrandStroke1)' : check.permitted ? 'var(--colorNeutralStroke1)' : 'var(--colorNeutralStroke3)'}; background: ${isCurrent ? 'var(--colorBrandBackground2)' : check.permitted ? 'var(--colorNeutralBackground1)' : 'var(--colorNeutralBackground3)'}; border-radius: 8px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px;"
+                  style="border: 1px solid ${isCurrent ? 'var(--colorBrandStroke1)' : check.permitted ? 'var(--colorNeutralStroke1)' : 'var(--colorNeutralStroke3)'}; background: ${isCurrent ? 'var(--colorBrandBackground2)' : check.permitted ? 'var(--colorNeutralBackground1)' : 'var(--colorNeutralBackground3)'}; border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px;"
                 >
                   <div style="flex: 1; min-width: 0;">
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -1510,7 +1510,7 @@ function renderJourneyTimelineTab(s, c) {
             id="case-note-content"
             rows="2"
             placeholder="Record progress note (e.g. resident access confirmed, repair completed, water tested)..."
-            style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.8125rem;"
+            style="width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1); font-family: inherit; font-size: 0.8125rem;"
             required
           ></textarea>
           <div style="display: flex; justify-content: flex-end; gap: 8px;">
@@ -2052,7 +2052,7 @@ function renderJourneyCommunicationsTab(s, c, comms) {
           </div>
           <div>
             <label class="small muted" style="display: block; margin-bottom: 4px;">Message Summary / Notes</label>
-            <textarea name="content" id="comm-manual-log-content" rows="2" placeholder="Record key points of the call or message..." required style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.8125rem;"></textarea>
+            <textarea name="content" id="comm-manual-log-content" rows="2" placeholder="Record key points of the call or message..." required style="width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1); font-family: inherit; font-size: 0.8125rem;"></textarea>
           </div>
           <div style="display: flex; justify-content: flex-end; gap: 8px;">
             <button type="button" class="btn-subtle btn-sm" data-action="comm-toggle-log-form">Cancel</button>
@@ -2098,7 +2098,7 @@ function renderJourneyCommunicationsTab(s, c, comms) {
         <textarea
           id="comm-draft-reply-box"
           rows="3"
-          style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.8125rem;"
+          style="width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1); font-family: inherit; font-size: 0.8125rem; resize: vertical;"
           placeholder="Click 'Generate Draft' to prepare a simulated contextual response..."
         >${generateDraftReply(s, c.id)}</textarea>
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
@@ -2122,7 +2122,7 @@ function renderJourneyCommunicationsTab(s, c, comms) {
           id="comm-msg-to-task-input"
           rows="2"
           placeholder="Paste fictional message or click sample below..."
-          style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); font-family: inherit; font-size: 0.8125rem;"
+          style="width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke1); background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1); font-family: inherit; font-size: 0.8125rem; resize: vertical;"
         >Hi Officer Aisyah, Eng Seng Plumbing here regarding Blk 211 seepage. We need joint access to #06-12 tomorrow at 14:00 to verify floor trap seal before quote approval.</textarea>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; flex-wrap: wrap; gap: 6px;">
