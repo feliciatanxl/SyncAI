@@ -209,10 +209,17 @@ Located in the primary navigation (`Overview` → `Ask SyncAI` → `My Tasks` �
   - **Multi-Channel Communications:** Supports In-App, WhatsApp, Teams, and Telegram with acknowledgment toggles and visual clipboard confirmation badges.
 
 ### B. Smart Planning (Category B — Charlisa Tan)
-- **Schedule Preferences Dialog:** Configure working hours, lunch break window, protected focus periods, daily hours limit, and working days (Monday–Friday).
-- **Calendar-Aware Time Blocking:** Places flexible tasks around protected Outlook meetings, fixed repair appointments, and travel buffers (`prototype/js/smartSchedule.js`).
-- **Daily & Weekly Schedule Review:** Generate a daily or Monday–Sunday draft around fictional protected commitments. Review warnings and unscheduled work, then choose **Accept Schedule** or **Discard Draft**. Accepted dates persist in the browser. Changes to planning inputs require regenerating a draft before acceptance.
-- **Task Capture with Case Linking:** Create work orders (`taskCaptureDialog.js`) with manual priority, category tags, optional case linking, and offset-aware Singapore deadlines.
+
+- **B020 · Schedule preferences.** Configure working days, start and end times, lunch, preferred focus periods, and a daily hours limit. Preferences are saved per officer in the browser.
+- **B014 and B015 · Protected commitments.** The scheduler fits flexible work around fictional Outlook meetings, fixed repair appointments, and lunch. Expand **Why unavailable?** to see what reserves a time slot. Overlapping commitments produce a warning and retain their original times.
+- **B011 and B012 · Daily and weekly planning.** Generate a daily draft or a Monday–Sunday draft. The weekly view shows scheduled workload and remaining capacity for each day. Open any day to review the same proposed blocks in detail.
+- **Schedule review.** Review conflicts and unscheduled tasks before choosing **Accept Schedule** or **Discard Draft**. Accepted dates survive refresh, and a replacement updates only the dates it covers. Changes to tasks, preferences, availability, or protected commitments require regenerating a draft before accepting it.
+- **Unscheduled work.** Tasks that cannot fit remain visible with a reason and an **Edit task** action where available. Use **View weekly capacity** to review the rest of the week.
+- **Task capture and priority context.** Create standalone or case-linked work orders with a category, tags, manual priority, and Singapore deadlines. **Why this priority?** explains the recorded factors in EMS’s stated order. SLA examples are fictional.
+
+**Week 5 demo.** Open a case and add a follow-up task. In **My Tasks**, open **Why this priority?**. Go to **My Plan → Generate Daily Schedule**, review the protected blocks and unscheduled work, then accept and refresh. Generate a second draft and discard it to show the accepted schedule again.
+
+**Verification.** All 153 prototype tests passed after resolving the merge conflicts. Edge checks covered tablet task capture and acceptance after refresh, desktop weekly acceptance and stale-draft rejection, keyboard focus, and the 390 px layout.
 
 ### C. Operational Ripple Intelligence (Category D — Shamreen Rizmiya)
 - **What-If Disruption Simulator:** Simulates unexpected operational emergencies (e.g. *Urgent Lift Incident in Block 214*, *Property Officer on Medical Leave*).
