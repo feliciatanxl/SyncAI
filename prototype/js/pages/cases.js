@@ -1822,9 +1822,9 @@ function renderJourneyBlockersTab(s, c) {
                         data-case="${c.id}"
                         data-task="${c.taskIds[0]}"
                         style="font-size: 0.75rem;"
-                        title="Analyze downstream dependencies in Ripple Intelligence"
+                        title="View downstream dependencies for the linked task"
                       >
-                        ${icon('trend', 12)} View Ripple Analysis
+                        ${icon('trend', 12)} View Task Dependencies
                       </button>
                     `
                   : '<span></span>'}

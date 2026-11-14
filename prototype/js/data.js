@@ -149,7 +149,7 @@ function tasks() {
       complaints: extra.complaints || 0,
       impact: extra.impact || 'medium',
       slaDue: extra.slaDue || dt(dueDay, dueTime),
-      slaType: extra.slaType || (extra.statutory ? 'Statutory SLA' : extra.safety ? 'Safety SLA (BCA standard)' : 'Service SLA (Town Council standard)'),
+      slaType: extra.slaType || (extra.statutory ? 'Fictional statutory cutoff' : extra.safety ? 'Fictional safety deadline' : 'Fictional service deadline'),
       appointmentTime: extra.appointmentTime || null,
       commitmentWindow: extra.commitmentWindow || null,
       createdAt: extra.createdAt || dt(workDay(-2), '09:00'),
@@ -166,7 +166,7 @@ function tasks() {
     source: 'Planner',
     impact: 'high',
     slaDue: dt(TODAY, '12:00'),
-    slaType: 'Safety SLA (4h BCA compliance)',
+    slaType: 'Fictional lift inspection deadline',
     appointmentTime: '10:30–12:00 (Lift technician joint check)',
     consequence: 'Deferred inspection risks passenger entrapment and regulatory stop-work notice under BCA lift regulations.',
     description: 'Quarterly safety inspection following two resident reports of jerky stops.',
@@ -175,7 +175,7 @@ function tasks() {
     source: 'To Do',
     location: 'Office',
     slaDue: dt(TODAY, '17:00'),
-    slaType: 'Contractor Review SLA (monthly close)',
+    slaType: 'Fictional contractor review deadline',
     description: 'Check KPI attainment and penalty items before the coordination meeting.',
   });
   T('t103', 'o1', 'Site check: ceiling seepage at Blk 211 #05-12', 'Inspection', 'High', TODAY, '17:00', 1, {
@@ -183,7 +183,7 @@ function tasks() {
     location: 'Blk 211',
     impact: 'high',
     slaDue: dt(TODAY, '17:00'),
-    slaType: 'Resident Feedback SLA (24h response window)',
+    slaType: 'Fictional resident response deadline',
     appointmentTime: '16:00–17:00 (Resident site visit booked)',
     commitmentWindow: 'Fixed resident appointment at #05-12',
     consequence: 'Unchecked ceiling seepage penetrates structural slab causing concrete spalling and costly emergency repair.',
@@ -194,13 +194,13 @@ function tasks() {
     location: 'Phone',
     impact: 'high',
     slaDue: dt(workDay(1), '12:00'),
-    slaType: 'Resident Follow-up SLA (next working day)',
+    slaType: 'Fictional resident follow-up deadline',
   });
   T('t112', 'o1', 'Submit contractor rectification work-order: Blk 211 seepage', 'Contractor', 'Medium', workDay(2), '17:00', 1.5, {
     dependsOn: ['t104'],
     location: 'Office',
     slaDue: dt(workDay(2), '17:00'),
-    slaType: 'Contractor Work-Order SLA',
+    slaType: 'Fictional contractor work-order deadline',
     consequence: 'Delayed work-order postpones water ingress repairs causing progressive structural reinforcement corrosion.',
     description: 'Prepared after resident inspection and follow-up call are concluded.',
   });
@@ -213,7 +213,7 @@ function tasks() {
     source: 'SharePoint',
     location: 'Office',
     slaDue: dt(workDay(2), '12:00'),
-    slaType: 'Statutory Grant Cut-Off SLA',
+    slaType: 'Fictional grant submission cutoff',
     commitmentWindow: 'Strict Town Council funding submission cutoff',
     consequence: 'Missed cut-off date causes permanent forfeiture of Town Council co-funding grant.',
     description: 'Approved project funding lapses if the claim misses the submission cut-off.',
@@ -225,7 +225,7 @@ function tasks() {
     location: 'Blk 207',
     source: 'OCC (Mock)',
     slaDue: dt(TODAY, '15:00'),
-    slaType: 'OCC Dispatch SLA (3h response)',
+    slaType: 'Fictional dispatch deadline',
     description: 'Dispatched via EM Services Operations Command Centre mock feed. Verify fire alarm panel reset after reported surge.',
   });
 
@@ -235,7 +235,7 @@ function tasks() {
     safety: true,
     location: 'Blk 310',
     slaDue: dt(TODAY, '17:00'),
-    slaType: 'Fire Safety Response SLA',
+    slaType: 'Fictional fire safety response deadline',
     consequence: 'Defective refuse hopper allows smoke and toxic fumes to draft upward into residential corridors during chute fires.',
   });
   T('t209', 'o2', 'Verify handover defects list — Blk 315', 'Inspection', 'Medium', TODAY, '17:00', 1, { location: 'Blk 315', source: 'Planner' });
@@ -261,7 +261,7 @@ function tasks() {
     location: 'Blk 322',
     impact: 'high',
     slaDue: dt(TODAY, '13:00'),
-    slaType: 'Emergency Lift SLA (2h response)',
+    slaType: 'Fictional lift fault response deadline',
     consequence: 'Unresolved recurring lift fault leads to passenger entrapment escalation and statutory safety audit penalty.',
   });
   T('t402', 'o4', 'Review lift maintenance contractor logs', 'Contractor', 'Medium', TODAY, '17:00', 2.5, { location: 'Office', source: 'Planner' });
@@ -270,7 +270,7 @@ function tasks() {
     statutory: true,
     location: 'Blk 325',
     slaDue: dt(workDay(1), '17:00'),
-    slaType: 'EMA Statutory Compliance SLA',
+    slaType: 'Fictional electrical inspection deadline',
     commitmentWindow: 'Periodic electrical compliance certificate expires this week',
     consequence: 'Expired electrical compliance certificate invalidates building fire insurance and violates EMA regulations.',
     description: 'Periodic electrical inspection required for compliance; the certificate expires at the end of the week.',
@@ -411,7 +411,7 @@ function seedApprovals() {
       proposedOwnerId: 'o3',
       proposedSchedule: `${TODAY} 16:00 (Priya Nair)`,
       reason: 'Displaced by urgent Blk 214 lift breakdown with trapped resident. Need handover to protect 16:00 resident appointment.',
-      slaImpact: 'Protects 24h Resident Feedback SLA (would breach by 18h if deferred without handover).',
+      slaImpact: 'Protects the fictional resident response deadline if a handover is needed.',
       operationalImpact: 'Priya Nair is qualified in Zone A inspection and has 3.5h spare capacity today.',
       status: 'pending',
       createdAt: dt(TODAY, '11:30'),
@@ -486,7 +486,7 @@ function seedNotifications() {
       recipientName: 'Aisyah Rahman',
       recipientRole: 'team_member',
       title: 'SLA Deadline Approaching: Blk 208 Lift Safety Inspection',
-      summary: 'BCA 4h inspection deadline due at 12:00. Time block remaining: 45 minutes.',
+      summary: 'Fictional lift inspection deadline at 12:00. Time block remaining: 45 minutes.',
       caseId: 'case-004',
       taskId: 't101',
       secureLink: '#cases/case-004',
