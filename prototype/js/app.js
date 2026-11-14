@@ -565,6 +565,12 @@ function setupEvents() {
       return;
     }
 
+    // Attendance (104, 051) and Ripple Intelligence pages
+    if (handleAttendanceClick(e) || handleRippleClick(e)) {
+      renderApp();
+      return;
+    }
+
     // Evidence file dropzone click
     const evidenceDropzone = e.target.closest('#evidence-dropzone');
     if (evidenceDropzone) {
