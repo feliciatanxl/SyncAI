@@ -58,10 +58,11 @@ import { calendarDay, singaporeInstant, TODAY } from './time.js';
 // Page modules
 import overviewPage from './pages/overview.js';
 import casesPage, { caseView } from './pages/cases.js';
-import tasksPage, { tasksView } from './pages/tasks.js';
+import tasksPage, { clearTaskFilters, tasksView } from './pages/tasks.js';
 import { openTaskCapture } from './pages/taskCaptureDialog.js';
 import planPage, { planView } from './pages/plan.js';
-import { currentPlanningOfficer, planningDates, planningView, scheduleRange, visibleDraft } from './pages/smartPlan.js';
+import { currentPlanningOfficer, planningDates, planningIssueView, planningView, scheduleRange, visibleDraft } from './pages/smartPlan.js';
+import { blockTimes, canRequestScheduleChange, pendingScheduleRequest, requestScheduleChange } from './planningIssues.js';
 import { openSchedulePreferences } from './pages/schedulePreferencesDialog.js';
 import teamPage from './pages/team.js';
 import peoplePage from './pages/people.js';
@@ -695,6 +696,7 @@ function setupEvents() {
     // 5. Reset demo buttons
     if (e.target.closest('#btn-quick-reset') || e.target.closest('#btn-reset-demo-card') || e.target.closest('[data-action="settings-reset-demo-data"]')) {
       planningView.drafts.clear();
+      Object.assign(planningIssueView, { open: false, date: '', issues: [] });
       Object.assign(planningView, { date: TODAY, mode: 'daily', officerId: null });
       resetState();
       toast('Demo state reset to default seed.', 'success');
@@ -730,8 +732,16 @@ function setupEvents() {
       return;
     }
 
+    const moreTaskFilters = e.target.closest('[data-action="tasks-more-filters"]');
+    if (moreTaskFilters) {
+      tasksView.moreFiltersOpen = !tasksView.moreFiltersOpen;
+      moreTaskFilters.setAttribute('aria-expanded', String(tasksView.moreFiltersOpen));
+      document.getElementById('tasks-extra-filters').hidden = !tasksView.moreFiltersOpen;
+      return;
+    }
+
     if (e.target.closest('[data-action="tasks-clear-filters"]')) {
-      Object.assign(tasksView, { q: '', status: 'all', priority: 'all', category: 'all', tag: '', owner: 'all', dueDate: '', page: 1 });
+      clearTaskFilters();
       renderApp();
       document.querySelector('[data-action="tasks-search"]')?.focus();
       return;
@@ -762,6 +772,7 @@ function setupEvents() {
       tasksView.status = status;
       tasksView.page = 1;
       renderApp();
+      document.querySelector('[data-action="tasks-filter-status"][aria-pressed="true"]')?.focus();
       return;
     }
 
@@ -825,6 +836,25 @@ function setupEvents() {
       const officer = currentPlanningOfficer(getState());
       if (!officer) return;
       const { action, mode, offset, date } = planControl.dataset;
+      if (action === 'plan-issue-request') {
+        const issue = planningIssueView.issues.find(({ id }) => id === planControl.dataset.id);
+        if (issue && canRequestScheduleChange(getState(), issue) && !pendingScheduleRequest(getState(), issue)) openScheduleChangeRequest(issue);
+        return;
+      }
+      if (action === 'plan-issue-day') {
+        planningIssueView.date = date;
+        planningIssueView.open = true;
+        renderApp();
+        document.querySelector('[data-action="plan-issue-day"][aria-pressed="true"]')?.focus();
+        return;
+      }
+      if (action === 'plan-issue-week') {
+        Object.assign(planningView, { date, mode: 'weekly' });
+        Object.assign(planningIssueView, { date, open: true });
+        renderApp();
+        document.querySelector('[data-action="plan-issue-day"][aria-pressed="true"]')?.focus();
+        return;
+      }
       if (action === 'plan-preferences') {
         openSchedulePreferences(officer);
         return;
@@ -835,6 +865,7 @@ function setupEvents() {
         return;
       }
       if (action === 'plan-generate') {
+        planningIssueView.date = '';
         const dates = draft && reviewDraft(getState(), draft).changed.length ? draft.dates : planningDates();
         planningView.drafts.set(officer.id, generateDraft(getState(), officer.id, dates));
         toast('Draft schedule generated.', 'info');
@@ -842,7 +873,10 @@ function setupEvents() {
       if (action === 'plan-view') planningView.mode = mode;
       if (action === 'plan-today') planningView.date = TODAY;
       if (action === 'plan-shift') planningView.date = calendarDay(planningView.date, Number(offset) * (planningView.mode === 'weekly' ? 7 : 1));
-      if (action === 'plan-open-day') Object.assign(planningView, { date, mode: 'daily' });
+      if (action === 'plan-open-day') {
+        Object.assign(planningView, { date, mode: 'daily' });
+        if (planningIssueView.issues.some((issue) => issue.date === date)) planningIssueView.open = true;
+      }
       renderApp();
       if (action === 'plan-open-day') document.querySelector('[data-action="plan-view"][data-mode="daily"]')?.focus();
       else if (action === 'plan-view') document.querySelector('[data-action="plan-view"][aria-pressed="true"]')?.focus();
@@ -1670,6 +1704,7 @@ function setupEvents() {
   });
 
   document.addEventListener('toggle', (event) => {
+    if (event.target.id === 'schedule-issue-panel' && event.target.isConnected) planningIssueView.open = event.target.open;
     if (event.target.id === 'todo-preview' && event.target.isConnected) tasksView.toDoOpen = event.target.open;
   }, true);
 
@@ -1709,9 +1744,11 @@ function setupEvents() {
       'tasks-filter-date': 'dueDate',
     }[e.target.dataset.action];
     if (filter) {
+      const action = e.target.dataset.action;
       tasksView[filter] = e.target.value;
       tasksView.page = 1;
       renderApp();
+      document.querySelector(`[data-action="${action}"]`)?.focus();
     }
 
     if (e.target.dataset.action === 'capture-status') {
@@ -2074,9 +2111,47 @@ function showAccountSwitchModal() {
   }, { once: true });
 }
 
+function openScheduleChangeRequest(issue) {
+  const commitment = [issue.block, issue.other].filter(Boolean)
+    .map((block) => `${block.title} · ${blockTimes(block)} SGT`).join(' / ');
+  openModal(html`<h2 class="modal-title">Request Schedule Change</h2>
+    <p><strong>${issue.title}</strong></p>
+    <p class="small muted">${commitment || 'No task block was scheduled.'}</p>
+    <p class="small">${issue.message}</p>
+    <form id="schedule-change-request" class="capture-form">
+      <label class="capture-wide">Reason for requesting a change
+        <textarea name="reason" required maxlength="500" rows="3" autofocus></textarea>
+      </label>
+      <p class="capture-wide capture-error" role="alert" hidden></p>
+      <div class="modal-actions capture-wide">
+        <button type="button" class="btn-secondary" data-action="modal-close">Cancel</button>
+        <button type="submit" class="btn-primary">Submit for review</button>
+      </div>
+    </form>`);
+  const form = document.getElementById('schedule-change-request');
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    try {
+      planningIssueView.open = true;
+      update((state) => requestScheduleChange(state, issue, form.elements.reason.value));
+      closeModal();
+      document.querySelector('#schedule-issue-panel summary')?.focus();
+      toast(storage.ok ? 'Simulated request submitted. Pending Approval.' : 'Pending Approval for this session. Browser storage is unavailable.', storage.ok ? 'success' : 'error');
+    } catch (error) {
+      const alert = form.querySelector('[role="alert"]');
+      alert.textContent = error.message;
+      alert.hidden = false;
+    }
+  });
+}
+
 async function resolveScheduleDraft(draft, accept) {
   const range = scheduleRange(draft.dates);
   const review = reviewDraft(getState(), draft);
+  const issues = accept && (review.warningCount > 0 || review.unscheduledCount > 0);
+  const scheduled = draft.days.reduce((count, day) => count + day.proposed.length, 0);
+  const risks = draft.unscheduled.filter(({ deadline }) => deadline.at).length
+    + draft.days.reduce((count, day) => count + (day.warningDetails || []).filter(({ kind }) => kind === 'Deadline risk').length, 0);
   const details = [
     review.replaced.length ? `Replaces ${review.replaced.length} accepted day(s).` : '',
     review.warningCount ? `${review.warningCount} conflict warning(s) stay visible.` : '',
@@ -2084,16 +2159,19 @@ async function resolveScheduleDraft(draft, accept) {
   ].filter(Boolean).join(' ');
   const confirmed = await confirmDialog({
     title: accept ? 'Accept schedule?' : 'Discard draft?',
-    body: accept ? `${range}. ${details || 'Save these proposed blocks in this browser.'}`
+    body: accept ? `${range}. ${scheduled} scheduled tasks · ${review.unscheduledCount} unscheduled · ${review.warningCount} calendar warnings · ${risks} potential deadline risks. ${details}`
       : `${range}. Return to the accepted schedule or protected calendar for these dates.`,
     confirmLabel: accept ? 'Accept Schedule' : 'Discard Draft',
     danger: !accept,
+    acknowledgement: issues ? 'I understand that some tasks remain unscheduled or require further review.' : undefined,
   });
   if (!confirmed || planningView.drafts.get(draft.officerId) !== draft || currentPlanningOfficer(getState())?.id !== draft.officerId) return;
   if (accept) {
     try {
       update((state) => {
-        acceptDraft(state, draft, { acknowledged: true });
+        const latest = reviewDraft(state, draft);
+        if (!issues && (latest.warningCount || latest.unscheduledCount)) throw new Error('Review the outstanding warnings before accepting.');
+        acceptDraft(state, draft, { acknowledged: Boolean(issues || review.replaced.length) });
         discardDraft(planningView.drafts, draft, true);
       });
       toast(storage.ok ? 'Schedule accepted and saved.' : 'Schedule accepted for this session. Browser storage could not save it.',
@@ -2118,108 +2196,84 @@ function showTaskDetailModal(s, t) {
   const deadline = deadlineAlert(t);
   const slaDue = taskDateInput(t.slaDue);
 
-  const content = html`
-    <h2 id="modal-title" class="modal-title">${t.title}</h2>
-    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
-      <span class="tag tag-brand">${t.category}</span>
-      <span class="tag tag-neutral">${t.priority} priority</span>
-      ${(t.tags || []).map((tag) => html`<span class="tag tag-neutral">${tag}</span>`)}
-      ${deadline ? html`<span class="tag tag-${deadline.tone}">${deadline.label}</span>` : ''}
-      ${t.safety ? html`<span class="tag tag-danger">Safety Hazard</span>` : ''}
-      ${t.statutory ? html`<span class="tag tag-warning">Statutory Deadline</span>` : ''}
+  const due = taskDateInput(t.dueAt || t.due);
+  const fixedStart = taskDateInput(t.fixedStartAt);
+  const renderTime = (value) => html`<time datetime="${value}+08:00">${value.replace('T', ' ')} SGT</time>`;
+  const priorityTone = { Critical: 'danger', High: 'warning', Medium: 'brand' }[t.priority] || 'neutral';
+
+  openModal(html`
+    <div class="task-details">
+      <header class="task-details-header">
+        <div>
+          <h2 id="modal-title" class="modal-title">${t.title}</h2>
+          <p class="small muted">${t.location ? `${t.location} · ` : ''}Assigned to ${officerName(s, t.ownerId)}</p>
+        </div>
+        <button type="button" class="btn-subtle task-details-close" data-action="modal-close" aria-label="Close task details">${icon('close', 20)}</button>
+      </header>
+      <div class="task-details-body">
+        <div class="task-details-badges">
+          <span class="tag tag-${priorityTone}">${t.priority} Priority</span>
+          ${t.safety ? html`<span class="tag tag-danger">Safety</span>` : ''}
+          <span class="tag tag-brand">${t.category}</span>
+        </div>
+        ${t.description ? html`<p class="capture-text task-details-description">${t.description}</p>` : ''}
+        <dl class="task-details-facts" aria-label="Key information">
+          <div><dt>Due date</dt><dd>${due ? renderTime(due) : 'No due date recorded'}
+            ${deadline ? html`<span class="work-order-deadline-note ${deadline.tone}">${deadline.label}</span>` : ''}
+          </dd></div>
+          <div><dt>Estimated duration</dt><dd>${taskDuration(t)} minutes</dd></div>
+          ${t.appointmentTime ? html`<div><dt>Resident commitment</dt><dd>${t.appointmentTime}</dd></div>` : ''}
+          ${slaDue || t.slaType ? html`<div><dt>SLA information</dt><dd>${t.slaType || 'Recorded deadline'}
+            ${slaDue ? html`<span class="task-details-note">${slaDue === due ? 'Same as the due date' : renderTime(slaDue)}</span>` : ''}
+          </dd></div>` : ''}
+        </dl>
+        <details class="priority-explanation" open>
+          <summary>Why this priority?</summary>
+          <p class="small muted">Priority is set on the task. These demo factors show the recorded context in EMS’s stated order.</p>
+          <ol>${factors.map(({ factor, reason }) => html`<li><strong>${factor}</strong> ${reason}</li>`)}</ol>
+        </details>
+        <details class="task-details-extra">
+          <summary>Additional details &amp; dependencies</summary>
+          <dl class="task-details-extra-list">
+            ${t.caseId ? html`<div><dt>Linked case</dt><dd>
+              ${relatedCase ? html`<a href="#cases/${relatedCase.id}" data-action="modal-close">${relatedCase.number || relatedCase.id} · ${relatedCase.title}</a>` : ''}
+              <button type="button" class="btn-subtle btn-sm" data-action="nav-to-case" data-case="${t.caseId}">Open in Case Action Centre</button>
+            </dd></div>` : ''}
+            ${t.tags?.length ? html`<div><dt>Tags</dt><dd class="task-details-badges">${t.tags.map((tag) => html`<span class="tag tag-neutral">${tag}</span>`)}</dd></div>` : ''}
+            ${t.statutory ? html`<div><dt>Deadline type</dt><dd>Statutory deadline</dd></div>` : ''}
+            ${fixedStart ? html`<div><dt>Fixed start</dt><dd>${renderTime(fixedStart)}</dd></div>` : ''}
+            ${t.remarks ? html`<div><dt>Remarks</dt><dd class="capture-text">${t.remarks}</dd></div>` : ''}
+            ${t.consequence ? html`<div><dt>Long-term consequence risk</dt><dd>${t.consequence}</dd></div>` : ''}
+            <div><dt>Downstream dependencies</dt><dd>
+              ${dependents.length ? html`<ul>${dependents.map(({ task, depth }) => html`<li>${task.title} <span class="muted">(Depth: ${depth})</span></li>`)}</ul>`
+                : 'No visible work orders depend on this task.'}
+            </dd></div>
+          </dl>
+        </details>
+      </div>
+      <footer class="task-details-footer">
+        <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button>
+        <button type="button" class="${!t.manualCapture && !mgr ? 'btn-secondary' : 'btn-primary'} btn-sm" data-action="capture-edit" data-id="${t.id}">Edit Task</button>
+        ${!t.manualCapture && !mgr ? html`
+          <button type="button" class="btn-primary btn-sm" data-action="request-task-adjustment" data-id="${t.id}">Request Schedule Change</button>` : ''}
+      </footer>
     </div>
+  `, { wide: true, variant: 'task-details-modal' });
 
-    <div style="display: grid; gap: 10px; font-size: 0.875rem; margin-bottom: 16px;">
-      ${t.description ? html`<p class="capture-text">${t.description}</p>` : ''}
-      <div><strong>Assigned officer:</strong> ${officerName(s, t.ownerId)}</div>
-      ${relatedCase ? html`<div><strong>Case:</strong> <a href="#cases/${relatedCase.id}" data-action="modal-close">${relatedCase.number} · ${relatedCase.title}</a></div>` : ''}
-      ${t.location ? html`<div><strong>Location:</strong> ${t.location}</div>` : ''}
-      <div><strong>Due:</strong> ${taskDateInput(t.dueAt || t.due).replace('T', ' ')} SGT</div>
-      ${slaDue || t.slaType ? html`<div><strong>SLA:</strong> ${t.slaType || 'Recorded deadline'}
-        ${slaDue ? html`<time datetime="${slaDue}+08:00">${slaDue.replace('T', ' ')} SGT</time>` : ''}</div>` : ''}
-      <div><strong>Estimated duration:</strong> ${taskDuration(t)} minutes</div>
-      ${t.fixedStartAt ? html`<div><strong>Fixed start:</strong> ${taskDateInput(t.fixedStartAt).replace('T', ' ')} SGT</div>` : ''}
-      ${t.remarks ? html`<div class="capture-text"><strong>Remarks:</strong> ${t.remarks}</div>` : ''}
-      ${t.appointmentTime
-        ? html`<div><strong>Resident Commitment:</strong> <span class="tag tag-brand">${t.appointmentTime}</span></div>`
-        : ''}
-      ${t.caseId
-        ? html`
-            <div>
-              <strong>Linked Case:</strong>
-              <button
-                type="button"
-                class="tag tag-brand"
-                data-action="nav-to-case"
-                data-case="${t.caseId}"
-                style="cursor: pointer; border: 1px solid var(--colorBrandStroke2); background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-family: monospace; font-weight: 700; margin-left: 6px;"
-              >
-                ${icon('cases', 12)} ${t.caseId} → Open in Case Action Centre
-              </button>
-            </div>
-          `
-        : ''}
-      ${t.consequence
-        ? html`<div><strong>Long-term Consequence Risk:</strong> <span class="muted">${t.consequence}</span></div>`
-        : ''}
-    </div>
-    <details class="priority-explanation">
-      <summary>Why this priority?</summary>
-      <p class="small muted">Priority is set on the task. These demo factors show the recorded context in EMS’s stated order.</p>
-      <ol>${factors.map(({ factor, reason }) => html`<li><strong>${factor}</strong> ${reason}</li>`)}</ol>
-    </details>
-
-    <!-- Downstream Dependency Chain -->
-    <div style="padding: 12px; border-radius: 8px; border: 1px solid var(--colorNeutralStroke2); margin-bottom: 16px;">
-      <strong class="small" style="display: block; margin-bottom: 6px;">Downstream Ripple Dependencies:</strong>
-      ${dependents.length === 0
-        ? html`<p class="small muted" style="margin: 0;">No visible work orders depend on this task.</p>`
-        : html`
-            <ul style="margin: 0; padding-left: 18px; font-size: 0.8125rem;">
-              ${dependents.map(
-                (d) => html`<li><strong>${d.task.title}</strong> (Depth: ${d.depth})</li>`,
-              )}
-            </ul>
-          `}
-    </div>
-
-    <div class="modal-actions">
-      ${!t.manualCapture && !mgr
-        ? html`
-            <button
-              type="button"
-              class="btn-primary btn-sm"
-              data-action="request-task-adjustment"
-              data-id="${t.id}"
-            >
-              Request Schedule Change
-            </button>
-          `
-        : ''}
-      <button type="button" class="btn-secondary btn-sm" data-action="capture-edit" data-id="${t.id}">Edit task</button>
-      <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button>
-    </div>
-  `;
-
-  openModal(content);
-
-  document.getElementById('modal-root')?.addEventListener('click', (e) => {
-    if (e.target.closest('[data-action="request-task-adjustment"]')) {
-      closeModal();
-      update((stateObj) => {
-        createApprovalRequest(stateObj, {
-          requestType: 'schedule_adjustment',
-          taskId: t.id,
-          taskTitle: t.title,
-          reason: 'Officer requested schedule change due to operational buffer constraint.',
-          slaImpact: 'Maintains the fictional response deadline.',
-          operationalImpact: 'Prevents overload during site visits.',
-        });
+  document.querySelector('#modal-root [data-action="request-task-adjustment"]')?.addEventListener('click', () => {
+    update((stateObj) => {
+      createApprovalRequest(stateObj, {
+        requestType: 'schedule_adjustment',
+        taskId: t.id,
+        taskTitle: t.title,
+        reason: 'Officer requested schedule change due to operational buffer constraint.',
+        slaImpact: 'Maintains the fictional response deadline.',
+        operationalImpact: 'Prevents overload during site visits.',
       });
-      toast('Schedule change request submitted for manager approval.', 'success');
-      renderApp();
-    }
-  }, { once: true });
+    });
+    closeModal();
+    toast('Schedule change request submitted for manager approval.', 'success');
+  });
 }
 
 function showCreateTeamModal(s) {

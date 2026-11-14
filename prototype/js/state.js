@@ -407,6 +407,7 @@ export function createApprovalRequest(s, req) {
   const approval = {
     id,
     requestType: req.requestType || 'schedule_adjustment',
+    ...(req.reviewIssueId ? { reviewIssueId: req.reviewIssueId } : {}),
     taskId: req.taskId,
     caseId: req.caseId || null,
     taskTitle: req.taskTitle || getTask(s, req.taskId)?.title || 'Task',
@@ -419,7 +420,7 @@ export function createApprovalRequest(s, req) {
     escalationManagerName: req.escalationManagerName || s.hq?.name || 'Lim Wei Ling',
     originalOwnerId: req.originalOwnerId || getTask(s, req.taskId)?.ownerId,
     originalSchedule: req.originalSchedule || 'Original schedule',
-    proposedOwnerId: req.proposedOwnerId || req.originalOwnerId,
+    proposedOwnerId: req.reviewIssueId ? null : req.proposedOwnerId || req.originalOwnerId,
     proposedSchedule: req.proposedSchedule || 'Proposed schedule',
     reason: req.reason || 'Operational schedule adjustment',
     slaImpact: req.slaImpact || 'Within operational SLA margin',

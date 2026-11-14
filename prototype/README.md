@@ -210,7 +210,7 @@ Located in the primary navigation (`Overview` → `Ask SyncAI` → `My Tasks` �
 
 ### B. Smart Planning (Category B — Charlisa Tan)
 
-- **B020 · Schedule preferences.** Configure working days, start and end times, lunch, preferred focus periods, and a daily hours limit. Preferences are saved per officer in the browser.
+- **B020 · Schedule preferences.** Configure working days, start and end times, lunch, preferred focus periods, and a daily hours limit. Set different lunch windows under **Lunch times by day**. Working days without an override use the default. Preferences are saved per officer in the browser.
 - **B014 and B015 · Protected commitments.** The scheduler fits flexible work around fictional Outlook meetings, fixed repair appointments, and lunch. Expand **Why unavailable?** to see what reserves a time slot. Overlapping commitments produce a warning and retain their original times.
 - **B011 and B012 · Daily and weekly planning.** Generate a daily draft or a Monday–Sunday draft. The weekly view shows scheduled workload and remaining capacity for each day. Open any day to review the same proposed blocks in detail.
 - **Schedule review.** Review conflicts and unscheduled tasks before choosing **Accept Schedule** or **Discard Draft**. Accepted dates survive refresh, and a replacement updates only the dates it covers. Changes to tasks, preferences, availability, or protected commitments require regenerating a draft before accepting it.

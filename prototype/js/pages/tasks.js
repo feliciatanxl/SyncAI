@@ -26,20 +26,22 @@ import {
 } from '../state.js';
 import { TODAY, NOW, fmtDue, fmtHours, dt, workDay } from '../time.js';
 
+const filterDefaults = { q: '', priority: 'all', category: 'all', tag: '', owner: 'all', dueDate: '' };
+
 export const tasksView = {
-  q: '',
+  ...filterDefaults,
   status: 'all',
-  priority: 'all',
-  category: 'all',
-  tag: '',
-  owner: 'all',
-  dueDate: '',
+  moreFiltersOpen: false,
   selectedToDoList: 'l1',
   toDoOpen: false,
   page: 1,
   pageSize: 5,
 };
 const view = tasksView;
+
+export function clearTaskFilters() {
+  Object.assign(view, filterDefaults, { page: 1 });
+}
 
 export function mountKanban() {}
 export function setStatus() {}
@@ -80,6 +82,8 @@ export default {
       for (const tag of task.tags || []) tags.set(tag.toLowerCase(), tag);
     }
     if (view.tag && !tags.has(view.tag)) tags.set(view.tag, view.tag);
+    const extraCount = Number(Boolean(view.tag)) + Number(Boolean(view.dueDate)) + Number(view.owner !== 'all');
+    const hasFilters = Boolean(view.q || view.category !== 'all' || view.priority !== 'all' || extraCount);
 
     const totalOpen = baseTasks.filter((t) => isOpen(t)).length;
     const dueToday = baseTasks.filter((t) => isOpen(t) && t.due.slice(0, 10) === TODAY).length;
@@ -116,7 +120,7 @@ export default {
       </header>
 
       <!-- SyncAI Operational Tasks -->
-      <section class="panel" aria-labelledby="tasks-h">
+      <section class="panel work-orders" aria-labelledby="tasks-h">
         <div class="panel-head">
           <div>
             <h2 id="tasks-h">SyncAI work orders</h2>
@@ -131,9 +135,8 @@ export default {
           </div>
         </div>
 
-        <!-- Toolbar: Search and Filter Tabs -->
-        <div class="toolbar-wrap">
-          <div class="filter-tabs" role="group" aria-label="Status filter">
+        <div class="work-order-filters">
+          <div class="filter-tabs work-order-status" role="group" aria-label="Status filter">
             ${[
               ['all', 'All', baseTasks.length],
               ['open', 'Open', baseTasks.filter((t) => isOpen(t)).length],
@@ -157,84 +160,63 @@ export default {
             )}
           </div>
 
-          <div class="toolbar-actions">
-            ${mgr
-              ? html`
-                  <select
-                    class="filter-tab"
-                    style="border: 1px solid var(--colorNeutralStroke1); border-radius: 6px;"
-                    data-action="tasks-filter-owner"
-                    aria-label="Filter by assigned officer"
-                  >
-                    <option value="all" ${view.owner === 'all' ? 'selected' : ''}>All Officers</option>
-                    ${s.officers.map(
-                      (o) => html`
-                        <option value="${o.id}" ${view.owner === o.id ? 'selected' : ''}>${o.name}</option>
-                      `,
-                    )}
-                  </select>
-                `
-              : ''}
-
-            <select
-              class="filter-tab"
-              style="border: 1px solid var(--colorNeutralStroke1); border-radius: 6px;"
-              data-action="tasks-filter-category"
-              aria-label="Filter by category"
-            >
-              <option value="all" ${view.category === 'all' ? 'selected' : ''}>All Categories</option>
-              ${CATEGORIES.map(
-                (c) => html`
-                  <option value="${c}" ${view.category === c ? 'selected' : ''}>${c}</option>
-                `,
-              )}
+          <div class="work-order-toolbar">
+            <div class="search-input">
+              ${icon('search', 16)}
+              <input type="search" placeholder="Search tasks, locations..." value="${view.q}"
+                data-action="tasks-search" aria-label="Search operational tasks" />
+            </div>
+            <select class="capture-filter" data-action="tasks-filter-category" aria-label="Filter by category">
+              <option value="all">All categories</option>
+              ${CATEGORIES.map((category) => html`<option value="${category}" ${view.category === category ? 'selected' : ''}>${category}</option>`)}
             </select>
-            <select class="capture-filter" data-action="tasks-filter-tag" aria-label="Filter by tag">
-              <option value="">All tags</option>
-              ${[...tags].sort((a, b) => a[1].localeCompare(b[1])).map(([key, tag]) => html`
-                <option value="${key}" ${view.tag === key ? 'selected' : ''}>${tag}</option>`)}
-            </select>
-
             <select class="capture-filter" data-action="tasks-filter-priority" aria-label="Filter by priority">
               <option value="all">All priorities</option>
               ${PRIORITIES.map((priority) => html`<option value="${priority}" ${view.priority === priority ? 'selected' : ''}>${priority}</option>`)}
             </select>
-            <label class="capture-date-filter">Due date (SGT)
+            <button class="btn-secondary" type="button" data-action="tasks-more-filters"
+              aria-expanded="${view.moreFiltersOpen}" aria-controls="tasks-extra-filters">
+              More filters${extraCount ? ` (${extraCount})` : ''}
+            </button>
+          </div>
+          <div class="work-order-extra-filters" id="tasks-extra-filters" ${view.moreFiltersOpen ? '' : 'hidden'}>
+            <label>Tags
+              <select class="capture-filter" data-action="tasks-filter-tag">
+                <option value="">All tags</option>
+                ${[...tags].sort((a, b) => a[1].localeCompare(b[1])).map(([key, tag]) => html`
+                  <option value="${key}" ${view.tag === key ? 'selected' : ''}>${tag}</option>`)}
+              </select>
+            </label>
+            <label>Due date (SGT)
               <input class="capture-filter" type="date" value="${view.dueDate}" data-action="tasks-filter-date" />
             </label>
-
-            <div class="search-input">
-              ${icon('search', 16)}
-              <input
-                type="search"
-                placeholder="Search tasks, locations..."
-                value="${view.q}"
-                data-action="tasks-search"
-                aria-label="Search operational tasks"
-              />
-            </div>
+            ${mgr ? html`<label>Assigned officer
+              <select class="capture-filter" data-action="tasks-filter-owner">
+                <option value="all">All officers</option>
+                ${s.officers.map((officer) => html`<option value="${officer.id}" ${view.owner === officer.id ? 'selected' : ''}>${officer.name}</option>`)}
+              </select>
+            </label>` : ''}
           </div>
+          ${hasFilters ? html`<button class="btn-subtle btn-sm work-order-clear" type="button" data-action="tasks-clear-filters">Clear filters</button>` : ''}
         </div>
 
         <!-- Table View -->
         ${filtered.length === 0
-          ? html`<div class="empty">${icon('check', 24)}<p role="status">${baseTasks.length ? 'No tasks match the selected filters.' : 'No tasks yet.'}</p>
-              ${baseTasks.length ? html`<button type="button" class="btn-secondary btn-sm" data-action="tasks-clear-filters">Clear filters</button>` : ''}
-            </div>`
+          ? html`<div class="empty">${icon('check', 24)}<p role="status">${baseTasks.length ? 'No tasks match the selected filters.' : 'No tasks yet.'}</p></div>`
           : html`
               <div class="table-wrap">
-                <table class="data-table capture-table" aria-label="Operational tasks">
+                <table class="data-table capture-table work-order-table" aria-label="Operational tasks">
                   <thead>
                     <tr>
-                      <th>Task title & Location</th>
-                      <th>Assigned officer</th>
-                      <th style="width: 100px;">Category</th>
-                      <th style="width: 120px;">Priority</th>
-                      <th style="width: 150px;">Deadline & SLA</th>
-                      <th>Duration</th>
-                      <th>Status</th>
-                      <th style="width: 125px; white-space: nowrap;">Risk</th>
-                      <th style="text-align: right; width: 80px;">Actions</th>
+                      <th scope="col">Task</th>
+                      <th scope="col">Assigned officer</th>
+                      <th scope="col">Category</th>
+                      <th scope="col">Priority</th>
+                      <th scope="col">Deadline</th>
+                      <th scope="col">Duration</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Risk</th>
+                      <th scope="col">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -323,38 +305,35 @@ function renderTaskRow(s, t) {
   const done = !isOpen(t);
   const relatedCase = accessibleCase(s, t.caseId);
   const deadline = deadlineAlert(t);
+  const due = taskDateInput(t.dueAt || t.due);
+  const tagCount = t.tags?.length || 0;
 
   return html`
     <tr class="${done ? 'done-row' : ''}">
-      <td>
+      <td class="work-order-title">
         <button type="button" class="task-link-btn" data-action="task-inspect" data-id="${t.id}">
           ${t.title}
         </button>
-        ${relatedCase ? html`<a class="task-case-link" href="#cases/${relatedCase.id}" aria-label="View case ${relatedCase.number} · ${relatedCase.title}">Case ${relatedCase.number}</a>` : ''}
-        ${t.location
-          ? html`<span class="small muted" style="display: flex; align-items: center; gap: 4px; margin-top: 3px;">${icon('pin', 12)} ${t.location}</span>`
-          : ''}
-        ${t.appointmentTime
-          ? html`<span class="tag tag-brand small" style="margin-top: 4px;">${t.appointmentTime}</span>`
-          : ''}
+        ${relatedCase || t.location || tagCount ? html`<div class="work-order-meta">
+          ${relatedCase ? html`<a class="task-case-link" href="#cases/${relatedCase.id}" aria-label="View case ${relatedCase.number} · ${relatedCase.title}">Case ${relatedCase.number}</a>` : ''}
+          ${t.location ? html`<span>${t.location}</span>` : ''}
+          ${tagCount ? html`<span>+${tagCount} ${tagCount === 1 ? 'tag' : 'tags'}</span>` : ''}
+        </div>` : ''}
       </td>
       <td data-label="Assigned officer">${officerName(s, t.ownerId)}</td>
       <td data-label="Category">
-        <div class="task-tag-list"><span class="tag tag-brand">${t.category}</span>
-          ${(t.tags || []).map((tag) => html`<span class="tag tag-neutral">${tag}</span>`)}
-        </div>
+        <span class="tag tag-brand">${t.category}</span>
       </td>
       <td data-label="Priority">
-        <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+        <div class="work-order-priority">
           ${priorityBadge(t.priority)}
           ${t.safety ? html`<span class="tag tag-danger small">Safety</span>` : ''}
           ${t.statutory ? html`<span class="tag tag-warning small">Statutory</span>` : ''}
         </div>
       </td>
       <td data-label="Deadline">
-        <span class="due-text" style="display: block;">${fmtDue(taskDateInput(t.dueAt || t.due))}</span>
-        ${deadline ? html`<span class="tag tag-${deadline.tone}" title="Demo deadline reminder">${deadline.label}</span>` : ''}
-        ${t.slaType ? html`<span class="sla-label muted small" style="display: block; margin-top: 2px;">${t.slaType}</span>` : ''}
+        <time class="due-text" datetime="${due}+08:00">${fmtDue(due)}</time>
+        ${deadline ? html`<span class="work-order-deadline-note ${deadline.tone}">${deadline.label}</span>` : ''}
       </td>
       <td class="capture-duration" data-label="Duration">${taskDuration(t)} min</td>
       <td data-label="Status">

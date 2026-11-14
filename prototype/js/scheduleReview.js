@@ -3,6 +3,7 @@ import { buildSmartSchedule } from './smartSchedule.js';
 import { getOfficer, getTask, openTasksFor } from './state.js';
 import { taskAssignees } from './taskCapture.js';
 import { NOW } from './time.js';
+import { blockingPlanningIssues } from './planningIssues.js';
 
 function planningInputs(state, officerId) {
   const tasks = new Map(state.tasks.filter((task) => task.ownerId === officerId).map((task) => [task.id, task]));
@@ -25,13 +26,14 @@ function planningInputs(state, officerId) {
 }
 
 export function generateDraft(state, officerId, dates) {
+  const { days, unscheduled, workloadMinutes } = buildSmartSchedule(state, officerId, dates);
   return {
     id: crypto.randomUUID(),
     officerId,
     dates: [...new Set(dates)].sort(),
     inputs: planningInputs(state, officerId),
     openCount: openTasksFor(state, officerId).length,
-    ...structuredClone(buildSmartSchedule(state, officerId, dates)),
+    ...structuredClone({ days, unscheduled, workloadMinutes }),
   };
 }
 
@@ -51,8 +53,10 @@ export function reviewDraft(state, draft) {
       if (entry.day.proposed.some(({ taskId }) => proposed.has(taskId))) duplicateDates.add(date);
     }
   }
+  const changed = changedPlanningInputs(state, draft);
   return {
-    changed: changedPlanningInputs(state, draft),
+    changed,
+    blocking: changed.length ? [] : blockingPlanningIssues(state, draft),
     duplicates: [...duplicateDates].sort(),
     replaced: draft.dates.filter((date) => accepted[date]),
     warningCount: draft.days.reduce((count, day) => count + day.warnings.length, 0),
@@ -64,6 +68,7 @@ export function acceptDraft(state, draft, { acknowledged = false } = {}) {
   if (!taskAssignees(state).some(({ id }) => id === draft.officerId)) throw new Error('This officer is unavailable for planning.');
   const review = reviewDraft(state, draft);
   if (review.changed.length) throw new Error(`Regenerate before accepting. Changed inputs: ${review.changed.join(', ')}.`);
+  if (review.blocking.length) throw new Error('Resolve blocking scheduling conflicts and regenerate before accepting.');
   if (review.duplicates.length) throw new Error(`Review accepted task blocks on ${review.duplicates.join(', ')} before accepting.`);
   if (!acknowledged && (review.replaced.length || review.warningCount || review.unscheduledCount)) {
     throw new Error('Review and acknowledge the draft issues before accepting.');

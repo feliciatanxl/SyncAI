@@ -244,13 +244,13 @@ export function toast(message, kind = 'success') {
 
 let lastFocus = null;
 
-export function openModal(content, { wide = false, onClose } = {}) {
+export function openModal(content, { wide = false, onClose, variant = '' } = {}) {
   const root = document.getElementById('modal-root');
   const opener = root.hidden ? document.activeElement : lastFocus;
   closeModal();
   lastFocus = opener;
   root.innerHTML = fmt(html`<div class="modal-backdrop" data-action="modal-close"></div>
-    <div class="modal modal-surface ${wide ? 'modal-wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">${content}</div>`);
+    <div class="modal modal-surface ${wide ? 'modal-wide' : ''} ${variant}" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">${content}</div>`);
   root.hidden = false;
   document.getElementById('portal-root').inert = true;
   const dialog = root.querySelector('.modal');
@@ -286,19 +286,26 @@ function modalKeydown(event) {
   } else trapFocus(event);
 }
 
-export function confirmDialog({ title, body, confirmLabel = 'Confirm', danger = false }) {
+export function confirmDialog({ title, body, confirmLabel = 'Confirm', danger = false, acknowledgement }) {
   return new Promise((resolve) => {
     let answered = false;
     openModal(
       html`<header class="modal-head"><h2 id="modal-title">${title}</h2></header>
       <div class="modal-body"><p>${body}</p></div>
+      ${acknowledgement ? html`<label class="schedule-acknowledgement"><input type="checkbox" data-confirm-ack /> ${acknowledgement}</label>` : ''}
       <footer class="modal-foot">
         <button class="btn-secondary" data-confirm="no" autofocus>Cancel</button>
-        <button class="${danger ? 'btn-danger' : 'btn-primary'}" data-confirm="yes">${confirmLabel}</button>
+        <button class="${danger ? 'btn-danger' : 'btn-primary'}" data-confirm="yes" ${acknowledgement ? 'disabled' : ''}>${confirmLabel}</button>
       </footer>`,
       { onClose: () => !answered && resolve(false) },
     );
-    document.getElementById('modal-root').querySelectorAll('[data-confirm]').forEach((b) =>
+    const root = document.getElementById('modal-root');
+    if (acknowledgement) {
+      root.querySelector('[data-confirm-ack]').addEventListener('change', (event) => {
+        root.querySelector('[data-confirm="yes"]').disabled = !event.target.checked;
+      });
+    }
+    root.querySelectorAll('[data-confirm]').forEach((b) =>
       b.addEventListener('click', () => {
         answered = true;
         closeModal();

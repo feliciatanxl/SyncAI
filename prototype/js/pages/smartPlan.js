@@ -2,10 +2,13 @@ import { schedulePreferences } from '../schedulePreferences.js';
 import { buildSmartSchedule } from '../smartSchedule.js';
 import { accessibleTask, taskAssignees } from '../taskCapture.js';
 import { changedPlanningInputs, reviewDraft } from '../scheduleReview.js';
-import { calendarWeek, fmtDay, fmtDue, fmtHours, fmtLongDay, fromMin, TODAY } from '../time.js';
+import { scheduleIssues } from '../planningIssues.js';
+import { renderPlanningIssues } from './planningIssuePanel.js';
+import { calendarWeek, fmtDay, fmtHours, fmtLongDay, fromMin, TODAY } from '../time.js';
 import { html, icon } from '../ui.js';
 
 export const planningView = { date: TODAY, mode: 'daily', officerId: null, drafts: new Map() };
+export const planningIssueView = { open: false, date: '', issues: [] };
 export const planningDates = () => planningView.mode === 'weekly' ? calendarWeek(planningView.date) : [planningView.date];
 export const scheduleRange = (dates) => dates.length === 1 ? fmtLongDay(dates[0]) : `${fmtLongDay(dates[0])} – ${fmtLongDay(dates.at(-1))}`;
 export function visibleDraft(officerId) {
@@ -19,7 +22,7 @@ export function currentPlanningOfficer(state) {
 
 const timeRange = (block) => `${fromMin(block.start)}–${fromMin(block.end)}`;
 const hours = (minutes) => fmtHours(minutes / 60);
-const blockLabels = { meeting: 'Meeting', appointment: 'Repair appointment', 'fixed-task': 'Fixed task', lunch: 'Lunch break', task: 'Proposed task' };
+const blockLabels = { meeting: 'Protected meeting', appointment: 'Repair appointment', 'fixed-task': 'Fixed task', lunch: 'Lunch break', task: 'Proposed task' };
 const blockReasons = {
   meeting: 'Reserved for a fictional calendar meeting.',
   appointment: 'Reserved for a fictional repair appointment.',
@@ -33,7 +36,7 @@ function blockTitle(state, block) {
     : html`<strong>${block.title}</strong>`;
 }
 
-function renderDaily(state, day) {
+function renderDaily(state, day, issues) {
   const lunch = day.lunch && !day.closed ? [{ ...day.lunch, kind: 'lunch', title: 'Lunch break' }] : [];
   const timeline = [...day.blocked, ...day.proposed, ...lunch].sort((a, b) => a.start - b.start || a.end - b.end);
   return html`
@@ -45,16 +48,20 @@ function renderDaily(state, day) {
     ${day.closed ? html`<p class="muted small">${day.closed}</p>` : ''}
     ${timeline.length ? html`
       <ul class="smart-timeline">
-        ${timeline.map((block) => html`
-          <li class="timeline-block ${block.kind === 'meeting' ? 'is-meeting' : block.kind === 'task' ? '' : 'is-protected'}">
+        ${timeline.map((block) => {
+          const accepted = day.accepted && block.kind === 'task';
+          const tone = accepted ? 'success' : block.kind === 'appointment' ? 'warning' : block.kind === 'meeting' ? 'brand' : 'neutral';
+          return html`
+          <li class="timeline-block smart-block-${block.kind} ${accepted ? 'is-accepted' : ''} ${issues.some((issue) => issue.date === day.date && [issue.block, issue.other].some((affected) => affected && affected.title === block.title && affected.start === block.start)) ? 'has-review-issue' : ''}">
             <span class="smart-time">${timeRange(block)}</span>
             <div class="smart-block-text">
               ${blockTitle(state, block)}
               ${block.location ? html`<div class="small muted">${block.location}</div>` : ''}
               ${blockReasons[block.kind] ? html`<details class="small muted"><summary>Why unavailable?</summary>${blockReasons[block.kind]}</details>` : ''}
             </div>
-            <span class="tag ${block.kind === 'task' ? 'tag-success' : 'tag-brand'}">${day.accepted && block.kind === 'task' ? 'Accepted task' : blockLabels[block.kind]}</span>
-          </li>`)}
+            <span class="tag tag-${tone}">${accepted ? 'Accepted task' : blockLabels[block.kind]}</span>
+          </li>`;
+        })}
       </ul>` : html`<p class="muted">This day has no protected or proposed blocks.</p>`}
     <details class="smart-availability">
       <summary>Remaining availability · ${hours(day.remainingMinutes)}</summary>
@@ -62,46 +69,49 @@ function renderDaily(state, day) {
         ? html`<p class="small muted">Open gaps: ${day.slots.map(timeRange).join(', ')}. The daily hours limit may reduce usable time.</p>`
         : html`<p class="small muted">${day.closed || 'Protected commitments and planned work leave no usable capacity.'}</p>`}
     </details>
-    ${day.warnings.length ? html`<div class="callout warn smart-warnings">
-      ${icon('alert', 20)}<div><strong>Schedule conflicts</strong><ul>${day.warnings.map((warning) => html`<li>${warning}</li>`)}</ul></div>
-    </div>` : ''}
   `;
 }
 
-function renderWeek(state, days) {
-  return html`
-    <div class="smart-week">
-      ${days.map((day) => html`
-        <article class="smart-week-day ${day.overloaded ? 'is-overloaded' : ''}">
-          <h3><button class="task-link-btn" type="button" data-action="plan-open-day" data-date="${day.date}">${fmtDay(day.date)}</button></h3>
-          <p class="small muted">${hours(day.workloadMinutes)} scheduled · ${hours(day.remainingMinutes)} available</p>
-          ${day.accepted ? html`<span class="tag tag-success">Accepted</span>` : day.draft ? html`<span class="tag tag-brand">Draft</span>` : ''}
-          ${day.overloaded ? html`<span class="tag tag-danger">Overloaded</span>` : ''}
-          ${day.warnings.length ? html`<span class="tag tag-warning">${day.warnings.length} conflicts</span>` : ''}
-          ${day.closed ? html`<p class="small muted">${day.closed}</p>` : ''}
-          <ul>
-            ${[...day.blocked, ...day.proposed].sort((a, b) => a.start - b.start).map((block) => html`
-              <li><span class="small muted">${timeRange(block)} · ${day.accepted && block.kind === 'task' ? 'Accepted task' : blockLabels[block.kind]}</span>${blockTitle(state, block)}</li>`)}
-          </ul>
-        </article>`)}
-    </div>
-  `;
+function renderWeek(days, issues, selectedDate) {
+  return html`<div class="smart-week">
+    ${days.map((day) => {
+      const state = day.accepted ? 'Accepted' : day.draft ? 'Draft' : '';
+      const scheduled = day.workloadMinutes;
+      const available = day.remainingMinutes;
+      const workload = scheduled + available ? (scheduled / (scheduled + available)) * 100 : 0;
+      const taskCount = day.proposed.length + day.blocked.filter((block) => block.kind === 'fixed-task').length;
+      const commitmentCount = day.blocked.filter((block) => block.kind === 'meeting' || block.kind === 'appointment').length;
+      const warnings = [
+        issues.some((issue) => issue.date === day.date && issue.blocking) ? 'Blocking conflict' : '',
+        day.overloaded ? 'Overloaded' : '',
+        day.warnings.length ? `${day.warnings.length} ${day.warnings.length === 1 ? 'conflict' : 'conflicts'}` : '',
+        day.dueUnscheduled.length ? `${day.dueUnscheduled.length} unscheduled` : '',
+      ].filter(Boolean);
+      return html`<button class="smart-week-day ${day.overloaded ? 'is-overloaded' : ''} ${selectedDate === day.date ? 'is-review-day' : ''}" type="button"
+        data-action="plan-open-day" data-date="${day.date}" aria-labelledby="week-day-${day.date}"
+        aria-describedby="week-workload-${day.date}${warnings.length ? ` week-warnings-${day.date}` : ''}">
+        <span class="smart-week-header">
+          <span id="week-day-${day.date}"><span class="visually-hidden">Open daily schedule for </span><time datetime="${day.date}">${fmtDay(day.date)}</time></span>
+          ${state ? html`<span class="smart-week-status ${day.accepted ? 'is-accepted' : ''}">${state}</span>` : ''}
+        </span>
+        <span class="smart-week-workload" id="week-workload-${day.date}">
+          <span><strong>${hours(scheduled)}</strong> scheduled</span>
+          <span><strong>${hours(available)}</strong> available</span>
+        </span>
+        <span class="smart-week-meter" aria-hidden="true"><span style="width: ${workload}%"></span></span>
+        <span class="smart-week-counts">${taskCount} ${taskCount === 1 ? 'task block' : 'task blocks'} · ${commitmentCount} protected</span>
+        ${warnings.length ? html`<span class="smart-week-warning" id="week-warnings-${day.date}">${icon('alert', 14)}<span>${warnings.join(' · ')}</span></span>` : ''}
+      </button>`;
+    })}
+  </div>`;
 }
 
-function renderUnscheduled(state, { unscheduled, openCount, dates, id, acceptedAt }) {
+function renderNoUnscheduled({ openCount, dates, id, acceptedAt }) {
   return html`
     <section class="smart-unscheduled" aria-labelledby="unscheduled-${id}">
       <h3 id="unscheduled-${id}">Unscheduled tasks</h3>
       <p class="small muted">${acceptedAt ? 'Accepted' : 'Draft'} · ${scheduleRange(dates)}</p>
-      ${unscheduled.length ? html`<ul>${unscheduled.map(({ task, deadline, duration, reason }) => html`
-        <li>
-          ${blockTitle(state, { taskId: task.id, title: task.title })}
-          <span class="small muted">${task.priority} · ${duration} min${deadline.at ? ` · ${deadline.label} ${fmtDue(deadline.at)} SGT` : ''}</span>
-          <p class="small">${reason}</p>
-          ${accessibleTask(state, task.id) ? html`<button type="button" class="btn-secondary btn-sm" data-action="capture-edit" data-id="${task.id}" aria-label="Edit task: ${task.title}">Edit task</button>` : ''}
-        </li>`)}</ul>
-        ${planningView.mode === 'daily' ? html`<button type="button" class="btn-secondary btn-sm" data-action="plan-view" data-mode="weekly">View weekly capacity</button>` : ''}
-      ` : html`<p class="muted small">${openCount ? 'All eligible tasks fit in this schedule.' : 'No open tasks to schedule.'}</p>`}
+      <p class="muted small">${openCount ? 'All eligible tasks fit in this schedule.' : 'No open tasks to schedule.'}</p>
     </section>`;
 }
 
@@ -126,7 +136,11 @@ export function renderSmartPlan(state, officer) {
     return previews.find((day) => day.date === date);
   });
   const total = days.reduce((sum, day) => sum + day.workloadMinutes, 0);
-  const draftWarnings = draft?.days.flatMap((day) => day.warnings.map((message) => ({ date: day.date, message }))) || [];
+  const reviewDays = [...new Map([...days, ...(draft?.days || [])].map((day) => [day.date, day])).values()];
+  const unscheduled = [...new Map([...(draft ? [draft] : []), ...saved]
+    .flatMap((entry) => entry.unscheduled).map((entry) => [entry.task.id, entry])).values()];
+  const issues = scheduleIssues(state, reviewDays, unscheduled, review?.blocking);
+  planningIssueView.issues = issues;
   return html`
     <section class="panel smart-plan" aria-labelledby="smart-plan-h">
       <div class="panel-head">
@@ -157,25 +171,23 @@ export function renderSmartPlan(state, officer) {
       </div>
       ${draft ? html`<div class="smart-day-summary">
         <span class="tag tag-brand">Draft</span><span>${scheduleRange(draft.dates)}</span>
-        <button type="button" class="btn-primary btn-sm" data-action="plan-accept" ${review.changed.length || review.duplicates.length ? 'disabled' : ''}>Accept Schedule</button>
+        <button type="button" class="btn-primary btn-sm" data-action="plan-accept" ${review.changed.length || review.duplicates.length || review.blocking.length ? 'disabled' : ''}>Accept Schedule</button>
         <button type="button" class="btn-secondary btn-sm" data-action="plan-discard">Discard Draft</button>
       </div>
       ${review.changed.length ? html`<p role="status">Regenerate before accepting. Changed inputs: ${review.changed.join(', ')}.</p>` : ''}
       ${review.duplicates.length ? html`<p role="status">A proposed task is already accepted on ${review.duplicates.map(fmtLongDay).join(', ')}. Review those dates and replace the earlier allocation before accepting.</p>` : ''}
-      ${draftWarnings.length && (weekly || draft.dates.length > 1) ? html`<details class="smart-warnings">
-        <summary>${draftWarnings.length} conflict warnings across this draft</summary>
-        <ul>${draftWarnings.map(({ date, message }) => html`<li>${fmtDay(date)} · ${message}</li>`)}</ul>
-      </details>` : ''}
+      ${review.blocking.length ? html`<p role="status">Resolve the blocking conflicts in Scheduling Review before accepting.</p>` : ''}
       <p class="small muted">Tasks are placed by the earliest recorded deadline. Manual priority breaks ties, and focus periods are preferred when a task fits.</p>` : ''}
       ${saved.length ? html`<div class="smart-day-summary"><span class="tag tag-success">Accepted</span>
         <span class="small">${days.filter((day) => day.accepted).map((day) => fmtDay(day.date)).join(', ')}</span>
         ${needsReview.length ? html`<span class="tag tag-warning">Needs review</span><span class="small">Changed inputs: ${needsReview.join(', ')}.</span>` : ''}
       </div>` : ''}
       ${!draft && !saved.length ? html`<p class="small muted">Protected commitments are shown below. Generate a proposal to place flexible tasks.</p>` : ''}
+      ${renderPlanningIssues(state, issues, reviewDays, { weekly, date: planningView.date, selectedDate: planningIssueView.date, open: planningIssueView.open || Boolean(review?.blocking.length) })}
       ${weekly
-        ? html`<div class="smart-day-summary"><strong>${fmtDay(dates[0])} – ${fmtDay(dates[6])}</strong><span class="small muted">${hours(total)} total scheduled workload</span></div>${renderWeek(state, days)}`
-        : renderDaily(state, days[0])}
-      ${[...(draft ? [draft] : []), ...saved].map((entry) => renderUnscheduled(state, entry))}
+        ? html`<div class="smart-day-summary"><strong>${fmtDay(dates[0])} – ${fmtDay(dates[6])}</strong><span class="small muted">${hours(total)} total scheduled workload</span></div>${renderWeek(days, issues, planningIssueView.date)}`
+        : renderDaily(state, days[0], issues)}
+      ${[...(draft ? [draft] : []), ...saved].filter((entry) => !entry.unscheduled.length).map(renderNoUnscheduled)}
     </section>
   `;
 }
