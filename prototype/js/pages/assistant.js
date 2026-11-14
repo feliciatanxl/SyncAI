@@ -230,7 +230,7 @@ function generateLocalAnswer(s, query) {
     if (sched.totalEffort <= cap.freeHours) {
       return `Yes, today’s plan fits into your available working hours.\n\nYou have ${sched.totalEffort.toFixed(1)} hours of scheduled work orders against ${cap.freeHours.toFixed(1)} hours of available capacity, with protected lunch break (12:30–13:30) and Outlook meeting buffers accounted for.`;
     }
-    return `Warning: Today's workload exceeds available capacity by ${(sched.totalEffort - cap.freeHours).toFixed(1)} hours. SyncAI recommends using the What-If Simulator on the My Plan page to reschedule routine tasks or request a reassignment.`;
+    return `Warning: Today's workload exceeds available capacity by ${(sched.totalEffort - cap.freeHours).toFixed(1)} hours. Open My Plan to review available slots and any tasks that could not fit.`;
   }
 
   // 3. Which tasks are close to their SLA?
@@ -255,7 +255,7 @@ function generateLocalAnswer(s, query) {
 
   // 5. What happens if an officer is on MC?
   if (q.includes('mc') || q.includes('medical leave') || q.includes('sick')) {
-    return `When an officer is on medical leave (e.g. Ravi Kumar in Zone C):\n\n1. SyncAI marks the officer unavailable without exposing private medical records.\n2. Open safety and statutory tasks are immediately flagged for supervisor review.\n3. The What-If Simulator identifies qualified officers in adjacent zones with spare capacity (such as Chua Hui Min) to rebalance the load.`;
+    return `When an officer is on medical leave (e.g. Ravi Kumar in Zone C):\n\n1. SyncAI marks the officer unavailable without exposing private medical records.\n2. Open safety and statutory tasks are immediately flagged for supervisor review.\n3. A manager can review officer availability and capacity in My Plan before reassigning work.`;
   }
 
   // 6. Which tasks are affected by this delay?
