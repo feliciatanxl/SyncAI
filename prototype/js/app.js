@@ -11,6 +11,7 @@ import {
   isManager,
   isTeamMember,
   getPendingApprovals,
+  getApprovals,
   getUsers,
   getUser,
   approveUser,
@@ -20,6 +21,7 @@ import {
   addTeamMember,
   removeTeamMember,
   createApprovalRequest,
+  submitOperationalChangeApproval,
   decideApproval,
   isOpen,
   logActivity,
@@ -44,6 +46,7 @@ import {
   canTransitionCase,
   normalizeKanbanStage,
   addCaseEvidence,
+  getCaseEvidence,
   verifyCaseEvidence,
 } from './state.js';
 import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog } from './ui.js';
@@ -68,6 +71,8 @@ import activityPage from './pages/activity.js';
 import decidesPage from './pages/decides.js';
 import settingsPage from './pages/settings.js';
 import assistantPage from './pages/assistant.js';
+import approvalGovernancePage, { approvalGovernanceView, isManagerReviewApproval, managerReviewType } from './pages/approval-governance.js';
+import myRequestsPage, { myRequestsView } from './pages/my-requests.js';
 
 // Navigation section registry
 const SECTIONS = {
@@ -77,6 +82,8 @@ const SECTIONS = {
   cases: { id: 'cases', label: 'Case Action Centre', icon: 'cases', page: casesPage },
   plan: { id: 'plan', label: 'My plan', icon: 'calendar', page: planPage },
   team: { id: 'team', label: 'My team', icon: 'team', page: teamPage },
+  'approval-governance': { id: 'approval-governance', label: 'Approval Governance', icon: 'shield', page: approvalGovernancePage },
+  'my-requests': { id: 'my-requests', label: 'My Requests', icon: 'history', page: myRequestsPage },
   people: { id: 'people', label: 'People', icon: 'users', page: peoplePage },
   teams: { id: 'teams', label: 'Teams', icon: 'team', page: teamsAdminPage },
   activity: { id: 'activity', label: 'Activity', icon: 'history', page: activityPage },
@@ -109,10 +116,10 @@ function allowedSections(s) {
     return ['overview', 'assistant', 'cases', 'people', 'teams', 'activity', 'decides', 'settings'];
   }
   if (isManager(s)) {
-    return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'team', 'decides', 'settings'];
+    return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'team', 'approval-governance', 'decides', 'settings'];
   }
   // Member
-  return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'decides', 'settings'];
+  return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'my-requests', 'decides', 'settings'];
 }
 
 function readPortalRoute(s) {
@@ -316,7 +323,10 @@ function renderNav(s, user, allowed) {
   const nav = document.getElementById('portal-nav');
   if (!nav) return;
 
-  const pendingApprovalsCount = getPendingApprovals(s).length;
+  const pendingApprovals = getPendingApprovals(s);
+  const pendingApprovalsCount = pendingApprovals.filter((a) => a.requestType !== 'operational_change').length;
+  const pendingManagerReviewCount = pendingApprovals.filter(isManagerReviewApproval).length;
+  const myPendingRequestsCount = pendingApprovals.filter((a) => ['operational_change', 'schedule_adjustment'].includes(a.requestType) && a.requesterId === getCurrentUser(s).id).length;
   const pendingUsersCount = (s.users || []).filter((u) => u.status === 'pending').length;
 
   const vCases = visibleCases(s);
@@ -336,6 +346,10 @@ function renderNav(s, user, allowed) {
         badge = html`<span class="tag tag-warning" style="margin-left: auto;">${pendingUsersCount}</span>`;
       } else if (secId === 'team' && pendingApprovalsCount > 0) {
         badge = html`<span class="tag tag-warning" style="margin-left: auto;">${pendingApprovalsCount}</span>`;
+      } else if (secId === 'approval-governance' && pendingManagerReviewCount > 0) {
+        badge = html`<span class="tag tag-warning" style="margin-left: auto;">${pendingManagerReviewCount}</span>`;
+      } else if (secId === 'my-requests' && myPendingRequestsCount > 0) {
+        badge = html`<span class="tag tag-warning" style="margin-left: auto;">${myPendingRequestsCount}</span>`;
       } else if (secId === 'cases' && totalLooseEnds > 0) {
         badge = html`<span class="tag tag-warning" style="margin-left: auto;">${totalLooseEnds}</span>`;
       }
@@ -697,6 +711,42 @@ function setupEvents() {
       return;
     }
 
+    const taskRequestApproval = e.target.closest('[data-action="task-request-approval"]');
+    if (taskRequestApproval) {
+      const s = getState();
+      const taskId = taskRequestApproval.dataset.id || document.getElementById('my-requests-task-id')?.value;
+      const task = taskId ? accessibleTask(s, taskId) : null;
+      if (!isTeamMember(s) || getCurrentUser(s).status !== 'active') {
+        toast('Only an active team member can submit an operational-change request.', 'error');
+      } else if (!task || task.ownerId !== s.currentOfficerId) {
+        toast(taskId ? 'Select one of your assigned tasks.' : 'Select an assigned task first.', 'error');
+      } else {
+        showTaskApprovalRequestModal(s, task);
+      }
+      return;
+    }
+
+    const myRequestDetails = e.target.closest('[data-action="my-request-details"]');
+    if (myRequestDetails) {
+      const s = getState();
+      const approval = getApprovals(s).find((item) => item.id === myRequestDetails.dataset.id
+        && ['operational_change', 'schedule_adjustment'].includes(item.requestType)
+        && item.requesterId === getCurrentUser(s).id);
+      if (approval) showRequesterApprovalRequestDetails(s, approval);
+      else toast('Request not found.', 'error');
+      return;
+    }
+
+    const myRequestsTypeFilter = e.target.closest('[data-action="my-requests-type-filter"]');
+    if (myRequestsTypeFilter) {
+      const filter = myRequestsTypeFilter.dataset.type;
+      if (['all', 'operational_change', 'schedule_adjustment'].includes(filter)) {
+        myRequestsView.typeFilter = filter;
+        renderApp();
+      }
+      return;
+    }
+
     const taskEdit = e.target.closest('[data-action="capture-edit"]');
     if (taskEdit) {
       const task = accessibleTask(getState(), taskEdit.dataset.id);
@@ -885,6 +935,36 @@ function setupEvents() {
         decideApproval(s, apprId, 'rejected', actorName(s), 'Declined after operational capacity review.');
       });
       toast('Approval request declined.', 'info');
+      renderApp();
+      return;
+    }
+
+    const governanceReview = e.target.closest('[data-action="manager-governance-review"]');
+    if (governanceReview) {
+      const s = getState();
+      if (!isManager(s) || getCurrentUser(s).status !== 'active') {
+        toast('Only an active manager can review approval requests.', 'error');
+        return;
+      }
+      const approval = getApprovals(s).find((item) => item.id === governanceReview.dataset.id && isManagerReviewApproval(item));
+      if (!approval || !managerReviewType(approval)) {
+        toast('Approval request not found.', 'error');
+        return;
+      }
+      showManagerApprovalReview(s, approval);
+      return;
+    }
+
+    const governanceTypeFilter = e.target.closest('[data-action="manager-governance-type-filter"]');
+    if (governanceTypeFilter) {
+      approvalGovernanceView.typeFilter = governanceTypeFilter.dataset.type || 'all';
+      renderApp();
+      return;
+    }
+
+    const governanceStatusFilter = e.target.closest('[data-action="manager-governance-status-filter"]');
+    if (governanceStatusFilter) {
+      approvalGovernanceView.statusFilter = governanceStatusFilter.dataset.status || 'all';
       renderApp();
       return;
     }
@@ -1751,6 +1831,74 @@ function setupEvents() {
 
   // Assistant and form submit events
   document.addEventListener('submit', (e) => {
+    if (e.target.id === 'manager-governance-decision-form') {
+      e.preventDefault();
+      const form = e.target;
+      const s = getState();
+      const approval = getApprovals(s).find((item) => item.id === form.dataset.id && isManagerReviewApproval(item));
+      const decision = e.submitter?.dataset.decision;
+      const note = form.elements.namedItem('decisionComment')?.value?.trim() || '';
+      if (!isManager(s) || getCurrentUser(s).status !== 'active' || !approval) {
+        toast('This request cannot be decided by the current user.', 'error');
+        return;
+      }
+      if (!['approved', 'rejected'].includes(decision) || note.length < 4) {
+        toast('Enter a decision comment or rejection reason of at least 4 characters.', 'error');
+        return;
+      }
+      let result;
+      update((state) => {
+        result = decideApproval(state, approval.id, decision, actorName(state), note);
+      });
+      if (!result?.success) {
+        toast(result?.error || 'Could not record this decision.', 'error');
+        return;
+      }
+      closeModal();
+      toast(decision === 'approved' ? 'Approval recorded.' : 'Request rejected and requester notified.', decision === 'approved' ? 'success' : 'info');
+      renderApp();
+      return;
+    }
+
+    if (e.target.id === 'operational-change-approval-form') {
+      e.preventDefault();
+      const form = e.target;
+      const value = (name) => form.elements.namedItem(name)?.value?.trim() || '';
+      const file = form.elements.namedItem('evidenceFile')?.files?.[0];
+      if (file && file.size > 5 * 1024 * 1024) {
+        toast('File size exceeds the 5MB demo limit.', 'error');
+        return;
+      }
+      const selectedEvidence = [...form.querySelectorAll('[name="evidenceIds"]:checked')].map((input) => {
+        const evidence = getCaseEvidence(getState(), form.dataset.case).find((item) => item.id === input.value);
+        return evidence ? { id: evidence.id, title: evidence.title, fileName: evidence.fileName, type: evidence.type } : null;
+      }).filter(Boolean);
+      const supportingEvidence = [...selectedEvidence];
+      if (file) supportingEvidence.push({ fileName: file.name, fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`, type: file.type || 'file', referenceOnly: true });
+      if (value('evidenceReference')) supportingEvidence.push({ reference: value('evidenceReference'), type: 'reference' });
+
+      let result;
+      const details = {
+        unexpectedSituation: value('unexpectedSituation'),
+        reason: value('reason'),
+        proposedChanges: value('proposedChanges'),
+        requestedScope: value('requestedScope'),
+        potentialCostImpact: value('potentialCostImpact'),
+        potentialScheduleImpact: value('potentialScheduleImpact'),
+        potentialOperationalImpact: value('potentialOperationalImpact'),
+        supportingEvidence,
+      };
+      update((s) => { result = submitOperationalChangeApproval(s, form.dataset.task, details); });
+      if (!result?.success) {
+        toast(result?.error || 'Please complete the required request details.', 'error');
+        return;
+      }
+      closeModal();
+      toast(`Approval request ${result.approval.id} submitted. The task was not changed.`, 'success');
+      renderApp();
+      return;
+    }
+
     if (e.target.id === 'comm-manual-log-form') {
       e.preventDefault();
       const form = e.target;
@@ -2093,6 +2241,19 @@ function showTaskDetailModal(s, t) {
           `}
     </div>
 
+    ${getApprovals(s).filter((approval) => approval.taskId === t.id).length
+      ? html`<section style="margin-bottom: 16px;" aria-label="Approval requests for this task">
+          <strong class="small">Approval requests for this task</strong>
+          ${getApprovals(s).filter((approval) => approval.taskId === t.id).map((approval) => html`
+            <div style="margin-top: 6px; padding: 10px; border-radius: 8px; background: var(--colorNeutralBackground2);">
+              <span class="tag ${approval.status === 'pending' ? 'tag-warning' : approval.status === 'approved' ? 'tag-success' : 'tag-danger'}">${approval.status.replaceAll('_', ' ')}</span>
+              <span class="small">${approval.id} · ${approval.requestType.replaceAll('_', ' ')}</span>
+              ${approval.decision ? html`<div class="small" style="margin-top: 5px;"><strong>Manager decision:</strong> ${approval.decision}</div>` : ''}
+            </div>
+          `)}
+        </section>`
+      : ''}
+
     <div class="modal-actions">
       ${t.manualCapture ? '' : !mgr
         ? html`
@@ -2138,6 +2299,123 @@ function showTaskDetailModal(s, t) {
       renderApp();
     }
   }, { once: true });
+}
+
+function showManagerApprovalReview(s, approval) {
+  const type = managerReviewType(approval);
+  const task = approval.taskId ? s.tasks.find((item) => item.id === approval.taskId) : null;
+  const relatedCase = approval.caseId ? getCase(s, approval.caseId) : null;
+  const missing = 'Not recorded';
+  const when = (value) => value ? new Date(value).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) : missing;
+  const evidence = Array.isArray(approval.supportingEvidence) ? approval.supportingEvidence : [];
+  const currentOwnerId = relatedCase?.ownerId || task?.ownerId || approval.originalOwnerId;
+  const proposedOwnerId = approval.proposedOwnerId || approval.suggestedAssigneeId;
+  const detail = approval.requestType === 'operational_change' ? html`
+    <section class="panel"><h3>Unexpected situation and justification</h3><p><strong>Situation</strong><br>${approval.unexpectedSituation || 'Not provided'}</p><p><strong>Reason</strong><br>${approval.reason || 'Not provided'}</p></section>
+    <section class="panel"><h3>Proposed changes and requested scope</h3><p><strong>Original arrangement</strong><br>${approval.originalSchedule || missing}</p><p><strong>Proposed changes</strong><br>${approval.proposedChanges || 'Not provided'}</p><p><strong>Requested scope</strong><br>${approval.requestedScope || 'Not provided'}</p></section>
+    <section class="panel"><h3>Potential impact</h3><p>Cost: ${approval.potentialCostImpact || 'Not specified'}</p><p>Schedule: ${approval.potentialScheduleImpact || 'Not specified'}</p><p>Operational or service: ${approval.potentialOperationalImpact || 'Not specified'}</p></section>
+    <section class="panel"><h3>Supporting evidence references</h3>${evidence.length ? html`<ul>${evidence.map((item) => html`<li>${item.title || item.fileName || item.reference || 'Evidence reference'}${item.fileName ? ` · ${item.fileName}` : ''}${item.fileSize ? ` · ${item.fileSize}` : ''}${item.reference ? ` · ${item.reference}` : ''}</li>`)}</ul><p class="small muted">The prototype stores evidence references and metadata only; attached file contents are not available here.</p>` : html`<p>No supporting evidence references were attached.</p>`}</section>
+  ` : approval.requestType === 'schedule_adjustment' ? html`
+    <section class="panel"><h3>Schedule adjustment</h3><p><strong>Original schedule</strong><br>${approval.originalSchedule && approval.originalSchedule !== 'Original schedule' ? approval.originalSchedule : missing}</p><p><strong>Requested schedule</strong><br>${approval.proposedSchedule && approval.proposedSchedule !== 'Proposed schedule' ? approval.proposedSchedule : missing}</p><p><strong>Reason</strong><br>${approval.reason && approval.reason !== 'Operational schedule adjustment' ? approval.reason : missing}</p><p><strong>SLA impact</strong><br>${approval.slaImpact && approval.slaImpact !== 'Within operational SLA margin' ? approval.slaImpact : missing}</p><p><strong>Operational impact</strong><br>${approval.operationalImpact && approval.operationalImpact !== 'Rebalances officer workload' ? approval.operationalImpact : missing}</p></section>
+  ` : approval.requestType === 'reassign' || approval.requestType === 'reassignment' ? html`
+    <section class="panel"><h3>Case reassignment</h3><p><strong>Current assignee</strong><br>${currentOwnerId ? officerName(s, currentOwnerId) : missing}</p><p><strong>Proposed assignee</strong><br>${proposedOwnerId ? officerName(s, proposedOwnerId) : missing}</p><p><strong>Reason</strong><br>${approval.reason || approval.note || missing}</p></section>
+  ` : html`
+    <section class="panel"><h3>Case closure</h3><p><strong>Case</strong><br>${relatedCase ? `${relatedCase.id} · ${relatedCase.title || relatedCase.caseNumber || ''}` : approval.caseId || missing}</p><p><strong>Current case status</strong><br>${relatedCase?.status || missing}</p><p><strong>Current assignee</strong><br>${relatedCase?.ownerId ? officerName(s, relatedCase.ownerId) : missing}</p><p><strong>Reason</strong><br>${approval.reason || approval.note || missing}</p><p><strong>SLA impact</strong><br>${approval.slaImpact || missing}</p><p><strong>Operational impact</strong><br>${approval.operationalImpact || missing}</p></section>
+  `;
+  const content = html`
+    <h2 id="modal-title" class="modal-title">${type.label} review</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px"><span class="tag ${approval.status === 'approved' ? 'tag-success' : approval.status === 'rejected' ? 'tag-danger' : 'tag-warning'}">${approval.status}</span><span class="tag tag-neutral">${type.label}</span><span class="tag tag-neutral">${approval.id}</span></div>
+    <div style="display:grid;gap:10px;max-height:62vh;overflow-y:auto;padding:2px">
+      <section class="panel"><h3>Request and linked work</h3><p><strong>Requester</strong><br>${approval.requesterName || approval.requesterId || missing}</p><p><strong>Submitted</strong><br>${when(approval.createdAt)}</p>${task ? html`<p><strong>Task</strong><br>${task.id} · ${task.title || approval.taskTitle || missing}</p><p><strong>Assigned officer</strong><br>${officerName(s, task.ownerId || approval.originalOwnerId)}</p><p><strong>Current task status</strong><br>${task.status || missing}</p><p><strong>Current task due date</strong><br>${task.dueAt || task.due || missing}</p>` : approval.taskId ? html`<p><strong>Task</strong><br>${approval.taskId} · ${approval.taskTitle || missing}</p>` : ''}${approval.caseId ? html`<p><strong>Linked case</strong><br>${approval.caseId}${relatedCase?.title ? ` · ${relatedCase.title}` : ''}</p>` : ''}</section>
+      ${detail}
+      ${approval.decision ? html`<section class="panel"><h3>Recorded decision</h3><p><strong>${approval.status === 'approved' ? 'Approved' : 'Rejected'} by</strong> ${approval.decidedBy || missing}</p><p><strong>Decision time</strong><br>${when(approval.decidedAt)}</p><p><strong>Comment or reason</strong><br>${approval.decision}</p></section>` : ''}
+    </div>
+    ${approval.status === 'pending' ? html`<form id="manager-governance-decision-form" data-id="${approval.id}" style="display:grid;gap:10px;margin-top:12px"><label class="small">Decision comment or rejection reason *<textarea class="search-input" name="decisionComment" required minlength="4" rows="3" style="display:block;width:100%;box-sizing:border-box" placeholder="Explain the decision and any relevant limits."></textarea></label><div class="modal-actions"><button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button><button type="submit" class="btn-danger btn-sm" data-decision="rejected">Reject</button><button type="submit" class="btn-primary btn-sm" data-decision="approved">Approve</button></div></form>` : html`<div class="modal-actions"><button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button></div>`}
+  `;
+  openModal(content, { wide: true });
+}
+
+function showRequesterApprovalRequestDetails(s, approval) {
+  const isOperationalChange = approval.requestType === 'operational_change';
+  const requestTypeLabel = isOperationalChange ? 'Operational Change' : 'Schedule Adjustment';
+  const originalSchedule = approval.originalSchedule && approval.originalSchedule !== 'Original schedule'
+    ? approval.originalSchedule : 'Not recorded';
+  const requestedSchedule = approval.proposedSchedule && approval.proposedSchedule !== 'Proposed schedule'
+    ? approval.proposedSchedule : 'Not recorded';
+  const scheduleReason = approval.reason && approval.reason !== 'Operational schedule adjustment'
+    ? approval.reason : 'Not recorded';
+  const scheduleSlaImpact = approval.slaImpact && approval.slaImpact !== 'Within operational SLA margin'
+    ? approval.slaImpact : 'Not recorded';
+  const scheduleOperationalImpact = approval.operationalImpact && approval.operationalImpact !== 'Rebalances officer workload'
+    ? approval.operationalImpact : 'Not recorded';
+  const content = html`
+    <h2 id="modal-title" class="modal-title">Approval request details</h2>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 14px;">
+      <span class="tag ${approval.status === 'approved' ? 'tag-success' : approval.status === 'rejected' ? 'tag-danger' : 'tag-warning'}">${approval.status}</span>
+      <span class="tag tag-neutral">${requestTypeLabel}</span>
+      <span class="tag tag-neutral">${approval.id}</span>
+    </div>
+    <div style="display: grid; gap: 8px; max-height: 62vh; overflow-y: auto;">
+      <div><strong>Task:</strong> ${approval.taskId} · ${approval.taskTitle}</div>
+      ${approval.caseId ? html`<div><strong>Linked case:</strong> ${approval.caseId}</div>` : ''}
+      <div><strong>Submitted:</strong> ${approval.createdAt ? new Date(approval.createdAt).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) : 'Not recorded'}</div>
+      ${isOperationalChange ? html`
+        <div><strong>Unexpected situation:</strong><p>${approval.unexpectedSituation || 'Not provided'}</p></div>
+        <div><strong>Reason:</strong><p>${approval.reason || 'Not provided'}</p></div>
+        <div><strong>Proposed changes:</strong><p>${approval.proposedChanges || 'Not provided'}</p></div>
+        <div><strong>Requested scope:</strong><p>${approval.requestedScope || 'Not provided'}</p></div>
+        <div><strong>Potential impacts:</strong><ul><li>Cost: ${approval.potentialCostImpact || 'Not specified'}</li><li>Schedule: ${approval.potentialScheduleImpact || 'Not specified'}</li><li>Operational: ${approval.potentialOperationalImpact || 'Not specified'}</li></ul></div>
+        ${approval.supportingEvidence?.length ? html`<div><strong>Evidence references:</strong><ul>${approval.supportingEvidence.map((item) => html`<li>${item.title || item.fileName || item.reference || 'Evidence reference'}${item.fileName ? ` · ${item.fileName}` : ''}${item.reference ? ` · ${item.reference}` : ''}</li>`)}</ul></div>` : ''}
+      ` : html`
+        <div><strong>Original schedule:</strong><p>${originalSchedule}</p></div>
+        <div><strong>Requested schedule:</strong><p>${requestedSchedule}</p></div>
+        <div><strong>Reason for schedule change:</strong><p>${scheduleReason}</p></div>
+        <div><strong>SLA impact:</strong><p>${scheduleSlaImpact}</p></div>
+        <div><strong>Operational impact:</strong><p>${scheduleOperationalImpact}</p></div>
+      `}
+      ${approval.decision ? html`<section class="panel" style="padding: 12px;"><strong>Manager decision · ${approval.decidedBy || 'Manager'}${approval.decidedAt ? ` · ${new Date(approval.decidedAt).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' })}` : ''}</strong><p>${approval.decision}</p></section>` : ''}
+    </div>
+    <div class="modal-actions"><button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button></div>
+  `;
+  openModal(content, { wide: true });
+}
+
+function showTaskApprovalRequestModal(s, task) {
+  const relatedCase = task.caseId ? getCase(s, task.caseId) : null;
+  const evidence = relatedCase ? getCaseEvidence(s, relatedCase.id) : [];
+  const content = html`
+    <h2 id="modal-title" class="modal-title">Request Approval</h2>
+    <p class="small muted">Request authorisation for a proposed operational change. Submitting this form does not change or pause the task.</p>
+    <div style="display: grid; gap: 5px; margin: 12px 0; padding: 12px; border-radius: 8px; background: var(--colorNeutralBackground2);">
+      <div><strong>Task:</strong> ${task.id} · ${task.title}</div>
+      ${relatedCase ? html`<div><strong>Case:</strong> ${relatedCase.id} · ${relatedCase.title || relatedCase.caseNumber || relatedCase.number || ''}</div>` : ''}
+      <div><strong>Assigned officer:</strong> ${officerName(s, task.ownerId)}</div>
+      <div><strong>Original due:</strong> ${taskDateInput(task.dueAt || task.due).replace('T', ' ')}</div>
+      ${task.fixedStartAt ? html`<div><strong>Fixed start:</strong> ${taskDateInput(task.fixedStartAt).replace('T', ' ')}</div>` : ''}
+      <div><strong>Duration:</strong> ${taskDuration(task)} minutes · <strong>Status:</strong> ${task.status}</div>
+    </div>
+    <form id="operational-change-approval-form" data-task="${task.id}" data-case="${relatedCase?.id || ''}" style="display: grid; gap: 10px; max-height: 58vh; overflow-y: auto; padding: 2px;">
+      <label class="small">Unexpected situation *<textarea class="search-input" name="unexpectedSituation" required minlength="4" rows="2" style="display: block; width: 100%; box-sizing: border-box;" placeholder="What happened during the work?"></textarea></label>
+      <label class="small">Reason for request *<textarea class="search-input" name="reason" required minlength="4" rows="2" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Why is a change necessary?"></textarea></label>
+      <label class="small">Proposed changes *<textarea class="search-input" name="proposedChanges" required minlength="4" rows="2" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Describe what should change."></textarea></label>
+      <label class="small">Requested approval scope *<textarea class="search-input" name="requestedScope" required minlength="4" rows="2" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Specify exactly what the manager should authorise."></textarea></label>
+      <label class="small">Potential cost impact<textarea class="search-input" name="potentialCostImpact" rows="1" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Optional"></textarea></label>
+      <label class="small">Potential schedule impact<textarea class="search-input" name="potentialScheduleImpact" rows="1" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Optional"></textarea></label>
+      <label class="small">Potential operational or service impact<textarea class="search-input" name="potentialOperationalImpact" rows="1" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Optional"></textarea></label>
+      <fieldset style="border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 10px;">
+        <legend class="small">Supporting evidence (optional)</legend>
+        ${evidence.length ? evidence.map((item) => html`<label class="small" style="display: block; margin: 4px 0;"><input type="checkbox" name="evidenceIds" value="${item.id}"> ${item.title} (${item.fileName || item.typeLabel || 'evidence'})</label>`) : html`<span class="small muted">No linked case evidence is available.</span>`}
+        <label class="small" style="display: block; margin-top: 8px;">Attach file reference<input type="file" name="evidenceFile" style="display: block; margin-top: 4px;"></label>
+        <label class="small" style="display: block; margin-top: 8px;">Other evidence reference<input class="search-input" name="evidenceReference" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Quotation number, contractor, document link, etc."></label>
+        <span class="small muted">Prototype stores selected file metadata only (up to 5 MB); it does not upload file contents.</span>
+      </fieldset>
+      <div class="modal-actions">
+        <button type="submit" class="btn-primary btn-sm">Submit Approval Request</button>
+        <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Cancel</button>
+      </div>
+    </form>
+  `;
+  openModal(content, { wide: true });
 }
 
 function showCreateTeamModal(s) {

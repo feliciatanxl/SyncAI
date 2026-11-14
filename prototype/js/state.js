@@ -428,6 +428,17 @@ export function createApprovalRequest(s, req) {
       },
     ],
   };
+  if (req.requestType === 'operational_change') {
+    Object.assign(approval, {
+      unexpectedSituation: req.unexpectedSituation || '',
+      proposedChanges: req.proposedChanges || '',
+      requestedScope: req.requestedScope || '',
+      potentialCostImpact: req.potentialCostImpact || '',
+      potentialScheduleImpact: req.potentialScheduleImpact || '',
+      potentialOperationalImpact: req.potentialOperationalImpact || '',
+      supportingEvidence: Array.isArray(req.supportingEvidence) ? req.supportingEvidence.map((item) => ({ ...item })) : [],
+    });
+  }
   s.approvals.unshift(approval);
   logActivity(s, `Submitted approval request (${id}): ${approval.taskTitle} [${approval.requestType}]`, approval.requesterName);
 
@@ -447,6 +458,48 @@ export function createApprovalRequest(s, req) {
   });
 
   return approval;
+}
+
+/** Create a task-linked operational change request without changing the task itself. */
+export function submitOperationalChangeApproval(s, taskId, details = {}) {
+  const task = getTask(s, taskId);
+  if (!task) return { success: false, error: 'The selected task could not be found.' };
+  if (!isTeamMember(s) || task.ownerId !== s.currentOfficerId) {
+    return { success: false, error: 'Only the assigned team member can submit this request.' };
+  }
+
+  const required = [
+    ['unexpectedSituation', 'Describe the unexpected situation.'],
+    ['reason', 'Explain why the change is necessary.'],
+    ['proposedChanges', 'Describe the proposed changes.'],
+    ['requestedScope', 'Specify the requested approval scope.'],
+  ];
+  for (const [field, message] of required) {
+    if (typeof details[field] !== 'string' || details[field].trim().length < 4) {
+      return { success: false, error: message };
+    }
+  }
+
+  const approval = createApprovalRequest(s, {
+    requestType: 'operational_change',
+    taskId: task.id,
+    caseId: task.caseId || null,
+    taskTitle: task.title,
+    originalOwnerId: task.ownerId,
+    originalSchedule: `${task.dueAt || task.due || 'Unscheduled'}${task.fixedStartAt ? ` · Fixed start ${task.fixedStartAt}` : ''}`,
+    reason: details.reason.trim(),
+    slaImpact: details.potentialScheduleImpact?.trim() || 'Not specified',
+    operationalImpact: details.potentialOperationalImpact?.trim() || 'Not specified',
+    unexpectedSituation: details.unexpectedSituation.trim(),
+    proposedChanges: details.proposedChanges.trim(),
+    requestedScope: details.requestedScope.trim(),
+    potentialCostImpact: details.potentialCostImpact?.trim() || '',
+    potentialScheduleImpact: details.potentialScheduleImpact?.trim() || '',
+    potentialOperationalImpact: details.potentialOperationalImpact?.trim() || '',
+    supportingEvidence: details.supportingEvidence || [],
+  });
+
+  return { success: true, approval };
 }
 
 export function decideApproval(s, approvalId, decision, reviewerName = null, note = '') {
@@ -474,7 +527,7 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
     });
 
     // Apply approved change
-    const t = getTask(s, approval.taskId);
+    const t = approval.requestType === 'operational_change' ? null : getTask(s, approval.taskId);
     if (t) {
       if (approval.proposedOwnerId && approval.proposedOwnerId !== t.ownerId) {
         t.ownerId = approval.proposedOwnerId;
@@ -485,9 +538,9 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
     }
 
     // Apply approved case closure
-    if (approval.caseId && (approval.requestType === 'case_closure' || approval.requestType === 'closure')) {
+    if (approval.requestType !== 'operational_change' && approval.caseId && (approval.requestType === 'case_closure' || approval.requestType === 'closure')) {
       closeCase(s, approval.caseId, reviewer);
-    } else if (approval.caseId) {
+    } else if (approval.requestType !== 'operational_change' && approval.caseId) {
       // Apply approved case reassignment
       const c = getCase(s, approval.caseId);
       if (c) {
@@ -566,7 +619,9 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
       recipientName: approval.requesterName,
       recipientRole: approval.requesterRole,
       title: `Change Approved: ${approval.taskTitle}`,
-      summary: `${reviewer} approved your ${approval.requestType.replace('_', ' ')} request. Schedule updated.`,
+      summary: approval.requestType === 'operational_change'
+        ? `${reviewer} approved your operational change request. Review the decision before making any task changes.`
+        : `${reviewer} approved your ${approval.requestType.replace('_', ' ')} request. Schedule updated.`,
       taskId: approval.taskId,
       approvalId: approval.id,
       secureLink: `syncai://tasks/${approval.taskId}`,
@@ -590,7 +645,7 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
 
     logActivity(s, `Declined request (${approval.id}) for ${approval.taskTitle}: ${approval.decision}`, reviewer);
 
-    if (approval.caseId) {
+    if (approval.caseId && approval.requestType !== 'operational_change') {
       const c = getCase(s, approval.caseId);
       if (c) {
         c.changeHistory ||= [];

@@ -125,7 +125,7 @@ function renderAdminOverview(s, user) {
 
 function renderManagerOverview(s, user) {
   const tasks = s.tasks || [];
-  const pendingApprovals = getPendingApprovals(s);
+  const pendingApprovals = getPendingApprovals(s).filter((approval) => approval.requestType !== 'operational_change');
   const highRiskTasks = tasks.filter((t) => t.status !== 'done' && assessRisk(s, t).level === 'high');
   const activeOfficers = s.officers.filter((o) => !o.availability?.[TODAY]).length;
 
