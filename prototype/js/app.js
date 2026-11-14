@@ -3,7 +3,6 @@ import {
   getState,
   loadState,
   resetState,
-  storage,
   update,
   subscribe,
   getCurrentUser,
@@ -23,6 +22,7 @@ import {
   createApprovalRequest,
   decideApproval,
   isOpen,
+  officerName,
   logActivity,
   actorName,
   getCase,
@@ -49,20 +49,18 @@ import {
 } from './state.js';
 import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog } from './ui.js';
 import { accessibleTask, changeTaskStatus, deleteCapturedTask, taskDateInput, taskDuration } from './taskCapture.js';
-import { accessibleCase, visibleCases, getCaseKanbanColumn } from './cases.js';
+import { accessibleCase } from './cases.js';
 import { deadlineAlert, priorityFactors } from './taskIntelligence.js';
 import { traceDownstream } from './ripple.js';
-import { acceptDraft, discardDraft, generateDraft, reviewDraft } from './scheduleReview.js';
 import { calendarDay, singaporeInstant, TODAY } from './time.js';
 
 // Page modules
 import overviewPage from './pages/overview.js';
-import casesPage, { caseView } from './pages/cases.js';
-import tasksPage, { clearTaskFilters, tasksView } from './pages/tasks.js';
+import casesPage from './pages/cases.js';
+import tasksPage, { tasksView } from './pages/tasks.js';
 import { openTaskCapture } from './pages/taskCaptureDialog.js';
-import planPage from './pages/plan.js';
-import { currentPlanningOfficer, planningDates, planningIssueView, planningView, scheduleRange, visibleDraft } from './pages/smartPlan.js';
-import { blockTimes, canRequestScheduleChange, pendingScheduleRequest, requestScheduleChange } from './planningIssues.js';
+import planPage, { planView } from './pages/plan.js';
+import { currentPlanningOfficer, planningDates, planningView } from './pages/smartPlan.js';
 import { openSchedulePreferences } from './pages/schedulePreferencesDialog.js';
 import teamPage from './pages/team.js';
 import peoplePage from './pages/people.js';
@@ -76,6 +74,7 @@ import assistantPage from './pages/assistant.js';
 const SECTIONS = {
   overview: { id: 'overview', label: 'Overview', icon: 'grid', page: overviewPage },
   assistant: { id: 'assistant', label: 'Ask SyncAI', icon: 'sparkle', page: assistantPage },
+  cases: { id: 'cases', label: 'Cases', icon: 'folder', page: casesPage },
   tasks: { id: 'tasks', label: 'My tasks', icon: 'tasks', page: tasksPage },
   cases: { id: 'cases', label: 'Case Action Centre', icon: 'cases', page: casesPage },
   plan: { id: 'plan', label: 'My plan', icon: 'calendar', page: planPage },
@@ -89,18 +88,6 @@ const SECTIONS = {
 
 let currentSection = 'overview';
 let currentCaseId = null;
-let currentNotificationFilter = 'all';
-let lastFocusedTrigger = null;
-
-function closeCaseDrawer() {
-  caseView.selectedCaseId = null;
-  caseView.activeExplanationRuleId = null;
-  caseView.highlightedSourceId = null;
-  renderApp();
-  if (lastFocusedTrigger && typeof lastFocusedTrigger.focus === 'function') {
-    lastFocusedTrigger.focus();
-  }
-}
 
 // Determine allowed sections based on role and status (matches client/src/lib/sections.js)
 function allowedSections(s) {
@@ -112,10 +99,10 @@ function allowedSections(s) {
     return ['overview', 'assistant', 'cases', 'people', 'teams', 'activity', 'decides', 'settings'];
   }
   if (isManager(s)) {
-    return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'team', 'decides', 'settings'];
+    return ['overview', 'assistant', 'cases', 'tasks', 'plan', 'team', 'decides', 'settings'];
   }
   // Member
-  return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'decides', 'settings'];
+  return ['overview', 'assistant', 'cases', 'tasks', 'plan', 'decides', 'settings'];
 }
 
 function readPortalRoute(s) {
@@ -150,27 +137,13 @@ function init() {
   }
 
   // Restore theme & text preferences
-  let theme, textSize;
-  try {
-    theme = localStorage.getItem('syncai_theme');
-    textSize = localStorage.getItem('syncai_text_size');
-  } catch {
-    // The demo can still run in memory when browser storage is unavailable.
-  }
-  if (theme && theme !== 'system') document.documentElement.setAttribute('data-theme', theme);
-  if (textSize && textSize !== 'standard') document.documentElement.setAttribute('data-text-size', textSize);
+  const theme = localStorage.getItem('syncai_theme') || 'system';
+  const textSize = localStorage.getItem('syncai_text_size') || 'standard';
+  if (theme !== 'system') document.documentElement.setAttribute('data-theme', theme);
+  if (textSize !== 'standard') document.documentElement.setAttribute('data-text-size', textSize);
 
   // Read section from URL hash
   readPortalRoute(s);
-  const officer = currentPlanningOfficer(s);
-  const accepted = s.acceptedSchedules?.[officer?.id];
-  if (accepted && !accepted[TODAY]) {
-    const latest = Object.values(accepted).sort((a, b) => b.acceptedAt.localeCompare(a.acceptedAt))[0];
-    if (latest) {
-      planningView.date = latest.day.date;
-      planningView.mode = latest.dates.length > 1 ? 'weekly' : 'daily';
-    }
-  }
 
   // Subscribe to state updates
   subscribe(() => renderApp());
@@ -389,152 +362,6 @@ function renderMain(s) {
   render(main, sec.id === 'cases' ? sec.page.render(s, currentCaseId) : sec.page.render(s));
 }
 
-let isDraggingCard = false;
-let currentDragCaseId = null;
-
-function handleCaseTransitionFlow(caseId, targetStage) {
-  const s = getState();
-  const c = getCase(s, caseId);
-  if (!c) return;
-
-  const check = canTransitionCase(s, caseId, targetStage);
-  if (check.isCurrent) return;
-
-  if (!check.permitted) {
-    toast(`Transition rejected: ${check.reason}`, 'error');
-    return;
-  }
-
-  if (check.requiresReason || check.requiresApproval || check.isException) {
-    caseView.transitionModal = {
-      caseId: c.id,
-      targetStage,
-      currentStage: getCaseKanbanColumn(c),
-      requiresReason: Boolean(check.requiresReason),
-      requiresApproval: Boolean(check.requiresApproval),
-      isException: Boolean(check.isException),
-      reasonHint: check.reason,
-      unresolvedItems: check.unresolvedItems || [],
-      error: null,
-    };
-    renderApp();
-    return;
-  }
-
-  // Straightforward permitted transition
-  update((stateObj) => {
-    const res = requestCaseStageTransition(stateObj, caseId, targetStage);
-    if (!res.success) {
-      toast(res.error, 'error');
-    } else {
-      toast(res.message || 'Case moved successfully.', 'success');
-    }
-  });
-  renderApp();
-}
-
-function setupKanbanDragAndDrop() {
-  document.addEventListener('dragstart', (e) => {
-    const card = e.target.closest('.kanban-case-card');
-    if (!card) return;
-    const cid = card.dataset.caseId || card.dataset.case;
-    if (!cid) return;
-
-    isDraggingCard = true;
-    currentDragCaseId = cid;
-    card.classList.add('is-dragging');
-
-    if (e.dataTransfer) {
-      e.dataTransfer.setData('text/plain', cid);
-      e.dataTransfer.effectAllowed = 'move';
-    }
-  });
-
-  document.addEventListener('dragend', (e) => {
-    const card = e.target.closest('.kanban-case-card');
-    if (card) card.classList.remove('is-dragging');
-    document.querySelectorAll('.kanban-col').forEach((col) => {
-      col.classList.remove('is-drop-target', 'is-invalid-target');
-    });
-    currentDragCaseId = null;
-    setTimeout(() => {
-      isDraggingCard = false;
-    }, 150);
-  });
-
-  document.addEventListener('dragover', (e) => {
-    const dropzone = e.target.closest('#evidence-dropzone');
-    if (dropzone) {
-      e.preventDefault();
-      dropzone.classList.add('is-dragover');
-      return;
-    }
-
-    const col = e.target.closest('.kanban-col');
-    if (!col) return;
-    e.preventDefault();
-
-    const targetColId = col.dataset.colId;
-    if (!targetColId || !currentDragCaseId) return;
-
-    const s = getState();
-    const check = canTransitionCase(s, currentDragCaseId, targetColId);
-
-    if (check.isCurrent) {
-      if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
-      col.classList.remove('is-drop-target', 'is-invalid-target');
-    } else if (check.permitted) {
-      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-      col.classList.add('is-drop-target');
-      col.classList.remove('is-invalid-target');
-    } else {
-      if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
-      col.classList.add('is-invalid-target');
-      col.classList.remove('is-drop-target');
-    }
-  });
-
-  document.addEventListener('dragleave', (e) => {
-    const dropzone = e.target.closest('#evidence-dropzone');
-    if (dropzone && !dropzone.contains(e.relatedTarget)) {
-      dropzone.classList.remove('is-dragover');
-      return;
-    }
-
-    const col = e.target.closest('.kanban-col');
-    if (!col) return;
-    if (!col.contains(e.relatedTarget)) {
-      col.classList.remove('is-drop-target', 'is-invalid-target');
-    }
-  });
-
-  document.addEventListener('drop', (e) => {
-    const dropzone = e.target.closest('#evidence-dropzone');
-    if (dropzone) {
-      e.preventDefault();
-      dropzone.classList.remove('is-dragover');
-      const fileInput = document.getElementById('evidence-file-input');
-      if (fileInput && e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        fileInput.files = e.dataTransfer.files;
-        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      return;
-    }
-
-    const col = e.target.closest('.kanban-col');
-    if (!col) return;
-    e.preventDefault();
-
-    col.classList.remove('is-drop-target', 'is-invalid-target');
-    const targetStage = col.dataset.colId;
-    const caseId = (e.dataTransfer && e.dataTransfer.getData('text/plain')) || currentDragCaseId;
-
-    if (caseId && targetStage) {
-      handleCaseTransitionFlow(caseId, targetStage);
-    }
-  });
-}
-
 function setupEvents() {
   setupKanbanDragAndDrop();
 
@@ -571,14 +398,6 @@ function setupEvents() {
       }
     }
 
-    if (e.target.closest('[data-action="settings-reset-defaults"]')) {
-      saveDisplaySetting('theme', 'system');
-      saveDisplaySetting('text-size', 'standard');
-      toast('Display settings reset.', 'info');
-      renderApp();
-      document.querySelector('[data-action="settings-reset-defaults"]')?.focus();
-      return;
-    }
     // 1. Navigation clicks
     const navBtn = e.target.closest('[data-action="nav-go"]');
     if (navBtn) {
@@ -695,9 +514,6 @@ function setupEvents() {
 
     // 5. Reset demo buttons
     if (e.target.closest('#btn-quick-reset') || e.target.closest('#btn-reset-demo-card') || e.target.closest('[data-action="settings-reset-demo-data"]')) {
-      planningView.drafts.clear();
-      Object.assign(planningIssueView, { open: false, date: '', allDates: false, issues: [] });
-      Object.assign(planningView, { date: TODAY, mode: 'daily', officerId: null });
       resetState();
       toast('Demo state reset to default seed.', 'success');
       renderApp();
@@ -732,21 +548,6 @@ function setupEvents() {
       return;
     }
 
-    const moreTaskFilters = e.target.closest('[data-action="tasks-more-filters"]');
-    if (moreTaskFilters) {
-      tasksView.moreFiltersOpen = !tasksView.moreFiltersOpen;
-      moreTaskFilters.setAttribute('aria-expanded', String(tasksView.moreFiltersOpen));
-      document.getElementById('tasks-extra-filters').hidden = !tasksView.moreFiltersOpen;
-      return;
-    }
-
-    if (e.target.closest('[data-action="tasks-clear-filters"]')) {
-      clearTaskFilters();
-      renderApp();
-      document.querySelector('[data-action="tasks-search"]')?.focus();
-      return;
-    }
-
     const taskDelete = e.target.closest('[data-action="capture-delete"]');
     if (taskDelete) {
       const task = accessibleTask(getState(), taskDelete.dataset.id);
@@ -760,7 +561,6 @@ function setupEvents() {
           if (!confirmed || !accessibleTask(getState(), task.id)?.manualCapture) return;
           update((s) => deleteCapturedTask(s, task.id));
           toast('Task deleted.', 'success');
-          document.querySelector('[data-action="tasks-search"]')?.focus();
         });
       }
       return;
@@ -772,7 +572,6 @@ function setupEvents() {
       tasksView.status = status;
       tasksView.page = 1;
       renderApp();
-      document.querySelector('[data-action="tasks-filter-status"][aria-pressed="true"]')?.focus();
       return;
     }
 
@@ -836,61 +635,66 @@ function setupEvents() {
       const officer = currentPlanningOfficer(getState());
       if (!officer) return;
       const { action, mode, offset, date } = planControl.dataset;
-      if (action === 'plan-issue-request') {
-        const issue = planningIssueView.issues.find(({ id }) => id === planControl.dataset.id);
-        if (issue && canRequestScheduleChange(getState(), issue) && !pendingScheduleRequest(getState(), issue)) openScheduleChangeRequest(issue);
-        return;
-      }
-      if (action === 'plan-review-all') {
-        Object.assign(planningIssueView, { allDates: true, open: true });
-        renderApp();
-        document.querySelector('#schedule-issue-panel > summary')?.focus();
-        return;
-      }
-      if (action === 'plan-issue-day') {
-        planningIssueView.date = date;
-        planningIssueView.open = true;
-        renderApp();
-        document.querySelector('[data-action="plan-issue-day"][aria-pressed="true"]')?.focus();
-        return;
-      }
-      if (action === 'plan-issue-week') {
-        Object.assign(planningView, { date, mode: 'weekly' });
-        Object.assign(planningIssueView, { date, open: true, allDates: false });
-        renderApp();
-        document.querySelector('[data-action="plan-issue-day"][aria-pressed="true"]')?.focus();
-        return;
-      }
       if (action === 'plan-preferences') {
         openSchedulePreferences(officer);
         return;
       }
-      const draft = visibleDraft(officer.id);
-      if (action === 'plan-accept' || action === 'plan-discard') {
-        if (draft) resolveScheduleDraft(draft, action === 'plan-accept');
-        return;
-      }
-      if (action === 'plan-generate') {
-        planningIssueView.date = '';
-        planningIssueView.allDates = false;
-        const dates = draft && reviewDraft(getState(), draft).changed.length ? draft.dates : planningDates();
-        planningView.drafts.set(officer.id, generateDraft(getState(), officer.id, dates));
-        toast('Draft schedule generated.', 'info');
-      }
+      if (action === 'plan-generate') planningView.generation = { officerId: officer.id, dates: planningDates() };
       if (action === 'plan-view') planningView.mode = mode;
       if (action === 'plan-today') planningView.date = TODAY;
       if (action === 'plan-shift') planningView.date = calendarDay(planningView.date, Number(offset) * (planningView.mode === 'weekly' ? 7 : 1));
-      if (['plan-view', 'plan-today', 'plan-shift'].includes(action)) planningIssueView.allDates = false;
-      if (action === 'plan-open-day') {
-        Object.assign(planningView, { date, mode: 'daily' });
-        planningIssueView.allDates = false;
-        if (planningIssueView.issues.some((issue) => issue.date === date)) planningIssueView.open = true;
-      }
+      if (action === 'plan-open-day') Object.assign(planningView, { date, mode: 'daily' });
       renderApp();
       if (action === 'plan-open-day') document.querySelector('[data-action="plan-view"][data-mode="daily"]')?.focus();
       else if (action === 'plan-view') document.querySelector('[data-action="plan-view"][aria-pressed="true"]')?.focus();
       else if (action === 'plan-shift') document.querySelector(`[data-action="plan-shift"][data-offset="${offset}"]`)?.focus();
       else document.querySelector(`[data-action="${action}"]`)?.focus();
+      return;
+    }
+
+    // 7. Plan & Simulator actions
+    const simScenarioBtn = e.target.closest('[data-action="sim-select-scenario"]');
+    if (simScenarioBtn) {
+      const scenarioId = simScenarioBtn.dataset.scenario;
+      planView.activeScenarioId = scenarioId;
+      planView.simulationResult = null;
+      renderApp();
+      return;
+    }
+
+    const simAltBtn = e.target.closest('[data-action="sim-select-alt"]');
+    if (simAltBtn) {
+      planView.selectedAltId = simAltBtn.dataset.alt;
+      renderApp();
+      return;
+    }
+
+    const simCommitBtn = e.target.closest('[data-action="sim-commit"]');
+    if (simCommitBtn) {
+      if (!isManager(getState()) || getCurrentUser(getState()).status !== 'active') return;
+      const alt = simCommitBtn.dataset.alt;
+      update((s) => {
+        logActivity(s, `Recorded simulated choice: Alternative ${alt.toUpperCase()}.`, actorName(s));
+      });
+      toast(`Simulated choice recorded: Alternative ${alt.toUpperCase()}.`, 'success');
+      return;
+    }
+
+    const simRequestApprovalBtn = e.target.closest('[data-action="sim-request-approval"]');
+    if (simRequestApprovalBtn) {
+      const alt = simRequestApprovalBtn.dataset.alt;
+      update((s) => {
+        createApprovalRequest(s, {
+          requestType: 'schedule_adjustment',
+          taskId: 't103',
+          taskTitle: 'Site check: ceiling seepage at Blk 211 #05-12',
+          reason: `Alternative ${alt.toUpperCase()} schedule adjustment submitted from What-If Simulator.`,
+          slaImpact: 'Protects 24h response commitment while handling safety delay.',
+          operationalImpact: 'Rebalances inspection workload across Zone A.',
+        });
+      });
+      toast('Schedule change request submitted to Estate Manager Jennifer Ong.', 'success');
+      renderApp();
       return;
     }
 
@@ -910,11 +714,11 @@ function setupEvents() {
     const mgrApprove = e.target.closest('[data-action="manager-approve"]');
     if (mgrApprove) {
       const apprId = mgrApprove.dataset.id;
-      let outcome;
       update((s) => {
-        outcome = decideApproval(s, apprId, 'approved', actorName(s), 'Approved by authorised manager.');
+        decideApproval(s, apprId, 'approved', actorName(s), 'Approved by authorised manager.');
       });
-      toast(outcome.message || outcome.error, outcome.success ? 'success' : 'error');
+      toast('Schedule change approved and applied.', 'success');
+      renderApp();
       return;
     }
 
@@ -1269,15 +1073,16 @@ function setupEvents() {
 
     const caseRippleNav = e.target.closest('[data-action="case-ripple-nav"]');
     if (caseRippleNav) {
-      const state = getState();
-      const task = accessibleTask(state, caseRippleNav.dataset.task);
-      if (!task) {
-        toast('This task is unavailable.', 'info');
-        return;
+      const cid = caseRippleNav.dataset.case;
+      const tid = caseRippleNav.dataset.task;
+      caseView.selectedCaseId = null;
+      currentSection = 'plan';
+      window.location.hash = '#plan';
+      if (tid) {
+        planView.selectedTaskId = tid;
       }
-      showTaskDetailModal(state, task);
-      const details = document.querySelector('#modal-root .task-details-extra');
-      if (details) details.open = true;
+      toast('Opened What-If Simulator & Ripple Intelligence for case task.', 'info');
+      renderApp();
       return;
     }
 
@@ -1666,7 +1471,6 @@ function setupEvents() {
   });
 
   document.addEventListener('toggle', (event) => {
-    if (event.target.id === 'schedule-issue-panel' && event.target.isConnected) planningIssueView.open = event.target.open;
     if (event.target.id === 'todo-preview' && event.target.isConnected) tasksView.toDoOpen = event.target.open;
   }, true);
 
@@ -1706,11 +1510,9 @@ function setupEvents() {
       'tasks-filter-date': 'dueDate',
     }[e.target.dataset.action];
     if (filter) {
-      const action = e.target.dataset.action;
       tasksView[filter] = e.target.value;
       tasksView.page = 1;
       renderApp();
-      document.querySelector(`[data-action="${action}"]`)?.focus();
     }
 
     if (e.target.dataset.action === 'capture-status') {
@@ -1732,31 +1534,29 @@ function setupEvents() {
 
     if (e.target.dataset.action === 'plan-date') {
       if (singaporeInstant(e.target.value + 'T00:00')) planningView.date = e.target.value;
-      planningIssueView.allDates = false;
       renderApp();
       document.querySelector('[data-action="plan-date"]')?.focus();
     }
     if (e.target.dataset.action === 'plan-officer') {
       planningView.officerId = e.target.value;
-      planningIssueView.allDates = false;
       renderApp();
       document.querySelector('[data-action="plan-officer"]')?.focus();
     }
 
     if (e.target.dataset.action === 'settings-change-theme') {
       const val = e.target.value;
-      saveDisplaySetting('theme', val);
+      localStorage.setItem('syncai_theme', val);
+      if (val === 'system') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', val);
       toast(`Appearance set to ${val}.`, 'info');
-      renderApp();
-      document.querySelector('[name="appearance"]:checked')?.focus();
     }
 
     if (e.target.dataset.action === 'settings-change-text') {
       const val = e.target.value;
-      saveDisplaySetting('text-size', val);
+      localStorage.setItem('syncai_text_size', val);
+      if (val === 'standard') document.documentElement.removeAttribute('data-text-size');
+      else document.documentElement.setAttribute('data-text-size', val);
       toast(`Text size set to ${val}.`, 'info');
-      renderApp();
-      document.querySelector('[name="textSize"]:checked')?.focus();
     }
 
     if (e.target.dataset.action === 'case-filter-estate') {
@@ -1908,7 +1708,6 @@ function setupEvents() {
 
   // Global Keyboard Navigation & Focus Trap (Escape and Tab)
   document.addEventListener('keydown', (e) => {
-    if (e.defaultPrevented) return;
     // Rows and Kanban cards expose keyboard-equivalent click behavior.
     if ((e.key === 'Enter' || e.key === ' ') && !caseView.selectedCaseId) {
       const caseSurface = e.target.closest('[data-action="case-row-click"], [data-action="case-card-surface"]');
@@ -2004,16 +1803,6 @@ function setupEvents() {
   });
 }
 
-function saveDisplaySetting(key, value) {
-  if (value === 'system' || value === 'standard') document.documentElement.removeAttribute(`data-${key}`);
-  else document.documentElement.setAttribute(`data-${key}`, value);
-  try {
-    localStorage.setItem(`syncai_${key.replace('-', '_')}`, value);
-  } catch {
-    // Apply the selected display setting for the current session.
-  }
-}
-
 function switchDemoRole(roleKey) {
   const s = getState();
   setCurrentUser(s, roleKey);
@@ -2075,83 +1864,6 @@ function showAccountSwitchModal() {
   }, { once: true });
 }
 
-function openScheduleChangeRequest(issue) {
-  const commitment = [issue.block, issue.other].filter(Boolean)
-    .map((block) => `${block.title} · ${blockTimes(block)} SGT`).join(' / ');
-  openModal(html`<h2 class="modal-title">Request Schedule Change</h2>
-    <p><strong>${issue.title}</strong></p>
-    <p class="small muted">${commitment || 'No task block was scheduled.'}</p>
-    <p class="small">${issue.message}</p>
-    <form id="schedule-change-request" class="capture-form">
-      <label class="capture-wide">Reason for requesting a change
-        <textarea name="reason" required maxlength="500" rows="3" autofocus></textarea>
-      </label>
-      <p class="capture-wide capture-error" role="alert" hidden></p>
-      <div class="modal-actions capture-wide">
-        <button type="button" class="btn-secondary" data-action="modal-close">Cancel</button>
-        <button type="submit" class="btn-primary">Submit for review</button>
-      </div>
-    </form>`);
-  const form = document.getElementById('schedule-change-request');
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
-    try {
-      planningIssueView.open = true;
-      update((state) => requestScheduleChange(state, issue, form.elements.reason.value));
-      closeModal();
-      document.querySelector('#schedule-issue-panel summary')?.focus();
-      toast(storage.ok ? 'Simulated request submitted. Pending Approval.' : 'Pending Approval for this session. Browser storage is unavailable.', storage.ok ? 'success' : 'error');
-    } catch (error) {
-      const alert = form.querySelector('[role="alert"]');
-      alert.textContent = error.message;
-      alert.hidden = false;
-    }
-  });
-}
-
-async function resolveScheduleDraft(draft, accept) {
-  const range = scheduleRange(draft.dates);
-  const review = reviewDraft(getState(), draft);
-  const issues = accept && (review.warningCount > 0 || review.unscheduledCount > 0);
-  const scheduled = draft.days.reduce((count, day) => count + day.proposed.length, 0);
-  const risks = draft.unscheduled.filter(({ deadline }) => deadline.at).length
-    + draft.days.reduce((count, day) => count + (day.warningDetails || []).filter(({ kind }) => kind === 'Deadline risk').length, 0);
-  const count = (n, label) => `${n} ${label}${n === 1 ? '' : 's'}`;
-  const details = [
-    review.replaced.length ? `Replaces ${count(review.replaced.length, 'accepted day')}.` : '',
-    issues ? 'Warnings and unscheduled work remain available for review.' : '',
-  ].filter(Boolean).join(' ');
-  const confirmed = await confirmDialog({
-    title: accept ? 'Accept schedule?' : 'Discard draft?',
-    body: accept ? `${range}. ${count(scheduled, 'scheduled task')} · ${review.unscheduledCount} unscheduled · ${count(review.warningCount, 'calendar warning')} · ${count(risks, 'potential deadline risk')}. ${details}`
-      : `${range}. Return to the accepted schedule or protected calendar for these dates.`,
-    confirmLabel: accept ? 'Accept Schedule' : 'Discard Draft',
-    danger: !accept,
-    acknowledgement: issues ? 'I understand that some tasks remain unscheduled or require further review.' : undefined,
-  });
-  if (!confirmed || planningView.drafts.get(draft.officerId) !== draft || currentPlanningOfficer(getState())?.id !== draft.officerId) return;
-  if (accept) {
-    try {
-      update((state) => {
-        const latest = reviewDraft(state, draft);
-        if (!issues && (latest.warningCount || latest.unscheduledCount)) throw new Error('Review the outstanding warnings before accepting.');
-        acceptDraft(state, draft, { acknowledged: Boolean(issues || review.replaced.length) });
-        discardDraft(planningView.drafts, draft, true);
-      });
-      toast(storage.ok ? 'Schedule accepted and saved.' : 'Schedule accepted for this session. Browser storage could not save it.',
-        storage.ok ? 'success' : 'error');
-    } catch (error) {
-      renderApp();
-      toast(error.message, 'error');
-    }
-  } else {
-    discardDraft(planningView.drafts, draft, true);
-    renderApp();
-    toast('Draft discarded.', 'info');
-  }
-  document.getElementById('smart-plan-h')?.focus();
-}
-
 function showTaskDetailModal(s, t) {
   const dependents = traceDownstream(s, t.id).dependents.filter(({ task }) => accessibleTask(s, task.id));
   const mgr = isManager(s);
@@ -2160,84 +1872,116 @@ function showTaskDetailModal(s, t) {
   const deadline = deadlineAlert(t);
   const slaDue = taskDateInput(t.slaDue);
 
-  const due = taskDateInput(t.dueAt || t.due);
-  const fixedStart = taskDateInput(t.fixedStartAt);
-  const renderTime = (value) => html`<time datetime="${value}+08:00">${value.replace('T', ' ')} SGT</time>`;
-  const priorityTone = { Critical: 'danger', High: 'warning', Medium: 'brand' }[t.priority] || 'neutral';
-
-  openModal(html`
-    <div class="task-details">
-      <header class="task-details-header">
-        <div>
-          <h2 id="modal-title" class="modal-title">${t.title}</h2>
-          <p class="small muted">${t.location ? `${t.location} · ` : ''}Assigned to ${officerName(s, t.ownerId)}</p>
-        </div>
-        <button type="button" class="btn-subtle task-details-close" data-action="modal-close" aria-label="Close task details">${icon('close', 20)}</button>
-      </header>
-      <div class="task-details-body">
-        <div class="task-details-badges">
-          <span class="tag tag-${priorityTone}">${t.priority} Priority</span>
-          ${t.safety ? html`<span class="tag tag-danger">Safety</span>` : ''}
-          <span class="tag tag-brand">${t.category}</span>
-        </div>
-        ${t.description ? html`<p class="capture-text task-details-description">${t.description}</p>` : ''}
-        <dl class="task-details-facts" aria-label="Key information">
-          <div><dt>Due date</dt><dd>${due ? renderTime(due) : 'No due date recorded'}
-            ${deadline ? html`<span class="work-order-deadline-note ${deadline.tone}">${deadline.label}</span>` : ''}
-          </dd></div>
-          <div><dt>Estimated duration</dt><dd>${taskDuration(t)} minutes</dd></div>
-          ${t.appointmentTime ? html`<div><dt>Resident commitment</dt><dd>${t.appointmentTime}</dd></div>` : ''}
-          ${slaDue || t.slaType ? html`<div><dt>SLA information</dt><dd>${t.slaType || 'Recorded deadline'}
-            ${slaDue ? html`<span class="task-details-note">${slaDue === due ? 'Same as the due date' : renderTime(slaDue)}</span>` : ''}
-          </dd></div>` : ''}
-        </dl>
-        <details class="priority-explanation" open>
-          <summary>Why this priority?</summary>
-          <p class="small muted">Priority is set on the task. These demo factors show the recorded context in EMS’s stated order.</p>
-          <ol>${factors.map(({ factor, reason }) => html`<li><strong>${factor}</strong> ${reason}</li>`)}</ol>
-        </details>
-        <details class="task-details-extra">
-          <summary>Additional details &amp; dependencies</summary>
-          <dl class="task-details-extra-list">
-            ${t.caseId ? html`<div><dt>Linked case</dt><dd>
-              ${relatedCase ? html`<a href="#cases/${relatedCase.id}" data-action="modal-close">${relatedCase.number || relatedCase.id} · ${relatedCase.title}</a>` : ''}
-              <button type="button" class="btn-subtle btn-sm" data-action="nav-to-case" data-case="${t.caseId}">Open in Case Action Centre</button>
-            </dd></div>` : ''}
-            ${t.tags?.length ? html`<div><dt>Tags</dt><dd class="task-details-badges">${t.tags.map((tag) => html`<span class="tag tag-neutral">${tag}</span>`)}</dd></div>` : ''}
-            ${t.statutory ? html`<div><dt>Deadline type</dt><dd>Statutory deadline</dd></div>` : ''}
-            ${fixedStart ? html`<div><dt>Fixed start</dt><dd>${renderTime(fixedStart)}</dd></div>` : ''}
-            ${t.remarks ? html`<div><dt>Remarks</dt><dd class="capture-text">${t.remarks}</dd></div>` : ''}
-            ${t.consequence ? html`<div><dt>Long-term consequence risk</dt><dd>${t.consequence}</dd></div>` : ''}
-            <div><dt>Downstream dependencies</dt><dd>
-              ${dependents.length ? html`<ul>${dependents.map(({ task, depth }) => html`<li>${task.title} <span class="muted">(Depth: ${depth})</span></li>`)}</ul>`
-                : 'No visible work orders depend on this task.'}
-            </dd></div>
-          </dl>
-        </details>
-      </div>
-      <footer class="task-details-footer">
-        <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button>
-        <button type="button" class="${!t.manualCapture && !mgr ? 'btn-secondary' : 'btn-primary'} btn-sm" data-action="capture-edit" data-id="${t.id}">Edit Task</button>
-        ${!t.manualCapture && !mgr ? html`
-          <button type="button" class="btn-primary btn-sm" data-action="request-task-adjustment" data-id="${t.id}">Request Schedule Change</button>` : ''}
-      </footer>
+  const content = html`
+    <h2 id="modal-title" class="modal-title">${t.title}</h2>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+      <span class="tag tag-brand">${t.category}</span>
+      <span class="tag tag-neutral">${t.priority} priority</span>
+      ${(t.tags || []).map((tag) => html`<span class="tag tag-neutral">${tag}</span>`)}
+      ${deadline ? html`<span class="tag tag-${deadline.tone}">${deadline.label}</span>` : ''}
+      ${t.safety ? html`<span class="tag tag-danger">Safety Hazard</span>` : ''}
+      ${t.statutory ? html`<span class="tag tag-warning">Statutory Deadline</span>` : ''}
     </div>
-  `, { wide: true, variant: 'task-details-modal' });
 
-  document.querySelector('#modal-root [data-action="request-task-adjustment"]')?.addEventListener('click', () => {
-    update((stateObj) => {
-      createApprovalRequest(stateObj, {
-        requestType: 'schedule_adjustment',
-        taskId: t.id,
-        taskTitle: t.title,
-        reason: 'Officer requested schedule change due to operational buffer constraint.',
-        slaImpact: 'Maintains the fictional response deadline.',
-        operationalImpact: 'Prevents overload during site visits.',
+    <div style="display: grid; gap: 10px; font-size: 0.875rem; margin-bottom: 16px;">
+      ${t.description ? html`<p class="capture-text">${t.description}</p>` : ''}
+      <div><strong>Assigned officer:</strong> ${officerName(s, t.ownerId)}</div>
+      ${relatedCase ? html`<div><strong>Case:</strong> <a href="#cases/${relatedCase.id}" data-action="modal-close">${relatedCase.number} · ${relatedCase.title}</a></div>` : ''}
+      ${t.location ? html`<div><strong>Location:</strong> ${t.location}</div>` : ''}
+      <div><strong>Due:</strong> ${taskDateInput(t.dueAt || t.due).replace('T', ' ')} SGT</div>
+      ${slaDue || t.slaType ? html`<div><strong>SLA:</strong> ${t.slaType || 'Recorded deadline'}
+        ${slaDue ? html`<time datetime="${slaDue}+08:00">${slaDue.replace('T', ' ')} SGT</time>` : ''}</div>` : ''}
+      <div><strong>Estimated duration:</strong> ${taskDuration(t)} minutes</div>
+      ${t.fixedStartAt ? html`<div><strong>Fixed start:</strong> ${taskDateInput(t.fixedStartAt).replace('T', ' ')} SGT</div>` : ''}
+      ${t.remarks ? html`<div class="capture-text"><strong>Remarks:</strong> ${t.remarks}</div>` : ''}
+      ${t.appointmentTime
+        ? html`<div><strong>Resident Commitment:</strong> <span class="tag tag-brand">${t.appointmentTime}</span></div>`
+        : ''}
+      ${t.caseId
+        ? html`
+            <div>
+              <strong>Linked Case:</strong>
+              <button
+                type="button"
+                class="tag tag-brand"
+                data-action="nav-to-case"
+                data-case="${t.caseId}"
+                style="cursor: pointer; border: 1px solid var(--colorBrandStroke2); background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-family: monospace; font-weight: 700; margin-left: 6px;"
+              >
+                ${icon('cases', 12)} ${t.caseId} → Open in Case Action Centre
+              </button>
+            </div>
+          `
+        : ''}
+      ${t.consequence
+        ? html`<div><strong>Long-term Consequence Risk:</strong> <span class="muted">${t.consequence}</span></div>`
+        : ''}
+    </div>
+    <details class="priority-explanation">
+      <summary>Why this priority?</summary>
+      <p class="small muted">Priority is set on the task. These demo factors show the recorded context in EMS’s stated order.</p>
+      <ol>${factors.map(({ factor, reason }) => html`<li><strong>${factor}</strong> ${reason}</li>`)}</ol>
+    </details>
+
+    <!-- Downstream Dependency Chain -->
+    <div style="padding: 12px; border-radius: 8px; border: 1px solid var(--colorNeutralStroke2); margin-bottom: 16px;">
+      <strong class="small" style="display: block; margin-bottom: 6px;">Downstream Ripple Dependencies:</strong>
+      ${dependents.length === 0
+        ? html`<p class="small muted" style="margin: 0;">No visible work orders depend on this task.</p>`
+        : html`
+            <ul style="margin: 0; padding-left: 18px; font-size: 0.8125rem;">
+              ${dependents.map(
+                (d) => html`<li><strong>${d.task.title}</strong> (Depth: ${d.depth})</li>`,
+              )}
+            </ul>
+          `}
+    </div>
+
+    <div class="modal-actions">
+      ${t.manualCapture ? '' : !mgr
+        ? html`
+            <button
+              type="button"
+              class="btn-primary btn-sm"
+              data-action="request-task-adjustment"
+              data-id="${t.id}"
+            >
+              Request Schedule Change
+            </button>
+          `
+        : html`
+            <button
+              type="button"
+              class="btn-primary btn-sm"
+              data-action="reassign-task-direct"
+              data-id="${t.id}"
+            >
+              Reassign Task
+            </button>
+          `}
+      <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button>
+    </div>
+  `;
+
+  openModal(content);
+
+  document.getElementById('modal-root')?.addEventListener('click', (e) => {
+    if (e.target.closest('[data-action="request-task-adjustment"]')) {
+      closeModal();
+      update((stateObj) => {
+        createApprovalRequest(stateObj, {
+          requestType: 'schedule_adjustment',
+          taskId: t.id,
+          taskTitle: t.title,
+          reason: 'Officer requested schedule change due to operational buffer constraint.',
+          slaImpact: 'Maintains required response window.',
+          operationalImpact: 'Prevents overload during site visits.',
+        });
       });
-    });
-    closeModal();
-    toast('Schedule change request submitted for manager approval.', 'success');
-  });
+      toast('Schedule change request submitted for manager approval.', 'success');
+      renderApp();
+    }
+  }, { once: true });
 }
 
 function showCreateTeamModal(s) {
