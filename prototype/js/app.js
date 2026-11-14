@@ -60,7 +60,7 @@ import overviewPage from './pages/overview.js';
 import casesPage, { caseView } from './pages/cases.js';
 import tasksPage, { clearTaskFilters, tasksView } from './pages/tasks.js';
 import { openTaskCapture } from './pages/taskCaptureDialog.js';
-import planPage, { planView } from './pages/plan.js';
+import planPage from './pages/plan.js';
 import { currentPlanningOfficer, planningDates, planningIssueView, planningView, scheduleRange, visibleDraft } from './pages/smartPlan.js';
 import { blockTimes, canRequestScheduleChange, pendingScheduleRequest, requestScheduleChange } from './planningIssues.js';
 import { openSchedulePreferences } from './pages/schedulePreferencesDialog.js';
@@ -894,52 +894,6 @@ function setupEvents() {
       return;
     }
 
-    // 7. Plan & Simulator actions
-    const simScenarioBtn = e.target.closest('[data-action="sim-select-scenario"]');
-    if (simScenarioBtn) {
-      const scenarioId = simScenarioBtn.dataset.scenario;
-      planView.activeScenarioId = scenarioId;
-      planView.simulationResult = null;
-      renderApp();
-      return;
-    }
-
-    const simAltBtn = e.target.closest('[data-action="sim-select-alt"]');
-    if (simAltBtn) {
-      planView.selectedAltId = simAltBtn.dataset.alt;
-      renderApp();
-      return;
-    }
-
-    const simCommitBtn = e.target.closest('[data-action="sim-commit"]');
-    if (simCommitBtn) {
-      if (!isManager(getState()) || getCurrentUser(getState()).status !== 'active') return;
-      const alt = simCommitBtn.dataset.alt;
-      update((s) => {
-        logActivity(s, `Recorded simulated choice: Alternative ${alt.toUpperCase()}.`, actorName(s));
-      });
-      toast(`Simulated choice recorded: Alternative ${alt.toUpperCase()}.`, 'success');
-      return;
-    }
-
-    const simRequestApprovalBtn = e.target.closest('[data-action="sim-request-approval"]');
-    if (simRequestApprovalBtn) {
-      const alt = simRequestApprovalBtn.dataset.alt;
-      update((s) => {
-        createApprovalRequest(s, {
-          requestType: 'schedule_adjustment',
-          taskId: 't103',
-          taskTitle: 'Site check: ceiling seepage at Blk 211 #05-12',
-          reason: `Alternative ${alt.toUpperCase()} schedule adjustment submitted from What-If Simulator.`,
-          slaImpact: 'Protects the fictional response deadline while handling the disruption.',
-          operationalImpact: 'Rebalances inspection workload across Zone A.',
-        });
-      });
-      toast('Schedule change request submitted to Estate Manager Jennifer Ong.', 'success');
-      renderApp();
-      return;
-    }
-
     const calRefresh = e.target.closest('[data-action="cal-refresh"]');
     if (calRefresh) {
       toast('Outlook Calendar refreshed (Simulated).', 'info');
@@ -1315,16 +1269,15 @@ function setupEvents() {
 
     const caseRippleNav = e.target.closest('[data-action="case-ripple-nav"]');
     if (caseRippleNav) {
-      const cid = caseRippleNav.dataset.case;
-      const tid = caseRippleNav.dataset.task;
-      caseView.selectedCaseId = null;
-      currentSection = 'plan';
-      window.location.hash = '#plan';
-      if (tid) {
-        planView.selectedTaskId = tid;
+      const state = getState();
+      const task = accessibleTask(state, caseRippleNav.dataset.task);
+      if (!task) {
+        toast('This task is unavailable.', 'info');
+        return;
       }
-      toast('Opened What-If Simulator & Ripple Intelligence for case task.', 'info');
-      renderApp();
+      showTaskDetailModal(state, task);
+      const details = document.querySelector('#modal-root .task-details-extra');
+      if (details) details.open = true;
       return;
     }
 
