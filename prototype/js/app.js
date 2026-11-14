@@ -696,7 +696,7 @@ function setupEvents() {
     // 5. Reset demo buttons
     if (e.target.closest('#btn-quick-reset') || e.target.closest('#btn-reset-demo-card') || e.target.closest('[data-action="settings-reset-demo-data"]')) {
       planningView.drafts.clear();
-      Object.assign(planningIssueView, { open: false, date: '', issues: [] });
+      Object.assign(planningIssueView, { open: false, date: '', allDates: false, issues: [] });
       Object.assign(planningView, { date: TODAY, mode: 'daily', officerId: null });
       resetState();
       toast('Demo state reset to default seed.', 'success');
@@ -841,6 +841,12 @@ function setupEvents() {
         if (issue && canRequestScheduleChange(getState(), issue) && !pendingScheduleRequest(getState(), issue)) openScheduleChangeRequest(issue);
         return;
       }
+      if (action === 'plan-review-all') {
+        Object.assign(planningIssueView, { allDates: true, open: true });
+        renderApp();
+        document.querySelector('#schedule-issue-panel > summary')?.focus();
+        return;
+      }
       if (action === 'plan-issue-day') {
         planningIssueView.date = date;
         planningIssueView.open = true;
@@ -850,7 +856,7 @@ function setupEvents() {
       }
       if (action === 'plan-issue-week') {
         Object.assign(planningView, { date, mode: 'weekly' });
-        Object.assign(planningIssueView, { date, open: true });
+        Object.assign(planningIssueView, { date, open: true, allDates: false });
         renderApp();
         document.querySelector('[data-action="plan-issue-day"][aria-pressed="true"]')?.focus();
         return;
@@ -866,6 +872,7 @@ function setupEvents() {
       }
       if (action === 'plan-generate') {
         planningIssueView.date = '';
+        planningIssueView.allDates = false;
         const dates = draft && reviewDraft(getState(), draft).changed.length ? draft.dates : planningDates();
         planningView.drafts.set(officer.id, generateDraft(getState(), officer.id, dates));
         toast('Draft schedule generated.', 'info');
@@ -873,8 +880,10 @@ function setupEvents() {
       if (action === 'plan-view') planningView.mode = mode;
       if (action === 'plan-today') planningView.date = TODAY;
       if (action === 'plan-shift') planningView.date = calendarDay(planningView.date, Number(offset) * (planningView.mode === 'weekly' ? 7 : 1));
+      if (['plan-view', 'plan-today', 'plan-shift'].includes(action)) planningIssueView.allDates = false;
       if (action === 'plan-open-day') {
         Object.assign(planningView, { date, mode: 'daily' });
+        planningIssueView.allDates = false;
         if (planningIssueView.issues.some((issue) => issue.date === date)) planningIssueView.open = true;
       }
       renderApp();
@@ -947,11 +956,11 @@ function setupEvents() {
     const mgrApprove = e.target.closest('[data-action="manager-approve"]');
     if (mgrApprove) {
       const apprId = mgrApprove.dataset.id;
+      let outcome;
       update((s) => {
-        decideApproval(s, apprId, 'approved', actorName(s), 'Approved by authorised manager.');
+        outcome = decideApproval(s, apprId, 'approved', actorName(s), 'Approved by authorised manager.');
       });
-      toast('Schedule change approved and applied.', 'success');
-      renderApp();
+      toast(outcome.message || outcome.error, outcome.success ? 'success' : 'error');
       return;
     }
 
@@ -1770,11 +1779,13 @@ function setupEvents() {
 
     if (e.target.dataset.action === 'plan-date') {
       if (singaporeInstant(e.target.value + 'T00:00')) planningView.date = e.target.value;
+      planningIssueView.allDates = false;
       renderApp();
       document.querySelector('[data-action="plan-date"]')?.focus();
     }
     if (e.target.dataset.action === 'plan-officer') {
       planningView.officerId = e.target.value;
+      planningIssueView.allDates = false;
       renderApp();
       document.querySelector('[data-action="plan-officer"]')?.focus();
     }
@@ -2152,14 +2163,14 @@ async function resolveScheduleDraft(draft, accept) {
   const scheduled = draft.days.reduce((count, day) => count + day.proposed.length, 0);
   const risks = draft.unscheduled.filter(({ deadline }) => deadline.at).length
     + draft.days.reduce((count, day) => count + (day.warningDetails || []).filter(({ kind }) => kind === 'Deadline risk').length, 0);
+  const count = (n, label) => `${n} ${label}${n === 1 ? '' : 's'}`;
   const details = [
-    review.replaced.length ? `Replaces ${review.replaced.length} accepted day(s).` : '',
-    review.warningCount ? `${review.warningCount} conflict warning(s) stay visible.` : '',
-    review.unscheduledCount ? `${review.unscheduledCount} unscheduled task(s) stay listed for review.` : '',
+    review.replaced.length ? `Replaces ${count(review.replaced.length, 'accepted day')}.` : '',
+    issues ? 'Warnings and unscheduled work remain available for review.' : '',
   ].filter(Boolean).join(' ');
   const confirmed = await confirmDialog({
     title: accept ? 'Accept schedule?' : 'Discard draft?',
-    body: accept ? `${range}. ${scheduled} scheduled tasks · ${review.unscheduledCount} unscheduled · ${review.warningCount} calendar warnings · ${risks} potential deadline risks. ${details}`
+    body: accept ? `${range}. ${count(scheduled, 'scheduled task')} · ${review.unscheduledCount} unscheduled · ${count(review.warningCount, 'calendar warning')} · ${count(risks, 'potential deadline risk')}. ${details}`
       : `${range}. Return to the accepted schedule or protected calendar for these dates.`,
     confirmLabel: accept ? 'Accept Schedule' : 'Discard Draft',
     danger: !accept,

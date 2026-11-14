@@ -9,7 +9,7 @@ import {
 import { assessRisk } from '../planner.js';
 import { accessibleCase } from '../cases.js';
 import { CAPTURE_STATUSES, canCapture, taskDateInput, taskDuration } from '../taskCapture.js';
-import { deadlineAlert } from '../taskIntelligence.js';
+import { deadlineAlert, taskDeadline } from '../taskIntelligence.js';
 import { traceDownstream, traceUpstream } from '../ripple.js';
 import {
   getOfficer,
@@ -204,18 +204,18 @@ export default {
         ${filtered.length === 0
           ? html`<div class="empty">${icon('check', 24)}<p role="status">${baseTasks.length ? 'No tasks match the selected filters.' : 'No tasks yet.'}</p></div>`
           : html`
-              <div class="table-wrap">
+              <p id="work-orders-scroll-hint" class="work-order-scroll-hint small muted">Scroll horizontally to see more columns.</p>
+              <div class="table-wrap" role="region" tabindex="0" aria-label="Work orders table"
+                aria-describedby="work-orders-scroll-hint">
                 <table class="data-table capture-table work-order-table" aria-label="Operational tasks">
                   <thead>
                     <tr>
                       <th scope="col">Task</th>
-                      <th scope="col">Assigned officer</th>
-                      <th scope="col">Category</th>
-                      <th scope="col">Priority</th>
-                      <th scope="col">Deadline</th>
+                      <th scope="col">Assigned Officer</th>
+                      <th scope="col">Priority &amp; Risk</th>
+                      <th scope="col">Deadline &amp; SLA</th>
                       <th scope="col">Duration</th>
                       <th scope="col">Status</th>
-                      <th scope="col">Risk</th>
                       <th scope="col">Actions</th>
                     </tr>
                   </thead>
@@ -223,6 +223,7 @@ export default {
                     ${paged.map((t) => renderTaskRow(s, t))}
                   </tbody>
                 </table>
+              </div>
                 <div class="pagination-bar">
                   <span class="pagination-info">
                     Showing ${filtered.length === 0 ? 0 : startIndex + 1}–${Math.min(startIndex + view.pageSize, filtered.length)} of ${filtered.length} tasks
@@ -267,7 +268,6 @@ export default {
                       `
                     : ''}
                 </div>
-              </div>
             `}
       </section>
       ${renderMicrosoftToDo(s)}
@@ -304,8 +304,8 @@ function renderTaskRow(s, t) {
   const risk = assessRisk(s, t);
   const done = !isOpen(t);
   const relatedCase = accessibleCase(s, t.caseId);
-  const deadline = deadlineAlert(t);
   const due = taskDateInput(t.dueAt || t.due);
+  const slaDue = taskDateInput(t.slaDue);
   const tagCount = t.tags?.length || 0;
 
   return html`
@@ -314,26 +314,30 @@ function renderTaskRow(s, t) {
         <button type="button" class="task-link-btn" data-action="task-inspect" data-id="${t.id}">
           ${t.title}
         </button>
-        ${relatedCase || t.location || tagCount ? html`<div class="work-order-meta">
+        ${relatedCase || t.location ? html`<div class="work-order-meta">
           ${relatedCase ? html`<a class="task-case-link" href="#cases/${relatedCase.id}" aria-label="View case ${relatedCase.number} · ${relatedCase.title}">Case ${relatedCase.number}</a>` : ''}
           ${t.location ? html`<span>${t.location}</span>` : ''}
-          ${tagCount ? html`<span>+${tagCount} ${tagCount === 1 ? 'tag' : 'tags'}</span>` : ''}
         </div>` : ''}
-      </td>
-      <td data-label="Assigned officer">${officerName(s, t.ownerId)}</td>
-      <td data-label="Category">
-        <span class="tag tag-brand">${t.category}</span>
-      </td>
-      <td data-label="Priority">
-        <div class="work-order-priority">
-          ${priorityBadge(t.priority)}
-          ${t.safety ? html`<span class="tag tag-danger small">Safety</span>` : ''}
-          ${t.statutory ? html`<span class="tag tag-warning small">Statutory</span>` : ''}
+        <div class="work-order-meta">
+          <span class="tag tag-brand">${t.category}</span>
+          ${tagCount ? html`<span>+${tagCount} ${tagCount === 1 ? 'tag' : 'tags'}</span>` : ''}
         </div>
       </td>
-      <td data-label="Deadline">
-        <time class="due-text" datetime="${due}+08:00">${fmtDue(due)}</time>
-        ${deadline ? html`<span class="work-order-deadline-note ${deadline.tone}">${deadline.label}</span>` : ''}
+      <td data-label="Assigned officer">${officerName(s, t.ownerId)}</td>
+      <td data-label="Priority &amp; Risk">
+        <div class="work-order-indicators">
+          <div class="work-order-priority">
+            ${priorityBadge(t.priority)}
+            ${t.safety ? html`<span class="tag tag-danger small">Safety</span>` : ''}
+            ${t.statutory ? html`<span class="tag tag-warning small">Statutory</span>` : ''}
+          </div>
+          ${riskBadge(risk.level)}
+        </div>
+      </td>
+      <td data-label="Deadline &amp; SLA">
+        ${due ? renderWorkOrderTime(due, 'due-text') : html`<span class="small muted">No due date recorded</span>`}
+        ${slaDue ? html`<span class="work-order-sla">${slaDue === due ? 'SLA matches due date' : html`SLA ${renderWorkOrderTime(slaDue)}`}</span>` : ''}
+        ${renderWorkOrderDeadlineNote(t)}
       </td>
       <td class="capture-duration" data-label="Duration">${taskDuration(t)} min</td>
       <td data-label="Status">
@@ -341,9 +345,6 @@ function renderTaskRow(s, t) {
           ${t.status === 'review' ? html`<option value="review" selected disabled>In review</option>` : ''}
           ${CAPTURE_STATUSES.map(({ id, label }) => html`<option value="${id}" ${t.status === id ? 'selected' : ''}>${label}</option>`)}
         </select>
-      </td>
-      <td data-label="Risk">
-        ${riskBadge(risk.level)}
       </td>
       <td>
         <div class="capture-row-actions">
@@ -353,6 +354,21 @@ function renderTaskRow(s, t) {
       </td>
     </tr>
   `;
+}
+
+function renderWorkOrderTime(at, className = '') {
+  return html`<time class="${className}" datetime="${at}+08:00"><span>${at.slice(0, 10)}</span> <span>${at.slice(11, 16)} SGT</span></time>`;
+}
+
+function renderWorkOrderDeadlineNote(task) {
+  const deadline = taskDeadline(task);
+  if (!isOpen(task) || !deadline.at) return '';
+
+  const alert = deadlineAlert(task);
+  const days = (Date.parse(deadline.at.slice(0, 10)) - Date.parse(TODAY)) / 86400000;
+  const label = alert?.tone === 'danger' ? 'Overdue'
+    : days === 0 ? 'Due today' : days === 1 ? 'Due tomorrow' : `Due in ${days} days`;
+  return html`<span class="work-order-deadline-note ${alert?.tone || 'muted'}">${label}${deadline.label === 'SLA deadline' ? ' · SLA' : ''}</span>`;
 }
 
 function renderMicrosoftToDo(s) {

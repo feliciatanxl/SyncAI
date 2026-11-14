@@ -4,11 +4,11 @@ import { accessibleTask, taskAssignees } from '../taskCapture.js';
 import { changedPlanningInputs, reviewDraft } from '../scheduleReview.js';
 import { scheduleIssues } from '../planningIssues.js';
 import { renderPlanningIssues } from './planningIssuePanel.js';
-import { calendarWeek, fmtDay, fmtHours, fmtLongDay, fromMin, TODAY } from '../time.js';
+import { calendarWeek, fmtDay, fmtLongDay, fmtWorkMinutes, fromMin, TODAY } from '../time.js';
 import { html, icon } from '../ui.js';
 
 export const planningView = { date: TODAY, mode: 'daily', officerId: null, drafts: new Map() };
-export const planningIssueView = { open: false, date: '', issues: [] };
+export const planningIssueView = { open: false, date: '', allDates: false, issues: [] };
 export const planningDates = () => planningView.mode === 'weekly' ? calendarWeek(planningView.date) : [planningView.date];
 export const scheduleRange = (dates) => dates.length === 1 ? fmtLongDay(dates[0]) : `${fmtLongDay(dates[0])} – ${fmtLongDay(dates.at(-1))}`;
 export function visibleDraft(officerId) {
@@ -21,7 +21,9 @@ export function currentPlanningOfficer(state) {
 }
 
 const timeRange = (block) => `${fromMin(block.start)}–${fromMin(block.end)}`;
-const hours = (minutes) => fmtHours(minutes / 60);
+const hours = fmtWorkMinutes;
+const overDailyLimit = (day) => day.warnings.includes('Protected commitments already exceed the daily working-hours limit.')
+  || day.warningDetails?.some(({ kind }) => kind === 'Daily capacity');
 const blockLabels = { meeting: 'Protected meeting', appointment: 'Repair appointment', 'fixed-task': 'Fixed task', lunch: 'Lunch break', task: 'Proposed task' };
 const blockReasons = {
   meeting: 'Reserved for a fictional calendar meeting.',
@@ -42,7 +44,8 @@ function renderDaily(state, day, issues) {
   return html`
     <div class="smart-day-summary">
       <strong>${fmtLongDay(day.date)}</strong>
-      ${day.overloaded ? html`<span class="tag tag-danger">Overloaded</span>` : ''}
+      ${overDailyLimit(day) ? html`<span class="tag tag-danger">Over daily limit</span>` : ''}
+      ${day.dueUnscheduled.length ? html`<span class="tag tag-warning">Deadline risk</span>` : ''}
       <span class="muted small">${hours(day.workloadMinutes)} total · ${hours(day.taskMinutes)} ${day.accepted ? 'accepted' : 'proposed'} tasks</span>
     </div>
     ${day.closed ? html`<p class="muted small">${day.closed}</p>` : ''}
@@ -65,9 +68,8 @@ function renderDaily(state, day, issues) {
       </ul>` : html`<p class="muted">This day has no protected or proposed blocks.</p>`}
     <details class="smart-availability">
       <summary>Remaining availability · ${hours(day.remainingMinutes)}</summary>
-      ${day.remainingMinutes && day.slots.length
-        ? html`<p class="small muted">Open gaps: ${day.slots.map(timeRange).join(', ')}. The daily hours limit may reduce usable time.</p>`
-        : html`<p class="small muted">${day.closed || 'Protected commitments and planned work leave no usable capacity.'}</p>`}
+      <p class="small muted">Free calendar gaps: ${day.slots.length ? day.slots.map(timeRange).join(', ') + ' SGT' : day.closed || 'None'}</p>
+      <p class="small muted">Usable time under daily limit: ${hours(day.remainingMinutes)}</p>
     </details>
   `;
 }
@@ -81,11 +83,14 @@ function renderWeek(days, issues, selectedDate) {
       const workload = scheduled + available ? (scheduled / (scheduled + available)) * 100 : 0;
       const taskCount = day.proposed.length + day.blocked.filter((block) => block.kind === 'fixed-task').length;
       const commitmentCount = day.blocked.filter((block) => block.kind === 'meeting' || block.kind === 'appointment').length;
+      const dayIssues = issues.filter((issue) => issue.date === day.date);
+      const blocking = dayIssues.filter((issue) => issue.blocking).length;
+      const warningCount = dayIssues.length - blocking;
       const warnings = [
-        issues.some((issue) => issue.date === day.date && issue.blocking) ? 'Blocking conflict' : '',
-        day.overloaded ? 'Overloaded' : '',
-        day.warnings.length ? `${day.warnings.length} ${day.warnings.length === 1 ? 'conflict' : 'conflicts'}` : '',
-        day.dueUnscheduled.length ? `${day.dueUnscheduled.length} unscheduled` : '',
+        blocking ? `${blocking} blocking` : '',
+        overDailyLimit(day) ? 'Over daily limit' : '',
+        day.dueUnscheduled.length ? 'Deadline risk' : '',
+        warningCount ? `${warningCount} ${warningCount === 1 ? 'warning' : 'warnings'}` : '',
       ].filter(Boolean);
       return html`<button class="smart-week-day ${day.overloaded ? 'is-overloaded' : ''} ${selectedDate === day.date ? 'is-review-day' : ''}" type="button"
         data-action="plan-open-day" data-date="${day.date}" aria-labelledby="week-day-${day.date}"
@@ -136,10 +141,30 @@ export function renderSmartPlan(state, officer) {
     return previews.find((day) => day.date === date);
   });
   const total = days.reduce((sum, day) => sum + day.workloadMinutes, 0);
-  const reviewDays = [...new Map([...days, ...(draft?.days || [])].map((day) => [day.date, day])).values()];
-  const unscheduled = [...new Map([...(draft ? [draft] : []), ...saved]
-    .flatMap((entry) => entry.unscheduled).map((entry) => [entry.task.id, entry])).values()];
-  const issues = scheduleIssues(state, reviewDays, unscheduled, review?.blocking);
+  // Accepted dates store one day each. Reassemble matching dates before attributing
+  // unscheduled work, so opening any day shows the same issues as the full plan.
+  const savedReviews = saved.map((entry) => {
+    const snapshotDays = entry.dates.filter((date) => accepted[date]?.id === entry.id)
+      .map((date) => accepted[date].day);
+    return {
+      days: snapshotDays.filter((day) => !draft?.dates.includes(day.date)),
+      issues: scheduleIssues(state, snapshotDays, entry.unscheduled)
+        .filter((issue) => !draft?.dates.includes(issue.date)),
+    };
+  });
+  const reviewDays = [...previews, ...(draft?.days || []), ...savedReviews.flatMap((entry) => entry.days)];
+  const draftIssues = draft ? scheduleIssues(state, draft.days, draft.unscheduled, review.blocking) : [];
+  const issuesById = new Map();
+  for (const issue of [
+    ...draftIssues,
+    ...savedReviews.flatMap((entry) => entry.issues),
+    ...scheduleIssues(state, previews, []),
+  ]) {
+    if (!issuesById.has(issue.id)) issuesById.set(issue.id, issue);
+  }
+  const issues = [...issuesById.values()];
+  const reviewIssues = !weekly && draft ? draftIssues : issues;
+  const rangeLabel = draft?.dates.length > 1 ? 'draft' : saved.some((entry) => entry.dates.length > 1) ? 'accepted plan' : '';
   planningIssueView.issues = issues;
   return html`
     <section class="panel smart-plan" aria-labelledby="smart-plan-h">
@@ -183,7 +208,12 @@ export function renderSmartPlan(state, officer) {
         ${needsReview.length ? html`<span class="tag tag-warning">Needs review</span><span class="small">Changed inputs: ${needsReview.join(', ')}.</span>` : ''}
       </div>` : ''}
       ${!draft && !saved.length ? html`<p class="small muted">Protected commitments are shown below. Generate a proposal to place flexible tasks.</p>` : ''}
-      ${renderPlanningIssues(state, issues, reviewDays, { weekly, date: planningView.date, selectedDate: planningIssueView.date, open: planningIssueView.open || Boolean(review?.blocking.length) })}
+      ${!weekly && rangeLabel && reviewIssues.length ? html`<button type="button" class="btn-secondary btn-sm"
+        data-action="plan-review-all" aria-controls="schedule-issue-panel">Review all ${rangeLabel} issues</button>` : ''}
+      ${renderPlanningIssues(state, reviewIssues, reviewDays, {
+        weekly, date: planningView.date, selectedDate: planningIssueView.date,
+        allDates: Boolean(rangeLabel && planningIssueView.allDates), open: planningIssueView.open,
+      })}
       ${weekly
         ? html`<div class="smart-day-summary"><strong>${fmtDay(dates[0])} – ${fmtDay(dates[6])}</strong><span class="small muted">${hours(total)} total scheduled workload</span></div>${renderWeek(days, issues, planningIssueView.date)}`
         : renderDaily(state, days[0], issues)}

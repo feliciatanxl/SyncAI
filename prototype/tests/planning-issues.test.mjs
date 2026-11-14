@@ -4,7 +4,8 @@ import { createSeedState } from '../js/data.js';
 import { canRequestScheduleChange, pendingScheduleRequest, requestScheduleChange, scheduleIssues } from '../js/planningIssues.js';
 import { acceptDraft, discardDraft, generateDraft, reviewDraft } from '../js/scheduleReview.js';
 import { renderPlanningIssues } from '../js/pages/planningIssuePanel.js';
-import { loadState, replaceState, setCurrentUser, storage, update } from '../js/state.js';
+import { planningIssueView, planningView, renderSmartPlan } from '../js/pages/smartPlan.js';
+import { createApprovalRequest, decideApproval, getTask, loadState, replaceState, setCurrentUser, storage, update } from '../js/state.js';
 import { saveCapturedTask } from '../js/taskCapture.js';
 import { calendarWeek, TODAY } from '../js/time.js';
 
@@ -84,4 +85,63 @@ test('review keeps warnings and requests through acceptance, refresh and discard
     globalThis.localStorage = previousLocalStorage;
     Object.assign(storage, previousStorage);
   }
+});
+
+test('a quiet day in a weekly plan can show all warnings with stable dates before and after acceptance', () => {
+  const state = createSeedState();
+  const officer = state.officers.find(({ id }) => id === 'o1');
+  for (let index = 0; index < 4; index++) {
+    saveCapturedTask(state, {
+      title: `Audit task ${index}`, description: 'Fictional capacity example', ownerId: officer.id,
+      category: 'Inspection', priority: 'High', estimatedDurationMinutes: 600, due: `${TODAY}T17:00`,
+    });
+  }
+  const dates = calendarWeek(TODAY);
+  const draft = generateDraft(state, officer.id, dates);
+  const previousView = { ...planningView };
+  const previousIssueView = { ...planningIssueView };
+  const render = () => renderSmartPlan(state, officer).toString();
+  const cards = (page) => [...page.matchAll(/data-issue-id="([^"]+)"[^]*?<\/article>/g)]
+    .map(([card, id]) => [id, card.match(/<time[^>]*datetime="([^"]+)"/)?.[1]]);
+  try {
+    Object.assign(planningView, { date: TODAY, mode: 'weekly', drafts: new Map([[officer.id, draft]]) });
+    Object.assign(planningIssueView, { open: true, allDates: false, date: '' });
+    const weekly = render();
+    assert.match(weekly, /View all warnings/);
+    assert.match(weekly, /Show less/);
+    assert.equal(cards(weekly.split('class="schedule-more-warnings"')[0]).length, 3);
+    Object.assign(planningView, { date: dates.at(-1), mode: 'daily' });
+    const quiet = render();
+    assert.match(quiet, /Review all draft issues/);
+    assert.match(quiet, /No warnings for this day/);
+    planningIssueView.allDates = true;
+    const daily = render();
+    assert.deepEqual(cards(daily), cards(weekly));
+    assert.ok(cards(daily).some(([id, date]) => id.startsWith('unscheduled-') && date === TODAY));
+    acceptDraft(state, draft, { acknowledged: true });
+    planningView.drafts.clear();
+    const accepted = render();
+    assert.match(accepted, /Review all accepted plan issues/);
+    assert.deepEqual(cards(accepted), cards(weekly));
+  } finally {
+    Object.assign(planningView, previousView);
+    Object.assign(planningIssueView, previousIssueView);
+  }
+});
+
+test('manager feedback distinguishes review approval from an applied task change', () => {
+  const state = createSeedState();
+  const task = getTask(state, 't102');
+  const request = requestScheduleChange(state, { id: 'review-test', task, message: 'Review workload' }, 'Check capacity.');
+  const original = structuredClone(task);
+  setCurrentUser(state, 'manager');
+  const review = decideApproval(state, request.id, 'approved');
+  assert.equal(review.message, 'Review approved. Update the task or commitment, then regenerate.');
+  assert.deepEqual(task, original);
+  assert.ok(state.notifications.some(({ approvalId, summary }) => approvalId === request.id && summary.includes(review.message)));
+
+  const change = createApprovalRequest(state, { requesterId: 'o1', taskId: task.id, proposedOwnerId: 'o2' });
+  const applied = decideApproval(state, change.id, 'approved');
+  assert.equal(applied.message, 'Schedule change approved and applied.');
+  assert.equal(task.ownerId, 'o2');
 });

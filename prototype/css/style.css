@@ -720,33 +720,42 @@ button.stat-card,
 .work-order-toolbar .search-input svg { flex-shrink: 0; }
 .work-order-clear { justify-self: end; }
 .work-orders .table-wrap { max-width: 100%; overflow-x: auto; }
-.work-orders .work-order-table { min-width: 1060px; }
-.work-order-table :is(th, td) { padding-inline: clamp(8px, 0.8vw, 12px); }
-.work-order-table th:nth-child(1) { min-width: 285px; width: 30%; }
-.work-order-table th:nth-child(2) { min-width: 120px; }
-.work-order-table th:nth-child(3) { min-width: 128px; }
-.work-order-table th:nth-child(4) { min-width: 92px; }
-.work-order-table th:nth-child(5) { min-width: 118px; }
-.work-order-table th:nth-child(7) { min-width: 108px; }
-.work-order-table th:nth-child(8) { min-width: 82px; }
-.work-order-table th:nth-child(9) { min-width: 76px; }
-.work-order-table td { padding-block: 13px; word-break: normal; overflow-wrap: normal; }
+.work-orders .table-wrap:focus-visible { outline-offset: -2px; }
+.work-order-scroll-hint { margin: 0 0 6px; }
+.work-orders .work-order-table { min-width: 920px; }
+.work-orders .work-order-table :is(th, td) { padding-inline: 8px; }
+.work-order-table th { white-space: nowrap; }
+.work-order-table th:nth-child(1) { min-width: 230px; width: 29%; }
+.work-order-table th:nth-child(2) { min-width: 116px; }
+.work-order-table th:nth-child(3) { min-width: 112px; width: 13%; }
+.work-order-table th:nth-child(4) { min-width: 128px; }
+.work-order-table th:nth-child(5) { min-width: 68px; }
+.work-order-table th:nth-child(6) { min-width: 118px; }
+.work-order-table th:nth-child(7) { min-width: 76px; }
+.work-order-table .capture-row-actions { flex-direction: column; align-items: flex-start; }
+.work-orders .work-order-table td { padding-block: 10px; vertical-align: middle; word-break: normal; overflow-wrap: normal; }
 .work-orders .work-order-title .task-link-btn {
   font-size: 0.975rem; line-height: 1.35; word-break: normal; overflow-wrap: break-word;
 }
-.work-order-meta, .work-order-priority { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.work-order-meta, .work-order-priority { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.work-order-indicators { display: grid; justify-items: start; gap: 4px; }
+.work-order-priority :is(.tag, .badge) { padding-inline: 6px; }
 .work-order-meta { margin-top: 5px; color: var(--colorNeutralForeground3); font-size: 0.75rem; }
 .work-order-meta .task-case-link { color: inherit; font-size: inherit; text-decoration: underline; }
 .work-orders .work-order-table :is(.tag, .badge) { white-space: nowrap !important; word-break: normal !important; }
-.work-order-table :is(.tag, .badge, .capture-row-actions button, .capture-duration, .due-text, .work-order-deadline-note) {
+.work-order-table :is(.tag, .badge, .capture-row-actions button, .capture-duration, time > span, [data-action="capture-status"]) {
   white-space: nowrap; word-break: normal; overflow-wrap: normal;
 }
 .work-order-table .due-text { display: block; }
+.work-order-sla { display: block; margin-top: 2px; color: var(--colorNeutralForeground3); font-size: 0.75rem; }
 .work-order-deadline-note { display: block; margin-top: 3px; font-size: 0.75rem; font-weight: 600; }
 .work-order-deadline-note.danger { color: var(--colorPaletteRedForeground1); }
 .work-order-deadline-note.warning { color: var(--colorPaletteMarigoldForeground2); }
 .work-order-table [data-action="capture-status"] { font-size: 0.8125rem; max-width: none; }
 .work-orders .pagination-bar, .work-orders .pagination-controls { flex-wrap: wrap; }
+@container work-orders (min-width: 922px) {
+  .work-order-scroll-hint { display: none; }
+}
 
 @container work-orders (max-width: 500px) {
   .work-order-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -819,6 +828,10 @@ button.stat-card,
 .schedule-issue-slots > summary { cursor: pointer; color: var(--colorBrandForeground1); }
 .schedule-issue-slots p { margin: 6px 0 0; }
 .schedule-review-empty { margin: 12px 16px 16px; }
+.schedule-warning-types { display: flex; flex-wrap: wrap; gap: 6px 14px; list-style: none; padding: 0; margin: 12px 16px 0; }
+.schedule-more-warnings > summary { width: fit-content; margin: 0 16px 14px; cursor: pointer; color: var(--colorBrandForeground1); font-weight: 600; }
+.schedule-more-warnings[open] > summary span:first-child,
+.schedule-more-warnings:not([open]) > summary span:last-child { display: none; }
 .schedule-review-clear { display: flex; align-items: center; gap: 6px; }
 .schedule-review-clear svg { color: var(--colorPaletteGreenForeground1); }
 .schedule-acknowledgement { display: flex; align-items: baseline; gap: 8px; margin-block: 8px 14px; }

@@ -491,28 +491,27 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
     approval.decidedAt = NOW;
     approval.decidedBy = reviewer;
     approval.decision = note || 'Approved by authorised manager.';
-    approval.auditTrail.push({
-      at: NOW,
-      actor: reviewer,
-      action: 'APPROVED',
-      channel: 'In-App',
-      details: note || 'Change approved and applied to schedule.',
-    });
-
     // Apply approved change
+    let taskUpdated = false;
+    let caseUpdated = false;
     const t = getTask(s, approval.taskId);
     if (t) {
       if (approval.proposedOwnerId && approval.proposedOwnerId !== t.ownerId) {
         t.ownerId = approval.proposedOwnerId;
+        taskUpdated = true;
       }
-      if (approval.newDue) {
+      if (approval.newDue && t.due !== approval.newDue) {
         t.due = approval.newDue;
+        taskUpdated = true;
       }
     }
 
     // Apply approved case closure
     if (approval.caseId && (approval.requestType === 'case_closure' || approval.requestType === 'closure')) {
+      const c = getCase(s, approval.caseId);
+      const previousStatus = c?.status;
       closeCase(s, approval.caseId, reviewer);
+      caseUpdated = c?.status !== previousStatus;
     } else if (approval.caseId) {
       // Apply approved case reassignment
       const c = getCase(s, approval.caseId);
@@ -523,12 +522,14 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
           const prevOwnerName = officerName(s, prevOwnerId);
           const newOwnerName = officerName(s, targetOfficer);
           c.ownerId = targetOfficer;
+          caseUpdated = true;
 
           // Cross-module sync: Synchronize linked tasks for this case
           const relatedTasks = (s.tasks || []).filter((task) => task.caseId === c.id && task.ownerId === prevOwnerId);
           relatedTasks.forEach((task) => {
             task.ownerId = targetOfficer;
           });
+          taskUpdated ||= relatedTasks.length > 0;
 
           // Update change history record
           c.changeHistory ||= [];
@@ -582,6 +583,16 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
       }
     }
 
+    const message = taskUpdated ? 'Schedule change approved and applied.' : caseUpdated ? 'Case change approved and applied.'
+      : 'Review approved. Update the task or commitment, then regenerate.';
+    approval.auditTrail.push({
+      at: NOW,
+      actor: reviewer,
+      action: 'APPROVED',
+      channel: 'In-App',
+      details: note || message,
+    });
+
     logActivity(s, `Approved request (${approval.id}) for ${approval.taskTitle}: ${approval.decision}`, reviewer);
 
     addNotification(s, {
@@ -592,13 +603,13 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
       recipientName: approval.requesterName,
       recipientRole: approval.requesterRole,
       title: `Change Approved: ${approval.taskTitle}`,
-      summary: `${reviewer} approved your ${approval.requestType.replace('_', ' ')} request. Schedule updated.`,
+      summary: `${reviewer} approved your ${approval.requestType.replace('_', ' ')} request. ${message}`,
       taskId: approval.taskId,
       approvalId: approval.id,
       secureLink: `syncai://tasks/${approval.taskId}`,
     });
 
-    return { success: true, status: 'approved' };
+    return { success: true, status: 'approved', message };
   }
 
   if (decision === 'rejected') {

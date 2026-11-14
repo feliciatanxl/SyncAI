@@ -213,7 +213,7 @@ test('weekly plan covers Monday through Sunday without duplicating tasks and hon
     Object.assign(planningView, { date: next, mode: 'weekly', drafts: new Map([['o1', draft]]) });
     const page = renderSmartPlan(s, getOfficer(s, 'o1')).toString();
     assert.equal((page.match(/class="smart-week-day /g) || []).length, 7);
-    assert.match(page, /1h total scheduled workload/);
+    assert.match(page, /1 h total scheduled workload/);
     assert.match(page, /2 task blocks · 0 protected/);
     assert.match(page, new RegExp(`data-action="plan-open-day" data-date="${next}"`));
     assert.doesNotMatch(page, /Dependent work/);
