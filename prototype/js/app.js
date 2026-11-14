@@ -24,6 +24,9 @@ import {
   createApprovalRequest,
   submitOperationalChangeApproval,
   decideApproval,
+  requestApprovalInformation,
+  submitApprovalInformation,
+  getOutstandingApprovalInformation,
   isOpen,
   logActivity,
   actorName,
@@ -74,7 +77,8 @@ import activityPage from './pages/activity.js';
 import decidesPage from './pages/decides.js';
 import settingsPage from './pages/settings.js';
 import assistantPage from './pages/assistant.js';
-import approvalGovernancePage, { approvalGovernanceView, isManagerReviewApproval, managerReviewType } from './pages/approval-governance.js';
+import approvalGovernancePage, { approvalGovernanceView, isManagerReviewApproval, managerReviewType, renderOperationalChangeVersionHistory, renderOperationalChangeVersionComparison, generateSimulatedApprovalAssessment, renderSimulatedApprovalAssessment } from './pages/approval-governance.js';
+import auditTrailPage, { auditTrailView, parseAuditTrailRequestRoute } from './pages/audit-trail.js';
 import myRequestsPage, { myRequestsView } from './pages/my-requests.js';
 import attendancePage, { handleAttendanceClick } from './pages/attendance.js';
 import ripplePage, { handleRippleClick } from './pages/ripple.js';
@@ -88,6 +92,7 @@ const SECTIONS = {
   plan: { id: 'plan', label: 'My plan', icon: 'calendar', page: planPage },
   team: { id: 'team', label: 'My team', icon: 'team', page: teamPage },
   'approval-governance': { id: 'approval-governance', label: 'Approval Governance', icon: 'shield', page: approvalGovernancePage },
+  'audit-trail': { id: 'audit-trail', label: 'Audit Trail', icon: 'history', page: auditTrailPage },
   'my-requests': { id: 'my-requests', label: 'My Requests', icon: 'history', page: myRequestsPage },
   attendance: { id: 'attendance', label: 'Attendance', icon: 'users', page: attendancePage },
   ripple: { id: 'ripple', label: 'Ripple Intelligence', icon: 'radar', page: ripplePage },
@@ -123,7 +128,7 @@ function allowedSections(s) {
     return ['overview', 'assistant', 'cases', 'people', 'teams', 'activity', 'decides', 'settings'];
   }
   if (isManager(s)) {
-    return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'team', 'approval-governance', 'attendance', 'ripple', 'decides', 'settings'];
+    return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'team', 'approval-governance', 'audit-trail', 'attendance', 'ripple', 'decides', 'settings'];
   }
   // Member
   return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'my-requests', 'attendance', 'decides', 'settings'];
@@ -132,9 +137,20 @@ function allowedSections(s) {
 function readPortalRoute(s) {
   const hash = window.location.hash.replace(/^#\/?/, '');
   const caseRoute = /^cases\/([^/]+)$/.exec(hash);
-  const section = caseRoute ? 'cases' : hash;
+  const auditRequestId = parseAuditTrailRequestRoute(`#${hash}`);
+  const section = caseRoute ? 'cases' : auditRequestId !== null ? 'audit-trail' : hash;
   currentSection = allowedSections(s).includes(section) ? section : 'overview';
   currentCaseId = currentSection === 'cases' ? caseRoute?.[1] ?? null : null;
+  if (currentSection === 'audit-trail' && auditRequestId !== null) {
+    Object.assign(auditTrailView, {
+      scopedRequestId: auditRequestId, requestId: auditRequestId, requestType: 'all', action: 'all', actor: 'all', date: '', includeNotifications: true,
+    });
+  } else if (currentSection === 'audit-trail') {
+    auditTrailView.scopedRequestId = '';
+    auditTrailView.requestId = '';
+  } else {
+    auditTrailView.scopedRequestId = '';
+  }
 }
 
 function init() {
@@ -614,6 +630,11 @@ function setupEvents() {
 
       const sec = navBtn.dataset.section;
       if (sec && SECTIONS[sec]) {
+        if (sec === 'audit-trail') {
+          Object.assign(auditTrailView, {
+            scopedRequestId: '', requestId: '', requestType: 'all', action: 'all', actor: 'all', date: '', includeNotifications: false,
+          });
+        }
         currentSection = sec;
         currentCaseId = null;
         window.location.hash = `#${sec}`;
@@ -1002,6 +1023,84 @@ function setupEvents() {
         return;
       }
       showManagerApprovalReview(s, approval);
+      return;
+    }
+
+    const governanceAudit = e.target.closest('[data-action="manager-governance-audit"]');
+    if (governanceAudit) {
+      const s = getState();
+      if (!isManager(s) || getCurrentUser(s).status !== 'active') {
+        toast('Only an active manager can view approval audit records.', 'error');
+        return;
+      }
+      const approval = getApprovals(s).find((item) => item.id === governanceAudit.dataset.id && isManagerReviewApproval(item));
+      if (!approval) {
+        toast('Approval request not found.', 'error');
+        return;
+      }
+      Object.assign(auditTrailView, {
+        scopedRequestId: approval.id, requestId: approval.id, requestType: 'all', action: 'all', actor: 'all', date: '', includeNotifications: true,
+      });
+      currentSection = 'audit-trail';
+      window.location.hash = `#audit-trail/${encodeURIComponent(approval.id)}`;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      renderApp();
+      return;
+    }
+
+    const auditTrailRequest = e.target.closest('[data-action="audit-trail-open-request"]');
+    if (auditTrailRequest) {
+      const s = getState();
+      if (!isManager(s) || getCurrentUser(s).status !== 'active') {
+        toast('Only an active manager can review approval audit records.', 'error');
+        return;
+      }
+      const approval = getApprovals(s).find((item) => item.id === auditTrailRequest.dataset.id && isManagerReviewApproval(item));
+      if (!approval) {
+        toast('Approval request not found.', 'error');
+        return;
+      }
+      showManagerApprovalReview(s, approval);
+      return;
+    }
+
+    const clearAuditRequestFilter = e.target.closest('[data-action="audit-trail-clear-scope"]');
+    if (clearAuditRequestFilter) {
+      Object.assign(auditTrailView, {
+        scopedRequestId: '', requestId: '', requestType: 'all', action: 'all', actor: 'all', date: '', includeNotifications: false,
+      });
+      currentSection = 'audit-trail';
+      window.location.hash = '#audit-trail';
+      renderApp();
+      return;
+    }
+
+    const generateApprovalAssessmentButton = e.target.closest('[data-action="generate-approval-assessment"]');
+    if (generateApprovalAssessmentButton) {
+      const s = getState();
+      const user = getCurrentUser(s);
+      const approval = getApprovals(s).find((item) => item.id === generateApprovalAssessmentButton.dataset.id);
+      if (!isManager(s) || user.status !== 'active' || !approval || approval.requestType !== 'operational_change') {
+        toast('An assessment is available only to active managers reviewing operational-change requests.', 'error');
+        return;
+      }
+      const task = approval.taskId ? s.tasks.find((item) => item.id === approval.taskId) : null;
+      const assessment = generateSimulatedApprovalAssessment(approval, task);
+      showManagerApprovalReview(s, approval, assessment);
+      return;
+    }
+
+    const requestApprovalInformationButton = e.target.closest('[data-action="manager-request-approval-information"]');
+    if (requestApprovalInformationButton) {
+      const s = getState();
+      const approval = getApprovals(s).find((item) => item.id === requestApprovalInformationButton.dataset.id);
+      if (!isManager(s) || getCurrentUser(s).status !== 'active' || !approval
+        || approval.requestType !== 'operational_change' || approval.status !== 'pending'
+        || approval.requesterId === getCurrentUser(s).id) {
+        toast('This request cannot be sent for more information by the current user.', 'error');
+        return;
+      }
+      showRequestApprovalInformationModal(approval);
       return;
     }
 
@@ -1858,6 +1957,22 @@ function setupEvents() {
       caseView.urgencyFilter = e.target.value;
       renderApp();
     }
+
+    const auditFilter = {
+      'audit-trail-filter-type': 'requestType',
+      'audit-trail-filter-action': 'action',
+      'audit-trail-filter-actor': 'actor',
+      'audit-trail-filter-date': 'date',
+      'audit-trail-sort': 'sortOrder',
+    }[e.target.dataset.action];
+    if (auditFilter) {
+      auditTrailView[auditFilter] = e.target.value;
+      renderApp();
+    }
+    if (e.target.dataset.action === 'audit-trail-toggle-notifications') {
+      auditTrailView.includeNotifications = e.target.checked;
+      renderApp();
+    }
   });
 
   // Search input events
@@ -1881,10 +1996,58 @@ function setupEvents() {
       caseView.searchQuery = e.target.value;
       renderApp();
     }
+    if (e.target.dataset.action === 'audit-trail-search') {
+      const { value, selectionStart, selectionEnd } = e.target;
+      auditTrailView.requestId = value;
+      renderApp();
+      const search = document.querySelector('[data-action="audit-trail-search"]');
+      search?.focus();
+      search?.setSelectionRange(selectionStart, selectionEnd);
+    }
   });
 
   // Assistant and form submit events
   document.addEventListener('submit', (e) => {
+    if (e.target.id === 'request-approval-information-form') {
+      e.preventDefault();
+      const form = e.target;
+      const question = form.elements.namedItem('clarificationQuestion')?.value?.trim() || '';
+      if (!question) {
+        toast('Enter the information required from the requester.', 'error');
+        return;
+      }
+      let result;
+      update((s) => { result = requestApprovalInformation(s, form.dataset.id, question); });
+      if (!result?.success) {
+        toast(result?.error || 'Could not request additional information.', 'error');
+        return;
+      }
+      closeModal();
+      toast('Information request sent to the requester.', 'success');
+      renderApp();
+      return;
+    }
+
+    if (e.target.id === 'requester-approval-information-form') {
+      e.preventDefault();
+      const form = e.target;
+      const response = form.elements.namedItem('informationResponse')?.value?.trim() || '';
+      if (!response) {
+        toast('Enter the additional information requested by the manager.', 'error');
+        return;
+      }
+      let result;
+      update((s) => { result = submitApprovalInformation(s, form.dataset.id, response); });
+      if (!result?.success) {
+        toast(result?.error || 'Could not submit additional information.', 'error');
+        return;
+      }
+      closeModal();
+      toast('Additional information sent. The request is pending manager review.', 'success');
+      renderApp();
+      return;
+    }
+
     if (e.target.id === 'manager-governance-decision-form') {
       e.preventDefault();
       const form = e.target;
@@ -2410,7 +2573,23 @@ function showTaskDetailModal(s, t) {
   });
 }
 
-function showManagerApprovalReview(s, approval) {
+function showRequestApprovalInformationModal(approval) {
+  openModal(html`
+    <h2 id="modal-title" class="modal-title">Request More Information</h2>
+    <p class="small muted">Ask the requester for information needed to continue reviewing this operational-change request.</p>
+    <form id="request-approval-information-form" data-id="${approval.id}" style="display:grid;gap:12px">
+      <label class="small">Clarification question *
+        <textarea class="search-input" name="clarificationQuestion" required rows="4" style="display:block;width:100%;box-sizing:border-box" placeholder="What additional information is needed?"></textarea>
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Cancel</button>
+        <button type="submit" class="btn-primary btn-sm">Send Request</button>
+      </div>
+    </form>
+  `, { wide: true });
+}
+
+function showManagerApprovalReview(s, approval, assessment = null) {
   const type = managerReviewType(approval);
   const task = approval.taskId ? s.tasks.find((item) => item.id === approval.taskId) : null;
   const relatedCase = approval.caseId ? getCase(s, approval.caseId) : null;
@@ -2433,19 +2612,26 @@ function showManagerApprovalReview(s, approval) {
   `;
   const content = html`
     <h2 id="modal-title" class="modal-title">${type.label} review</h2>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px"><span class="tag ${approval.status === 'approved' ? 'tag-success' : approval.status === 'rejected' ? 'tag-danger' : 'tag-warning'}">${approval.status}</span><span class="tag tag-neutral">${type.label}</span><span class="tag tag-neutral">${approval.id}</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px"><span class="tag ${approval.status === 'approved' ? 'tag-success' : approval.status === 'rejected' ? 'tag-danger' : 'tag-warning'}">${approval.status === 'information_required' ? 'Information Required' : approval.status}</span><span class="tag tag-neutral">${type.label}</span><span class="tag tag-neutral">${approval.id}</span></div>
     <div style="display:grid;gap:10px;max-height:62vh;overflow-y:auto;padding:2px">
       <section class="panel"><h3>Request and linked work</h3><p><strong>Requester</strong><br>${approval.requesterName || approval.requesterId || missing}</p><p><strong>Submitted</strong><br>${when(approval.createdAt)}</p>${task ? html`<p><strong>Task</strong><br>${task.id} · ${task.title || approval.taskTitle || missing}</p><p><strong>Assigned officer</strong><br>${officerName(s, task.ownerId || approval.originalOwnerId)}</p><p><strong>Current task status</strong><br>${task.status || missing}</p><p><strong>Current task due date</strong><br>${task.dueAt || task.due || missing}</p>` : approval.taskId ? html`<p><strong>Task</strong><br>${approval.taskId} · ${approval.taskTitle || missing}</p>` : ''}${approval.caseId ? html`<p><strong>Linked case</strong><br>${approval.caseId}${relatedCase?.title ? ` · ${relatedCase.title}` : ''}</p>` : ''}</section>
       ${detail}
+      ${approval.requestType === 'operational_change' ? html`<section class="panel"><h3>Simulated decision support</h3><p class="small muted">Generate a local, rule-based assessment from the information recorded in this request.</p><button type="button" class="btn-secondary btn-sm" data-action="generate-approval-assessment" data-id="${approval.id}">Generate AI Assessment</button></section>${renderSimulatedApprovalAssessment(assessment)}` : ''}
+      ${renderOperationalChangeVersionHistory(approval)}
+      ${renderOperationalChangeVersionComparison(approval)}
       ${approval.decision ? html`<section class="panel"><h3>Recorded decision</h3><p><strong>${approval.status === 'approved' ? 'Approved' : 'Rejected'} by</strong> ${approval.decidedBy || missing}</p><p><strong>Decision time</strong><br>${when(approval.decidedAt)}</p><p><strong>Comment or reason</strong><br>${approval.decision}</p></section>` : ''}
     </div>
-    ${approval.status === 'pending' ? html`<form id="manager-governance-decision-form" data-id="${approval.id}" style="display:grid;gap:10px;margin-top:12px"><label class="small">Decision comment or rejection reason *<textarea class="search-input" name="decisionComment" required minlength="4" rows="3" style="display:block;width:100%;box-sizing:border-box" placeholder="Explain the decision and any relevant limits."></textarea></label><div class="modal-actions"><button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button><button type="submit" class="btn-danger btn-sm" data-decision="rejected">Reject</button><button type="submit" class="btn-primary btn-sm" data-decision="approved">Approve</button></div></form>` : html`<div class="modal-actions"><button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button></div>`}
+    ${approval.status === 'pending' ? html`<form id="manager-governance-decision-form" data-id="${approval.id}" style="display:grid;gap:10px;margin-top:12px"><label class="small">Decision comment or rejection reason *<textarea class="search-input" name="decisionComment" required minlength="4" rows="3" style="display:block;width:100%;box-sizing:border-box" placeholder="Explain the decision and any relevant limits."></textarea></label><div class="modal-actions"><button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button>${approval.requestType === 'operational_change' ? html`<button type="button" class="btn-secondary btn-sm" data-action="manager-request-approval-information" data-id="${approval.id}">Request More Information</button>` : ''}<button type="submit" class="btn-danger btn-sm" data-decision="rejected">Reject</button><button type="submit" class="btn-primary btn-sm" data-decision="approved">Approve</button></div></form>` : html`<div class="modal-actions"><button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button></div>`}
   `;
   openModal(content, { wide: true });
 }
 
 function showRequesterApprovalRequestDetails(s, approval) {
   const isOperationalChange = approval.requestType === 'operational_change';
+  const user = getCurrentUser(s);
+  const clarification = getOutstandingApprovalInformation(approval);
+  const canRespondToClarification = isOperationalChange && approval.status === 'information_required'
+    && approval.requesterId === user.id && isTeamMember(s) && user.status === 'active' && clarification;
   const requestTypeLabel = isOperationalChange ? 'Operational Change' : 'Schedule Adjustment';
   const originalSchedule = approval.originalSchedule && approval.originalSchedule !== 'Original schedule'
     ? approval.originalSchedule : 'Not recorded';
@@ -2460,11 +2646,12 @@ function showRequesterApprovalRequestDetails(s, approval) {
   const content = html`
     <h2 id="modal-title" class="modal-title">Approval request details</h2>
     <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 14px;">
-      <span class="tag ${approval.status === 'approved' ? 'tag-success' : approval.status === 'rejected' ? 'tag-danger' : 'tag-warning'}">${approval.status}</span>
+      <span class="tag ${approval.status === 'approved' ? 'tag-success' : approval.status === 'rejected' ? 'tag-danger' : 'tag-warning'}">${approval.status === 'information_required' ? 'Information Required' : approval.status}</span>
       <span class="tag tag-neutral">${requestTypeLabel}</span>
       <span class="tag tag-neutral">${approval.id}</span>
     </div>
     <div style="display: grid; gap: 8px; max-height: 62vh; overflow-y: auto;">
+      ${clarification ? html`<section class="panel"><strong>Manager's question</strong><p>${clarification.details || 'The manager requested additional information.'}</p></section>` : ''}
       <div><strong>Task:</strong> ${approval.taskId} · ${approval.taskTitle}</div>
       ${approval.caseId ? html`<div><strong>Linked case:</strong> ${approval.caseId}</div>` : ''}
       <div><strong>Submitted:</strong> ${approval.createdAt ? new Date(approval.createdAt).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) : 'Not recorded'}</div>
@@ -2484,6 +2671,9 @@ function showRequesterApprovalRequestDetails(s, approval) {
       `}
       ${approval.decision ? html`<section class="panel" style="padding: 12px;"><strong>Manager decision · ${approval.decidedBy || 'Manager'}${approval.decidedAt ? ` · ${new Date(approval.decidedAt).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' })}` : ''}</strong><p>${approval.decision}</p></section>` : ''}
     </div>
+    ${isOperationalChange ? renderOperationalChangeVersionHistory(approval) : ''}
+    ${isOperationalChange ? renderOperationalChangeVersionComparison(approval) : ''}
+    ${canRespondToClarification ? html`<form id="requester-approval-information-form" data-id="${approval.id}" style="display:grid;gap:10px;margin-top:12px"><label class="small">Your additional information *<textarea class="search-input" name="informationResponse" required rows="4" style="display:block;width:100%;box-sizing:border-box" placeholder="Respond to the manager's question."></textarea></label><div class="modal-actions"><button type="submit" class="btn-primary btn-sm">Submit Additional Information</button></div></form>` : ''}
     <div class="modal-actions"><button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button></div>
   `;
   openModal(content, { wide: true });

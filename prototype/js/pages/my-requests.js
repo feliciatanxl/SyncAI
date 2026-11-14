@@ -1,5 +1,5 @@
 import { html, icon } from '../ui.js';
-import { getApprovals, getCurrentUser, visibleTasks } from '../state.js';
+import { getApprovals, getCurrentUser, getOutstandingApprovalInformation, visibleTasks } from '../state.js';
 
 export const myRequestsView = { typeFilter: 'all' };
 
@@ -11,6 +11,11 @@ function formatSubmittedAt(value) {
 
 function renderRequest(approval) {
   const typeLabel = approval.requestType === 'operational_change' ? 'Operational Change' : 'Schedule Adjustment';
+  const currentStatus = approval.status || 'unknown';
+  const statusLabel = currentStatus === 'information_required'
+    ? 'Information Required'
+    : currentStatus[0].toUpperCase() + currentStatus.slice(1);
+  const clarification = getOutstandingApprovalInformation(approval);
   return html`
     <li style="align-items: flex-start;">
       <div class="queue-who" style="min-width: 0;">
@@ -18,10 +23,11 @@ function renderRequest(approval) {
         <span class="small">${approval.id} · Task ${approval.taskId}${approval.caseId ? ` · Case ${approval.caseId}` : ''}</span>
         <span class="small">Request type: <strong>${typeLabel}</strong></span>
         <span class="small">Submitted ${formatSubmittedAt(approval.createdAt)}</span>
+        ${clarification ? html`<p class="small"><strong>Manager question:</strong> ${clarification.details}</p>` : ''}
         ${approval.decision ? html`<p class="small"><strong>Manager decision:</strong> ${approval.decision}</p>` : ''}
       </div>
       <div class="queue-actions">
-        <span class="tag ${approval.status === 'approved' ? 'tag-success' : approval.status === 'rejected' ? 'tag-danger' : 'tag-warning'}">${approval.status}</span>
+        <span class="tag ${approval.status === 'approved' ? 'tag-success' : approval.status === 'rejected' ? 'tag-danger' : 'tag-warning'}">${statusLabel}</span>
         <button type="button" class="btn-secondary btn-sm" data-action="my-request-details" data-id="${approval.id}">View details</button>
       </div>
     </li>
@@ -51,6 +57,7 @@ export default {
       ? myRequests
       : myRequests.filter((approval) => approval.requestType === myRequestsView.typeFilter);
     const pending = visibleRequests.filter((approval) => approval.status === 'pending');
+    const informationRequired = visibleRequests.filter((approval) => approval.status === 'information_required');
     const approved = visibleRequests.filter((approval) => approval.status === 'approved');
     const rejected = visibleRequests.filter((approval) => approval.status === 'rejected');
 
@@ -64,6 +71,7 @@ export default {
         </div>
         <div class="page-hero-aside">
           <div class="hero-stat"><strong>${pending.length}</strong><span>Pending</span></div>
+          <div class="hero-stat"><strong>${informationRequired.length}</strong><span>Information Required</span></div>
           <div class="hero-stat"><strong>${approved.length}</strong><span>Approved</span></div>
           <div class="hero-stat"><strong>${rejected.length}</strong><span>Rejected</span></div>
         </div>
@@ -98,6 +106,7 @@ export default {
       </section>
 
       ${renderSection('Pending', 'pending', pending)}
+      ${renderSection('Information Required', 'information_required', informationRequired)}
       ${renderSection('Approved', 'approved', approved)}
       ${renderSection('Rejected', 'rejected', rejected)}
     `;

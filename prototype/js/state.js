@@ -464,6 +464,12 @@ export function createApprovalRequest(s, req) {
       potentialOperationalImpact: req.potentialOperationalImpact || '',
       supportingEvidence: Array.isArray(req.supportingEvidence) ? req.supportingEvidence.map((item) => ({ ...item })) : [],
     });
+    approval.submissionVersions = [createOperationalChangeVersion(approval, {
+      version: 1,
+      submittedAt: approval.createdAt,
+      submittedById: approval.requesterId,
+      submittedByName: approval.requesterName,
+    })];
   }
   s.approvals.unshift(approval);
   logActivity(s, `Submitted approval request (${id}): ${approval.taskTitle} [${approval.requestType}]`, approval.requesterName);
@@ -757,6 +763,140 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
   }
 
   return { success: false, error: 'Unknown decision type.' };
+}
+
+export function getOutstandingApprovalInformation(approval) {
+  if (approval?.status !== 'information_required') return null;
+  let outstanding = null;
+  for (const event of Array.isArray(approval.auditTrail) ? approval.auditTrail : []) {
+    if (event?.action === 'INFORMATION_REQUESTED') outstanding = event;
+    else if (event?.action === 'INFORMATION_PROVIDED') outstanding = null;
+  }
+  return outstanding;
+}
+
+function createOperationalChangeVersion(approval, metadata) {
+  return {
+    version: metadata.version,
+    submittedAt: metadata.submittedAt,
+    submittedById: metadata.submittedById,
+    submittedByName: metadata.submittedByName,
+    taskId: approval.taskId,
+    caseId: approval.caseId || null,
+    taskTitle: approval.taskTitle,
+    originalOwnerId: approval.originalOwnerId,
+    originalSchedule: approval.originalSchedule,
+    request: {
+      unexpectedSituation: approval.unexpectedSituation || '',
+      reason: approval.reason || '',
+      proposedChanges: approval.proposedChanges || '',
+      requestedScope: approval.requestedScope || '',
+      potentialCostImpact: approval.potentialCostImpact || '',
+      potentialScheduleImpact: approval.potentialScheduleImpact || '',
+      potentialOperationalImpact: approval.potentialOperationalImpact || '',
+      supportingEvidence: Array.isArray(approval.supportingEvidence)
+        ? approval.supportingEvidence.map((item) => ({ ...item }))
+        : [],
+    },
+    ...(metadata.clarificationQuestion ? { clarificationQuestion: metadata.clarificationQuestion } : {}),
+    ...(metadata.supplementaryResponse ? { supplementaryResponse: metadata.supplementaryResponse } : {}),
+  };
+}
+
+export function getOperationalChangeVersions(approval) {
+  if (approval?.requestType !== 'operational_change') return [];
+  if (Array.isArray(approval.submissionVersions) && approval.submissionVersions.length) return approval.submissionVersions;
+  return [createOperationalChangeVersion(approval, {
+    version: 1,
+    submittedAt: approval.createdAt,
+    submittedById: approval.requesterId,
+    submittedByName: approval.requesterName,
+  })];
+}
+
+export function requestApprovalInformation(s, approvalId, question) {
+  const approval = getApproval(s, approvalId);
+  const user = getCurrentUser(s);
+  const message = typeof question === 'string' ? question.trim() : '';
+  if (!approval || approval.requestType !== 'operational_change') {
+    return { success: false, error: 'Operational-change approval request not found.' };
+  }
+  if (!isManager(s) || user.status !== 'active' || approval.requesterId === user.id) {
+    return { success: false, error: 'Only an authorised manager can request information for this request.' };
+  }
+  if (approval.status !== 'pending') {
+    return { success: false, error: 'Only pending requests can be sent for more information.' };
+  }
+  if (!message) return { success: false, error: 'Enter the information required from the requester.' };
+
+  const at = NOW;
+  const actor = actorName(s);
+  approval.status = 'information_required';
+  approval.auditTrail ||= [];
+  approval.auditTrail.push({ at, actor, action: 'INFORMATION_REQUESTED', channel: 'In-App', details: message });
+  addNotification(s, {
+    type: 'approval_information_required',
+    channel: 'in_app',
+    channelLabel: 'In-App',
+    recipientId: approval.requesterId,
+    recipientName: approval.requesterName,
+    recipientRole: approval.requesterRole,
+    title: `More Information Required: ${approval.taskTitle}`,
+    summary: `${actor} asked for more information: ${message}`,
+    taskId: approval.taskId,
+    approvalId: approval.id,
+    secureLink: `syncai://approval/${approval.id}`,
+  });
+  return { success: true, status: approval.status, approval };
+}
+
+export function submitApprovalInformation(s, approvalId, response) {
+  const approval = getApproval(s, approvalId);
+  const user = getCurrentUser(s);
+  const message = typeof response === 'string' ? response.trim() : '';
+  if (!approval || approval.requestType !== 'operational_change') {
+    return { success: false, error: 'Operational-change approval request not found.' };
+  }
+  if (!isTeamMember(s) || user.status !== 'active' || approval.requesterId !== user.id) {
+    return { success: false, error: 'Only the original requester can respond to this clarification.' };
+  }
+  if (approval.status !== 'information_required' || !getOutstandingApprovalInformation(approval)) {
+    return { success: false, error: 'This request is not awaiting additional information.' };
+  }
+  if (!message) return { success: false, error: 'Enter the additional information requested by the manager.' };
+
+  const clarification = getOutstandingApprovalInformation(approval);
+  const at = NOW;
+  const actor = actorName(s);
+  if (!Array.isArray(approval.submissionVersions) || approval.submissionVersions.length === 0) {
+    approval.submissionVersions = getOperationalChangeVersions(approval);
+  }
+  const latestVersion = Math.max(0, ...approval.submissionVersions.map((version) => Number(version?.version) || 0));
+  approval.submissionVersions.push(createOperationalChangeVersion(approval, {
+    version: latestVersion + 1,
+    submittedAt: at,
+    submittedById: user.id,
+    submittedByName: user.displayName || actor,
+    clarificationQuestion: clarification?.details,
+    supplementaryResponse: message,
+  }));
+  approval.auditTrail ||= [];
+  approval.auditTrail.push({ at, actor, action: 'INFORMATION_PROVIDED', channel: 'In-App', details: message });
+  approval.status = 'pending';
+  addNotification(s, {
+    type: 'approval_information_provided',
+    channel: 'in_app',
+    channelLabel: 'In-App',
+    recipientId: approval.assignedManagerId,
+    recipientName: approval.assignedManagerName,
+    recipientRole: 'manager',
+    title: `Additional Information Submitted: ${approval.taskTitle}`,
+    summary: `${actor} responded to the clarification request: ${message}`,
+    taskId: approval.taskId,
+    approvalId: approval.id,
+    secureLink: `syncai://approval/${approval.id}`,
+  });
+  return { success: true, status: approval.status, approval };
 }
 
 // ----- Notifications & Channels -----
