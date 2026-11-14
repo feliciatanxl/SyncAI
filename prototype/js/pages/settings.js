@@ -1,16 +1,12 @@
 // Settings Page — Theme, Typography, Accessibility & Demo Reset (matches SettingsPanel.jsx)
-import { html, raw, icon } from '../ui.js';
-import { getState, resetState } from '../state.js';
-
-const prefs = {
-  theme: typeof localStorage !== 'undefined' ? localStorage.getItem('syncai_theme') || 'system' : 'system',
-  textSize: typeof localStorage !== 'undefined' ? localStorage.getItem('syncai_text_size') || 'standard' : 'standard',
-  language: typeof localStorage !== 'undefined' ? localStorage.getItem('syncai_lang') || 'en' : 'en',
-  graphTested: false,
-};
+import { html, icon } from '../ui.js';
 
 export default {
   render(s) {
+    const prefs = {
+      theme: globalThis.document?.documentElement.dataset.theme || 'system',
+      textSize: globalThis.document?.documentElement.dataset.textSize || 'standard',
+    };
     return html`
       <header class="page-hero">
         <span class="page-hero-icon" aria-hidden="true">${icon('settings', 28)}</span>
@@ -18,7 +14,7 @@ export default {
           <p class="page-hero-eyebrow">User Preferences & Accessibility</p>
           <h1>Settings <span class="hero-badge">Preferences</span></h1>
           <p>
-            Customise your appearance, text scale and language options. Reset prototype demo state to initial seed data anytime.
+            Customise your appearance and text scale. Reset prototype demo state to initial seed data anytime.
           </p>
         </div>
         <div class="page-hero-aside">
@@ -29,10 +25,6 @@ export default {
           <div class="hero-stat">
             <strong>${prefs.theme.toUpperCase()}</strong>
             <span>Theme</span>
-          </div>
-          <div class="hero-stat">
-            <strong>${prefs.language.toUpperCase()}</strong>
-            <span>Language</span>
           </div>
         </div>
       </header>
@@ -68,34 +60,6 @@ export default {
             </div>
           </fieldset>
 
-          <!-- Language Selection -->
-          <fieldset class="settings-group">
-            <legend>Language</legend>
-            <p class="muted small">Preferred display language for operational terms and descriptions.</p>
-            <div class="choice-grid">
-              ${[
-                ['en', 'English'],
-                ['zh', '中文 (Chinese)'],
-                ['ms', 'Melayu (Malay)'],
-                ['ta', 'தமிழ் (Tamil)'],
-              ].map(
-                ([code, label]) => html`
-                  <label class="choice">
-                    <input
-                      type="radio"
-                      name="language"
-                      value="${code}"
-                      ${prefs.language === code ? 'checked' : ''}
-                      data-action="settings-change-lang"
-                    />
-                    <span class="choice-body">
-                      <span class="choice-label">${label}</span>
-                    </span>
-                  </label>
-                `,
-              )}
-            </div>
-          </fieldset>
 
           <!-- Theme Appearance -->
           <fieldset class="settings-group">

@@ -126,6 +126,112 @@ export function fmtHours(h) {
   return `${r}h`;
 }
 
+export function fmtWorkMinutes(total) {
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  return [hours ? `${hours} h` : '', minutes ? `${minutes} min` : ''].filter(Boolean).join(' ') || '0 min';
+}
+
+/**
+ * #021 — Smart Deadline Countdown
+ * Evaluates contextual countdowns relative to Singapore local time (SGT, UTC+8).
+ * Supports deterministic test-time clock injection via nowIso.
+ */
+export function getDeadlineCountdown(targetIso, nowIso = null) {
+  if (!targetIso || typeof targetIso !== 'string') {
+    return {
+      text: 'No deadline recorded',
+      state: 'none',
+      diffMs: 0,
+      isOverdue: false,
+      isDueSoon: false,
+      isUpcoming: false,
+    };
+  }
+
+  const effectiveNow = nowIso || NOW;
+  const parseWithSgt = (iso) => {
+    if (!iso) return NaN;
+    if (iso.includes('+') || iso.endsWith('Z')) return Date.parse(iso);
+    const normalized = iso.length === 10 ? `${iso}T23:59:00+08:00` : iso.length === 16 ? `${iso}:00+08:00` : iso;
+    return Date.parse(normalized);
+  };
+
+  const targetMs = parseWithSgt(targetIso);
+  const nowMs = parseWithSgt(effectiveNow);
+
+  if (Number.isNaN(targetMs) || Number.isNaN(nowMs)) {
+    return {
+      text: 'No deadline recorded',
+      state: 'none',
+      diffMs: 0,
+      isOverdue: false,
+      isDueSoon: false,
+      isUpcoming: false,
+    };
+  }
+
+  const diffMs = targetMs - nowMs;
+
+  if (diffMs < 0) {
+    const overdueMs = Math.abs(diffMs);
+    let text = 'Overdue';
+    if (overdueMs < 60 * 1000) {
+      text = 'Overdue by < 1 min';
+    } else if (overdueMs < 60 * 60 * 1000) {
+      const mins = Math.max(1, Math.round(overdueMs / 60000));
+      text = `Overdue by ${mins} min${mins === 1 ? '' : 's'}`;
+    } else if (overdueMs < 24 * 60 * 60 * 1000) {
+      const hours = Math.max(1, Math.round(overdueMs / 3600000));
+      text = `Overdue by ${hours} hour${hours === 1 ? '' : 's'}`;
+    } else {
+      const days = Math.max(1, Math.round(overdueMs / 86400000));
+      text = `Overdue by ${days} day${days === 1 ? '' : 's'}`;
+    }
+    return {
+      text,
+      state: 'overdue',
+      diffMs,
+      isOverdue: true,
+      isDueSoon: false,
+      isUpcoming: false,
+    };
+  }
+
+  // Target is in the future
+  let text = 'Due soon';
+  let state = 'due_soon';
+
+  if (diffMs < 60 * 1000) {
+    text = 'Due now';
+    state = 'due_soon';
+  } else if (diffMs < 60 * 60 * 1000) {
+    const mins = Math.max(1, Math.round(diffMs / 60000));
+    text = `Due in ${mins} min${mins === 1 ? '' : 's'}`;
+    state = 'due_soon';
+  } else if (diffMs < 24 * 60 * 60 * 1000) {
+    const hours = Math.max(1, Math.round(diffMs / 3600000));
+    text = `Due in ${hours} hour${hours === 1 ? '' : 's'}`;
+    state = 'due_soon';
+  } else if (diffMs < 48 * 60 * 60 * 1000) {
+    text = 'Due tomorrow';
+    state = 'due_soon';
+  } else {
+    const days = Math.max(2, Math.round(diffMs / 86400000));
+    text = `Due in ${days} days`;
+    state = 'upcoming';
+  }
+
+  return {
+    text,
+    state,
+    diffMs,
+    isOverdue: false,
+    isDueSoon: state === 'due_soon',
+    isUpcoming: state === 'upcoming',
+  };
+}
+
 /** Index of a date within the horizon, or -1 if before / Infinity if after. */
 export function dayIndex(iso, days) {
   const d = iso.slice(0, 10);
@@ -133,3 +239,4 @@ export function dayIndex(iso, days) {
   if (i >= 0) return i;
   return d < days[0] ? -1 : Infinity;
 }
+
