@@ -1,5 +1,5 @@
 import { PRIORITIES } from './data.js';
-import { schedulePreferences } from './schedulePreferences.js';
+import { lunchForDate, schedulePreferences } from './schedulePreferences.js';
 import { getOfficer, getTask, isOpen, isUnavailable, meetingsFor, openTasksFor } from './state.js';
 import { taskDuration } from './taskCapture.js';
 import { taskDeadline } from './taskIntelligence.js';
@@ -60,36 +60,42 @@ function protectedCommitments(state, officerId, date, appointments, fixedTasks) 
 function dailyCapacity(state, officer, date, prefs, appointments, fixedTasks) {
   const midnight = minuteOn(date);
   const working = { start: toMin(prefs.workStart), end: toMin(prefs.workEnd) };
-  const lunch = prefs.lunchStart && { start: toMin(prefs.lunchStart), end: toMin(prefs.lunchEnd) };
+  const lunchWindow = lunchForDate(prefs, date);
+  const lunch = lunchWindow.start && { start: toMin(lunchWindow.start), end: toMin(lunchWindow.end) };
   const blocked = protectedCommitments(state, officer.id, date, appointments, fixedTasks);
   const closed = date < TODAY ? 'This date has passed in the demo.'
     : !prefs.days.includes(weekday(date)) ? 'Outside your selected working days.'
       : isUnavailable(officer, date) ? 'The officer is unavailable on this date.' : '';
   const warnings = [];
+  const warningDetails = [];
+  function warn(message, kind, block, other) {
+    warnings.push(message);
+    warningDetails.push({ message, kind, block, other });
+  }
   for (const [index, block] of blocked.entries()) {
     for (const other of blocked.slice(index + 1).filter((next) => overlaps(block, next))) {
-      warnings.push(`“${block.title}” overlaps “${other.title}”. Both commitments are protected.`);
+      warn(`“${block.title}” overlaps “${other.title}”. Both commitments are protected.`, 'Protected overlap', block, other);
     }
     if (block.start < working.start || block.end > working.end || !prefs.days.includes(weekday(date)) || isUnavailable(officer, date)) {
-      warnings.push(`“${block.title}” falls outside the officer’s working availability.`);
+      warn(`“${block.title}” falls outside the officer’s working availability.`, 'Availability', block);
     }
-    if (lunch && overlaps(block, lunch)) warnings.push(`“${block.title}” overlaps the protected lunch break.`);
+    if (lunch && overlaps(block, lunch)) warn(`“${block.title}” overlaps the protected lunch break.`, 'Protected overlap', block, { ...lunch, title: 'Lunch break' });
     const task = block.taskId && getTask(state, block.taskId);
     if (task && midnight + block.end > timestampMinute(taskDeadline(task).at)) {
-      warnings.push(`“${block.title}” extends beyond the task’s recorded deadline.`);
+      warn(`“${block.title}” extends beyond the task’s recorded deadline.`, 'Deadline risk', block);
     }
     if (task?.ownerId === officer.id && isOpen(task) && block.kind === 'appointment'
       && block.end - block.start < remainingDuration(task)) {
-      warnings.push(`“${block.title}” is shorter than the task’s remaining estimate.`);
+      warn(`“${block.title}” is shorter than the task’s remaining estimate.`, 'Appointment capacity', block);
     }
   }
   const protectedMinutes = minutesOf(mergedIntervals(blocked));
-  if (protectedMinutes > prefs.maxMinutes) warnings.push('Protected commitments already exceed the daily working-hours limit.');
+  if (protectedMinutes > prefs.maxMinutes) warn('Protected commitments already exceed the daily working-hours limit.', 'Daily capacity');
   const workingWindow = { ...working, start: date === TODAY ? Math.max(working.start, toMin(NOW.slice(11))) : working.start };
   const slots = closed ? [] : availableSlots(workingWindow, lunch ? [...blocked, lunch] : blocked);
   const freeMinutes = Math.max(0, Math.min(minutesOf(slots), prefs.maxMinutes - protectedMinutes));
   return {
-    date, midnight, closed, lunch, blocked, warnings, protectedMinutes, slots, initialSlots: slots, freeMinutes,
+    date, midnight, closed, lunch, blocked, warnings, warningDetails, protectedMinutes, slots, initialSlots: slots, freeMinutes,
     remainingMinutes: freeMinutes, proposed: [], dueUnscheduled: [], overloaded: protectedMinutes > prefs.maxMinutes,
   };
 }
@@ -144,6 +150,7 @@ export function buildSmartSchedule(state, officerId, dates, { generate = true } 
     if (task.end <= now) booked.set(task.taskId, 'The fixed block has ended. Confirm the outcome before replanning.');
     else finishedAt.set(task.taskId, Math.max(task.end, finishedAt.get(task.taskId) || 0));
   }
+  const fixedFinishes = Object.fromEntries(finishedAt);
   let pending = tasks.filter((task) => !finishedAt.has(task.id)).map((task) => ({
     task, deadline: taskDeadline(task), duration: remainingDuration(task),
     dependencies: (task.dependsOn || []).filter((id) => {
@@ -206,5 +213,5 @@ export function buildSmartSchedule(state, officerId, dates, { generate = true } 
     day.workloadMinutes = day.protectedMinutes + day.taskMinutes;
     day.overloaded ||= day.dueUnscheduled.length > 0;
   }
-  return { days, unscheduled, workloadMinutes: days.reduce((sum, day) => sum + day.workloadMinutes, 0) };
+  return { days, unscheduled, fixedFinishes, workloadMinutes: days.reduce((sum, day) => sum + day.workloadMinutes, 0) };
 }

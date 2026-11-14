@@ -126,6 +126,12 @@ export function fmtHours(h) {
   return `${r}h`;
 }
 
+export function fmtWorkMinutes(total) {
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  return [hours ? `${hours} h` : '', minutes ? `${minutes} min` : ''].filter(Boolean).join(' ') || '0 min';
+}
+
 /**
  * #021 — Smart Deadline Countdown
  * Evaluates contextual countdowns relative to Singapore local time (SGT, UTC+8).

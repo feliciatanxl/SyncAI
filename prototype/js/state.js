@@ -12,6 +12,29 @@ const listeners = new Set();
 
 export const storage = { ok: true, notice: null };
 
+function refreshDemoSlaCopy(saved) {
+  let changed = false;
+  for (const task of saved.tasks || []) {
+    if (task.slaType && !task.slaType.startsWith('Fictional ')) {
+      task.slaType = 'Fictional SLA deadline';
+      changed = true;
+    }
+  }
+  for (const approval of saved.approvals || []) {
+    if (/24h|\brequired response window\b/i.test(approval.slaImpact || '')) {
+      approval.slaImpact = 'Protects the fictional resident response deadline.';
+      changed = true;
+    }
+  }
+  for (const notification of saved.notifications || []) {
+    if (/BCA 4h/.test(notification.summary || '')) {
+      notification.summary = 'Fictional lift inspection deadline at 12:00.';
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 /** Give a state object a fresh revision so memoised calculations recompute. */
 export function bumpRev(s) {
   s.rev = ++revCounter;
@@ -27,6 +50,7 @@ export function loadState() {
     storage.ok = false;
     storage.notice = 'Browser storage is unavailable, so changes will not be kept after you close this tab.';
   }
+  const refreshedCopy = saved?.version === DATA_VERSION && refreshDemoSlaCopy(saved);
   if (saved?.version === DATA_VERSION) {
     // The previous Add task dialog used a four-digit ID and saved a UTC deadline without source metadata.
     for (const task of saved.tasks || []) {
@@ -40,13 +64,14 @@ export function loadState() {
     else if (saved.role === 'supervisor' || saved.role === 'hq') saved.role = 'manager';
     const needsDemoData = !Array.isArray(saved.cases) || !Array.isArray(saved.appointments);
     state = addPlanningDemoData(addDemoCases(saved));
-    if (needsDemoData) persist();
+    if (needsDemoData || refreshedCopy) persist();
   } else {
     state = createSeedState();
     if (saved) {
       if (saved.version === DATA_VERSION) {
         if (Array.isArray(saved.cases)) state.cases = saved.cases;
         if (saved.schedulePreferences) state.schedulePreferences = saved.schedulePreferences;
+        if (saved.acceptedSchedules) state.acceptedSchedules = saved.acceptedSchedules;
         const savedTasks = new Map((saved.tasks || []).map((task) => [task.id, task]));
         for (const task of state.tasks) {
           const previous = savedTasks.get(task.id);
@@ -382,6 +407,7 @@ export function createApprovalRequest(s, req) {
   const approval = {
     id,
     requestType: req.requestType || 'schedule_adjustment',
+    ...(req.reviewIssueId ? { reviewIssueId: req.reviewIssueId } : {}),
     taskId: req.taskId,
     caseId: req.caseId || null,
     taskTitle: req.taskTitle || getTask(s, req.taskId)?.title || 'Task',
@@ -394,7 +420,7 @@ export function createApprovalRequest(s, req) {
     escalationManagerName: req.escalationManagerName || s.hq?.name || 'Lim Wei Ling',
     originalOwnerId: req.originalOwnerId || getTask(s, req.taskId)?.ownerId,
     originalSchedule: req.originalSchedule || 'Original schedule',
-    proposedOwnerId: req.proposedOwnerId || req.originalOwnerId,
+    proposedOwnerId: req.reviewIssueId ? null : req.proposedOwnerId || req.originalOwnerId,
     proposedSchedule: req.proposedSchedule || 'Proposed schedule',
     reason: req.reason || 'Operational schedule adjustment',
     slaImpact: req.slaImpact || 'Within operational SLA margin',
@@ -465,28 +491,27 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
     approval.decidedAt = NOW;
     approval.decidedBy = reviewer;
     approval.decision = note || 'Approved by authorised manager.';
-    approval.auditTrail.push({
-      at: NOW,
-      actor: reviewer,
-      action: 'APPROVED',
-      channel: 'In-App',
-      details: note || 'Change approved and applied to schedule.',
-    });
-
     // Apply approved change
+    let taskUpdated = false;
+    let caseUpdated = false;
     const t = getTask(s, approval.taskId);
     if (t) {
       if (approval.proposedOwnerId && approval.proposedOwnerId !== t.ownerId) {
         t.ownerId = approval.proposedOwnerId;
+        taskUpdated = true;
       }
-      if (approval.newDue) {
+      if (approval.newDue && t.due !== approval.newDue) {
         t.due = approval.newDue;
+        taskUpdated = true;
       }
     }
 
     // Apply approved case closure
     if (approval.caseId && (approval.requestType === 'case_closure' || approval.requestType === 'closure')) {
+      const c = getCase(s, approval.caseId);
+      const previousStatus = c?.status;
       closeCase(s, approval.caseId, reviewer);
+      caseUpdated = c?.status !== previousStatus;
     } else if (approval.caseId) {
       // Apply approved case reassignment
       const c = getCase(s, approval.caseId);
@@ -497,12 +522,14 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
           const prevOwnerName = officerName(s, prevOwnerId);
           const newOwnerName = officerName(s, targetOfficer);
           c.ownerId = targetOfficer;
+          caseUpdated = true;
 
           // Cross-module sync: Synchronize linked tasks for this case
           const relatedTasks = (s.tasks || []).filter((task) => task.caseId === c.id && task.ownerId === prevOwnerId);
           relatedTasks.forEach((task) => {
             task.ownerId = targetOfficer;
           });
+          taskUpdated ||= relatedTasks.length > 0;
 
           // Update change history record
           c.changeHistory ||= [];
@@ -556,6 +583,16 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
       }
     }
 
+    const message = taskUpdated ? 'Schedule change approved and applied.' : caseUpdated ? 'Case change approved and applied.'
+      : 'Review approved. Update the task or commitment, then regenerate.';
+    approval.auditTrail.push({
+      at: NOW,
+      actor: reviewer,
+      action: 'APPROVED',
+      channel: 'In-App',
+      details: note || message,
+    });
+
     logActivity(s, `Approved request (${approval.id}) for ${approval.taskTitle}: ${approval.decision}`, reviewer);
 
     addNotification(s, {
@@ -566,13 +603,13 @@ export function decideApproval(s, approvalId, decision, reviewerName = null, not
       recipientName: approval.requesterName,
       recipientRole: approval.requesterRole,
       title: `Change Approved: ${approval.taskTitle}`,
-      summary: `${reviewer} approved your ${approval.requestType.replace('_', ' ')} request. Schedule updated.`,
+      summary: `${reviewer} approved your ${approval.requestType.replace('_', ' ')} request. ${message}`,
       taskId: approval.taskId,
       approvalId: approval.id,
       secureLink: `syncai://tasks/${approval.taskId}`,
     });
 
-    return { success: true, status: 'approved' };
+    return { success: true, status: 'approved', message };
   }
 
   if (decision === 'rejected') {
