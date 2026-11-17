@@ -39,7 +39,7 @@ export function createApiCaseService(getToken) {
   }
 }
 
-const STAGE_LABEL = { open: 'Open', in_progress: 'In progress', pending_external: 'Awaiting external', ready_for_closure: 'Closure ready', closed: 'Closed & audited' }
+const STAGE_LABEL = { open: 'Open', in_progress: 'In progress', pending_external: 'Blocked', ready_for_closure: 'Closure ready', closed: 'Closed & audited' }
 
 // In-memory demo store, one per service instance (one per page visit). Nothing is saved anywhere.
 export function createDemoCaseService(me, now = () => new Date()) {
