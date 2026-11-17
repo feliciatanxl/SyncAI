@@ -1479,3 +1479,16 @@ code { font-size: 0.9em; }
 .notif-tag.tone-info { border-color: var(--colorBrandStroke1); color: var(--colorBrandForeground1); background: var(--colorNeutralBackground1); }
 .notif-detail { margin: 0; overflow-wrap: anywhere; }
 .notif-item-actions { display: flex; justify-content: space-between; align-items: center; margin: 0 -8px; }
+
+/* Slightly smaller bell and dropdown. */
+.notif-trigger { width: 36px; height: 36px; }
+.notif-trigger svg { width: 20px; height: 20px; }
+.notif-count { min-width: 18px; height: 18px; font-size: 0.625rem; }
+.notif-card { width: min(360px, calc(100vw - 24px)); }
+.notif-head { padding: 14px 16px 10px; }
+.notif-head h2 { font-size: 1rem; }
+.notif-tabs { padding: 0 8px 6px; }
+.notif-item { padding: 10px 16px 6px; gap: 2px; }
+.notif-item-head strong { font-size: 0.875rem; }
+.notif-tag { padding: 1px 8px; font-size: 0.6875rem; }
+.notif-list { max-height: min(380px, 60vh); }
