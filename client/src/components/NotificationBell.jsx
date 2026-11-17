@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Popover, PopoverSurface, PopoverTrigger, Tab, TabList } from '@fluentui/react-components'
+import { Popover, PopoverSurface, PopoverTrigger } from '@fluentui/react-components'
 import { Alert20Regular, Alert24Filled, ArrowRight16Regular } from '@fluentui/react-icons'
 import { useT } from '../lib/i18n.js'
 
@@ -34,38 +34,37 @@ export default function NotificationBell({ userId, items, onOpen }) {
     setOpen(false)
     onOpen(n.section)
   }
+  const tabs = [['all', t('notif.all', { n: items.length })], ['unread', t('notif.unread', { n: unreadItems.length })]]
 
   return (
     <Popover open={open} onOpenChange={(_e, d) => setOpen(d.open)} positioning="below-end" withArrow={false}>
       <PopoverTrigger disableButtonEnhancement>
-        <button
-          type="button"
-          className="notif-trigger"
-          aria-label={unreadItems.length ? t('notif.labelUnread', { n: unreadItems.length }) : t('notif.label')}
-        >
+        <button type="button" className="notif-trigger" aria-label={unreadItems.length ? t('notif.labelUnread', { n: unreadItems.length }) : t('notif.label')}>
           <Alert24Filled aria-hidden="true" />
           {unreadItems.length > 0 && <span className="notif-count" aria-hidden="true">{unreadItems.length > 9 ? '9+' : unreadItems.length}</span>}
         </button>
       </PopoverTrigger>
       <PopoverSurface className="notif-card" aria-label={t('notif.title')}>
         <div className="notif-head">
-          <div>
+          <div className="notif-head-text">
             <h2>{t('notif.title')}</h2>
-            <p className="muted small">{t('notif.unreadCount', { n: unreadItems.length })}</p>
+            <p>{t('notif.unreadCount', { n: unreadItems.length })}</p>
           </div>
           {unreadItems.length > 0 && (
-            <Button appearance="subtle" onClick={() => markRead(items.map((n) => n.id))}>{t('notif.markRead')}</Button>
+            <button type="button" className="notif-link" onClick={() => markRead(items.map((n) => n.id))}>{t('notif.markRead')}</button>
           )}
         </div>
-        <TabList className="notif-tabs" selectedValue={filter} onTabSelect={(_e, d) => setFilter(d.value)} size="small">
-          <Tab value="all">{t('notif.all', { n: items.length })}</Tab>
-          <Tab value="unread">{t('notif.unread', { n: unreadItems.length })}</Tab>
-        </TabList>
+
+        <div className="notif-tabs" role="tablist" aria-label={t('notif.title')}>
+          {tabs.map(([id, label]) => (
+            <button key={id} type="button" role="tab" aria-selected={filter === id} className="notif-tab" onClick={() => setFilter(id)}>{label}</button>
+          ))}
+        </div>
 
         {shown.length === 0 ? (
-          <p className="notif-empty muted"><Alert20Regular aria-hidden="true" /> {filter === 'unread' && items.length ? t('notif.noneUnread') : t('notif.empty')}</p>
+          <p className="notif-empty"><Alert20Regular aria-hidden="true" /> {filter === 'unread' && items.length ? t('notif.noneUnread') : t('notif.empty')}</p>
         ) : (
-          <ul className="notif-list">
+          <ul className="notif-list" role="tabpanel">
             {shown.map((n) => {
               const unread = !seen.has(n.id)
               return (
@@ -74,10 +73,10 @@ export default function NotificationBell({ userId, items, onOpen }) {
                     <strong>{n.title}</strong>
                     {n.tag && <span className={`notif-tag tone-${n.tone ?? 'info'}`}>{n.tag}</span>}
                   </div>
-                  {n.detail && <p className="notif-detail muted small">{n.detail}</p>}
+                  {n.detail && <p className="notif-detail">{n.detail}</p>}
                   <div className="notif-item-actions">
-                    <Button size="small" appearance="transparent" icon={<ArrowRight16Regular />} iconPosition="after" onClick={() => go(n)}>{n.action}</Button>
-                    {unread && <Button size="small" appearance="transparent" onClick={() => markRead([n.id])}>{t('notif.markOne')}</Button>}
+                    <button type="button" className="notif-link" onClick={() => go(n)}>{n.action} <ArrowRight16Regular aria-hidden="true" /></button>
+                    {unread && <button type="button" className="notif-link" onClick={() => markRead([n.id])}>{t('notif.markOne')}</button>}
                   </div>
                 </li>
               )
