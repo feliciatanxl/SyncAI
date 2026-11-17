@@ -69,7 +69,7 @@ export function CaseTable({ cases, followUpCount, officerName, now, onOpen, onMo
               <div className="case-cell-main"><span className="case-id">{c.number}</span><strong className="case-title">{c.title}</strong><span className="muted small">{c.category}</span></div>
             </td>
             <td data-label={t('cases.col.location')}><div>{[c.block, c.unit].filter(Boolean).join(' · ')}<br /><span className="muted small">{c.estate}</span></div></td>
-            <td data-label={t('cases.col.officer')}><span className="case-officer"><Avatar size={24} name={officerName(c.ownerId)} color="colorful" aria-hidden="true" />{officerName(c.ownerId)}</span></td>
+            <td data-label={t('cases.col.officer')}><Tooltip content={officerName(c.ownerId)} relationship="label"><Avatar size={32} name={officerName(c.ownerId)} color="colorful" role="img" tabIndex={0} /></Tooltip></td>
             <td data-label={t('cases.col.urgency')}><UrgencyBadge urgency={c.urgency} /></td>
             <td data-label={t('cases.col.stage')}><StageBadge stage={caseStage(c)} /></td>
             <td data-label={t('cases.col.deadline')}><div className="case-cell-main"><Countdown due={c.deadline} now={now} /><DueDate due={c.deadline} /></div></td>
