@@ -2,16 +2,16 @@ import { Button } from '@fluentui/react-components'
 import { ArrowRight16Regular, CheckmarkCircle24Regular, Flash20Regular } from '@fluentui/react-icons'
 import { useT } from '../../lib/i18n.js'
 import { caseStage, detectFollowUps } from './caseLogic.js'
-import { Countdown, UrgencyBadge } from './CaseViews.jsx'
+import { CountBadge, Countdown, UrgencyBadge } from './CaseViews.jsx'
 
 // The few cases to work on first this shift, in priority order, each with one obvious button.
 export default function NextUp({ cases, now, officerName, onStart }) {
   const t = useT()
   const next = cases.filter((c) => caseStage(c) !== 'closed').slice(0, 3)
   return (
-    <details id="next-up" className="panel case-next case-collapsible" open>
+    <details id="next-up" className="panel case-next case-collapsible">
       <summary className="panel-head">
-        <h2 id="next-h"><Flash20Regular /> {t('cases.next.title')}</h2>
+        <h2 id="next-h"><Flash20Regular /> {t('cases.next.title')} <CountBadge n={next.length} /></h2>
       </summary>
       <p className="muted small">{t('cases.next.lead')}</p>
       {next.length === 0 ? (

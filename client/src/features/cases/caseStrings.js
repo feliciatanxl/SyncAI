@@ -3,6 +3,7 @@
 // The Chinese, Malay and Tamil text should be reviewed by a native speaker before release.
 
 const en = {
+  'cases.items': '{n} items',
   'cases.next.title': 'Next up',
   'cases.next.lead': 'Start here: the most urgent open cases, overdue first.',
   'cases.next.clear': 'All clear. No open cases need you right now.',
@@ -159,6 +160,7 @@ const en = {
 }
 
 const zh = {
+  'cases.items': '{n} 项',
   'cases.next.title': '接下来',
   'cases.next.lead': '从这里开始：最紧急的未结案件，逾期的排在最前。',
   'cases.next.clear': '一切就绪。目前没有需要你处理的未结案件。',
@@ -315,6 +317,7 @@ const zh = {
 }
 
 const ms = {
+  'cases.items': '{n} perkara',
   'cases.next.title': 'Seterusnya',
   'cases.next.lead': 'Mula di sini: kes terbuka paling mendesak, yang lewat dahulu.',
   'cases.next.clear': 'Semua beres. Tiada kes terbuka memerlukan anda sekarang.',
@@ -471,6 +474,7 @@ const ms = {
 }
 
 const ta = {
+  'cases.items': '{n} உருப்படிகள்',
   'cases.next.title': 'அடுத்தது',
   'cases.next.lead': 'இங்கே தொடங்குங்கள்: மிக அவசரமான திறந்த வழக்குகள், தாமதமானவை முதலில்.',
   'cases.next.clear': 'எல்லாம் சரி. இப்போது உங்களுக்காகக் காத்திருக்கும் திறந்த வழக்குகள் இல்லை.',

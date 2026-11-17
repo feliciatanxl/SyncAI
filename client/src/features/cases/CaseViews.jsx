@@ -32,6 +32,12 @@ function DueDate({ due }) {
   return due ? <span className="muted small">{new Date(due).toLocaleString(locale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span> : null
 }
 
+// Number in a circle on a collapsed panel heading, so people know what is inside before opening it.
+export function CountBadge({ n, urgent }) {
+  const t = useT()
+  return <span className={`case-count-badge${urgent && n ? ' is-urgent' : ''}`} aria-label={t('cases.items', { n })}>{n}</span>
+}
+
 export const fmtDate = (iso, locale) => (iso ? new Date(iso).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) : '')
 
 // List view: a table on wide screens, stacked cards on phones (see .case-table in site.css).

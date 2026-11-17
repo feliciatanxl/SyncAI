@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Badge, Button } from '@fluentui/react-components'
 import { Info16Regular, Open16Regular, Radar20Regular } from '@fluentui/react-icons'
 import { useT } from '../../lib/i18n.js'
-import { Countdown } from './CaseViews.jsx'
+import { CountBadge, Countdown } from './CaseViews.jsx'
 
 // Outstanding commitments found by fixed rules. Labelled as rule-based so nobody mistakes it for a model.
 export default function FollowUpRadar({ findings, now, onOpen, onAct }) {
@@ -11,9 +11,9 @@ export default function FollowUpRadar({ findings, now, onOpen, onAct }) {
   const [all, setAll] = useState(false)
   const shown = all ? findings : findings.slice(0, 3)
   return (
-    <details id="radar" className="panel case-radar case-collapsible" open>
+    <details id="radar" className="panel case-radar case-collapsible">
       <summary className="panel-head">
-        <h2 id="radar-h"><Radar20Regular /> {t('cases.radar.title')}</h2>
+        <h2 id="radar-h"><Radar20Regular /> {t('cases.radar.title')} <CountBadge n={findings.length} urgent /></h2>
       </summary>
       <p className="muted small">{t('cases.radar.lead')}</p>
       {findings.length === 0 ? <p className="empty">{t('cases.radar.empty')}</p> : (

@@ -228,3 +228,10 @@
 .case-table td.case-actions { display: table-cell; }
 .case-table td.case-actions > * { vertical-align: middle; }
 @media (max-width: 860px) { .case-table th:first-child { min-width: 0; } .case-table td.case-actions { display: flex; } }
+
+/* Count circle on the collapsed Next up / Follow-Up Radar headings. */
+.case-count-badge {
+  display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 7px; border-radius: 999px;
+  font-size: 0.8125rem; font-weight: 700; font-variant-numeric: tabular-nums; color: #fff; background: var(--ms-blue);
+}
+.case-count-badge.is-urgent { background: var(--colorPaletteRedBackground3); }
