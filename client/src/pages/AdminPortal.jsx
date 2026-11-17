@@ -161,7 +161,7 @@ export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSig
       ) : section === 'people' ? (
         <PeopleSection {...shared} now={now} />
       ) : section === 'assistant' ? (
-        <AssistantChat me={me} name={nameOf(me)} chat={chat} goTo={setSection} available={SECTIONS.map((s) => s.id)} />
+        <AssistantChat me={me} name={nameOf(me)} chat={chat} goTo={setSection} available={SECTIONS.map((s) => s.id)} getToken={getToken} />
       ) : section === 'teams' ? (
         <TeamsAdmin getToken={getToken} people={users} nameOf={nameOf} notify={notify} onPeopleChanged={() => load(undefined, true)} />
       ) : section === 'activity' ? (

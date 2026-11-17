@@ -4,7 +4,8 @@ import {
   ArrowRight16Regular, ArrowReset20Regular, ChatSparkle24Regular, PeopleCheckmark24Regular, PersonCircle24Regular, Send20Filled,
   ShieldKeyhole24Regular, Sparkle20Filled, Sparkle24Filled, Sparkle24Regular, TaskListLtr24Regular, TextFont24Regular,
 } from '@fluentui/react-icons'
-import { useT } from '../lib/i18n.js'
+import { apiRequest } from '../lib/api.js'
+import { usePreferences, useT } from '../lib/i18n.js'
 import { greetingName } from '../lib/time.js'
 import { TOPICS, matchTopic } from '../lib/helpGuide.js'
 import PageHeader from './PageHeader.jsx'
@@ -21,11 +22,13 @@ const TOPIC_ICON = {
 let nextId = 1
 const REPLY_DELAY = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600
 
-// "Ask SyncAI" preview: a real chat interface answering from SyncAI's help guide. Labelled as a preview so
-// nobody mistakes it for AI that knows their tasks. `chat` is [messages, setMessages], owned by the signed-in
-// page so the conversation survives switching tabs and disappears on sign-out.
-export default function AssistantChat({ me, name, chat, goTo, available }) {
+// "Ask SyncAI". Suggested questions get the help guide's fixed, checked answers instantly; typed questions go to
+// the AI (gpt-oss-120b on Groq, through the SyncAI API so the key stays on the server). If the AI isn't connected,
+// typed questions fall back to the help guide. `chat` is [messages, setMessages], owned by the signed-in page so
+// the conversation survives switching tabs and disappears on sign-out.
+export default function AssistantChat({ me, name, chat, goTo, available, getToken }) {
   const t = useT()
+  const { language } = usePreferences()
   const [messages, setMessages] = chat
   const [draft, setDraft] = useState('')
   const [typing, setTyping] = useState(false)
@@ -49,16 +52,26 @@ export default function AssistantChat({ me, name, chat, goTo, available }) {
     return { text: t(`assistant.answer.${topic.id}`), action: topic.action }
   }
 
-  function ask(question, topic = matchTopic(question, isAdmin)) {
+  // A suggested question (topic given) answers from the help guide; free text asks the AI.
+  function ask(question, topic) {
     const text = question.trim()
     if (!text || typing) return
+    const history = [...messages, { from: 'user', text }]
     setMessages((list) => [...list, { id: nextId++, from: 'user', text }])
     setDraft('')
     setTyping(true)
-    setTimeout(() => {
-      setMessages((list) => [...list, { id: nextId++, from: 'bot', ...answerFor(topic) }])
+    const reply = (answer) => {
+      setMessages((list) => [...list, { id: nextId++, from: 'bot', ...answer }])
       setTyping(false)
-    }, REPLY_DELAY)
+    }
+    if (topic || !getToken) return setTimeout(() => reply(answerFor(topic ?? matchTopic(text, isAdmin))), REPLY_DELAY)
+    // Only the conversation text is sent: no account details.
+    const body = { language, messages: history.slice(-12).map((m) => ({ role: m.from === 'user' ? 'user' : 'assistant', content: m.text.slice(0, 1000) })) }
+    apiRequest('/assistant', { method: 'POST', body, getToken }).then(
+      (res) => reply({ text: res.reply, ai: true }),
+      // Not connected yet (or an older server without the route): use the help guide instead of failing.
+      (err) => reply([503, 404].includes(err.status) ? answerFor(matchTopic(text, isAdmin)) : { text: t('assistant.aiError'), error: true }),
+    )
   }
 
   function onKeyDown(e) {
@@ -109,9 +122,10 @@ export default function AssistantChat({ me, name, chat, goTo, available }) {
               {m.from === 'bot'
                 ? <span className="msg-avatar" aria-hidden="true"><Sparkle20Filled /></span>
                 : <Avatar name={name} size={32} color="colorful" aria-hidden="true" />}
-              <div className="msg-bubble">
+              <div className={`msg-bubble${m.error ? ' msg-error' : ''}`}>
                 <span className="visually-hidden">{m.from === 'bot' ? 'SyncAI: ' : `${t('assistant.you')}: `}</span>
-                {m.text}
+                <span className="msg-text">{m.text}</span>
+                {m.ai && <span className="msg-ai small muted">{t('assistant.aiLabel')}</span>}
                 {m.action && available.includes(m.action) && (
                   <Button size="small" appearance="primary" icon={<ArrowRight16Regular />} iconPosition="after" onClick={() => goTo(m.action)}>
                     {t(`nav.${m.action}`)}

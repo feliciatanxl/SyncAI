@@ -1,5 +1,6 @@
 import { createApp } from './app.js'
 import { createTokenVerifier } from './auth.js'
+import { createAssistant } from './assistant.js'
 import { createPool, createUserStore, migrate } from './db.js'
 
 const env = process.env
@@ -28,6 +29,7 @@ const app = createApp({
   verifyToken: createTokenVerifier({ clientId: env.ENTRA_CLIENT_ID, allowedTenants }),
   users,
   trustProxy: Number(env.TRUST_PROXY) || 0,
+  assistant: createAssistant({ apiKey: env.GROQ_API_KEY }),
 })
 
 // PDPA: keep activity records only as long as needed. Runs at start-up and then daily.
@@ -41,6 +43,8 @@ async function purge() {
 }
 await purge()
 setInterval(purge, 24 * 60 * 60 * 1000).unref()
+
+if (!env.GROQ_API_KEY) console.warn('GROQ_API_KEY is not set: Ask SyncAI will answer from its built-in help guide only.')
 
 const port = Number(env.PORT) || 3000
 app.listen(port, () => console.log(`SyncAI API on http://localhost:${port}/api`))

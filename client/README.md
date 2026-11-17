@@ -154,7 +154,7 @@ Accessed via `/app` by Property Officers (`member`) and Estate Managers (`manage
 - **Case Action Centre:** Active members and managers only. See [Case Action Centre](#case-action-centre-category-c) below.
 - **My Team (`src/components/MyTeam.jsx`):** Visible to active managers. Displays team members across managed zones with active statuses and last-active indicators.
 - **My Tasks & My Plan (Placeholders):** Informative placeholders marked *Coming soon*. Transparently explains what the upcoming task board and smart calendar will do once the planning engine is migrated to the backend API. Does not present fake or unpersisted tasks.
-- **Ask SyncAI (Preview):** In-portal assistant answering questions from SyncAI's four-language help guide ([`src/lib/helpGuide.js`](src/lib/helpGuide.js)). Does not call external LLMs in the current phase; model integration is planned for later backend development.
+- **Ask SyncAI:** suggested questions get fixed answers from the four-language help guide ([`src/lib/helpGuide.js`](src/lib/helpGuide.js)). Typed questions go to the SyncAI API, which asks Groq's `openai/gpt-oss-120b`; the Groq key stays on the server and only the conversation text is sent. AI answers are labelled *AI-generated*. If the server has no `GROQ_API_KEY`, typed questions fall back to the help guide.
 - **How SyncAI Decides:** Explains the four priority factors (Safety, Mandatory Deadlines, Service Impact & Long-term Consequences, Feasibility).
 - **Settings:** Personal accessibility and appearance preferences.
 

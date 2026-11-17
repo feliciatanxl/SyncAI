@@ -132,7 +132,7 @@ const en = {
   'assistant.hello': 'How can I help, {name}?',
   'nav.assistant': 'Ask SyncAI',
   'assistant.preview': 'Preview',
-  'assistant.previewNote': 'Answers come from SyncAI’s help guide for now. AI answers about your own tasks and plans are coming.',
+  'assistant.previewNote': 'Ask anything about using SyncAI. Typed questions are answered by AI (gpt-oss-120b); suggested questions come from SyncAI’s help guide. It can’t see your tasks or cases.',
   'assistant.welcome': 'Hi {name}, I’m SyncAI. Ask me how SyncAI works, or pick a question below.',
   'assistant.label': 'Conversation with SyncAI',
   'assistant.suggested': 'Try asking',
@@ -141,7 +141,7 @@ const en = {
   'assistant.you': 'You',
   'assistant.typing': 'SyncAI is typing',
   'assistant.clear': 'Start over',
-  'assistant.foot': 'Preview: answers come from SyncAI’s help guide. Please don’t share personal or sensitive information here.',
+  'assistant.foot': 'AI answers can be wrong: check anything important. Please don’t share personal or sensitive information here.',
   'assistant.fallback': 'I can’t answer that yet. For now I can explain how SyncAI works. Once SyncAI’s AI is connected, I’ll be able to help with your own tasks and plans.',
   'assistant.q.decides': 'How does SyncAI decide what comes first?',
   'assistant.q.role': 'What can my role do?',
@@ -397,6 +397,8 @@ const en = {
   'settings.previewText': 'This is how text will look across SyncAI. Safety work stays first in your plan.',
   'settings.reset': 'Reset to default',
   'settings.resetDone': 'Settings are back to default.',
+  'assistant.aiLabel': 'AI-generated',
+  'assistant.aiError': 'Sorry, I couldn’t get an answer right now. Try again in a moment, or pick one of the suggested questions.',
 }
 
 for (const f of FACTORS) {
@@ -529,7 +531,7 @@ const zh = {
   'assistant.hello': '{name}，有什么可以帮您？',
   'nav.assistant': '问问 SyncAI',
   'assistant.preview': '预览',
-  'assistant.previewNote': '目前的回答来自 SyncAI 帮助指南。关于您自己任务和计划的 AI 回答即将推出。',
+  'assistant.previewNote': '您可以询问有关使用 SyncAI 的任何问题。输入的问题由 AI（gpt-oss-120b）回答；建议问题的答案来自 SyncAI 帮助指南。它看不到您的任务或案件。',
   'assistant.welcome': '{name}，您好，我是 SyncAI。您可以问我 SyncAI 如何运作，或选择下面的问题。',
   'assistant.label': '与 SyncAI 的对话',
   'assistant.suggested': '试着问',
@@ -538,7 +540,7 @@ const zh = {
   'assistant.you': '您',
   'assistant.typing': 'SyncAI 正在输入',
   'assistant.clear': '重新开始',
-  'assistant.foot': '预览：回答来自 SyncAI 帮助指南。请不要在这里分享个人或敏感信息。',
+  'assistant.foot': 'AI 的回答可能有误：重要内容请自行核实。请勿在此分享个人或敏感信息。',
   'assistant.fallback': '我暂时无法回答这个问题。目前我可以解释 SyncAI 如何运作。SyncAI 的 AI 连接后，我就能帮助您处理自己的任务和计划。',
   'assistant.q.decides': 'SyncAI 如何决定先做什么？',
   'assistant.q.role': '我的角色可以做什么？',
@@ -796,6 +798,8 @@ const zh = {
   'role.manager.text': '查看团队工作量、发现风险并批准重新分配。',
   'role.member': '团队成员',
   'role.member.text': '查看自己的任务，并获得符合自己时间的每日计划。',
+  'assistant.aiLabel': 'AI 生成',
+  'assistant.aiError': '抱歉，暂时无法获得回答。请稍后再试，或选择一个建议问题。',
 }
 
 const ms = {
@@ -919,7 +923,7 @@ const ms = {
   'assistant.hello': 'Apa yang boleh saya bantu, {name}?',
   'nav.assistant': 'Tanya SyncAI',
   'assistant.preview': 'Pratonton',
-  'assistant.previewNote': 'Buat masa ini jawapan datang daripada panduan bantuan SyncAI. Jawapan AI tentang tugasan dan rancangan anda sendiri akan datang.',
+  'assistant.previewNote': 'Tanya apa sahaja tentang menggunakan SyncAI. Soalan yang ditaip dijawab oleh AI (gpt-oss-120b); soalan cadangan dijawab daripada panduan bantuan SyncAI. Ia tidak dapat melihat tugasan atau kes anda.',
   'assistant.welcome': 'Hai {name}, saya SyncAI. Tanya saya cara SyncAI berfungsi, atau pilih soalan di bawah.',
   'assistant.label': 'Perbualan dengan SyncAI',
   'assistant.suggested': 'Cuba tanya',
@@ -928,7 +932,7 @@ const ms = {
   'assistant.you': 'Anda',
   'assistant.typing': 'SyncAI sedang menaip',
   'assistant.clear': 'Mula semula',
-  'assistant.foot': 'Pratonton: jawapan datang daripada panduan bantuan SyncAI. Jangan kongsi maklumat peribadi atau sensitif di sini.',
+  'assistant.foot': 'Jawapan AI mungkin salah: semak perkara penting. Jangan kongsi maklumat peribadi atau sensitif di sini.',
   'assistant.fallback': 'Saya belum dapat menjawab soalan itu. Buat masa ini saya boleh menerangkan cara SyncAI berfungsi. Apabila AI SyncAI disambungkan, saya akan dapat membantu dengan tugasan dan rancangan anda sendiri.',
   'assistant.q.decides': 'Bagaimanakah SyncAI menentukan apa yang perlu dibuat dahulu?',
   'assistant.q.role': 'Apakah yang boleh dilakukan oleh peranan saya?',
@@ -1186,6 +1190,8 @@ const ms = {
   'role.manager.text': 'Melihat beban kerja pasukan, mengesan risiko dan meluluskan penugasan semula.',
   'role.member': 'Ahli pasukan',
   'role.member.text': 'Melihat tugasan sendiri dan mendapat rancangan harian yang sesuai dengan masa mereka.',
+  'assistant.aiLabel': 'Dijana oleh AI',
+  'assistant.aiError': 'Maaf, saya tidak dapat memberi jawapan sekarang. Cuba lagi sebentar lagi, atau pilih salah satu soalan cadangan.',
 }
 
 const ta = {
@@ -1309,7 +1315,7 @@ const ta = {
   'assistant.hello': '{name}, நான் எப்படி உதவலாம்?',
   'nav.assistant': 'SyncAI-இடம் கேளுங்கள்',
   'assistant.preview': 'முன்னோட்டம்',
-  'assistant.previewNote': 'தற்போது பதில்கள் SyncAI உதவி வழிகாட்டியிலிருந்து வருகின்றன. உங்கள் சொந்தப் பணிகள் மற்றும் திட்டங்கள் பற்றிய AI பதில்கள் விரைவில் வருகின்றன.',
+  'assistant.previewNote': 'SyncAI ஐப் பயன்படுத்துவது பற்றி எதையும் கேளுங்கள். தட்டச்சு செய்த கேள்விகளுக்கு AI (gpt-oss-120b) பதிலளிக்கிறது; பரிந்துரைக்கப்பட்ட கேள்விகளுக்கான பதில்கள் SyncAI உதவி வழிகாட்டியிலிருந்து வருகின்றன. அது உங்கள் பணிகளையோ வழக்குகளையோ பார்க்க முடியாது.',
   'assistant.welcome': 'வணக்கம் {name}, நான் SyncAI. SyncAI எப்படிச் செயல்படுகிறது என்று என்னிடம் கேளுங்கள், அல்லது கீழே உள்ள கேள்வியைத் தேர்ந்தெடுங்கள்.',
   'assistant.label': 'SyncAI உடனான உரையாடல்',
   'assistant.suggested': 'இப்படிக் கேட்டுப் பாருங்கள்',
@@ -1318,7 +1324,7 @@ const ta = {
   'assistant.you': 'நீங்கள்',
   'assistant.typing': 'SyncAI தட்டச்சு செய்கிறது',
   'assistant.clear': 'மீண்டும் தொடங்கு',
-  'assistant.foot': 'முன்னோட்டம்: பதில்கள் SyncAI உதவி வழிகாட்டியிலிருந்து வருகின்றன. தனிப்பட்ட அல்லது முக்கியமான தகவல்களை இங்கே பகிர வேண்டாம்.',
+  'assistant.foot': 'AI பதில்கள் தவறாக இருக்கலாம்: முக்கியமானவற்றைச் சரிபார்க்கவும். தனிப்பட்ட அல்லது முக்கியமான தகவல்களை இங்கே பகிர வேண்டாம்.',
   'assistant.fallback': 'அதற்கு என்னால் இன்னும் பதில் அளிக்க முடியாது. தற்போது SyncAI எப்படிச் செயல்படுகிறது என்பதை என்னால் விளக்க முடியும். SyncAI-இன் AI இணைக்கப்பட்டதும், உங்கள் சொந்தப் பணிகள் மற்றும் திட்டங்களுக்கு உதவ முடியும்.',
   'assistant.q.decides': 'எதை முதலில் செய்ய வேண்டும் என்று SyncAI எப்படி முடிவு செய்கிறது?',
   'assistant.q.role': 'என் பங்கு என்ன செய்யலாம்?',
@@ -1576,6 +1582,8 @@ const ta = {
   'role.manager.text': 'குழுவின் பணிச்சுமையைப் பார்த்து, ஆபத்துகளைக் கண்டறிந்து, மறு ஒதுக்கீடுகளுக்கு ஒப்புதல் அளிக்கிறார்.',
   'role.member': 'குழு உறுப்பினர்',
   'role.member.text': 'தங்கள் பணிகளைப் பார்த்து, தங்கள் நேரத்துக்குப் பொருந்தும் தினசரித் திட்டத்தைப் பெறுகிறார்.',
+  'assistant.aiLabel': 'AI உருவாக்கியது',
+  'assistant.aiError': 'மன்னிக்கவும், இப்போது பதில் பெற முடியவில்லை. சிறிது நேரத்தில் மீண்டும் முயலவும், அல்லது பரிந்துரைக்கப்பட்ட கேள்வியைத் தேர்ந்தெடுக்கவும்.',
 }
 
 export const STRINGS = Object.fromEntries(Object.entries({ en, zh, ms, ta }).map(([lang, text]) => [lang, { ...text, ...CASE_STRINGS[lang] }]))

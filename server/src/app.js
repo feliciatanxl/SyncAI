@@ -23,11 +23,13 @@ const ALLOWED_METHODS = {
   '/teams/:id/members/:userId': ['DELETE'],
   '/my-teams': ['GET'],
   '/activity': ['GET'],
+  '/assistant': ['POST'],
 }
 
 // `requestsPerWindow` is per IP address over 15 minutes; every API call checks a token and may write to the database.
 // `trustProxy` is how many proxies sit in front (Railway: 1), so the rate limit sees each person's real IP.
-export function createApp({ verifyToken, users, requestsPerWindow = 300, trustProxy = 0 }) {
+// `assistant` answers Ask SyncAI questions (see assistant.js); without one the route answers 503.
+export function createApp({ verifyToken, users, requestsPerWindow = 300, trustProxy = 0, assistant = null, assistantPerWindow = 30 }) {
   const app = express()
   app.disable('x-powered-by')
   app.set('trust proxy', trustProxy)
@@ -194,7 +196,27 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300, trustPr
     res.json({ items, nextBefore: items.length === n ? items.at(-1).id : null })
   })
 
-  // A known path with the wrong method is 405 with an Allow header, not 404.
+  // Ask SyncAI. Any signed-in person who isn't disabled (pending people can ask how SyncAI works).
+  // Its own, tighter limit per person: every question is a paid call to the AI service.
+  const assistantLimit = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    limit: assistantPerWindow,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    keyGenerator: (req) => req.user.id,
+    handler: (_req, res) => fail(res, 429, 'You have asked a lot of questions. Wait a few minutes and try again.'),
+  })
+  api.post('/assistant', authenticate, async (req, res, next) => {
+    if (req.user.status === 'disabled') return fail(res, 403, 'Your access to SyncAI is turned off.')
+    next()
+  }, assistantLimit, async (req, res) => {
+    if (!assistant?.configured) return res.status(503).json({ message: 'Ask SyncAI is not connected to its AI service yet.', code: 'assistant_off' })
+    const language = ['en', 'zh', 'ms', 'ta'].includes(req.body?.language) ? req.body.language : 'en'
+    const reply = await assistant.ask(req.body?.messages, { language, role: req.user.status === 'active' ? req.user.role : 'pending user' })
+    res.json({ reply })
+  })
+
+  // A known path with the wrong method is 405 with an Allow header, not 404. Registered after every route.
   for (const [path, methods] of Object.entries(ALLOWED_METHODS)) {
     api.all(path, (_req, res) => {
       res.set('Allow', methods.join(', '))

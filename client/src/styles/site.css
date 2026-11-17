@@ -1380,3 +1380,8 @@ code { font-size: 0.9em; }
   .cal-head { flex-wrap: wrap; }
   .cal-head-text { flex-basis: calc(100% - 60px); }
 }
+
+/* Ask SyncAI: label on AI answers, and a softer bubble when the AI couldn't answer. */
+.msg-text { white-space: pre-wrap; }
+.msg-ai { display: block; margin-top: 6px; font-size: 0.75rem; }
+.msg-bubble.msg-error { background: var(--colorPaletteRedBackground1); }

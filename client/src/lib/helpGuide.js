@@ -1,5 +1,5 @@
-// The preview assistant's knowledge: fixed, accurate answers about SyncAI itself. No AI and no personal data
-// yet, so it never makes anything up. Keywords cover all four languages so free-text questions still match;
+// Fixed, checked answers about SyncAI itself: used for the suggested questions, and for typed questions when the AI
+// (server/src/assistant.js) isn't connected. No personal data, so it never makes anything up. Keywords cover all four languages so free-text questions still match;
 // everyday words (today, when, access) are left out because they would send unrelated questions to a topic.
 
 export const TOPICS = [

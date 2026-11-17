@@ -46,6 +46,7 @@ Copy [`.env.example`](.env.example) to `.env` (git-ignored) and configure:
 | `ENTRA_CLIENT_ID` | Yes | Azure Application (client) ID for SyncAI. Matches `VITE_ENTRA_CLIENT_ID` in `client/.env`. |
 | `ADMIN_EMAILS` | No | Comma-separated list of bootstrap administrator email addresses. Used solely when the database contains zero approved administrators: the first listed email to authenticate is provisioned as an active `admin`. **Ignored unless `ALLOWED_TENANT_IDS` is set**, because other tenants' email claims are not verified. |
 | `ALLOWED_TENANT_IDS` | No | Comma-separated list of permitted Microsoft Entra tenant IDs. If omitted or empty, any Microsoft account can authenticate, but accounts are initialized in a `pending` state awaiting admin approval. |
+| `GROQ_API_KEY` | No | Groq API key for **Ask SyncAI** (model `openai/gpt-oss-120b`). Server-side only. Empty = Ask SyncAI answers from its built-in help guide. |
 | `TRUST_PROXY` | No | Number of reverse proxies in front of the API (Railway: `1`). Lets the rate limit see each client's real IP. Defaults to `0`. |
 | `ACTIVITY_RETENTION_DAYS` | No | Retention period for audit logs. Defaults to `365` (12 months). |
 | `PORT` | No | Server listening port. Defaults to `3000`. |
@@ -120,6 +121,13 @@ sequenceDiagram
 | `POST` | `/api/teams/:id/members` | Active Admin | Adds a user to a team (`userId`, `kind`: `manager` or `member`). Validates role eligibility. |
 | `DELETE` | `/api/teams/:id/members/:userId` | Active Admin | Removes a user from a team. |
 | `GET` | `/api/activity` | Active Admin | Queries the append-only audit trail. Supports filtering by `person`, `action`, `limit`, and pagination `before`. |
+
+### Ask SyncAI (`POST /api/assistant`)
+
+Any signed-in person who isn't disabled. Body: `{ language: 'en'|'zh'|'ms'|'ta', messages: [{ role: 'user'|'assistant', content }] }` (last 12 messages, each up to 1,000 characters, last one from the user). Returns `{ reply }`.
+- Calls Groq's hosted `openai/gpt-oss-120b` with a fixed system prompt describing SyncAI ([`src/assistant.js`](src/assistant.js)). Only the conversation text is sent: no names, emails, cases or tasks.
+- Limited to 30 questions per person per 10 minutes, on top of the general API limit.
+- Status codes: `400` invalid messages, `401` not signed in, `403` disabled, `429` too many questions or Groq busy, `502` Groq error, `503` no `GROQ_API_KEY` (`code: assistant_off`), `504` Groq timed out.
 
 ### Manager Routes (`manager` role required)
 
