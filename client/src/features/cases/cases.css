@@ -244,3 +244,4 @@
 .case-card:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 2px; }
 
 .case-stat-text span { white-space: nowrap; }
+@media (max-width: 860px) { .case-stat-text span { white-space: normal; } }
