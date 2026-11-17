@@ -1440,3 +1440,7 @@ code { font-size: 0.9em; }
 .assistant-foot-note svg { color: var(--colorBrandForeground1); }
 .assistant-count { margin-left: auto; }
 @media (max-width: 760px) { .assistant .assistant-foot { justify-content: flex-start; } }
+
+/* Contain absolutely positioned bits (screen-reader labels, avatar initials) inside the scrolling list, or they
+   stretch the page as messages scroll out of view and leave an empty band below the app. */
+.assistant-messages { position: relative; }
