@@ -3,7 +3,7 @@ import { Avatar, Button, Textarea, Tooltip } from '@fluentui/react-components'
 import {
   ArrowClockwise16Regular, ArrowRight16Regular, ArrowReset20Regular, Checkmark16Regular, Copy16Regular, PeopleCheckmark24Regular, PersonCircle24Regular,
   Send20Filled, ShieldKeyhole24Regular, Sparkle24Regular, TaskListLtr24Regular, TextFont24Regular, ThumbDislike16Filled, ThumbDislike16Regular,
-  ThumbLike16Filled, ThumbLike16Regular, ChatSparkle24Regular,
+  ThumbLike16Filled, ThumbLike16Regular, ChatSparkle24Regular, Keyboard16Regular, ShieldKeyhole16Regular,
 } from '@fluentui/react-icons'
 import { apiRequest, apiStream } from '../lib/api.js'
 import { usePreferences, useT } from '../lib/i18n.js'
@@ -218,9 +218,9 @@ export default function AssistantChat({ me, name, photo, chat, goTo, available, 
         </Button>
       </form>
       <p className="assistant-foot small muted" id="assistant-hint">
-        <span>{t('assistant.hint')}</span>
+        <span className="assistant-foot-hint"><Keyboard16Regular aria-hidden="true" />{t('assistant.hint')}</span>
         {draft.length > MAX_CHARS * 0.8 && <span className="assistant-count" aria-live="polite">{draft.length}/{MAX_CHARS}</span>}
-        <span className="assistant-foot-note">{t('assistant.foot')}</span>
+        <span className="assistant-foot-note"><ShieldKeyhole16Regular aria-hidden="true" />{t('assistant.foot')}</span>
       </p>
     </section>
   )

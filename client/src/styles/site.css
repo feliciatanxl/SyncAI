@@ -1432,3 +1432,11 @@ code { font-size: 0.9em; }
 .assistant-count { font-variant-numeric: tabular-nums; color: var(--colorPaletteDarkOrangeForeground1); }
 .assistant-foot-note { margin-left: auto; }
 @media (max-width: 760px) { .assistant-foot-note { margin-left: 0; } }
+
+/* Footer under the input: keyboard hint on the left, privacy note on the right, one quiet line on laptops. */
+.assistant .assistant-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px 20px; flex-wrap: wrap; padding: 0 20px 14px; font-size: 0.75rem; color: var(--colorNeutralForeground3); }
+.assistant-foot-hint, .assistant .assistant-foot-note { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+.assistant-foot-hint svg, .assistant-foot-note svg { flex: none; width: 14px; height: 14px; color: var(--colorNeutralForeground3); }
+.assistant-foot-note svg { color: var(--colorBrandForeground1); }
+.assistant-count { margin-left: auto; }
+@media (max-width: 760px) { .assistant .assistant-foot { justify-content: flex-start; } }
