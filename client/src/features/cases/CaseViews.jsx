@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Avatar, Badge, Button, Tooltip } from '@fluentui/react-components'
-import { ArrowSwap16Regular } from '@fluentui/react-icons'
+import { Avatar, Badge, Tooltip } from '@fluentui/react-components'
 import { useLocale, useT } from '../../lib/i18n.js'
 import { caseStage, deadlineCountdown, formatDuration, STAGES } from './caseLogic.js'
 
@@ -90,8 +89,8 @@ export function CaseTable({ cases, followUpCount, officerName, now, onOpen }) {
 
 // Kanban: five columns, each case in exactly one (caseStage).
 // Cards can be dragged onto another column; onDrop(caseId, stage) runs the same checks as the Move button,
-// which stays as the keyboard and touch alternative (HTML5 drag-and-drop has no keyboard or touch support).
-export function CaseBoard({ cases, followUpCount, officerName, now, onOpen, onMove, onDrop }) {
+// Keyboard and touch users move a case from its details (Move stage), as HTML5 drag-and-drop has neither.
+export function CaseBoard({ cases, followUpCount, officerName, now, onOpen, onDrop }) {
   const t = useT()
   const [dragId, setDragId] = useState(null)
   const [over, setOver] = useState(null)
@@ -122,6 +121,8 @@ export function CaseBoard({ cases, followUpCount, officerName, now, onOpen, onMo
                     onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.number); setDragId(c.id) }}
                     onDragEnd={end}
                     onClick={openOnClick(() => onOpen(c.id))}
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(c.id) } }}
                     title={t('cases.dragHint')}
                   >
                     <div className="case-card-top"><span className="case-id">{c.number}</span><UrgencyBadge urgency={c.urgency} /></div>
@@ -132,10 +133,6 @@ export function CaseBoard({ cases, followUpCount, officerName, now, onOpen, onMo
                       {followUpCount(c) > 0 && <span>{t('cases.followUpCount', { n: followUpCount(c) })}</span>}
                     </div>
                     {c.pendingRequest && <Badge appearance="tint" color="warning">{t('cases.awaitingDecision')}</Badge>}
-                    <div className="case-card-actions">
-                      <Button size="small" onClick={() => onOpen(c.id)} aria-label={t('cases.viewNamed', { case: c.number })}>{t('cases.view')}</Button>
-                      <Button size="small" appearance="subtle" icon={<ArrowSwap16Regular />} onClick={() => onMove(c.id)} aria-label={t('cases.moveNamed', { case: c.number })}>{t('cases.move')}</Button>
-                    </div>
                   </li>
                 ))}
               </ul>
