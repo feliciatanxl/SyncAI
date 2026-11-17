@@ -1396,3 +1396,39 @@ code { font-size: 0.9em; }
 /* SyncAI's own logo for the assistant, on white so its colours show. */
 .msg-avatar { background: #fff; box-shadow: inset 0 0 0 1px var(--colorNeutralStroke2); }
 .assistant-welcome-icon { background: #fff; box-shadow: 0 8px 24px rgba(15, 108, 189, 0.18), inset 0 0 0 1px var(--colorNeutralStroke2); }
+
+/* ---------- Ask SyncAI v2: one full-height panel with a slim title bar ---------- */
+.assistant.panel { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+@media (max-width: 560px) { .assistant.panel { height: calc(100dvh - 150px); min-height: 460px; } }
+.assistant-bar { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--colorNeutralStroke2); }
+.assistant-bar-logo { flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #fff; box-shadow: inset 0 0 0 1px var(--colorNeutralStroke2); }
+.assistant-bar-text { flex: 1; min-width: 0; }
+.assistant-bar-text h1 { margin: 0; font-size: 1.25rem; line-height: 1.2; }
+.assistant-bar-text p { margin: 2px 0 0; }
+
+/* Start screen: compact, so all suggestions are visible without scrolling. */
+.assistant-welcome { padding: 12px 0; }
+.assistant-welcome h2 { font-size: 1.5rem; }
+.assistant-welcome > p { margin-bottom: 12px; }
+.assistant .suggestion-cards { grid-auto-rows: auto; gap: 10px; max-width: 900px; }
+.assistant .suggestion-card { min-height: 0; padding: 12px 14px; gap: 12px; font-size: 0.9375rem; }
+.assistant .suggestion-icon { width: 36px; height: 36px; }
+
+/* AI answers: formatted text, a typing caret while streaming, and the tools row. */
+.msg-md { display: grid; gap: 6px; white-space: normal; }
+.msg-md p { margin: 0; }
+.msg-md ul, .msg-md ol { margin: 0; padding-left: 20px; display: grid; gap: 3px; }
+.msg-md code { padding: 1px 5px; border-radius: 4px; background: var(--colorNeutralBackground1); font-size: 0.875em; }
+.msg-caret { display: inline-block; width: 8px; height: 1em; margin-left: 2px; vertical-align: text-bottom; background: var(--colorBrandForeground1); animation: caret-blink 1s steps(2) infinite; }
+@keyframes caret-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .msg-caret { animation: none; } }
+.msg-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; width: 100%; padding-top: 6px; border-top: 1px solid var(--colorNeutralStroke2); }
+.msg-tools .msg-ai { margin: 0 6px 0 0; }
+.msg-tools-right { display: inline-flex; margin-left: auto; }
+
+/* Input: grows with the question up to ~6 lines; hint and character count underneath. */
+.assistant-input textarea { field-sizing: content; }
+.assistant-foot { flex-wrap: wrap; gap: 4px 12px; }
+.assistant-count { font-variant-numeric: tabular-nums; color: var(--colorPaletteDarkOrangeForeground1); }
+.assistant-foot-note { margin-left: auto; }
+@media (max-width: 760px) { .assistant-foot-note { margin-left: 0; } }

@@ -498,3 +498,43 @@ test('assistant maps Groq failures to clear errors', async () => {
   await assert.rejects(down.ask([{ role: 'user', content: 'hi' }]), { status: 504 })
   assert.throws(() => cleanConversation([{ role: 'assistant', content: 'last is not user' }]), { status: 400 })
 })
+
+// Groq's streamed format: server-sent events with one JSON piece per line.
+const sse = (pieces) => new Response(pieces.map((p) => `data: ${JSON.stringify({ choices: [{ delta: { content: p } }] })}\n\n`).join('') + 'data: [DONE]\n\n', { status: 200 })
+
+test('assistant streams the answer as plain text when asked', async () => {
+  let streamed
+  const fakeFetch = async (_url, init) => {
+    streamed = JSON.parse(init.body).stream
+    return sse(['Open ', '**Settings**', ' to change text size.'])
+  }
+  await withAssistant(createAssistant({ apiKey: 'k', fetchImpl: fakeFetch }), async (ask) => {
+    const res = await ask('new@x.com', { stream: true, messages: [{ role: 'user', content: 'Bigger text?' }] })
+    assert.equal(res.status, 200)
+    assert.match(res.headers.get('content-type'), /text\/plain/)
+    assert.equal(await res.text(), 'Open **Settings** to change text size.')
+  })
+  assert.equal(streamed, true)
+})
+
+test('a streamed request that fails before any text is a normal JSON error', async () => {
+  const busy = async () => new Response('', { status: 429 })
+  await withAssistant(createAssistant({ apiKey: 'k', fetchImpl: busy }), async (ask) => {
+    const res = await ask('new@x.com', { stream: true, messages: [{ role: 'user', content: 'hi' }] })
+    assert.equal(res.status, 429)
+    assert.equal((await res.json()).code, 'assistant_busy')
+  })
+})
+
+test('assistant feedback is logged anonymously without any text', async () => {
+  const users = fakeUsers(['boss@x.com'])
+  const server = createApp({ verifyToken, users }).listen(0)
+  const url = `http://localhost:${server.address().port}/api/assistant/feedback`
+  const post = (body) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer new@x.com' }, body: JSON.stringify(body) })
+  try {
+    assert.equal((await post({ helpful: 'yes' })).status, 400)
+    assert.equal((await post({ helpful: false })).status, 204)
+    const entry = users.activity.at(-1)
+    assert.deepEqual({ action: entry.action, actorId: entry.actorId, targetId: entry.targetId, details: entry.details }, { action: 'assistant_not_helpful', actorId: null, targetId: null, details: {} })
+  } finally { server.close() }
+})

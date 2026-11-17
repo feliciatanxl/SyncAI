@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Input, MessageBar, MessageBarBody, MessageBarTitle, Select, Spinner } from '@fluentui/react-components'
 import {
   ArrowClockwise20Regular, ArrowEnterLeft20Regular, Calendar20Regular, History24Regular, Checkmark20Regular, DismissCircle20Regular, History20Regular, LockClosed20Regular,
-  LockOpen20Regular, Open20Regular, PeopleTeam20Regular, PeopleTeamAdd20Regular, PersonAdd20Regular, PersonDelete20Regular, PersonEdit20Regular, ShieldTask20Regular, SignOut20Regular,
+  LockOpen20Regular, Open20Regular, PeopleTeam20Regular, PeopleTeamAdd20Regular, PersonAdd20Regular, PersonDelete20Regular, PersonEdit20Regular, ShieldTask20Regular, SignOut20Regular, ThumbDislike20Regular, ThumbLike20Regular,
 } from '@fluentui/react-icons'
 import { apiRequest } from '../lib/api.js'
 import PageHeader, { HeroStat } from './PageHeader.jsx'
@@ -12,6 +12,7 @@ import { useNow } from '../lib/time.js'
 const ACTIONS = [
   'signed_up', 'signed_in', 'opened', 'signed_out', 'approved', 'declined', 'role_changed', 'access_off', 'access_on', 'status_changed',
   'team_created', 'team_renamed', 'team_deleted', 'team_member_added', 'team_member_removed',
+  'assistant_helpful', 'assistant_not_helpful',
 ]
 const ICON = {
   signed_up: <PersonAdd20Regular />,
@@ -29,6 +30,8 @@ const ICON = {
   team_deleted: <PeopleTeam20Regular />,
   team_member_added: <PersonAdd20Regular />,
   team_member_removed: <PersonDelete20Regular />,
+  assistant_helpful: <ThumbLike20Regular />,
+  assistant_not_helpful: <ThumbDislike20Regular />,
 }
 const TONE = { approved: 'tone-good', access_on: 'tone-good', declined: 'tone-bad', access_off: 'tone-bad', role_changed: 'tone-info', status_changed: 'tone-info', team_created: 'tone-info', team_member_added: 'tone-good', team_member_removed: 'tone-bad', team_deleted: 'tone-bad' }
 const PAGE = 50

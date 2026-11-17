@@ -9,6 +9,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const fail = (res, status, message) => res.status(status).json({ message })
 
+// Ends a streamed Ask SyncAI answer that broke off part-way (a character no answer contains).
+export const STREAM_ERROR = '\u0000'
+
 // Every route and its methods; anything else on these paths answers 405.
 const ALLOWED_METHODS = {
   '/health': ['GET'],
@@ -24,6 +27,7 @@ const ALLOWED_METHODS = {
   '/my-teams': ['GET'],
   '/activity': ['GET'],
   '/assistant': ['POST'],
+  '/assistant/feedback': ['POST'],
 }
 
 // `requestsPerWindow` is per IP address over 15 minutes; every API call checks a token and may write to the database.
@@ -212,8 +216,35 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300, trustPr
   }, assistantLimit, async (req, res) => {
     if (!assistant?.configured) return res.status(503).json({ message: 'Ask SyncAI is not connected to its AI service yet.', code: 'assistant_off' })
     const language = ['en', 'zh', 'ms', 'ta'].includes(req.body?.language) ? req.body.language : 'en'
-    const reply = await assistant.ask(req.body?.messages, { language, role: req.user.status === 'active' ? req.user.role : 'pending user' })
-    res.json({ reply })
+    const options = { language, role: req.user.status === 'active' ? req.user.role : 'pending user' }
+    if (req.body?.stream !== true) return res.json({ reply: await assistant.ask(req.body?.messages, options) })
+
+    // Streamed as plain text while it's written. A failure before the first piece is a normal JSON error;
+    // a failure after it ends the text with STREAM_ERROR so the app can say the answer was cut off.
+    const stop = new AbortController()
+    res.on('close', () => stop.abort())
+    const pieces = assistant.stream(req.body?.messages, options, stop.signal)
+    const first = await pieces.next()
+    res.status(200).set({ 'Content-Type': 'text/plain; charset=utf-8', 'X-Accel-Buffering': 'no' })
+    if (!first.done) res.write(first.value)
+    try {
+      for await (const piece of pieces) res.write(piece)
+    } catch (err) {
+      if (!stop.signal.aborted) {
+        console.error('Ask SyncAI stream failed', err)
+        res.write(STREAM_ERROR)
+      }
+    }
+    res.end()
+  })
+
+  // 👍/👎 on an AI answer. Recorded anonymously and without the question or answer, so admins see how helpful
+  // Ask SyncAI is without anyone's conversation or identity being kept.
+  api.post('/assistant/feedback', authenticate, async (req, res) => {
+    if (req.user.status === 'disabled') return fail(res, 403, 'Your access to SyncAI is turned off.')
+    if (typeof req.body?.helpful !== 'boolean') return fail(res, 400, 'helpful must be true or false.')
+    await users.logActivity(null, req.body.helpful ? 'assistant_helpful' : 'assistant_not_helpful', null, {})
+    res.status(204).end()
   })
 
   // A known path with the wrong method is 405 with an Allow header, not 404. Registered after every route.

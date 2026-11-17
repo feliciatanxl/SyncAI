@@ -57,40 +57,69 @@ export function cleanConversation(messages) {
   return clean
 }
 
-export function createAssistant({ apiKey, fetchImpl = fetch, timeoutMs = 20_000 }) {
+export function createAssistant({ apiKey, fetchImpl = fetch, timeoutMs = 20_000, streamTimeoutMs = 60_000 }) {
+  // Sends the conversation to Groq and returns the raw response once its status is known to be OK.
+  async function call(messages, { language = 'en', role = 'member' }, { stream = false, signal } = {}) {
+    if (!apiKey) throw new AssistantError(503, 'assistant_off', 'Ask SyncAI is not connected to its AI service yet.')
+    const system = `${GUIDE}\n\nThe person asking is a ${role}. Reply in ${LANGUAGES[language] ?? 'English'}.`
+    const timeout = AbortSignal.timeout(stream ? streamTimeoutMs : timeoutMs)
+    let res
+    try {
+      res = await fetchImpl(GROQ_URL, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: GROQ_MODEL,
+          messages: [{ role: 'system', content: system }, ...cleanConversation(messages)],
+          temperature: 0.3,
+          max_completion_tokens: 700,
+          reasoning_effort: 'low',
+          include_reasoning: false,
+          stream,
+        }),
+        signal: signal ? AbortSignal.any([timeout, signal]) : timeout,
+      })
+    } catch (err) {
+      if (err instanceof AssistantError) throw err
+      throw new AssistantError(504, 'assistant_unreachable', 'The AI service did not respond in time. Try again.')
+    }
+    if (res.status === 429) throw new AssistantError(429, 'assistant_busy', 'The AI service is busy. Try again in a minute.')
+    if (!res.ok) {
+      console.error('Groq request failed', res.status, await res.text().catch(() => ''))
+      throw new AssistantError(502, 'assistant_failed', 'The AI service could not answer right now.')
+    }
+    return res
+  }
+
   return {
     configured: Boolean(apiKey),
-    async ask(messages, { language = 'en', role = 'member' } = {}) {
-      if (!apiKey) throw new AssistantError(503, 'assistant_off', 'Ask SyncAI is not connected to its AI service yet.')
-      const system = `${GUIDE}\n\nThe person asking is a ${role}. Reply in ${LANGUAGES[language] ?? 'English'}.`
-      let res
-      try {
-        res = await fetchImpl(GROQ_URL, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: GROQ_MODEL,
-            messages: [{ role: 'system', content: system }, ...cleanConversation(messages)],
-            temperature: 0.3,
-            max_completion_tokens: 700,
-            reasoning_effort: 'low',
-            include_reasoning: false,
-          }),
-          signal: AbortSignal.timeout(timeoutMs),
-        })
-      } catch (err) {
-        if (err instanceof AssistantError) throw err
-        throw new AssistantError(504, 'assistant_unreachable', 'The AI service did not respond in time. Try again.')
-      }
-      if (res.status === 429) throw new AssistantError(429, 'assistant_busy', 'The AI service is busy. Try again in a minute.')
-      if (!res.ok) {
-        console.error('Groq request failed', res.status, await res.text().catch(() => ''))
-        throw new AssistantError(502, 'assistant_failed', 'The AI service could not answer right now.')
-      }
-      const data = await res.json().catch(() => null)
+
+    async ask(messages, options = {}) {
+      const data = await (await call(messages, options)).json().catch(() => null)
       const reply = data?.choices?.[0]?.message?.content?.trim()
       if (!reply) throw new AssistantError(502, 'assistant_failed', 'The AI service returned an empty answer.')
       return reply
+    },
+
+    // Yields the answer as it is written. Errors before the first piece throw like ask(), so the route can still
+    // answer with a status code; `signal` stops the Groq request when the person leaves.
+    async *stream(messages, options = {}, signal) {
+      const res = await call(messages, options, { stream: true, signal })
+      const decoder = new TextDecoder()
+      let buffer = ''
+      for await (const bytes of res.body) {
+        buffer += decoder.decode(bytes, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop()
+        for (const line of lines) {
+          // Server-sent events: `data: {json}` per piece, `data: [DONE]` at the end.
+          const payload = line.startsWith('data:') ? line.slice(5).trim() : ''
+          if (!payload) continue
+          if (payload === '[DONE]') return
+          const piece = JSON.parse(payload)?.choices?.[0]?.delta?.content
+          if (piece) yield piece
+        }
+      }
     },
   }
 }

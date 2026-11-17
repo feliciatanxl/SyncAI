@@ -3,6 +3,7 @@
 export const ACTIONS = [
   'signed_up', 'signed_in', 'opened', 'signed_out', 'approved', 'declined', 'role_changed', 'access_off', 'access_on', 'status_changed',
   'team_created', 'team_renamed', 'team_deleted', 'team_member_added', 'team_member_removed',
+  'assistant_helpful', 'assistant_not_helpful',
 ]
 
 // The events an admin's change to a person produces, from that person's state before and after.
