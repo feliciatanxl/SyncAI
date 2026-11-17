@@ -125,7 +125,7 @@ async function withServer(fn) {
   const base = `http://localhost:${server.address().port}/api`
   const call = (path, token, init = {}) =>
     fetch(base + path, { ...init, headers: { 'content-type': 'application/json', ...(token && { authorization: `Bearer ${token}` }) } })
-  try { await fn(call, users) } finally { server.close() }
+  try { await fn(call, users, base) } finally { server.close() }
 }
 
 test('rejects missing and invalid tokens', () => withServer(async (call) => {
@@ -402,4 +402,45 @@ test('teams can be renamed, and deleted only when empty', () => withServer(async
     ['team_member_removed', { team: 'North East', kind: 'member' }],
     ['team_deleted', { team: 'North East' }],
   ])
+}))
+
+test('sends security headers on every response', () => withServer(async (call) => {
+  const res = await call('/health')
+  assert.match(res.headers.get('strict-transport-security'), /max-age=\d+/)
+  assert.equal(res.headers.get('x-content-type-options'), 'nosniff')
+  assert.equal(res.headers.get('x-frame-options'), 'DENY')
+  assert.equal(res.headers.get('cache-control'), 'no-store')
+  assert.equal(res.headers.get('x-powered-by'), null)
+}))
+
+test('answers 405 with Allow for a known path and the wrong method', () => withServer(async (call) => {
+  const res = await call('/users', 'boss@x.com', { method: 'DELETE' })
+  assert.equal(res.status, 405)
+  assert.equal(res.headers.get('allow'), 'GET')
+  assert.equal((await call('/nowhere')).status, 404)
+}))
+
+test('rejects non-JSON bodies with 415', () => withServer(async (_call, _users, base) => {
+  const res = await fetch(`${base}/teams`, { method: 'POST', headers: { authorization: 'Bearer boss@x.com', 'content-type': 'text/plain' }, body: 'name=x' })
+  assert.equal(res.status, 415)
+}))
+
+test('blocks every role from routes above it (broken access control)', () => withServer(async (call) => {
+  const id = randomUUID()
+  const admin = '/users /teams /activity'.split(' ')
+  for (const path of admin) assert.equal((await call(path, 'new@x.com')).status, 403, path)
+  assert.equal((await call('/my-teams', 'new@x.com')).status, 403)
+  assert.equal((await call(`/users/${id}`, 'new@x.com', { method: 'PATCH', body: '{"role":"admin"}' })).status, 403)
+  assert.equal((await call('/teams', 'new@x.com', { method: 'POST', body: '{"name":"x"}' })).status, 403)
+  // Admins arrange teams but don't get a manager's view of members.
+  assert.equal((await call('/my-teams', 'boss@x.com')).status, 403)
+}))
+
+test('treats SQL-looking input as plain data', () => withServer(async (call) => {
+  assert.equal((await call(`/users/1' OR '1'='1`, 'boss@x.com', { method: 'PATCH', body: '{"role":"admin"}' })).status, 404)
+  assert.equal((await call(`/activity?person=x' OR 1=1--`, 'boss@x.com')).status, 400)
+  assert.equal((await call(`/activity?limit=1;DROP TABLE users`, 'boss@x.com')).status, 400)
+  const res = await call('/teams', 'boss@x.com', { method: 'POST', body: JSON.stringify({ name: "Zone A'); DROP TABLE teams;--" }) })
+  assert.equal(res.status, 201)
+  assert.equal((await res.json()).name, "Zone A'); DROP TABLE teams;--")
 }))

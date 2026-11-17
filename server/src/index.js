@@ -16,10 +16,18 @@ const retentionDays = Number(env.ACTIVITY_RETENTION_DAYS) || 365
 const pool = createPool(env.DATABASE_URL)
 await migrate(pool)
 
-const users = createUserStore(pool, { adminEmails: list(env.ADMIN_EMAILS) })
+// Email claims aren't verified for accounts from other tenants, so anyone could put an admin's email on their own
+// account. ADMIN_EMAILS therefore only works when sign-in is limited to known tenants.
+const allowedTenants = list(env.ALLOWED_TENANT_IDS)
+const adminEmails = allowedTenants.length ? list(env.ADMIN_EMAILS) : []
+if (list(env.ADMIN_EMAILS).length && !allowedTenants.length) {
+  console.warn('ADMIN_EMAILS is ignored: set ALLOWED_TENANT_IDS so the first admin can only come from your own tenant.')
+}
+const users = createUserStore(pool, { adminEmails })
 const app = createApp({
-  verifyToken: createTokenVerifier({ clientId: env.ENTRA_CLIENT_ID, allowedTenants: list(env.ALLOWED_TENANT_IDS) }),
+  verifyToken: createTokenVerifier({ clientId: env.ENTRA_CLIENT_ID, allowedTenants }),
   users,
+  trustProxy: Number(env.TRUST_PROXY) || 0,
 })
 
 // PDPA: keep activity records only as long as needed. Runs at start-up and then daily.

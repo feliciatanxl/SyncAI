@@ -9,10 +9,28 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const fail = (res, status, message) => res.status(status).json({ message })
 
+// Every route and its methods; anything else on these paths answers 405.
+const ALLOWED_METHODS = {
+  '/health': ['GET'],
+  '/me': ['GET'],
+  '/signin': ['POST'],
+  '/signout': ['POST'],
+  '/users': ['GET'],
+  '/users/:id': ['PATCH'],
+  '/teams': ['GET', 'POST'],
+  '/teams/:id': ['PATCH', 'DELETE'],
+  '/teams/:id/members': ['POST'],
+  '/teams/:id/members/:userId': ['DELETE'],
+  '/my-teams': ['GET'],
+  '/activity': ['GET'],
+}
+
 // `requestsPerWindow` is per IP address over 15 minutes; every API call checks a token and may write to the database.
-export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
+// `trustProxy` is how many proxies sit in front (Railway: 1), so the rate limit sees each person's real IP.
+export function createApp({ verifyToken, users, requestsPerWindow = 300, trustProxy = 0 }) {
   const app = express()
   app.disable('x-powered-by')
+  app.set('trust proxy', trustProxy)
 
   // The API only ever returns JSON about people: never cache it, never sniff it, never frame it, never leak the URL.
   app.use((_req, res, next) => {
@@ -22,7 +40,17 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
       'X-Frame-Options': 'DENY',
       'Referrer-Policy': 'no-referrer',
       'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+      'Cross-Origin-Resource-Policy': 'same-origin',
     })
+    next()
+  })
+  // Writes only accept JSON: anything else is 415, not silently read as an empty body.
+  app.use((req, res, next) => {
+    // req.is() is null without a body and false for a body of another type.
+    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.is('application/json') === false) {
+      return fail(res, 415, 'Send the request body as application/json.')
+    }
     next()
   })
   app.use(express.json({ limit: '100kb' }))
@@ -165,6 +193,14 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
     const items = await users.listActivity({ limit: n, before, person, action, date })
     res.json({ items, nextBefore: items.length === n ? items.at(-1).id : null })
   })
+
+  // A known path with the wrong method is 405 with an Allow header, not 404.
+  for (const [path, methods] of Object.entries(ALLOWED_METHODS)) {
+    api.all(path, (_req, res) => {
+      res.set('Allow', methods.join(', '))
+      fail(res, 405, 'Method not allowed.')
+    })
+  }
 
   app.use('/api', api)
   app.use((_req, res) => fail(res, 404, 'Not found.'))

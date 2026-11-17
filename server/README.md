@@ -44,8 +44,9 @@ Copy [`.env.example`](.env.example) to `.env` (git-ignored) and configure:
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection string. When connecting from a local development machine to a hosted Railway instance, use `DATABASE_PUBLIC_URL` (requires **Public Networking** enabled in Railway). When running inside Railway or a cloud container, use the internal private connection string. |
 | `ENTRA_CLIENT_ID` | Yes | Azure Application (client) ID for SyncAI. Matches `VITE_ENTRA_CLIENT_ID` in `client/.env`. |
-| `ADMIN_EMAILS` | No | Comma-separated list of bootstrap administrator email addresses. Used solely when the database contains zero approved administrators: the first listed email to authenticate is provisioned as an active `admin`. |
+| `ADMIN_EMAILS` | No | Comma-separated list of bootstrap administrator email addresses. Used solely when the database contains zero approved administrators: the first listed email to authenticate is provisioned as an active `admin`. **Ignored unless `ALLOWED_TENANT_IDS` is set**, because other tenants' email claims are not verified. |
 | `ALLOWED_TENANT_IDS` | No | Comma-separated list of permitted Microsoft Entra tenant IDs. If omitted or empty, any Microsoft account can authenticate, but accounts are initialized in a `pending` state awaiting admin approval. |
+| `TRUST_PROXY` | No | Number of reverse proxies in front of the API (Railway: `1`). Lets the rate limit see each client's real IP. Defaults to `0`. |
 | `ACTIVITY_RETENTION_DAYS` | No | Retention period for audit logs. Defaults to `365` (12 months). |
 | `PORT` | No | Server listening port. Defaults to `3000`. |
 
@@ -166,13 +167,29 @@ The activity log provides an append-only, tamper-evident audit record of securit
 
 ## Security Controls (OWASP Top 10 Evaluation)
 
-- **A01 Broken Access Control:** Every protected route verifies cryptographic JWT validity, database status, and role authorization. Admins cannot alter their own access.
-- **A02 Cryptographic Failures:** Public key retrieval via HTTPS from Microsoft's published JWKS. Token validation via standard algorithms.
+- **A01 Broken Access Control:** Every protected route verifies cryptographic JWT validity, database status, and role authorization. Admins cannot alter their own access; managers only ever see the teams they lead; there are no routes that take another person's id except admin-only ones. The bootstrap admin email only applies to allowed tenants.
+- **A02 Cryptographic Failures:** Public key retrieval via HTTPS from Microsoft's published JWKS. Tokens must be RS256; issuer, audience, expiry and signature are all checked. HSTS is sent on every response.
 - **A03 Injection:** 100% of database interactions use parameterized SQL statements (`$1, $2`).
 - **A04 Insecure Design:** New accounts default to pending status; append-only audit trail recorded in atomic transactions.
-- **A05 Security Misconfiguration:** Headers stripped of `X-Powered-By`. Enforces `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and deny-all CSP.
+- **A05 Security Misconfiguration:** Headers stripped of `X-Powered-By`. Enforces `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Strict-Transport-Security`, `Cross-Origin-Resource-Policy: same-origin`, and deny-all CSP.
 - **A07 Identification & Authentication Failures:** Completely delegates credentials to Microsoft Entra ID. No local password storage.
-- **Rate Limiting:** IP-based sliding window limit of 300 requests per 15 minutes prevents brute-force probing. Request payloads restricted to 100 KB.
+- **Rate Limiting:** IP-based sliding window limit of 300 requests per 15 minutes prevents brute-force probing. Request payloads restricted to 100 KB. Behind a proxy, set `TRUST_PROXY` so limits apply per client rather than to the proxy.
+
+### HTTP status codes
+| Code | When |
+| --- | --- |
+| 200 / 201 / 204 | Read or update, created, done with no body |
+| 400 | Invalid input or malformed JSON |
+| 401 | Missing, expired or invalid token |
+| 403 | Signed in, but pending, disabled or the wrong role |
+| 404 | Unknown path, or the user/team doesn't exist |
+| 405 | Known path, wrong method (with an `Allow` header) |
+| 409 | Conflicts with team rules (name taken, already in a team, team not empty) |
+| 413 | Body over 100 KB |
+| 415 | Write sent without `application/json` |
+| 429 | Rate limit reached |
+| 500 | Unexpected server error (no internals in the message) |
+| 503 | `/health` when the database is down |
 
 ---
 
@@ -184,10 +201,11 @@ Run backend unit and security tests using Node's native test runner:
 npm test
 ```
 
-Verified test coverage (21 automated tests):
+Verified test coverage (26 automated tests):
 - Rejects missing, unsigned, or tampered tokens.
 - Verifies initial admin bootstrapping and pending user provisioning.
 - Enforces admin-only user management and prevents self-demotion.
 - Enforces team membership constraints and manager view boundaries.
 - Verifies rate limiting, security headers, and input parameter sanitization.
 - Validates transactional audit record generation and retention filtering.
+- Checks access control per role, SQL-looking input staying plain data, and 405/415 responses.
