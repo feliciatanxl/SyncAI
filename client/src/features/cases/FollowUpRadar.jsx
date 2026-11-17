@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Badge, Button } from '@fluentui/react-components'
-import { Info16Regular, Open16Regular, Radar20Regular } from '@fluentui/react-icons'
+import { ChevronDown16Regular, ChevronUp16Regular, Info16Regular, Open16Regular, Radar20Regular } from '@fluentui/react-icons'
 import { useT } from '../../lib/i18n.js'
 import { CountBadge, Countdown } from './CaseViews.jsx'
 
@@ -21,14 +21,16 @@ export default function FollowUpRadar({ findings, now, onOpen, onAct }) {
           {shown.map((f) => (
             <li key={f.id} className={`radar-item radar-${f.severity}`}>
               <div className="radar-main">
-                <div className="radar-title">
-                  <strong>{f.title}</strong>
-                  {f.severity === 'critical' && <Badge appearance="filled" color="danger">{t('cases.critical')}</Badge>}
+                <div className="radar-head">
+                  <div className="radar-title">
+                    <strong>{f.title}</strong>
+                    {f.severity === 'critical' && <Badge appearance="filled" color="danger">{t('cases.critical')}</Badge>}
+                  </div>
+                  <Countdown due={f.due} now={now} />
                 </div>
-                <p className="small"><span className="case-id">{f.caseNumber}</span> {f.caseTitle}</p>
+                <p className="radar-case small"><span className="case-id">{f.caseNumber}</span> {f.caseTitle}</p>
                 <dl className="radar-facts small">
                   <div><dt>{t('cases.record')}</dt><dd>{f.record.label}</dd></div>
-                  <div><dt>{t('cases.due')}</dt><dd><Countdown due={f.due} now={now} /></dd></div>
                   <div><dt>{t('cases.next')}</dt><dd>{f.nextStep}</dd></div>
                 </dl>
                 {open === f.id && (
@@ -51,8 +53,8 @@ export default function FollowUpRadar({ findings, now, onOpen, onAct }) {
         </ul>
       )}
       {findings.length > 3 && (
-        <Button appearance="subtle" className="radar-more" onClick={() => setAll(!all)} aria-expanded={all}>
-          {all ? t('cases.radar.less') : t('cases.radar.all', { n: findings.length })}
+        <Button appearance="subtle" className="radar-more" icon={all ? <ChevronUp16Regular /> : <ChevronDown16Regular />} iconPosition="after" onClick={() => setAll(!all)} aria-expanded={all}>
+          {all ? t('cases.radar.less') : t('cases.radar.all')}
         </Button>
       )}
     </details>
