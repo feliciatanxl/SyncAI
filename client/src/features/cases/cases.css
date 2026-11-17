@@ -242,3 +242,5 @@
 .case-card[draggable="true"].case-clickable { cursor: grab; }
 .case-table tbody tr:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: -2px; }
 .case-card:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 2px; }
+
+.case-stat-text span { white-space: nowrap; }
