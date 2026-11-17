@@ -1445,59 +1445,70 @@ code { font-size: 0.9em; }
    stretch the page as messages scroll out of view and leave an empty band below the app. */
 .assistant-messages { position: relative; }
 
-/* ---------- Notification bell (header), laid out like the prototype's dropdown ---------- */
+/* ---------- Notification bell (header): same sizes as the prototype's #071 notifications centre ---------- */
 .notif-trigger {
-  position: relative; display: inline-grid; place-items: center; width: 38px; height: 38px; padding: 0; border-radius: 50%;
-  border: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground3); color: var(--colorNeutralForeground2); cursor: pointer;
+  position: relative; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0;
+  border-radius: 50%; border: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground1);
+  color: var(--colorNeutralForeground2); cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
-.notif-trigger svg { width: 20px; height: 20px; }
-.notif-trigger:hover { background: var(--colorNeutralBackground3Hover); color: var(--colorNeutralForeground1); }
+.notif-trigger svg { width: 18px; height: 18px; }
+.notif-trigger:hover { background: var(--colorNeutralBackground1Hover); color: var(--colorNeutralForeground1); border-color: var(--colorNeutralStroke1); }
 .notif-trigger:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 2px; }
 .notif-count {
-  position: absolute; top: -5px; right: -5px; display: inline-grid; place-items: center; min-width: 19px; height: 19px; padding: 0 5px;
-  border-radius: 999px; border: 2px solid var(--colorNeutralBackground1); background: var(--colorPaletteRedBackground3); color: #fff;
-  font-size: 0.6875rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  position: absolute; top: -2px; right: -2px; display: flex; align-items: center; justify-content: center; min-width: 18px; height: 18px;
+  padding: 0 4px; border-radius: 9px; background: var(--colorPaletteRedBackground3, #d13438); color: #fff;
+  font-size: 0.6875rem; font-weight: 700; line-height: 1; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* Doubled class: Fluent's PopoverSurface adds its own padding, which would frame everything. */
-.notif-card.notif-card { width: min(440px, calc(100vw - 24px)); padding: 0; overflow: hidden; border-radius: 14px; }
-.notif-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; border-bottom: 1px solid var(--colorNeutralStroke2); }
+/* Doubled class: Fluent's PopoverSurface adds its own padding and radius. */
+.notif-card.notif-card {
+  width: min(92vw, 380px); max-height: 480px; padding: 0; display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid var(--colorNeutralStroke1); border-radius: 10px; box-shadow: var(--shadow28);
+}
+.notif-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px;
+  background: var(--colorNeutralBackground2); border-bottom: 1px solid var(--colorNeutralStroke2);
+}
 .notif-head-text { min-width: 0; }
-.notif-head h2 { margin: 0; font-size: 1.125rem; white-space: nowrap; }
-.notif-head p { margin: 2px 0 0; font-size: 0.875rem; color: var(--colorNeutralForeground3); }
+.notif-head h2 { margin: 0; font-size: 1rem; font-weight: 700; line-height: 1.4; }
+.notif-head p { margin: 0; font-size: 0.75rem; color: var(--colorNeutralForeground3); }
 
-/* Plain text buttons ("Mark all read", "View case →", "Mark read"). */
+/* Plain text buttons, the prototype's .btn-ghost / .btn-subtle at small size. */
 .notif-link {
-  display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent;
-  font: 500 0.875rem var(--fontFamilyBase); color: var(--colorNeutralForeground1); cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px; flex: none; min-height: 26px; padding: 2px 8px; border: 1px solid transparent;
+  border-radius: 4px; background: transparent; font: 600 0.75rem var(--fontFamilyBase); color: var(--colorNeutralForeground1);
+  cursor: pointer; white-space: nowrap;
 }
+.notif-link svg { width: 14px; height: 14px; }
 .notif-link:hover { background: var(--colorNeutralBackground1Hover); }
 .notif-link:focus-visible, .notif-tab:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 1px; }
+.notif-head .notif-link { min-height: 30px; padding: 3px 10px; }
 
-/* All / Unread as pill tabs. */
-.notif-tabs { display: flex; gap: 6px; padding: 10px 16px; border-bottom: 1px solid var(--colorNeutralStroke2); }
+.notif-tabs { display: flex; gap: 4px; padding: 6px 14px; background: var(--colorNeutralBackground2); border-bottom: 1px solid var(--colorNeutralStroke2); }
 .notif-tab {
-  padding: 6px 14px; border: 0; border-radius: 8px; background: transparent; cursor: pointer;
-  font: 500 0.875rem var(--fontFamilyBase); color: var(--colorNeutralForeground1);
+  padding: 2px 10px; min-height: 26px; border: 1px solid transparent; border-radius: 4px; background: transparent; cursor: pointer;
+  font: 500 0.75rem var(--fontFamilyBase); color: var(--colorNeutralForeground1);
 }
 .notif-tab:hover { background: var(--colorNeutralBackground1Hover); }
-.notif-tab[aria-selected="true"] { background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); }
+.notif-tab[aria-selected="true"] { background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-weight: 600; }
 
-.notif-empty { display: flex; align-items: center; gap: 8px; margin: 0; padding: 24px 22px; color: var(--colorNeutralForeground3); }
-.notif-list { list-style: none; margin: 0; padding: 0; max-height: min(460px, 65vh); overflow-y: auto; }
-.notif-item { display: grid; gap: 6px; padding: 16px 22px 10px; border-bottom: 1px solid var(--colorNeutralStroke2); }
+.notif-empty { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; padding: 24px 16px; font-size: 0.8125rem; color: var(--colorNeutralForeground3); }
+.notif-list { list-style: none; margin: 0; padding: 0; flex: 1; max-height: 400px; overflow-y: auto; }
+.notif-item {
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border-bottom: 1px solid var(--colorNeutralStroke3);
+  background: transparent; transition: background 0.15s ease;
+}
 .notif-item:last-child { border-bottom: 0; }
 .notif-item.is-unread { background: var(--colorBrandBackground2); }
-.notif-item-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.notif-item-head strong { font-size: 0.9375rem; line-height: 1.35; overflow-wrap: anywhere; }
-.notif-item:not(.is-unread) .notif-item-head strong { font-weight: 600; }
+.notif-item:hover { background: var(--colorNeutralBackground1Hover); }
+.notif-item-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.notif-item-head strong { font-size: 0.8125rem; font-weight: 700; line-height: 1.35; color: var(--colorNeutralForeground1); overflow-wrap: anywhere; }
 .notif-tag {
-  flex: none; padding: 2px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap;
-  border: 1px solid var(--colorNeutralStroke1); color: var(--colorNeutralForeground2); background: var(--colorNeutralBackground3);
+  flex: none; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; line-height: 1.4; white-space: nowrap;
+  background: var(--colorNeutralBackground4); color: var(--colorNeutralForeground2); border: 1px solid transparent;
 }
-.notif-tag.tone-bad { border-color: var(--colorPaletteRedBorderActive); color: var(--colorPaletteRedForeground1); background: var(--colorNeutralBackground1); }
-.notif-tag.tone-warn { border-color: var(--colorPaletteDarkOrangeBorderActive); color: var(--colorPaletteDarkOrangeForeground1); background: var(--colorNeutralBackground1); }
-.notif-tag.tone-info { border-color: var(--colorBrandStroke1); color: var(--colorBrandForeground1); background: var(--colorNeutralBackground1); }
-.notif-detail { margin: 0; font-size: 0.875rem; line-height: 1.45; color: var(--colorNeutralForeground3); overflow-wrap: anywhere; }
-.notif-item-actions { display: flex; justify-content: space-between; align-items: center; margin: 4px -6px 0; }
-@media (max-width: 480px) { .notif-head h2 { white-space: normal; } }
+.notif-tag.tone-bad { background: var(--colorPaletteRedBackground1); color: var(--colorPaletteRedForeground1); border-color: var(--colorPaletteRedBorderActive); }
+.notif-tag.tone-warn { background: var(--colorPaletteMarigoldBackground1); color: var(--colorPaletteMarigoldForeground2); border-color: var(--colorPaletteMarigoldBorderActive); }
+.notif-tag.tone-info { background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); border-color: var(--colorBrandStroke2); }
+.notif-detail { margin: 0; font-size: 0.75rem; line-height: 1.35; color: var(--colorNeutralForeground3); overflow-wrap: anywhere; }
+.notif-item-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; margin-left: -8px; margin-right: -8px; }

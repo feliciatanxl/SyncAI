@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Popover, PopoverSurface, PopoverTrigger } from '@fluentui/react-components'
-import { Alert20Regular, Alert24Filled, ArrowRight16Regular } from '@fluentui/react-icons'
+import { Alert20Filled, Alert20Regular, ArrowRight16Regular } from '@fluentui/react-icons'
 import { useT } from '../lib/i18n.js'
 
 const SEEN_KEY = 'syncai.notifications.seen'
@@ -40,7 +40,7 @@ export default function NotificationBell({ userId, items, onOpen }) {
     <Popover open={open} onOpenChange={(_e, d) => setOpen(d.open)} positioning="below-end" withArrow={false}>
       <PopoverTrigger disableButtonEnhancement>
         <button type="button" className="notif-trigger" aria-label={unreadItems.length ? t('notif.labelUnread', { n: unreadItems.length }) : t('notif.label')}>
-          <Alert24Filled aria-hidden="true" />
+          <Alert20Filled aria-hidden="true" />
           {unreadItems.length > 0 && <span className="notif-count" aria-hidden="true">{unreadItems.length > 9 ? '9+' : unreadItems.length}</span>}
         </button>
       </PopoverTrigger>
