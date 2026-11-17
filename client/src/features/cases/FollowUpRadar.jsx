@@ -53,9 +53,11 @@ export default function FollowUpRadar({ findings, now, onOpen, onAct }) {
         </ul>
       )}
       {findings.length > 3 && (
-        <Button appearance="subtle" className="radar-more" icon={all ? <ChevronUp16Regular /> : <ChevronDown16Regular />} iconPosition="after" onClick={() => setAll(!all)} aria-expanded={all}>
-          {all ? t('cases.radar.less') : t('cases.radar.all')}
-        </Button>
+        <div className="radar-more-wrap">
+          <Button appearance="subtle" className="radar-more" icon={all ? <ChevronUp16Regular /> : <ChevronDown16Regular />} iconPosition="after" onClick={() => setAll(!all)} aria-expanded={all}>
+            {all ? t('cases.radar.less') : t('cases.radar.all')}
+          </Button>
+        </div>
       )}
     </details>
   )

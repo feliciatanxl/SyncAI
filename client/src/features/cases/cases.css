@@ -24,7 +24,6 @@
 .case-stat-ready { --tone: var(--colorPaletteGreenForeground1); --tone-bg: var(--colorPaletteGreenBackground1); }
 .case-stat[aria-pressed="true"] { border-color: var(--tone); box-shadow: inset 0 0 0 1px var(--tone); }
 @media (prefers-reduced-motion: reduce) { .case-stat { transition: none; } .case-stat:hover { transform: none; } }
-.radar-more { margin-top: 8px; }
 .case-radar .radar-item { background: var(--colorNeutralBackground2); }
 .case-column-open { border-top: 3px solid var(--colorNeutralStroke1); }
 .case-column-in_progress { border-top: 3px solid var(--ms-blue); }
@@ -293,7 +292,6 @@
   flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px;
   padding-top: 12px; border-top: 1px solid var(--colorNeutralStroke3);
 }
-.radar-more { display: flex; width: 100%; justify-content: center; margin-top: 12px; }
 @media (max-width: 860px) {
   .radar-facts { grid-template-columns: minmax(0, 1fr); }
   .radar-actions { justify-content: flex-start; }
@@ -301,4 +299,6 @@
 @media (max-width: 560px) {
   .radar-head { flex-direction: column; gap: 6px; }
 }
-.radar-more { margin-top: 20px; }
+/* Spacing lives on a wrapper: Fluent's own button styles reset the button's margin. */
+.radar-more-wrap { margin-top: 20px; }
+.radar-more-wrap .radar-more { width: 100%; }
