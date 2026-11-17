@@ -38,6 +38,10 @@ export function CountBadge({ n, urgent }) {
   return <span className={`case-count-badge${urgent && n ? ' is-urgent' : ''}`} aria-label={t('cases.items', { n })}>{n}</span>
 }
 
+// Clicking anywhere on a row or card opens the case; its own buttons keep their own action.
+// Mouse convenience only: the View case button stays the keyboard and screen-reader route.
+const openOnClick = (open) => (e) => { if (!e.target.closest('button, a, input, select, textarea')) open() }
+
 export const fmtDate = (iso, locale) => (iso ? new Date(iso).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) : '')
 
 // List view: a table on wide screens, stacked cards on phones (see .case-table in site.css).
@@ -60,7 +64,7 @@ export function CaseTable({ cases, followUpCount, officerName, now, onOpen, onMo
       </thead>
       <tbody>
         {cases.map((c) => (
-          <tr key={c.id} className={`urgency-${c.urgency}`}>
+          <tr key={c.id} className={`case-clickable urgency-${c.urgency}`} onClick={openOnClick(() => onOpen(c.id))}>
             <td data-label={t('cases.col.case')}>
               <div className="case-cell-main"><span className="case-id">{c.number}</span><strong className="case-title">{c.title}</strong><span className="muted small">{c.category}</span></div>
             </td>
@@ -113,10 +117,11 @@ export function CaseBoard({ cases, followUpCount, officerName, now, onOpen, onMo
                 {column.map((c) => (
                   <li
                     key={c.id}
-                    className={`case-card urgency-${c.urgency}${dragId === c.id ? ' is-dragging' : ''}`}
+                    className={`case-card case-clickable urgency-${c.urgency}${dragId === c.id ? ' is-dragging' : ''}`}
                     draggable
                     onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.number); setDragId(c.id) }}
                     onDragEnd={end}
+                    onClick={openOnClick(() => onOpen(c.id))}
                     title={t('cases.dragHint')}
                   >
                     <div className="case-card-top"><span className="case-id">{c.number}</span><UrgencyBadge urgency={c.urgency} /></div>

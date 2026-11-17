@@ -235,3 +235,8 @@
   font-size: 0.8125rem; font-weight: 700; font-variant-numeric: tabular-nums; color: #fff; background: var(--ms-blue);
 }
 .case-count-badge.is-urgent { background: var(--colorPaletteRedBackground3); }
+
+/* Whole row / card opens the case. */
+.case-clickable { cursor: pointer; }
+.case-card.case-clickable:hover { border-color: var(--colorBrandStroke1); }
+.case-card[draggable="true"].case-clickable { cursor: grab; }
