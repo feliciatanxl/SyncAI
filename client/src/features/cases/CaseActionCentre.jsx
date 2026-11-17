@@ -124,7 +124,7 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
       <section className="panel case-list-panel" aria-labelledby="cases-h">
         <div className="panel-head">
           <h2 id="cases-h">{t('cases.list.title')}</h2>
-          <TabList selectedValue={view} onTabSelect={(_e, d) => setView(d.value)} size="small" aria-label={t('cases.viewMode')}>
+          <TabList selectedValue={view} onTabSelect={(_e, d) => setView(d.value)} appearance="subtle" className="case-view-switch" aria-label={t('cases.viewMode')}>
             <Tab value="list" icon={<TextBulletListLtr20Regular />}>{t('cases.viewList')}</Tab>
             <Tab value="board" icon={<Board20Regular />}>{t('cases.viewBoard')}</Tab>
           </TabList>

@@ -133,3 +133,7 @@
 /* Long stage names (Tamil, "Awaiting External / Blocked") wrap inside the badge instead of spilling out. */
 .case-badge.case-badge { border-radius: 10px; height: auto; min-height: 20px; padding-block: 2px; white-space: normal; text-align: center; line-height: 1.25; }
 .case-table th { white-space: nowrap; }
+
+/* List / Kanban switch: a clear segmented control next to the Operational Centre heading. */
+.case-view-switch { padding: 2px; border-radius: 8px; background: var(--colorNeutralBackground3); }
+.case-list-panel > .panel-head { flex-wrap: wrap; }
