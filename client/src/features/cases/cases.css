@@ -245,3 +245,10 @@
 
 .case-stat-text span { white-space: nowrap; }
 @media (max-width: 860px) { .case-stat-text span { white-space: normal; } }
+
+/* Tighter summary cards so the longest label ("Outstanding follow-ups") fits on one line with breathing room. */
+.case-stat { gap: 10px; padding: 14px; min-width: 0; }
+.case-stat-icon { width: 36px; height: 36px; border-radius: 10px; }
+.case-stat-icon svg { width: 20px; height: 20px; }
+.case-stat-text span { font-size: 0.8125rem; overflow: hidden; text-overflow: ellipsis; }
+.case-summary { gap: 10px; }
