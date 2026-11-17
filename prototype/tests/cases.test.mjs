@@ -6,7 +6,7 @@ import casesPage from '../js/pages/cases.js';
 import tasksPage from '../js/pages/tasks.js';
 import { getTask, loadState, replaceState, setCurrentUser } from '../js/state.js';
 import { saveCapturedTask } from '../js/taskCapture.js';
-import { TODAY } from '../js/time.js';
+import { calendarDay, singaporeInstant, TODAY } from '../js/time.js';
 
 const input = {
   title: 'Check repair photos',
@@ -108,6 +108,26 @@ test('My Tasks puts one work-order creation flow above the separate To Do previe
   assert.ok(output.indexOf('SyncAI work orders') < output.indexOf('Microsoft To Do'));
   assert.match(output, /href="#cases\/case-004"/);
   assert.match(output, /<details[^>]*id="todo-preview"/);
-  assert.match(output, /data-label="Priority"/);
+  assert.match(output, /<th scope="col">Priority &amp; Risk<\/th>/);
+  assert.match(output, /<th scope="col">Deadline &amp; SLA<\/th>/);
   assert.doesNotMatch(output, /AI (?:Priority )?Score/i);
+});
+
+test('work orders show Singapore deadline wording and keep completed tasks free of overdue warnings', () => {
+  const state = createSeedState();
+  const task = getTask(state, 't101');
+  const renderDeadline = (offset, time, status = 'todo', slaDue = '') => {
+    const date = calendarDay(TODAY, offset);
+    Object.assign(task, { due: singaporeInstant(`${date}T${time}`), dueAt: '', slaDue, status });
+    const row = tasksPage.render(state).toString().match(/data-id="t101"[^]*?<\/tr>/)[0];
+    assert.match(row, new RegExp(`datetime="${date}T${time}\\+08:00"`));
+    assert.ok(row.includes(`${time} SGT`));
+    return row;
+  };
+  assert.match(renderDeadline(0, '17:00'), /Due today/);
+  assert.match(renderDeadline(1, '00:30'), /Due tomorrow/);
+  assert.match(renderDeadline(3, '15:00'), /Due in 3 days/);
+  assert.match(renderDeadline(0, '08:00'), /Overdue/);
+  assert.doesNotMatch(renderDeadline(-1, '17:00', 'done'), /work-order-deadline-note/);
+  assert.match(renderDeadline(3, '15:00', 'todo', `${TODAY}T17:00`), /Due today · SLA/);
 });

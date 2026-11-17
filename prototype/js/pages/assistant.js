@@ -230,7 +230,7 @@ function generateLocalAnswer(s, query) {
     if (sched.totalEffort <= cap.freeHours) {
       return `Yes, today’s plan fits into your available working hours.\n\nYou have ${sched.totalEffort.toFixed(1)} hours of scheduled work orders against ${cap.freeHours.toFixed(1)} hours of available capacity, with protected lunch break (12:30–13:30) and Outlook meeting buffers accounted for.`;
     }
-    return `Warning: Today's workload exceeds available capacity by ${(sched.totalEffort - cap.freeHours).toFixed(1)} hours. SyncAI recommends using the What-If Simulator on the My Plan page to reschedule routine tasks or request a reassignment.`;
+    return `Warning: Today's workload exceeds available capacity by ${(sched.totalEffort - cap.freeHours).toFixed(1)} hours. Open My Plan to review available slots and any tasks that could not fit.`;
   }
 
   // 3. Which tasks are close to their SLA?
@@ -250,22 +250,22 @@ function generateLocalAnswer(s, query) {
 
   // 4. What happens if an urgent lift incident occurs?
   if (q.includes('lift') || q.includes('urgent lift') || q.includes('entrapment')) {
-    return `If an urgent passenger lift entrapment occurs at Blk 214 (+2h emergency protocol):\n\n1. Genuine resident safety and statutory inspections remain locked in place.\n2. Lower-impact administrative tasks (such as the CleanPro monthly report review) are deferred to tomorrow morning.\n3. The fixed resident ceiling seepage appointment at Blk 211 is transferred to Priya Nair to protect the 16:00 resident commitment.\n\nOpen My Plan to inspect this scenario in the 3-Alternative Simulator.`;
+    return `If an urgent passenger lift entrapment occurs at Blk 214 (fictional disruption):\n\n1. Genuine resident safety and statutory inspections remain locked in place.\n2. Lower-impact administrative tasks (such as the CleanPro monthly report review) are deferred to tomorrow morning.\n3. The fixed resident ceiling seepage appointment at Blk 211 is transferred to Priya Nair to protect the 16:00 resident commitment.\n\nOpen My Plan to inspect this scenario in the 3-Alternative Simulator.`;
   }
 
   // 5. What happens if an officer is on MC?
   if (q.includes('mc') || q.includes('medical leave') || q.includes('sick')) {
-    return `When an officer is on medical leave (e.g. Ravi Kumar in Zone C):\n\n1. SyncAI marks the officer unavailable without exposing private medical records.\n2. Open safety and statutory tasks are immediately flagged for supervisor review.\n3. The What-If Simulator identifies qualified officers in adjacent zones with spare capacity (such as Chua Hui Min) to rebalance the load.`;
+    return `When an officer is on medical leave (e.g. Ravi Kumar in Zone C):\n\n1. SyncAI marks the officer unavailable without exposing private medical records.\n2. Open safety and statutory tasks are immediately flagged for supervisor review.\n3. A manager can review officer availability and capacity in My Plan before reassigning work.`;
   }
 
   // 6. Which tasks are affected by this delay?
   if (q.includes('affect') || q.includes('delay') || q.includes('ripple') || q.includes('chain')) {
-    return `Delays in upstream work trigger downstream ripple effects:\n\nFor example, delaying "Site check: ceiling seepage at Blk 211" (t103) cascades to:\n• Task t104 (Resident follow-up call) postponed past its 24h SLA window.\n• Task t112 (Contractor rectification work-order) delayed, allowing progressive water ingress and reinforcement rebar corrosion.\n\nSyncAI traces multi-level dependencies to safeguard resident commitments.`;
+    return `Delays in upstream work trigger downstream ripple effects:\n\nFor example, delaying "Site check: ceiling seepage at Blk 211" (t103) cascades to:\n• Task t104 (Resident follow-up call) could miss its fictional follow-up deadline.\n• Task t112 (Contractor rectification work-order) delayed, allowing progressive water ingress and reinforcement rebar corrosion.\n\nSyncAI traces multi-level dependencies to safeguard resident commitments.`;
   }
 
   // 7. Which alternative is most feasible?
   if (q.includes('alternative') || q.includes('feasible') || q.includes('simulator')) {
-    return `In the What-If Simulator:\n\n• Alternative A (No Action): Infeasible — causes 2 SLA breaches and misses a fixed resident appointment.\n• Alternative B (Reschedule Lower-Impact Work): Highly feasible for single-officer capacity shortages; defers routine admin by 1 day.\n• Alternative C (Reassign Eligible Work): Best when fixed resident commitments clash with emergency safety calls; transfers eligible work to an officer with matching skills.`;
+    return `In the illustrative What-If comparison:\n\n• Alternative A (No Action): May miss recorded deadlines and a fixed resident appointment.\n• Alternative B (Reschedule Lower-Impact Work): Highly feasible for single-officer capacity shortages; defers routine admin by 1 day.\n• Alternative C (Reassign Eligible Work): Best when fixed resident commitments clash with emergency safety calls; transfers eligible work to an officer with matching skills.`;
   }
 
   // 8. What approvals are pending?

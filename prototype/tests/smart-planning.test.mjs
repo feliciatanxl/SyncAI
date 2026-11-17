@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createSeedState } from '../js/data.js';
 import { planningView, renderSmartPlan } from '../js/pages/smartPlan.js';
-import tasksPage, { tasksView } from '../js/pages/tasks.js';
+import tasksPage, { clearTaskFilters, tasksView } from '../js/pages/tasks.js';
 import { saveSchedulePreferences, schedulePreferences } from '../js/schedulePreferences.js';
 import { buildSmartSchedule } from '../js/smartSchedule.js';
+import { acceptDraft, generateDraft, reviewDraft } from '../js/scheduleReview.js';
 import { getOfficer, loadState, replaceState, setCurrentUser } from '../js/state.js';
 import { saveCapturedTask } from '../js/taskCapture.js';
 import { deadlineAlert, parseTaskTags, priorityFactors, suggestCategory, taskDeadline } from '../js/taskIntelligence.js';
@@ -43,9 +44,19 @@ test('keyword suggestions remain opt-in and tags persist on case-linked and stan
     Object.assign(tasksView, { category: 'Inspection', tag: 'lift', page: 1 });
     const output = tasksPage.render(s).toString();
     assert.ok(output.includes(task.id));
-    assert.match(output, />Lift<\/span>/);
+    assert.match(output, /\+1 tag/);
+    assert.doesNotMatch(output, />Lift<\/span>/);
     tasksView.tag = 'demo tag';
     assert.match(tasksPage.render(s).toString(), /No tasks match/);
+    Object.assign(tasksView, { status: 'todo', q: 'inspect', dueDate: TODAY, moreFiltersOpen: true, page: 2 });
+    clearTaskFilters();
+    assert.equal(tasksView.status, 'todo');
+    assert.equal(tasksView.moreFiltersOpen, true);
+    assert.equal(tasksView.page, 1);
+    assert.equal(tasksView.q, '');
+    assert.equal(tasksView.category, 'all');
+    assert.equal(tasksView.tag, '');
+    assert.equal(tasksView.dueDate, '');
   } finally {
     Object.assign(tasksView, prior);
   }
@@ -83,7 +94,8 @@ test('preferences and captured tags survive browser reload and the demo day roll
   globalThis.localStorage = { getItem: () => stored, setItem: (_key, value) => { stored = value; } };
   try {
     const s = createSeedState();
-    const saved = saveSchedulePreferences(s, 'o1', { ...preferences, maxHours: 5 });
+    const saved = saveSchedulePreferences(s, 'o1', { ...preferences, maxHours: 5,
+      lunchByDay: { 1: { start: '11:30', end: '12:30' } } });
     const captured = saveCapturedTask(s, { ...taskInput, caseId: 'case-001', tags: 'Lift' });
     replaceState(s);
     assert.deepEqual(schedulePreferences(loadState(), 'o1'), saved);
@@ -94,6 +106,35 @@ test('preferences and captured tags survive browser reload and the demo day roll
   } finally {
     globalThis.localStorage = original;
   }
+});
+
+test('different weekdays protect their own lunch windows and invalidate a draft when edited', () => {
+  const s = emptyPlanningState();
+  const next = calendarDay(TODAY, 1);
+  const following = calendarDay(TODAY, 2);
+  const lunchByDay = {
+    [weekday(TODAY)]: { start: '11:30', end: '12:30' },
+    [weekday(next)]: { start: '13:30', end: '14:30' },
+  };
+  const oldDraft = generateDraft(s, 'o1', [TODAY, next, following]);
+  saveSchedulePreferences(s, 'o1', { ...preferences, lunchByDay });
+  assert.deepEqual(reviewDraft(s, oldDraft).changed, ['Schedule preferences']);
+  assert.throws(() => acceptDraft(s, oldDraft, { acknowledged: true }), /Regenerate/);
+  const result = buildSmartSchedule(s, 'o1', [TODAY, next, following]);
+  assert.deepEqual(result.days.map(({ lunch }) => lunch), [
+    { start: toMin('11:30'), end: toMin('12:30') },
+    { start: toMin('13:30'), end: toMin('14:30') },
+    { start: toMin('12:30'), end: toMin('13:30') },
+  ]);
+  for (const day of result.days) {
+    assert.ok(day.slots.every(({ start, end }) => end <= day.lunch.start || start >= day.lunch.end));
+  }
+  assert.throws(() => saveSchedulePreferences(s, 'o1', { ...preferences,
+    lunchByDay: { [weekday(TODAY)]: { start: '11:30' } } }), /lunch must start and end/);
+  assert.throws(() => saveSchedulePreferences(s, 'o1', { ...preferences, lunchByDay,
+    focus: [{ start: '14:00', end: '15:00' }] }), /separate from lunch/);
+  saveSchedulePreferences(s, 'o1', preferences);
+  assert.equal(buildSmartSchedule(s, 'o1', [TODAY]).days[0].lunch.start, toMin('12:30'));
 });
 
 test('daily scheduling protects meetings, repair appointments, fixed tasks and lunch', () => {
@@ -168,11 +209,24 @@ test('weekly plan covers Monday through Sunday without duplicating tasks and hon
   assert.ok(result.days.filter(({ date }) => date !== next).every((day) => day.proposed.length === 0));
   const savedView = { ...planningView };
   try {
-    Object.assign(planningView, { date: next, mode: 'weekly', generation: { officerId: 'o1', dates } });
+    const draft = generateDraft(s, 'o1', dates);
+    Object.assign(planningView, { date: next, mode: 'weekly', drafts: new Map([['o1', draft]]) });
     const page = renderSmartPlan(s, getOfficer(s, 'o1')).toString();
     assert.equal((page.match(/class="smart-week-day /g) || []).length, 7);
-    assert.match(page, /1h total scheduled workload/);
-    assert.match(page, /Dependent work/);
+    assert.match(page, /1 h total scheduled workload/);
+    assert.match(page, /2 task blocks · 0 protected/);
+    assert.match(page, new RegExp(`data-action="plan-open-day" data-date="${next}"`));
+    assert.doesNotMatch(page, /Dependent work/);
+    planningView.mode = 'daily';
+    assert.match(renderSmartPlan(s, getOfficer(s, 'o1')).toString(), /Dependent work/);
+    acceptDraft(s, draft, { acknowledged: true });
+    planningView.drafts.clear();
+    planningView.mode = 'weekly';
+    assert.match(renderSmartPlan(s, getOfficer(s, 'o1')).toString(), /smart-week-status is-accepted/);
+    planningView.mode = 'daily';
+    const accepted = renderSmartPlan(s, getOfficer(s, 'o1')).toString();
+    assert.match(accepted, /Dependent work/);
+    assert.match(accepted, /Accepted task/);
   } finally {
     Object.assign(planningView, savedView);
   }

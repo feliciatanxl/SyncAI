@@ -25,7 +25,7 @@ export default {
   render(s) {
     const user = getCurrentUser(s);
     const teams = getTeams(s);
-    const pendingApprovals = getPendingApprovals(s);
+    const pendingApprovals = getPendingApprovals(s).filter((approval) => approval.requestType !== 'operational_change');
     const allApprovals = getApprovals(s);
 
     const allMembers = teams.flatMap((t) => t.members || []);
@@ -85,18 +85,30 @@ export default {
                           Requested by <strong>${a.requesterName}</strong> (${a.requestType.replace('_', ' ')})
                         </span>
                         <div style="margin-top: 8px; padding: 10px 14px; border-radius: 8px; background: var(--colorNeutralBackground2); font-size: 0.8125rem;">
+                          ${a.requestType === 'operational_change' ? html`
+                            <div><strong>Request ID:</strong> ${a.id}</div>
+                            <div><strong>Task:</strong> ${a.taskId} · ${a.taskTitle}</div>
+                            ${a.caseId ? html`<div><strong>Case:</strong> ${a.caseId}</div>` : ''}
+                            <div style="margin-top: 4px;"><strong>Unexpected situation:</strong> ${a.unexpectedSituation}</div>
+                            <div style="margin-top: 4px;"><strong>Requested scope:</strong> ${a.requestedScope}</div>
+                            <div style="margin-top: 4px;"><strong>Proposed changes:</strong> ${a.proposedChanges}</div>
+                            ${a.potentialCostImpact ? html`<div style="margin-top: 4px;"><strong>Potential cost impact:</strong> ${a.potentialCostImpact}</div>` : ''}
+                            ${a.potentialScheduleImpact ? html`<div style="margin-top: 4px;"><strong>Potential schedule impact:</strong> ${a.potentialScheduleImpact}</div>` : ''}
+                            ${a.supportingEvidence?.length ? html`<div style="margin-top: 4px;"><strong>Evidence:</strong> ${a.supportingEvidence.map((item) => item.title || item.fileName || item.reference || 'Evidence').join(', ')}</div>` : ''}
+                          ` : ''}
                           <div><strong>Reason:</strong> ${a.reason}</div>
                           <div style="margin-top: 4px;"><strong>SLA Impact:</strong> ${a.slaImpact}</div>
                           <div style="margin-top: 4px;"><strong>Operational Impact:</strong> ${a.operationalImpact}</div>
                         </div>
                       </div>
                       <div class="queue-actions" style="flex-direction: column;">
-                        <button type="button" class="btn-primary btn-sm" data-action="manager-approve" data-id="${a.id}">
-                          Approve Change
-                        </button>
-                        <button type="button" class="btn-ghost btn-sm" data-action="manager-reject" data-id="${a.id}">
-                          Decline Request
-                        </button>
+                        ${a.requestType === 'operational_change' ? html`
+                          <button type="button" class="btn-primary btn-sm" data-action="operational-approval-approve" data-id="${a.id}">Approve Change</button>
+                          <button type="button" class="btn-ghost btn-sm" data-action="operational-approval-reject" data-id="${a.id}">Decline Request</button>
+                        ` : html`
+                          <button type="button" class="btn-primary btn-sm" data-action="manager-approve" data-id="${a.id}">Approve Change</button>
+                          <button type="button" class="btn-ghost btn-sm" data-action="manager-reject" data-id="${a.id}">Decline Request</button>
+                        `}
                       </div>
                     </li>
                   `,

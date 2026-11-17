@@ -125,7 +125,7 @@ function renderAdminOverview(s, user) {
 
 function renderManagerOverview(s, user) {
   const tasks = s.tasks || [];
-  const pendingApprovals = getPendingApprovals(s);
+  const pendingApprovals = getPendingApprovals(s).filter((approval) => approval.requestType !== 'operational_change');
   const highRiskTasks = tasks.filter((t) => t.status !== 'done' && assessRisk(s, t).level === 'high');
   const activeOfficers = s.officers.filter((o) => !o.availability?.[TODAY]).length;
 
@@ -259,7 +259,7 @@ function renderMemberOverview(s, user) {
             <span class="slot-time">08:30 – 10:00</span>
             <div class="slot-main">
               <strong class="slot-title">Lift inspection — Blk 208</strong>
-              <span class="slot-meta">Lifts A & B · 4h BCA Safety SLA</span>
+              <span class="slot-meta">Lifts A & B · Fictional inspection deadline</span>
             </div>
             <span class="slot-badge tag-danger">Safety</span>
           </div>

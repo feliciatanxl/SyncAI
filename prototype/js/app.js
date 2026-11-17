@@ -3,6 +3,7 @@ import {
   getState,
   loadState,
   resetState,
+  storage,
   update,
   subscribe,
   getCurrentUser,
@@ -11,6 +12,7 @@ import {
   isManager,
   isTeamMember,
   getPendingApprovals,
+  getApprovals,
   getUsers,
   getUser,
   approveUser,
@@ -20,7 +22,11 @@ import {
   addTeamMember,
   removeTeamMember,
   createApprovalRequest,
+  submitOperationalChangeApproval,
   decideApproval,
+  requestApprovalInformation,
+  submitApprovalInformation,
+  getOutstandingApprovalInformation,
   isOpen,
   logActivity,
   actorName,
@@ -44,6 +50,7 @@ import {
   canTransitionCase,
   normalizeKanbanStage,
   addCaseEvidence,
+  getCaseEvidence,
   verifyCaseEvidence,
 } from './state.js';
 import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog } from './ui.js';
@@ -51,15 +58,17 @@ import { accessibleTask, changeTaskStatus, deleteCapturedTask, taskDateInput, ta
 import { accessibleCase, visibleCases, getCaseKanbanColumn } from './cases.js';
 import { deadlineAlert, priorityFactors } from './taskIntelligence.js';
 import { traceDownstream } from './ripple.js';
+import { acceptDraft, discardDraft, generateDraft, reviewDraft } from './scheduleReview.js';
 import { calendarDay, singaporeInstant, TODAY } from './time.js';
 
 // Page modules
 import overviewPage from './pages/overview.js';
 import casesPage, { caseView } from './pages/cases.js';
-import tasksPage, { tasksView } from './pages/tasks.js';
+import tasksPage, { clearTaskFilters, tasksView } from './pages/tasks.js';
 import { openTaskCapture } from './pages/taskCaptureDialog.js';
-import planPage, { planView } from './pages/plan.js';
-import { currentPlanningOfficer, planningDates, planningView } from './pages/smartPlan.js';
+import planPage from './pages/plan.js';
+import { currentPlanningOfficer, planningDates, planningIssueView, planningView, scheduleRange, visibleDraft } from './pages/smartPlan.js';
+import { blockTimes, canRequestScheduleChange, pendingScheduleRequest, requestScheduleChange } from './planningIssues.js';
 import { openSchedulePreferences } from './pages/schedulePreferencesDialog.js';
 import teamPage from './pages/team.js';
 import peoplePage from './pages/people.js';
@@ -68,6 +77,11 @@ import activityPage from './pages/activity.js';
 import decidesPage from './pages/decides.js';
 import settingsPage from './pages/settings.js';
 import assistantPage from './pages/assistant.js';
+import approvalGovernancePage, { approvalGovernanceView, isManagerReviewApproval, managerReviewType, renderOperationalChangeVersionHistory, renderOperationalChangeVersionComparison, generateSimulatedApprovalAssessment, renderSimulatedApprovalAssessment } from './pages/approval-governance.js';
+import auditTrailPage, { auditTrailView, parseAuditTrailRequestRoute } from './pages/audit-trail.js';
+import myRequestsPage, { myRequestsView } from './pages/my-requests.js';
+import attendancePage, { handleAttendanceClick } from './pages/attendance.js';
+import ripplePage, { handleRippleClick } from './pages/ripple.js';
 
 // Navigation section registry
 const SECTIONS = {
@@ -77,6 +91,11 @@ const SECTIONS = {
   cases: { id: 'cases', label: 'Case Action Centre', icon: 'cases', page: casesPage },
   plan: { id: 'plan', label: 'My plan', icon: 'calendar', page: planPage },
   team: { id: 'team', label: 'My team', icon: 'team', page: teamPage },
+  'approval-governance': { id: 'approval-governance', label: 'Approval Governance', icon: 'shield', page: approvalGovernancePage },
+  'audit-trail': { id: 'audit-trail', label: 'Audit Trail', icon: 'history', page: auditTrailPage },
+  'my-requests': { id: 'my-requests', label: 'My Requests', icon: 'history', page: myRequestsPage },
+  attendance: { id: 'attendance', label: 'Attendance', icon: 'users', page: attendancePage },
+  ripple: { id: 'ripple', label: 'Ripple Intelligence', icon: 'radar', page: ripplePage },
   people: { id: 'people', label: 'People', icon: 'users', page: peoplePage },
   teams: { id: 'teams', label: 'Teams', icon: 'team', page: teamsAdminPage },
   activity: { id: 'activity', label: 'Activity', icon: 'history', page: activityPage },
@@ -109,18 +128,29 @@ function allowedSections(s) {
     return ['overview', 'assistant', 'cases', 'people', 'teams', 'activity', 'decides', 'settings'];
   }
   if (isManager(s)) {
-    return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'team', 'decides', 'settings'];
+    return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'team', 'approval-governance', 'audit-trail', 'attendance', 'ripple', 'decides', 'settings'];
   }
   // Member
-  return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'decides', 'settings'];
+  return ['overview', 'assistant', 'tasks', 'cases', 'plan', 'my-requests', 'attendance', 'decides', 'settings'];
 }
 
 function readPortalRoute(s) {
   const hash = window.location.hash.replace(/^#\/?/, '');
   const caseRoute = /^cases\/([^/]+)$/.exec(hash);
-  const section = caseRoute ? 'cases' : hash;
+  const auditRequestId = parseAuditTrailRequestRoute(`#${hash}`);
+  const section = caseRoute ? 'cases' : auditRequestId !== null ? 'audit-trail' : hash;
   currentSection = allowedSections(s).includes(section) ? section : 'overview';
   currentCaseId = currentSection === 'cases' ? caseRoute?.[1] ?? null : null;
+  if (currentSection === 'audit-trail' && auditRequestId !== null) {
+    Object.assign(auditTrailView, {
+      scopedRequestId: auditRequestId, requestId: auditRequestId, requestType: 'all', action: 'all', actor: 'all', date: '', includeNotifications: true,
+    });
+  } else if (currentSection === 'audit-trail') {
+    auditTrailView.scopedRequestId = '';
+    auditTrailView.requestId = '';
+  } else {
+    auditTrailView.scopedRequestId = '';
+  }
 }
 
 function init() {
@@ -147,13 +177,27 @@ function init() {
   }
 
   // Restore theme & text preferences
-  const theme = localStorage.getItem('syncai_theme') || 'system';
-  const textSize = localStorage.getItem('syncai_text_size') || 'standard';
-  if (theme !== 'system') document.documentElement.setAttribute('data-theme', theme);
-  if (textSize !== 'standard') document.documentElement.setAttribute('data-text-size', textSize);
+  let theme, textSize;
+  try {
+    theme = localStorage.getItem('syncai_theme');
+    textSize = localStorage.getItem('syncai_text_size');
+  } catch {
+    // The demo can still run in memory when browser storage is unavailable.
+  }
+  if (theme && theme !== 'system') document.documentElement.setAttribute('data-theme', theme);
+  if (textSize && textSize !== 'standard') document.documentElement.setAttribute('data-text-size', textSize);
 
   // Read section from URL hash
   readPortalRoute(s);
+  const officer = currentPlanningOfficer(s);
+  const accepted = s.acceptedSchedules?.[officer?.id];
+  if (accepted && !accepted[TODAY]) {
+    const latest = Object.values(accepted).sort((a, b) => b.acceptedAt.localeCompare(a.acceptedAt))[0];
+    if (latest) {
+      planningView.date = latest.day.date;
+      planningView.mode = latest.dates.length > 1 ? 'weekly' : 'daily';
+    }
+  }
 
   // Subscribe to state updates
   subscribe(() => renderApp());
@@ -316,7 +360,10 @@ function renderNav(s, user, allowed) {
   const nav = document.getElementById('portal-nav');
   if (!nav) return;
 
-  const pendingApprovalsCount = getPendingApprovals(s).length;
+  const pendingApprovals = getPendingApprovals(s);
+  const pendingApprovalsCount = pendingApprovals.filter((a) => a.requestType !== 'operational_change').length;
+  const pendingManagerReviewCount = pendingApprovals.filter(isManagerReviewApproval).length;
+  const myPendingRequestsCount = pendingApprovals.filter((a) => ['operational_change', 'schedule_adjustment'].includes(a.requestType) && a.requesterId === getCurrentUser(s).id).length;
   const pendingUsersCount = (s.users || []).filter((u) => u.status === 'pending').length;
 
   const vCases = visibleCases(s);
@@ -336,6 +383,10 @@ function renderNav(s, user, allowed) {
         badge = html`<span class="tag tag-warning" style="margin-left: auto;">${pendingUsersCount}</span>`;
       } else if (secId === 'team' && pendingApprovalsCount > 0) {
         badge = html`<span class="tag tag-warning" style="margin-left: auto;">${pendingApprovalsCount}</span>`;
+      } else if (secId === 'approval-governance' && pendingManagerReviewCount > 0) {
+        badge = html`<span class="tag tag-warning" style="margin-left: auto;">${pendingManagerReviewCount}</span>`;
+      } else if (secId === 'my-requests' && myPendingRequestsCount > 0) {
+        badge = html`<span class="tag tag-warning" style="margin-left: auto;">${myPendingRequestsCount}</span>`;
       } else if (secId === 'cases' && totalLooseEnds > 0) {
         badge = html`<span class="tag tag-warning" style="margin-left: auto;">${totalLooseEnds}</span>`;
       }
@@ -544,6 +595,12 @@ function setupEvents() {
       return;
     }
 
+    // Attendance (104, 051) and Ripple Intelligence pages
+    if (handleAttendanceClick(e) || handleRippleClick(e)) {
+      renderApp();
+      return;
+    }
+
     // Evidence file dropzone click
     const evidenceDropzone = e.target.closest('#evidence-dropzone');
     if (evidenceDropzone) {
@@ -554,6 +611,14 @@ function setupEvents() {
       }
     }
 
+    if (e.target.closest('[data-action="settings-reset-defaults"]')) {
+      saveDisplaySetting('theme', 'system');
+      saveDisplaySetting('text-size', 'standard');
+      toast('Display settings reset.', 'info');
+      renderApp();
+      document.querySelector('[data-action="settings-reset-defaults"]')?.focus();
+      return;
+    }
     // 1. Navigation clicks
     const navBtn = e.target.closest('[data-action="nav-go"]');
     if (navBtn) {
@@ -565,6 +630,11 @@ function setupEvents() {
 
       const sec = navBtn.dataset.section;
       if (sec && SECTIONS[sec]) {
+        if (sec === 'audit-trail') {
+          Object.assign(auditTrailView, {
+            scopedRequestId: '', requestId: '', requestType: 'all', action: 'all', actor: 'all', date: '', includeNotifications: false,
+          });
+        }
         currentSection = sec;
         currentCaseId = null;
         window.location.hash = `#${sec}`;
@@ -670,6 +740,9 @@ function setupEvents() {
 
     // 5. Reset demo buttons
     if (e.target.closest('#btn-quick-reset') || e.target.closest('#btn-reset-demo-card') || e.target.closest('[data-action="settings-reset-demo-data"]')) {
+      planningView.drafts.clear();
+      Object.assign(planningIssueView, { open: false, date: '', allDates: false, issues: [] });
+      Object.assign(planningView, { date: TODAY, mode: 'daily', officerId: null });
       resetState();
       toast('Demo state reset to default seed.', 'success');
       renderApp();
@@ -697,10 +770,61 @@ function setupEvents() {
       return;
     }
 
+    const taskRequestApproval = e.target.closest('[data-action="task-request-approval"]');
+    if (taskRequestApproval) {
+      const s = getState();
+      const taskId = taskRequestApproval.dataset.id || document.getElementById('my-requests-task-id')?.value;
+      const task = taskId ? accessibleTask(s, taskId) : null;
+      if (!isTeamMember(s) || getCurrentUser(s).status !== 'active') {
+        toast('Only an active team member can submit an operational-change request.', 'error');
+      } else if (!task || task.ownerId !== s.currentOfficerId) {
+        toast(taskId ? 'Select one of your assigned tasks.' : 'Select an assigned task first.', 'error');
+      } else {
+        showTaskApprovalRequestModal(s, task);
+      }
+      return;
+    }
+
+    const myRequestDetails = e.target.closest('[data-action="my-request-details"]');
+    if (myRequestDetails) {
+      const s = getState();
+      const approval = getApprovals(s).find((item) => item.id === myRequestDetails.dataset.id
+        && ['operational_change', 'schedule_adjustment'].includes(item.requestType)
+        && item.requesterId === getCurrentUser(s).id);
+      if (approval) showRequesterApprovalRequestDetails(s, approval);
+      else toast('Request not found.', 'error');
+      return;
+    }
+
+    const myRequestsTypeFilter = e.target.closest('[data-action="my-requests-type-filter"]');
+    if (myRequestsTypeFilter) {
+      const filter = myRequestsTypeFilter.dataset.type;
+      if (['all', 'operational_change', 'schedule_adjustment'].includes(filter)) {
+        myRequestsView.typeFilter = filter;
+        renderApp();
+      }
+      return;
+    }
+
     const taskEdit = e.target.closest('[data-action="capture-edit"]');
     if (taskEdit) {
       const task = accessibleTask(getState(), taskEdit.dataset.id);
       if (task) openTaskCapture({ task });
+      return;
+    }
+
+    const moreTaskFilters = e.target.closest('[data-action="tasks-more-filters"]');
+    if (moreTaskFilters) {
+      tasksView.moreFiltersOpen = !tasksView.moreFiltersOpen;
+      moreTaskFilters.setAttribute('aria-expanded', String(tasksView.moreFiltersOpen));
+      document.getElementById('tasks-extra-filters').hidden = !tasksView.moreFiltersOpen;
+      return;
+    }
+
+    if (e.target.closest('[data-action="tasks-clear-filters"]')) {
+      clearTaskFilters();
+      renderApp();
+      document.querySelector('[data-action="tasks-search"]')?.focus();
       return;
     }
 
@@ -717,6 +841,7 @@ function setupEvents() {
           if (!confirmed || !accessibleTask(getState(), task.id)?.manualCapture) return;
           update((s) => deleteCapturedTask(s, task.id));
           toast('Task deleted.', 'success');
+          document.querySelector('[data-action="tasks-search"]')?.focus();
         });
       }
       return;
@@ -728,6 +853,7 @@ function setupEvents() {
       tasksView.status = status;
       tasksView.page = 1;
       renderApp();
+      document.querySelector('[data-action="tasks-filter-status"][aria-pressed="true"]')?.focus();
       return;
     }
 
@@ -791,66 +917,61 @@ function setupEvents() {
       const officer = currentPlanningOfficer(getState());
       if (!officer) return;
       const { action, mode, offset, date } = planControl.dataset;
+      if (action === 'plan-issue-request') {
+        const issue = planningIssueView.issues.find(({ id }) => id === planControl.dataset.id);
+        if (issue && canRequestScheduleChange(getState(), issue) && !pendingScheduleRequest(getState(), issue)) openScheduleChangeRequest(issue);
+        return;
+      }
+      if (action === 'plan-review-all') {
+        Object.assign(planningIssueView, { allDates: true, open: true });
+        renderApp();
+        document.querySelector('#schedule-issue-panel > summary')?.focus();
+        return;
+      }
+      if (action === 'plan-issue-day') {
+        planningIssueView.date = date;
+        planningIssueView.open = true;
+        renderApp();
+        document.querySelector('[data-action="plan-issue-day"][aria-pressed="true"]')?.focus();
+        return;
+      }
+      if (action === 'plan-issue-week') {
+        Object.assign(planningView, { date, mode: 'weekly' });
+        Object.assign(planningIssueView, { date, open: true, allDates: false });
+        renderApp();
+        document.querySelector('[data-action="plan-issue-day"][aria-pressed="true"]')?.focus();
+        return;
+      }
       if (action === 'plan-preferences') {
         openSchedulePreferences(officer);
         return;
       }
-      if (action === 'plan-generate') planningView.generation = { officerId: officer.id, dates: planningDates() };
+      const draft = visibleDraft(officer.id);
+      if (action === 'plan-accept' || action === 'plan-discard') {
+        if (draft) resolveScheduleDraft(draft, action === 'plan-accept');
+        return;
+      }
+      if (action === 'plan-generate') {
+        planningIssueView.date = '';
+        planningIssueView.allDates = false;
+        const dates = draft && reviewDraft(getState(), draft).changed.length ? draft.dates : planningDates();
+        planningView.drafts.set(officer.id, generateDraft(getState(), officer.id, dates));
+        toast('Draft schedule generated.', 'info');
+      }
       if (action === 'plan-view') planningView.mode = mode;
       if (action === 'plan-today') planningView.date = TODAY;
       if (action === 'plan-shift') planningView.date = calendarDay(planningView.date, Number(offset) * (planningView.mode === 'weekly' ? 7 : 1));
-      if (action === 'plan-open-day') Object.assign(planningView, { date, mode: 'daily' });
+      if (['plan-view', 'plan-today', 'plan-shift'].includes(action)) planningIssueView.allDates = false;
+      if (action === 'plan-open-day') {
+        Object.assign(planningView, { date, mode: 'daily' });
+        planningIssueView.allDates = false;
+        if (planningIssueView.issues.some((issue) => issue.date === date)) planningIssueView.open = true;
+      }
       renderApp();
       if (action === 'plan-open-day') document.querySelector('[data-action="plan-view"][data-mode="daily"]')?.focus();
       else if (action === 'plan-view') document.querySelector('[data-action="plan-view"][aria-pressed="true"]')?.focus();
       else if (action === 'plan-shift') document.querySelector(`[data-action="plan-shift"][data-offset="${offset}"]`)?.focus();
       else document.querySelector(`[data-action="${action}"]`)?.focus();
-      return;
-    }
-
-    // 7. Plan & Simulator actions
-    const simScenarioBtn = e.target.closest('[data-action="sim-select-scenario"]');
-    if (simScenarioBtn) {
-      const scenarioId = simScenarioBtn.dataset.scenario;
-      planView.activeScenarioId = scenarioId;
-      planView.simulationResult = null;
-      renderApp();
-      return;
-    }
-
-    const simAltBtn = e.target.closest('[data-action="sim-select-alt"]');
-    if (simAltBtn) {
-      planView.selectedAltId = simAltBtn.dataset.alt;
-      renderApp();
-      return;
-    }
-
-    const simCommitBtn = e.target.closest('[data-action="sim-commit"]');
-    if (simCommitBtn) {
-      if (!isManager(getState()) || getCurrentUser(getState()).status !== 'active') return;
-      const alt = simCommitBtn.dataset.alt;
-      update((s) => {
-        logActivity(s, `Recorded simulated choice: Alternative ${alt.toUpperCase()}.`, actorName(s));
-      });
-      toast(`Simulated choice recorded: Alternative ${alt.toUpperCase()}.`, 'success');
-      return;
-    }
-
-    const simRequestApprovalBtn = e.target.closest('[data-action="sim-request-approval"]');
-    if (simRequestApprovalBtn) {
-      const alt = simRequestApprovalBtn.dataset.alt;
-      update((s) => {
-        createApprovalRequest(s, {
-          requestType: 'schedule_adjustment',
-          taskId: 't103',
-          taskTitle: 'Site check: ceiling seepage at Blk 211 #05-12',
-          reason: `Alternative ${alt.toUpperCase()} schedule adjustment submitted from What-If Simulator.`,
-          slaImpact: 'Protects 24h response commitment while handling safety delay.',
-          operationalImpact: 'Rebalances inspection workload across Zone A.',
-        });
-      });
-      toast('Schedule change request submitted to Estate Manager Jennifer Ong.', 'success');
-      renderApp();
       return;
     }
 
@@ -870,11 +991,11 @@ function setupEvents() {
     const mgrApprove = e.target.closest('[data-action="manager-approve"]');
     if (mgrApprove) {
       const apprId = mgrApprove.dataset.id;
+      let outcome;
       update((s) => {
-        decideApproval(s, apprId, 'approved', actorName(s), 'Approved by authorised manager.');
+        outcome = decideApproval(s, apprId, 'approved', actorName(s), 'Approved by authorised manager.');
       });
-      toast('Schedule change approved and applied.', 'success');
-      renderApp();
+      toast(outcome.message || outcome.error, outcome.success ? 'success' : 'error');
       return;
     }
 
@@ -885,6 +1006,114 @@ function setupEvents() {
         decideApproval(s, apprId, 'rejected', actorName(s), 'Declined after operational capacity review.');
       });
       toast('Approval request declined.', 'info');
+      renderApp();
+      return;
+    }
+
+    const governanceReview = e.target.closest('[data-action="manager-governance-review"]');
+    if (governanceReview) {
+      const s = getState();
+      if (!isManager(s) || getCurrentUser(s).status !== 'active') {
+        toast('Only an active manager can review approval requests.', 'error');
+        return;
+      }
+      const approval = getApprovals(s).find((item) => item.id === governanceReview.dataset.id && isManagerReviewApproval(item));
+      if (!approval || !managerReviewType(approval)) {
+        toast('Approval request not found.', 'error');
+        return;
+      }
+      showManagerApprovalReview(s, approval);
+      return;
+    }
+
+    const governanceAudit = e.target.closest('[data-action="manager-governance-audit"]');
+    if (governanceAudit) {
+      const s = getState();
+      if (!isManager(s) || getCurrentUser(s).status !== 'active') {
+        toast('Only an active manager can view approval audit records.', 'error');
+        return;
+      }
+      const approval = getApprovals(s).find((item) => item.id === governanceAudit.dataset.id && isManagerReviewApproval(item));
+      if (!approval) {
+        toast('Approval request not found.', 'error');
+        return;
+      }
+      Object.assign(auditTrailView, {
+        scopedRequestId: approval.id, requestId: approval.id, requestType: 'all', action: 'all', actor: 'all', date: '', includeNotifications: true,
+      });
+      currentSection = 'audit-trail';
+      window.location.hash = `#audit-trail/${encodeURIComponent(approval.id)}`;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      renderApp();
+      return;
+    }
+
+    const auditTrailRequest = e.target.closest('[data-action="audit-trail-open-request"]');
+    if (auditTrailRequest) {
+      const s = getState();
+      if (!isManager(s) || getCurrentUser(s).status !== 'active') {
+        toast('Only an active manager can review approval audit records.', 'error');
+        return;
+      }
+      const approval = getApprovals(s).find((item) => item.id === auditTrailRequest.dataset.id && isManagerReviewApproval(item));
+      if (!approval) {
+        toast('Approval request not found.', 'error');
+        return;
+      }
+      showManagerApprovalReview(s, approval);
+      return;
+    }
+
+    const clearAuditRequestFilter = e.target.closest('[data-action="audit-trail-clear-scope"]');
+    if (clearAuditRequestFilter) {
+      Object.assign(auditTrailView, {
+        scopedRequestId: '', requestId: '', requestType: 'all', action: 'all', actor: 'all', date: '', includeNotifications: false,
+      });
+      currentSection = 'audit-trail';
+      window.location.hash = '#audit-trail';
+      renderApp();
+      return;
+    }
+
+    const generateApprovalAssessmentButton = e.target.closest('[data-action="generate-approval-assessment"]');
+    if (generateApprovalAssessmentButton) {
+      const s = getState();
+      const user = getCurrentUser(s);
+      const approval = getApprovals(s).find((item) => item.id === generateApprovalAssessmentButton.dataset.id);
+      if (!isManager(s) || user.status !== 'active' || !approval || approval.requestType !== 'operational_change') {
+        toast('An assessment is available only to active managers reviewing operational-change requests.', 'error');
+        return;
+      }
+      const task = approval.taskId ? s.tasks.find((item) => item.id === approval.taskId) : null;
+      const assessment = generateSimulatedApprovalAssessment(approval, task);
+      showManagerApprovalReview(s, approval, assessment);
+      return;
+    }
+
+    const requestApprovalInformationButton = e.target.closest('[data-action="manager-request-approval-information"]');
+    if (requestApprovalInformationButton) {
+      const s = getState();
+      const approval = getApprovals(s).find((item) => item.id === requestApprovalInformationButton.dataset.id);
+      if (!isManager(s) || getCurrentUser(s).status !== 'active' || !approval
+        || approval.requestType !== 'operational_change' || approval.status !== 'pending'
+        || approval.requesterId === getCurrentUser(s).id) {
+        toast('This request cannot be sent for more information by the current user.', 'error');
+        return;
+      }
+      showRequestApprovalInformationModal(approval);
+      return;
+    }
+
+    const governanceTypeFilter = e.target.closest('[data-action="manager-governance-type-filter"]');
+    if (governanceTypeFilter) {
+      approvalGovernanceView.typeFilter = governanceTypeFilter.dataset.type || 'all';
+      renderApp();
+      return;
+    }
+
+    const governanceStatusFilter = e.target.closest('[data-action="manager-governance-status-filter"]');
+    if (governanceStatusFilter) {
+      approvalGovernanceView.statusFilter = governanceStatusFilter.dataset.status || 'all';
       renderApp();
       return;
     }
@@ -1229,16 +1458,15 @@ function setupEvents() {
 
     const caseRippleNav = e.target.closest('[data-action="case-ripple-nav"]');
     if (caseRippleNav) {
-      const cid = caseRippleNav.dataset.case;
-      const tid = caseRippleNav.dataset.task;
-      caseView.selectedCaseId = null;
-      currentSection = 'plan';
-      window.location.hash = '#plan';
-      if (tid) {
-        planView.selectedTaskId = tid;
+      const state = getState();
+      const task = accessibleTask(state, caseRippleNav.dataset.task);
+      if (!task) {
+        toast('This task is unavailable.', 'info');
+        return;
       }
-      toast('Opened What-If Simulator & Ripple Intelligence for case task.', 'info');
-      renderApp();
+      showTaskDetailModal(state, task);
+      const details = document.querySelector('#modal-root .task-details-extra');
+      if (details) details.open = true;
       return;
     }
 
@@ -1627,6 +1855,7 @@ function setupEvents() {
   });
 
   document.addEventListener('toggle', (event) => {
+    if (event.target.id === 'schedule-issue-panel' && event.target.isConnected) planningIssueView.open = event.target.open;
     if (event.target.id === 'todo-preview' && event.target.isConnected) tasksView.toDoOpen = event.target.open;
   }, true);
 
@@ -1666,9 +1895,11 @@ function setupEvents() {
       'tasks-filter-date': 'dueDate',
     }[e.target.dataset.action];
     if (filter) {
+      const action = e.target.dataset.action;
       tasksView[filter] = e.target.value;
       tasksView.page = 1;
       renderApp();
+      document.querySelector(`[data-action="${action}"]`)?.focus();
     }
 
     if (e.target.dataset.action === 'capture-status') {
@@ -1690,29 +1921,31 @@ function setupEvents() {
 
     if (e.target.dataset.action === 'plan-date') {
       if (singaporeInstant(e.target.value + 'T00:00')) planningView.date = e.target.value;
+      planningIssueView.allDates = false;
       renderApp();
       document.querySelector('[data-action="plan-date"]')?.focus();
     }
     if (e.target.dataset.action === 'plan-officer') {
       planningView.officerId = e.target.value;
+      planningIssueView.allDates = false;
       renderApp();
       document.querySelector('[data-action="plan-officer"]')?.focus();
     }
 
     if (e.target.dataset.action === 'settings-change-theme') {
       const val = e.target.value;
-      localStorage.setItem('syncai_theme', val);
-      if (val === 'system') document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme', val);
+      saveDisplaySetting('theme', val);
       toast(`Appearance set to ${val}.`, 'info');
+      renderApp();
+      document.querySelector('[name="appearance"]:checked')?.focus();
     }
 
     if (e.target.dataset.action === 'settings-change-text') {
       const val = e.target.value;
-      localStorage.setItem('syncai_text_size', val);
-      if (val === 'standard') document.documentElement.removeAttribute('data-text-size');
-      else document.documentElement.setAttribute('data-text-size', val);
+      saveDisplaySetting('text-size', val);
       toast(`Text size set to ${val}.`, 'info');
+      renderApp();
+      document.querySelector('[name="textSize"]:checked')?.focus();
     }
 
     if (e.target.dataset.action === 'case-filter-estate') {
@@ -1722,6 +1955,22 @@ function setupEvents() {
 
     if (e.target.dataset.action === 'case-filter-urgency') {
       caseView.urgencyFilter = e.target.value;
+      renderApp();
+    }
+
+    const auditFilter = {
+      'audit-trail-filter-type': 'requestType',
+      'audit-trail-filter-action': 'action',
+      'audit-trail-filter-actor': 'actor',
+      'audit-trail-filter-date': 'date',
+      'audit-trail-sort': 'sortOrder',
+    }[e.target.dataset.action];
+    if (auditFilter) {
+      auditTrailView[auditFilter] = e.target.value;
+      renderApp();
+    }
+    if (e.target.dataset.action === 'audit-trail-toggle-notifications') {
+      auditTrailView.includeNotifications = e.target.checked;
       renderApp();
     }
   });
@@ -1747,10 +1996,126 @@ function setupEvents() {
       caseView.searchQuery = e.target.value;
       renderApp();
     }
+    if (e.target.dataset.action === 'audit-trail-search') {
+      const { value, selectionStart, selectionEnd } = e.target;
+      auditTrailView.requestId = value;
+      renderApp();
+      const search = document.querySelector('[data-action="audit-trail-search"]');
+      search?.focus();
+      search?.setSelectionRange(selectionStart, selectionEnd);
+    }
   });
 
   // Assistant and form submit events
   document.addEventListener('submit', (e) => {
+    if (e.target.id === 'request-approval-information-form') {
+      e.preventDefault();
+      const form = e.target;
+      const question = form.elements.namedItem('clarificationQuestion')?.value?.trim() || '';
+      if (!question) {
+        toast('Enter the information required from the requester.', 'error');
+        return;
+      }
+      let result;
+      update((s) => { result = requestApprovalInformation(s, form.dataset.id, question); });
+      if (!result?.success) {
+        toast(result?.error || 'Could not request additional information.', 'error');
+        return;
+      }
+      closeModal();
+      toast('Information request sent to the requester.', 'success');
+      renderApp();
+      return;
+    }
+
+    if (e.target.id === 'requester-approval-information-form') {
+      e.preventDefault();
+      const form = e.target;
+      const response = form.elements.namedItem('informationResponse')?.value?.trim() || '';
+      if (!response) {
+        toast('Enter the additional information requested by the manager.', 'error');
+        return;
+      }
+      let result;
+      update((s) => { result = submitApprovalInformation(s, form.dataset.id, response); });
+      if (!result?.success) {
+        toast(result?.error || 'Could not submit additional information.', 'error');
+        return;
+      }
+      closeModal();
+      toast('Additional information sent. The request is pending manager review.', 'success');
+      renderApp();
+      return;
+    }
+
+    if (e.target.id === 'manager-governance-decision-form') {
+      e.preventDefault();
+      const form = e.target;
+      const s = getState();
+      const approval = getApprovals(s).find((item) => item.id === form.dataset.id && isManagerReviewApproval(item));
+      const decision = e.submitter?.dataset.decision;
+      const note = form.elements.namedItem('decisionComment')?.value?.trim() || '';
+      if (!isManager(s) || getCurrentUser(s).status !== 'active' || !approval) {
+        toast('This request cannot be decided by the current user.', 'error');
+        return;
+      }
+      if (!['approved', 'rejected'].includes(decision) || note.length < 4) {
+        toast('Enter a decision comment or rejection reason of at least 4 characters.', 'error');
+        return;
+      }
+      let result;
+      update((state) => {
+        result = decideApproval(state, approval.id, decision, actorName(state), note);
+      });
+      if (!result?.success) {
+        toast(result?.error || 'Could not record this decision.', 'error');
+        return;
+      }
+      closeModal();
+      toast(decision === 'approved' ? 'Approval recorded.' : 'Request rejected and requester notified.', decision === 'approved' ? 'success' : 'info');
+      renderApp();
+      return;
+    }
+
+    if (e.target.id === 'operational-change-approval-form') {
+      e.preventDefault();
+      const form = e.target;
+      const value = (name) => form.elements.namedItem(name)?.value?.trim() || '';
+      const file = form.elements.namedItem('evidenceFile')?.files?.[0];
+      if (file && file.size > 5 * 1024 * 1024) {
+        toast('File size exceeds the 5MB demo limit.', 'error');
+        return;
+      }
+      const selectedEvidence = [...form.querySelectorAll('[name="evidenceIds"]:checked')].map((input) => {
+        const evidence = getCaseEvidence(getState(), form.dataset.case).find((item) => item.id === input.value);
+        return evidence ? { id: evidence.id, title: evidence.title, fileName: evidence.fileName, type: evidence.type } : null;
+      }).filter(Boolean);
+      const supportingEvidence = [...selectedEvidence];
+      if (file) supportingEvidence.push({ fileName: file.name, fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`, type: file.type || 'file', referenceOnly: true });
+      if (value('evidenceReference')) supportingEvidence.push({ reference: value('evidenceReference'), type: 'reference' });
+
+      let result;
+      const details = {
+        unexpectedSituation: value('unexpectedSituation'),
+        reason: value('reason'),
+        proposedChanges: value('proposedChanges'),
+        requestedScope: value('requestedScope'),
+        potentialCostImpact: value('potentialCostImpact'),
+        potentialScheduleImpact: value('potentialScheduleImpact'),
+        potentialOperationalImpact: value('potentialOperationalImpact'),
+        supportingEvidence,
+      };
+      update((s) => { result = submitOperationalChangeApproval(s, form.dataset.task, details); });
+      if (!result?.success) {
+        toast(result?.error || 'Please complete the required request details.', 'error');
+        return;
+      }
+      closeModal();
+      toast(`Approval request ${result.approval.id} submitted. The task was not changed.`, 'success');
+      renderApp();
+      return;
+    }
+
     if (e.target.id === 'comm-manual-log-form') {
       e.preventDefault();
       const form = e.target;
@@ -1864,6 +2229,7 @@ function setupEvents() {
 
   // Global Keyboard Navigation & Focus Trap (Escape and Tab)
   document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented) return;
     // Rows and Kanban cards expose keyboard-equivalent click behavior.
     if ((e.key === 'Enter' || e.key === ' ') && !caseView.selectedCaseId) {
       const caseSurface = e.target.closest('[data-action="case-row-click"], [data-action="case-card-surface"]');
@@ -1959,6 +2325,16 @@ function setupEvents() {
   });
 }
 
+function saveDisplaySetting(key, value) {
+  if (value === 'system' || value === 'standard') document.documentElement.removeAttribute(`data-${key}`);
+  else document.documentElement.setAttribute(`data-${key}`, value);
+  try {
+    localStorage.setItem(`syncai_${key.replace('-', '_')}`, value);
+  } catch {
+    // Apply the selected display setting for the current session.
+  }
+}
+
 function switchDemoRole(roleKey) {
   const s = getState();
   setCurrentUser(s, roleKey);
@@ -2020,6 +2396,83 @@ function showAccountSwitchModal() {
   }, { once: true });
 }
 
+function openScheduleChangeRequest(issue) {
+  const commitment = [issue.block, issue.other].filter(Boolean)
+    .map((block) => `${block.title} · ${blockTimes(block)} SGT`).join(' / ');
+  openModal(html`<h2 class="modal-title">Request Schedule Change</h2>
+    <p><strong>${issue.title}</strong></p>
+    <p class="small muted">${commitment || 'No task block was scheduled.'}</p>
+    <p class="small">${issue.message}</p>
+    <form id="schedule-change-request" class="capture-form">
+      <label class="capture-wide">Reason for requesting a change
+        <textarea name="reason" required maxlength="500" rows="3" autofocus></textarea>
+      </label>
+      <p class="capture-wide capture-error" role="alert" hidden></p>
+      <div class="modal-actions capture-wide">
+        <button type="button" class="btn-secondary" data-action="modal-close">Cancel</button>
+        <button type="submit" class="btn-primary">Submit for review</button>
+      </div>
+    </form>`);
+  const form = document.getElementById('schedule-change-request');
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    try {
+      planningIssueView.open = true;
+      update((state) => requestScheduleChange(state, issue, form.elements.reason.value));
+      closeModal();
+      document.querySelector('#schedule-issue-panel summary')?.focus();
+      toast(storage.ok ? 'Simulated request submitted. Pending Approval.' : 'Pending Approval for this session. Browser storage is unavailable.', storage.ok ? 'success' : 'error');
+    } catch (error) {
+      const alert = form.querySelector('[role="alert"]');
+      alert.textContent = error.message;
+      alert.hidden = false;
+    }
+  });
+}
+
+async function resolveScheduleDraft(draft, accept) {
+  const range = scheduleRange(draft.dates);
+  const review = reviewDraft(getState(), draft);
+  const issues = accept && (review.warningCount > 0 || review.unscheduledCount > 0);
+  const scheduled = draft.days.reduce((count, day) => count + day.proposed.length, 0);
+  const risks = draft.unscheduled.filter(({ deadline }) => deadline.at).length
+    + draft.days.reduce((count, day) => count + (day.warningDetails || []).filter(({ kind }) => kind === 'Deadline risk').length, 0);
+  const count = (n, label) => `${n} ${label}${n === 1 ? '' : 's'}`;
+  const details = [
+    review.replaced.length ? `Replaces ${count(review.replaced.length, 'accepted day')}.` : '',
+    issues ? 'Warnings and unscheduled work remain available for review.' : '',
+  ].filter(Boolean).join(' ');
+  const confirmed = await confirmDialog({
+    title: accept ? 'Accept schedule?' : 'Discard draft?',
+    body: accept ? `${range}. ${count(scheduled, 'scheduled task')} · ${review.unscheduledCount} unscheduled · ${count(review.warningCount, 'calendar warning')} · ${count(risks, 'potential deadline risk')}. ${details}`
+      : `${range}. Return to the accepted schedule or protected calendar for these dates.`,
+    confirmLabel: accept ? 'Accept Schedule' : 'Discard Draft',
+    danger: !accept,
+    acknowledgement: issues ? 'I understand that some tasks remain unscheduled or require further review.' : undefined,
+  });
+  if (!confirmed || planningView.drafts.get(draft.officerId) !== draft || currentPlanningOfficer(getState())?.id !== draft.officerId) return;
+  if (accept) {
+    try {
+      update((state) => {
+        const latest = reviewDraft(state, draft);
+        if (!issues && (latest.warningCount || latest.unscheduledCount)) throw new Error('Review the outstanding warnings before accepting.');
+        acceptDraft(state, draft, { acknowledged: Boolean(issues || review.replaced.length) });
+        discardDraft(planningView.drafts, draft, true);
+      });
+      toast(storage.ok ? 'Schedule accepted and saved.' : 'Schedule accepted for this session. Browser storage could not save it.',
+        storage.ok ? 'success' : 'error');
+    } catch (error) {
+      renderApp();
+      toast(error.message, 'error');
+    }
+  } else {
+    discardDraft(planningView.drafts, draft, true);
+    renderApp();
+    toast('Draft discarded.', 'info');
+  }
+  document.getElementById('smart-plan-h')?.focus();
+}
+
 function showTaskDetailModal(s, t) {
   const dependents = traceDownstream(s, t.id).dependents.filter(({ task }) => accessibleTask(s, task.id));
   const mgr = isManager(s);
@@ -2028,116 +2481,240 @@ function showTaskDetailModal(s, t) {
   const deadline = deadlineAlert(t);
   const slaDue = taskDateInput(t.slaDue);
 
-  const content = html`
-    <h2 id="modal-title" class="modal-title">${t.title}</h2>
-    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
-      <span class="tag tag-brand">${t.category}</span>
-      <span class="tag tag-neutral">${t.priority} priority</span>
-      ${(t.tags || []).map((tag) => html`<span class="tag tag-neutral">${tag}</span>`)}
-      ${deadline ? html`<span class="tag tag-${deadline.tone}">${deadline.label}</span>` : ''}
-      ${t.safety ? html`<span class="tag tag-danger">Safety Hazard</span>` : ''}
-      ${t.statutory ? html`<span class="tag tag-warning">Statutory Deadline</span>` : ''}
+  const due = taskDateInput(t.dueAt || t.due);
+  const fixedStart = taskDateInput(t.fixedStartAt);
+  const renderTime = (value) => html`<time datetime="${value}+08:00">${value.replace('T', ' ')} SGT</time>`;
+  const priorityTone = { Critical: 'danger', High: 'warning', Medium: 'brand' }[t.priority] || 'neutral';
+
+  openModal(html`
+    <div class="task-details">
+      <header class="task-details-header">
+        <div>
+          <h2 id="modal-title" class="modal-title">${t.title}</h2>
+          <p class="small muted">${t.location ? `${t.location} · ` : ''}Assigned to ${officerName(s, t.ownerId)}</p>
+        </div>
+        <button type="button" class="btn-subtle task-details-close" data-action="modal-close" aria-label="Close task details">${icon('close', 20)}</button>
+      </header>
+      <div class="task-details-body">
+        <div class="task-details-badges">
+          <span class="tag tag-${priorityTone}">${t.priority} Priority</span>
+          ${t.safety ? html`<span class="tag tag-danger">Safety</span>` : ''}
+          <span class="tag tag-brand">${t.category}</span>
+        </div>
+        ${t.description ? html`<p class="capture-text task-details-description">${t.description}</p>` : ''}
+        <dl class="task-details-facts" aria-label="Key information">
+          <div><dt>Due date</dt><dd>${due ? renderTime(due) : 'No due date recorded'}
+            ${deadline ? html`<span class="work-order-deadline-note ${deadline.tone}">${deadline.label}</span>` : ''}
+          </dd></div>
+          <div><dt>Estimated duration</dt><dd>${taskDuration(t)} minutes</dd></div>
+          ${t.appointmentTime ? html`<div><dt>Resident commitment</dt><dd>${t.appointmentTime}</dd></div>` : ''}
+          ${slaDue || t.slaType ? html`<div><dt>SLA information</dt><dd>${t.slaType || 'Recorded deadline'}
+            ${slaDue ? html`<span class="task-details-note">${slaDue === due ? 'Same as the due date' : renderTime(slaDue)}</span>` : ''}
+          </dd></div>` : ''}
+        </dl>
+        <details class="priority-explanation" open>
+          <summary>Why this priority?</summary>
+          <p class="small muted">Priority is set on the task. These demo factors show the recorded context in EMS’s stated order.</p>
+          <ol>${factors.map(({ factor, reason }) => html`<li><strong>${factor}</strong> ${reason}</li>`)}</ol>
+        </details>
+        <details class="task-details-extra">
+          <summary>Additional details &amp; dependencies</summary>
+          <dl class="task-details-extra-list">
+            ${t.caseId ? html`<div><dt>Linked case</dt><dd>
+              ${relatedCase ? html`<a href="#cases/${relatedCase.id}" data-action="modal-close">${relatedCase.number || relatedCase.id} · ${relatedCase.title}</a>` : ''}
+              <button type="button" class="btn-subtle btn-sm" data-action="nav-to-case" data-case="${t.caseId}">Open in Case Action Centre</button>
+            </dd></div>` : ''}
+            ${t.tags?.length ? html`<div><dt>Tags</dt><dd class="task-details-badges">${t.tags.map((tag) => html`<span class="tag tag-neutral">${tag}</span>`)}</dd></div>` : ''}
+            ${t.statutory ? html`<div><dt>Deadline type</dt><dd>Statutory deadline</dd></div>` : ''}
+            ${fixedStart ? html`<div><dt>Fixed start</dt><dd>${renderTime(fixedStart)}</dd></div>` : ''}
+            ${t.remarks ? html`<div><dt>Remarks</dt><dd class="capture-text">${t.remarks}</dd></div>` : ''}
+            ${t.consequence ? html`<div><dt>Long-term consequence risk</dt><dd>${t.consequence}</dd></div>` : ''}
+            <div><dt>Downstream dependencies</dt><dd>
+              ${dependents.length ? html`<ul>${dependents.map(({ task, depth }) => html`<li>${task.title} <span class="muted">(Depth: ${depth})</span></li>`)}</ul>`
+                : 'No visible work orders depend on this task.'}
+            </dd></div>
+          </dl>
+        </details>
+        ${getApprovals(s).filter((approval) => approval.taskId === t.id).length ? html`
+          <section class="task-details-extra" aria-label="Approval requests for this task">
+            <h3>Approval requests for this task</h3>
+            ${getApprovals(s).filter((approval) => approval.taskId === t.id).map((approval) => html`
+              <div style="margin-top: 6px; padding: 10px; border-radius: 8px; background: var(--colorNeutralBackground2);">
+                <span class="tag ${approval.status === 'pending' ? 'tag-warning' : approval.status === 'approved' ? 'tag-success' : 'tag-danger'}">${approval.status.replaceAll('_', ' ')}</span>
+                <span class="small">${approval.id} · ${approval.requestType.replaceAll('_', ' ')}</span>
+                ${approval.decision ? html`<div class="small" style="margin-top: 5px;"><strong>Manager decision:</strong> ${approval.decision}</div>` : ''}
+              </div>
+            `)}
+          </section>` : ''}
+      </div>
+      <footer class="task-details-footer">
+        <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button>
+        <button type="button" class="${!t.manualCapture && !mgr ? 'btn-secondary' : 'btn-primary'} btn-sm" data-action="capture-edit" data-id="${t.id}">Edit Task</button>
+        ${!t.manualCapture && !mgr ? html`
+          <button type="button" class="btn-primary btn-sm" data-action="request-task-adjustment" data-id="${t.id}">Request Schedule Change</button>` : ''}
+      </footer>
     </div>
+  `, { wide: true, variant: 'task-details-modal' });
 
-    <div style="display: grid; gap: 10px; font-size: 0.875rem; margin-bottom: 16px;">
-      ${t.description ? html`<p class="capture-text">${t.description}</p>` : ''}
-      <div><strong>Assigned officer:</strong> ${officerName(s, t.ownerId)}</div>
-      ${relatedCase ? html`<div><strong>Case:</strong> <a href="#cases/${relatedCase.id}" data-action="modal-close">${relatedCase.number} · ${relatedCase.title}</a></div>` : ''}
-      ${t.location ? html`<div><strong>Location:</strong> ${t.location}</div>` : ''}
-      <div><strong>Due:</strong> ${taskDateInput(t.dueAt || t.due).replace('T', ' ')} SGT</div>
-      ${slaDue || t.slaType ? html`<div><strong>SLA:</strong> ${t.slaType || 'Recorded deadline'}
-        ${slaDue ? html`<time datetime="${slaDue}+08:00">${slaDue.replace('T', ' ')} SGT</time>` : ''}</div>` : ''}
-      <div><strong>Estimated duration:</strong> ${taskDuration(t)} minutes</div>
-      ${t.fixedStartAt ? html`<div><strong>Fixed start:</strong> ${taskDateInput(t.fixedStartAt).replace('T', ' ')} SGT</div>` : ''}
-      ${t.remarks ? html`<div class="capture-text"><strong>Remarks:</strong> ${t.remarks}</div>` : ''}
-      ${t.appointmentTime
-        ? html`<div><strong>Resident Commitment:</strong> <span class="tag tag-brand">${t.appointmentTime}</span></div>`
-        : ''}
-      ${t.caseId
-        ? html`
-            <div>
-              <strong>Linked Case:</strong>
-              <button
-                type="button"
-                class="tag tag-brand"
-                data-action="nav-to-case"
-                data-case="${t.caseId}"
-                style="cursor: pointer; border: 1px solid var(--colorBrandStroke2); background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-family: monospace; font-weight: 700; margin-left: 6px;"
-              >
-                ${icon('cases', 12)} ${t.caseId} → Open in Case Action Centre
-              </button>
-            </div>
-          `
-        : ''}
-      ${t.consequence
-        ? html`<div><strong>Long-term Consequence Risk:</strong> <span class="muted">${t.consequence}</span></div>`
-        : ''}
-    </div>
-    <details class="priority-explanation">
-      <summary>Why this priority?</summary>
-      <p class="small muted">Priority is set on the task. These demo factors show the recorded context in EMS’s stated order.</p>
-      <ol>${factors.map(({ factor, reason }) => html`<li><strong>${factor}</strong> ${reason}</li>`)}</ol>
-    </details>
+  document.querySelector('#modal-root [data-action="request-task-adjustment"]')?.addEventListener('click', () => {
+    update((stateObj) => {
+      createApprovalRequest(stateObj, {
+        requestType: 'schedule_adjustment',
+        taskId: t.id,
+        taskTitle: t.title,
+        reason: 'Officer requested schedule change due to operational buffer constraint.',
+        slaImpact: 'Maintains the fictional response deadline.',
+        operationalImpact: 'Prevents overload during site visits.',
 
-    <!-- Downstream Dependency Chain -->
-    <div style="padding: 12px; border-radius: 8px; border: 1px solid var(--colorNeutralStroke2); margin-bottom: 16px;">
-      <strong class="small" style="display: block; margin-bottom: 6px;">Downstream Ripple Dependencies:</strong>
-      ${dependents.length === 0
-        ? html`<p class="small muted" style="margin: 0;">No visible work orders depend on this task.</p>`
-        : html`
-            <ul style="margin: 0; padding-left: 18px; font-size: 0.8125rem;">
-              ${dependents.map(
-                (d) => html`<li><strong>${d.task.title}</strong> (Depth: ${d.depth})</li>`,
-              )}
-            </ul>
-          `}
-    </div>
-
-    <div class="modal-actions">
-      ${t.manualCapture ? '' : !mgr
-        ? html`
-            <button
-              type="button"
-              class="btn-primary btn-sm"
-              data-action="request-task-adjustment"
-              data-id="${t.id}"
-            >
-              Request Schedule Change
-            </button>
-          `
-        : html`
-            <button
-              type="button"
-              class="btn-primary btn-sm"
-              data-action="reassign-task-direct"
-              data-id="${t.id}"
-            >
-              Reassign Task
-            </button>
-          `}
-      <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button>
-    </div>
-  `;
-
-  openModal(content);
-
-  document.getElementById('modal-root')?.addEventListener('click', (e) => {
-    if (e.target.closest('[data-action="request-task-adjustment"]')) {
-      closeModal();
-      update((stateObj) => {
-        createApprovalRequest(stateObj, {
-          requestType: 'schedule_adjustment',
-          taskId: t.id,
-          taskTitle: t.title,
-          reason: 'Officer requested schedule change due to operational buffer constraint.',
-          slaImpact: 'Maintains required response window.',
-          operationalImpact: 'Prevents overload during site visits.',
-        });
       });
-      toast('Schedule change request submitted for manager approval.', 'success');
-      renderApp();
-    }
-  }, { once: true });
+    });
+    closeModal();
+    toast('Schedule change request submitted for manager approval.', 'success');
+  });
+}
+
+function showRequestApprovalInformationModal(approval) {
+  openModal(html`
+    <h2 id="modal-title" class="modal-title">Request More Information</h2>
+    <p class="small muted">Ask the requester for information needed to continue reviewing this operational-change request.</p>
+    <form id="request-approval-information-form" data-id="${approval.id}" style="display:grid;gap:12px">
+      <label class="small">Clarification question *
+        <textarea class="search-input" name="clarificationQuestion" required rows="4" style="display:block;width:100%;box-sizing:border-box" placeholder="What additional information is needed?"></textarea>
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Cancel</button>
+        <button type="submit" class="btn-primary btn-sm">Send Request</button>
+      </div>
+    </form>
+  `, { wide: true });
+}
+
+function showManagerApprovalReview(s, approval, assessment = null) {
+  const type = managerReviewType(approval);
+  const task = approval.taskId ? s.tasks.find((item) => item.id === approval.taskId) : null;
+  const relatedCase = approval.caseId ? getCase(s, approval.caseId) : null;
+  const missing = 'Not recorded';
+  const when = (value) => value ? new Date(value).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) : missing;
+  const evidence = Array.isArray(approval.supportingEvidence) ? approval.supportingEvidence : [];
+  const currentOwnerId = relatedCase?.ownerId || task?.ownerId || approval.originalOwnerId;
+  const proposedOwnerId = approval.proposedOwnerId || approval.suggestedAssigneeId;
+  const detail = approval.requestType === 'operational_change' ? html`
+    <section class="panel"><h3>Unexpected situation and justification</h3><p><strong>Situation</strong><br>${approval.unexpectedSituation || 'Not provided'}</p><p><strong>Reason</strong><br>${approval.reason || 'Not provided'}</p></section>
+    <section class="panel"><h3>Proposed changes and requested scope</h3><p><strong>Original arrangement</strong><br>${approval.originalSchedule || missing}</p><p><strong>Proposed changes</strong><br>${approval.proposedChanges || 'Not provided'}</p><p><strong>Requested scope</strong><br>${approval.requestedScope || 'Not provided'}</p></section>
+    <section class="panel"><h3>Potential impact</h3><p>Cost: ${approval.potentialCostImpact || 'Not specified'}</p><p>Schedule: ${approval.potentialScheduleImpact || 'Not specified'}</p><p>Operational or service: ${approval.potentialOperationalImpact || 'Not specified'}</p></section>
+    <section class="panel"><h3>Supporting evidence references</h3>${evidence.length ? html`<ul>${evidence.map((item) => html`<li>${item.title || item.fileName || item.reference || 'Evidence reference'}${item.fileName ? ` · ${item.fileName}` : ''}${item.fileSize ? ` · ${item.fileSize}` : ''}${item.reference ? ` · ${item.reference}` : ''}</li>`)}</ul><p class="small muted">The prototype stores evidence references and metadata only; attached file contents are not available here.</p>` : html`<p>No supporting evidence references were attached.</p>`}</section>
+  ` : approval.requestType === 'schedule_adjustment' ? html`
+    <section class="panel"><h3>Schedule adjustment</h3><p><strong>Original schedule</strong><br>${approval.originalSchedule && approval.originalSchedule !== 'Original schedule' ? approval.originalSchedule : missing}</p><p><strong>Requested schedule</strong><br>${approval.proposedSchedule && approval.proposedSchedule !== 'Proposed schedule' ? approval.proposedSchedule : missing}</p><p><strong>Reason</strong><br>${approval.reason && approval.reason !== 'Operational schedule adjustment' ? approval.reason : missing}</p><p><strong>SLA impact</strong><br>${approval.slaImpact && approval.slaImpact !== 'Within operational SLA margin' ? approval.slaImpact : missing}</p><p><strong>Operational impact</strong><br>${approval.operationalImpact && approval.operationalImpact !== 'Rebalances officer workload' ? approval.operationalImpact : missing}</p></section>
+  ` : approval.requestType === 'reassign' || approval.requestType === 'reassignment' ? html`
+    <section class="panel"><h3>Case reassignment</h3><p><strong>Current assignee</strong><br>${currentOwnerId ? officerName(s, currentOwnerId) : missing}</p><p><strong>Proposed assignee</strong><br>${proposedOwnerId ? officerName(s, proposedOwnerId) : missing}</p><p><strong>Reason</strong><br>${approval.reason || approval.note || missing}</p></section>
+  ` : html`
+    <section class="panel"><h3>Case closure</h3><p><strong>Case</strong><br>${relatedCase ? `${relatedCase.id} · ${relatedCase.title || relatedCase.caseNumber || ''}` : approval.caseId || missing}</p><p><strong>Current case status</strong><br>${relatedCase?.status || missing}</p><p><strong>Current assignee</strong><br>${relatedCase?.ownerId ? officerName(s, relatedCase.ownerId) : missing}</p><p><strong>Reason</strong><br>${approval.reason || approval.note || missing}</p><p><strong>SLA impact</strong><br>${approval.slaImpact || missing}</p><p><strong>Operational impact</strong><br>${approval.operationalImpact || missing}</p></section>
+  `;
+  const content = html`
+    <h2 id="modal-title" class="modal-title">${type.label} review</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px"><span class="tag ${approval.status === 'approved' ? 'tag-success' : approval.status === 'rejected' ? 'tag-danger' : 'tag-warning'}">${approval.status === 'information_required' ? 'Information Required' : approval.status}</span><span class="tag tag-neutral">${type.label}</span><span class="tag tag-neutral">${approval.id}</span></div>
+    <div style="display:grid;gap:10px;max-height:62vh;overflow-y:auto;padding:2px">
+      <section class="panel"><h3>Request and linked work</h3><p><strong>Requester</strong><br>${approval.requesterName || approval.requesterId || missing}</p><p><strong>Submitted</strong><br>${when(approval.createdAt)}</p>${task ? html`<p><strong>Task</strong><br>${task.id} · ${task.title || approval.taskTitle || missing}</p><p><strong>Assigned officer</strong><br>${officerName(s, task.ownerId || approval.originalOwnerId)}</p><p><strong>Current task status</strong><br>${task.status || missing}</p><p><strong>Current task due date</strong><br>${task.dueAt || task.due || missing}</p>` : approval.taskId ? html`<p><strong>Task</strong><br>${approval.taskId} · ${approval.taskTitle || missing}</p>` : ''}${approval.caseId ? html`<p><strong>Linked case</strong><br>${approval.caseId}${relatedCase?.title ? ` · ${relatedCase.title}` : ''}</p>` : ''}</section>
+      ${detail}
+      ${approval.requestType === 'operational_change' ? html`<section class="panel"><h3>Simulated decision support</h3><p class="small muted">Generate a local, rule-based assessment from the information recorded in this request.</p><button type="button" class="btn-secondary btn-sm" data-action="generate-approval-assessment" data-id="${approval.id}">Generate AI Assessment</button></section>${renderSimulatedApprovalAssessment(assessment)}` : ''}
+      ${renderOperationalChangeVersionHistory(approval)}
+      ${renderOperationalChangeVersionComparison(approval)}
+      ${approval.decision ? html`<section class="panel"><h3>Recorded decision</h3><p><strong>${approval.status === 'approved' ? 'Approved' : 'Rejected'} by</strong> ${approval.decidedBy || missing}</p><p><strong>Decision time</strong><br>${when(approval.decidedAt)}</p><p><strong>Comment or reason</strong><br>${approval.decision}</p></section>` : ''}
+    </div>
+    ${approval.status === 'pending' ? html`<form id="manager-governance-decision-form" data-id="${approval.id}" style="display:grid;gap:10px;margin-top:12px"><label class="small">Decision comment or rejection reason *<textarea class="search-input" name="decisionComment" required minlength="4" rows="3" style="display:block;width:100%;box-sizing:border-box" placeholder="Explain the decision and any relevant limits."></textarea></label><div class="modal-actions"><button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button>${approval.requestType === 'operational_change' ? html`<button type="button" class="btn-secondary btn-sm" data-action="manager-request-approval-information" data-id="${approval.id}">Request More Information</button>` : ''}<button type="submit" class="btn-danger btn-sm" data-decision="rejected">Reject</button><button type="submit" class="btn-primary btn-sm" data-decision="approved">Approve</button></div></form>` : html`<div class="modal-actions"><button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button></div>`}
+  `;
+  openModal(content, { wide: true });
+}
+
+function showRequesterApprovalRequestDetails(s, approval) {
+  const isOperationalChange = approval.requestType === 'operational_change';
+  const user = getCurrentUser(s);
+  const clarification = getOutstandingApprovalInformation(approval);
+  const canRespondToClarification = isOperationalChange && approval.status === 'information_required'
+    && approval.requesterId === user.id && isTeamMember(s) && user.status === 'active' && clarification;
+  const requestTypeLabel = isOperationalChange ? 'Operational Change' : 'Schedule Adjustment';
+  const originalSchedule = approval.originalSchedule && approval.originalSchedule !== 'Original schedule'
+    ? approval.originalSchedule : 'Not recorded';
+  const requestedSchedule = approval.proposedSchedule && approval.proposedSchedule !== 'Proposed schedule'
+    ? approval.proposedSchedule : 'Not recorded';
+  const scheduleReason = approval.reason && approval.reason !== 'Operational schedule adjustment'
+    ? approval.reason : 'Not recorded';
+  const scheduleSlaImpact = approval.slaImpact && approval.slaImpact !== 'Within operational SLA margin'
+    ? approval.slaImpact : 'Not recorded';
+  const scheduleOperationalImpact = approval.operationalImpact && approval.operationalImpact !== 'Rebalances officer workload'
+    ? approval.operationalImpact : 'Not recorded';
+  const content = html`
+    <h2 id="modal-title" class="modal-title">Approval request details</h2>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 14px;">
+      <span class="tag ${approval.status === 'approved' ? 'tag-success' : approval.status === 'rejected' ? 'tag-danger' : 'tag-warning'}">${approval.status === 'information_required' ? 'Information Required' : approval.status}</span>
+      <span class="tag tag-neutral">${requestTypeLabel}</span>
+      <span class="tag tag-neutral">${approval.id}</span>
+    </div>
+    <div style="display: grid; gap: 8px; max-height: 62vh; overflow-y: auto;">
+      ${clarification ? html`<section class="panel"><strong>Manager's question</strong><p>${clarification.details || 'The manager requested additional information.'}</p></section>` : ''}
+      <div><strong>Task:</strong> ${approval.taskId} · ${approval.taskTitle}</div>
+      ${approval.caseId ? html`<div><strong>Linked case:</strong> ${approval.caseId}</div>` : ''}
+      <div><strong>Submitted:</strong> ${approval.createdAt ? new Date(approval.createdAt).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) : 'Not recorded'}</div>
+      ${isOperationalChange ? html`
+        <div><strong>Unexpected situation:</strong><p>${approval.unexpectedSituation || 'Not provided'}</p></div>
+        <div><strong>Reason:</strong><p>${approval.reason || 'Not provided'}</p></div>
+        <div><strong>Proposed changes:</strong><p>${approval.proposedChanges || 'Not provided'}</p></div>
+        <div><strong>Requested scope:</strong><p>${approval.requestedScope || 'Not provided'}</p></div>
+        <div><strong>Potential impacts:</strong><ul><li>Cost: ${approval.potentialCostImpact || 'Not specified'}</li><li>Schedule: ${approval.potentialScheduleImpact || 'Not specified'}</li><li>Operational: ${approval.potentialOperationalImpact || 'Not specified'}</li></ul></div>
+        ${approval.supportingEvidence?.length ? html`<div><strong>Evidence references:</strong><ul>${approval.supportingEvidence.map((item) => html`<li>${item.title || item.fileName || item.reference || 'Evidence reference'}${item.fileName ? ` · ${item.fileName}` : ''}${item.reference ? ` · ${item.reference}` : ''}</li>`)}</ul></div>` : ''}
+      ` : html`
+        <div><strong>Original schedule:</strong><p>${originalSchedule}</p></div>
+        <div><strong>Requested schedule:</strong><p>${requestedSchedule}</p></div>
+        <div><strong>Reason for schedule change:</strong><p>${scheduleReason}</p></div>
+        <div><strong>SLA impact:</strong><p>${scheduleSlaImpact}</p></div>
+        <div><strong>Operational impact:</strong><p>${scheduleOperationalImpact}</p></div>
+      `}
+      ${approval.decision ? html`<section class="panel" style="padding: 12px;"><strong>Manager decision · ${approval.decidedBy || 'Manager'}${approval.decidedAt ? ` · ${new Date(approval.decidedAt).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' })}` : ''}</strong><p>${approval.decision}</p></section>` : ''}
+    </div>
+    ${isOperationalChange ? renderOperationalChangeVersionHistory(approval) : ''}
+    ${isOperationalChange ? renderOperationalChangeVersionComparison(approval) : ''}
+    ${canRespondToClarification ? html`<form id="requester-approval-information-form" data-id="${approval.id}" style="display:grid;gap:10px;margin-top:12px"><label class="small">Your additional information *<textarea class="search-input" name="informationResponse" required rows="4" style="display:block;width:100%;box-sizing:border-box" placeholder="Respond to the manager's question."></textarea></label><div class="modal-actions"><button type="submit" class="btn-primary btn-sm">Submit Additional Information</button></div></form>` : ''}
+    <div class="modal-actions"><button type="button" class="btn-ghost btn-sm" data-action="modal-close">Close</button></div>
+  `;
+  openModal(content, { wide: true });
+}
+
+function showTaskApprovalRequestModal(s, task) {
+  const relatedCase = task.caseId ? getCase(s, task.caseId) : null;
+  const evidence = relatedCase ? getCaseEvidence(s, relatedCase.id) : [];
+  const content = html`
+    <h2 id="modal-title" class="modal-title">Request Approval</h2>
+    <p class="small muted">Request authorisation for a proposed operational change. Submitting this form does not change or pause the task.</p>
+    <div style="display: grid; gap: 5px; margin: 12px 0; padding: 12px; border-radius: 8px; background: var(--colorNeutralBackground2);">
+      <div><strong>Task:</strong> ${task.id} · ${task.title}</div>
+      ${relatedCase ? html`<div><strong>Case:</strong> ${relatedCase.id} · ${relatedCase.title || relatedCase.caseNumber || relatedCase.number || ''}</div>` : ''}
+      <div><strong>Assigned officer:</strong> ${officerName(s, task.ownerId)}</div>
+      <div><strong>Original due:</strong> ${taskDateInput(task.dueAt || task.due).replace('T', ' ')}</div>
+      ${task.fixedStartAt ? html`<div><strong>Fixed start:</strong> ${taskDateInput(task.fixedStartAt).replace('T', ' ')}</div>` : ''}
+      <div><strong>Duration:</strong> ${taskDuration(task)} minutes · <strong>Status:</strong> ${task.status}</div>
+    </div>
+    <form id="operational-change-approval-form" data-task="${task.id}" data-case="${relatedCase?.id || ''}" style="display: grid; gap: 10px; max-height: 58vh; overflow-y: auto; padding: 2px;">
+      <label class="small">Unexpected situation *<textarea class="search-input" name="unexpectedSituation" required minlength="4" rows="2" style="display: block; width: 100%; box-sizing: border-box;" placeholder="What happened during the work?"></textarea></label>
+      <label class="small">Reason for request *<textarea class="search-input" name="reason" required minlength="4" rows="2" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Why is a change necessary?"></textarea></label>
+      <label class="small">Proposed changes *<textarea class="search-input" name="proposedChanges" required minlength="4" rows="2" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Describe what should change."></textarea></label>
+      <label class="small">Requested approval scope *<textarea class="search-input" name="requestedScope" required minlength="4" rows="2" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Specify exactly what the manager should authorise."></textarea></label>
+      <label class="small">Potential cost impact<textarea class="search-input" name="potentialCostImpact" rows="1" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Optional"></textarea></label>
+      <label class="small">Potential schedule impact<textarea class="search-input" name="potentialScheduleImpact" rows="1" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Optional"></textarea></label>
+      <label class="small">Potential operational or service impact<textarea class="search-input" name="potentialOperationalImpact" rows="1" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Optional"></textarea></label>
+      <fieldset style="border: 1px solid var(--colorNeutralStroke2); border-radius: 8px; padding: 10px;">
+        <legend class="small">Supporting evidence (optional)</legend>
+        ${evidence.length ? evidence.map((item) => html`<label class="small" style="display: block; margin: 4px 0;"><input type="checkbox" name="evidenceIds" value="${item.id}"> ${item.title} (${item.fileName || item.typeLabel || 'evidence'})</label>`) : html`<span class="small muted">No linked case evidence is available.</span>`}
+        <label class="small" style="display: block; margin-top: 8px;">Attach file reference<input type="file" name="evidenceFile" style="display: block; margin-top: 4px;"></label>
+        <label class="small" style="display: block; margin-top: 8px;">Other evidence reference<input class="search-input" name="evidenceReference" style="display: block; width: 100%; box-sizing: border-box;" placeholder="Quotation number, contractor, document link, etc."></label>
+        <span class="small muted">Prototype stores selected file metadata only (up to 5 MB); it does not upload file contents.</span>
+      </fieldset>
+      <div class="modal-actions">
+        <button type="submit" class="btn-primary btn-sm">Submit Approval Request</button>
+        <button type="button" class="btn-ghost btn-sm" data-action="modal-close">Cancel</button>
+      </div>
+    </form>
+  `;
+  openModal(content, { wide: true });
 }
 
 function showCreateTeamModal(s) {
