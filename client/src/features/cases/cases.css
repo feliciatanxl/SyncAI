@@ -1,0 +1,122 @@
+/* Case Action Centre. Same Fluent tokens, radius and panel conventions as styles/site.css. */
+.hero-badge-demo { background: #ffb900; color: #241a00; }
+.case-demo-bar { margin-bottom: 16px; }
+.case-id { display: inline-block; margin-right: 6px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--colorNeutralForeground3); font-variant-numeric: tabular-nums; }
+.case-title { display: block; overflow-wrap: anywhere; }
+.case-due { font-size: 0.875rem; font-weight: 600; white-space: nowrap; }
+.case-due-overdue { color: var(--colorPaletteRedForeground1); }
+.case-due-soon { color: var(--colorPaletteDarkOrangeForeground1); }
+.case-due-ok { color: var(--colorNeutralForeground2); font-weight: 400; }
+
+.case-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.case-stat {
+  display: grid; gap: 2px; padding: 14px 16px; text-align: left; font: inherit; cursor: pointer; color: var(--colorNeutralForeground1);
+  border-radius: var(--radius); border: 1px solid var(--colorNeutralStroke2); border-left: 4px solid var(--ms-blue); background: var(--colorNeutralBackground1);
+}
+.case-stat strong { font-size: 1.75rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.case-stat span { font-size: 0.875rem; color: var(--colorNeutralForeground2); }
+.case-stat:hover { border-color: var(--colorBrandStroke1); }
+.case-stat:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 2px; }
+.case-stat[aria-pressed="true"] { background: var(--colorBrandBackground2); border-color: var(--colorBrandStroke1); }
+.case-stat-followUps { border-left-color: var(--colorPaletteDarkOrangeBorderActive); }
+.case-stat-blocked { border-left-color: var(--colorPaletteRedBorderActive); }
+.case-stat-ready { border-left-color: var(--colorPaletteGreenBorderActive); }
+
+.case-radar, .case-list-panel { margin-bottom: 16px; }
+.case-radar h2 { display: flex; align-items: center; gap: 8px; }
+.radar-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.radar-item {
+  display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; padding: 12px 14px;
+  border-radius: 10px; border: 1px solid var(--colorNeutralStroke2); border-left: 4px solid var(--colorPaletteDarkOrangeBorderActive); background: var(--colorNeutralBackground1);
+}
+.radar-critical { border-left-color: var(--colorPaletteRedBorderActive); }
+.radar-main { min-width: 0; flex: 1; }
+.radar-main p { margin: 4px 0; }
+.radar-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.radar-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 16px; margin: 8px 0 0; }
+.radar-facts dt { color: var(--colorNeutralForeground3); font-size: 0.75rem; }
+.radar-facts dd { margin: 0; overflow-wrap: anywhere; }
+.radar-why { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--colorNeutralBackground2); }
+.radar-why p { margin: 4px 0; }
+.radar-actions { display: flex; flex-direction: column; gap: 6px; flex: none; align-items: stretch; }
+
+.case-filters { display: grid; grid-template-columns: minmax(200px, 2fr) repeat(3, minmax(140px, 1fr)) auto; gap: 8px; margin: 8px 0; }
+.case-filters > * { min-width: 0; }
+
+.case-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.case-table th { text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--colorNeutralForeground3); padding: 8px; border-bottom: 1px solid var(--colorNeutralStroke2); }
+.case-table td { padding: 10px 8px; border-bottom: 1px solid var(--colorNeutralStroke3); vertical-align: top; }
+.case-table td.case-actions { white-space: nowrap; text-align: right; }
+.case-table td.case-actions button + button { margin-left: 4px; }
+
+.case-board { display: grid; grid-template-columns: repeat(5, minmax(170px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.case-column { padding: 10px; border-radius: 10px; background: var(--colorNeutralBackground2); min-width: 0; }
+.case-column h3 { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 0.8125rem; }
+.case-column-count { min-width: 22px; padding: 0 6px; border-radius: 999px; text-align: center; background: var(--colorNeutralBackground1); font-size: 0.75rem; }
+.case-column ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.case-card { display: grid; gap: 6px; padding: 10px; border-radius: 8px; background: var(--colorNeutralBackground1); border: 1px solid var(--colorNeutralStroke2); font-size: 0.875rem; }
+.case-card-top, .case-card-meta { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
+.case-card-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* Doubled class: beats Fluent's own DialogSurface max-width (600px). */
+.case-details-dialog.case-details-dialog { max-width: min(920px, calc(100vw - 32px)); width: 100%; }
+.case-details-body { max-height: calc(100vh - 48px); }
+.case-details-meta { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; margin-bottom: 10px; }
+.case-details-meta > button { margin-left: auto; }
+.case-request { margin-bottom: 10px; }
+.case-request-decide { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.case-tabs { overflow-x: auto; border-bottom: 1px solid var(--colorNeutralStroke2); margin-bottom: 12px; }
+.case-tab-panel h3 { font-size: 0.9375rem; margin: 14px 0 6px; }
+.case-tab-panel .panel-head h3 { margin: 0; }
+.case-cards { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.case-cards .panel { padding: 12px 14px; }
+.case-cards p { margin: 4px 0; }
+.case-timeline { list-style: none; margin: 12px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--colorNeutralStroke2); display: grid; gap: 12px; }
+.case-timeline li { position: relative; }
+.case-timeline li::before { content: ""; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--ms-blue); }
+.case-timeline p { margin: 2px 0; }
+.case-form { display: grid; gap: 8px; margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--colorNeutralBackground2); }
+.case-form > button { justify-self: start; }
+.case-form h3 { margin: 0; }
+.case-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.case-form-error, .case-stage-check { margin-top: 8px; }
+.case-checklist { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 6px; }
+.case-checklist li { display: flex; gap: 8px; align-items: flex-start; }
+.case-checklist svg { flex: none; margin-top: 2px; }
+.case-tab-panel .ok { color: var(--colorPaletteGreenForeground1); }
+.case-tab-panel .bad { color: var(--colorPaletteRedForeground1); }
+.case-bullets { margin: 4px 0; padding-left: 20px; }
+.change-before { text-decoration: line-through; color: var(--colorNeutralForeground3); }
+.change-after { font-weight: 600; }
+.brief-block p { margin: 4px 0; }
+
+@media (max-width: 1100px) {
+  .case-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .case-filters > :first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 860px) {
+  .case-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .radar-item { flex-direction: column; }
+  .radar-actions { flex-direction: row; flex-wrap: wrap; }
+  .radar-facts { grid-template-columns: minmax(0, 1fr); }
+  /* List rows become cards; each cell shows its column name. */
+  .case-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .case-table, .case-table tbody, .case-table tr, .case-table td { display: block; }
+  .case-table tr { padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--colorNeutralStroke2); border-radius: 10px; }
+  .case-table td { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px; padding: 4px 0; border: 0; }
+  .case-table td > * { justify-self: start; }
+  .case-table td::before { content: attr(data-label); font-size: 0.75rem; color: var(--colorNeutralForeground3); }
+  .case-table td.case-actions { display: flex; flex-wrap: wrap; gap: 4px; text-align: left; padding-top: 8px; }
+  .case-table td.case-actions::before { content: none; }
+  .case-table td.case-actions button + button { margin-left: 0; }
+}
+@media (max-width: 560px) {
+  .case-filters { grid-template-columns: minmax(0, 1fr); }
+  .case-details-dialog.case-details-dialog { max-width: 100vw; max-height: 100vh; border-radius: 0; }
+  .case-details-body { max-height: calc(100vh - 32px); }
+  .case-details-meta > button { margin-left: 0; }
+}
+
+/* Long stage names (Tamil, "Awaiting External / Blocked") wrap inside the badge instead of spilling out. */
+.case-badge.case-badge { border-radius: 10px; height: auto; min-height: 20px; padding-block: 2px; white-space: normal; text-align: center; line-height: 1.25; }
+.case-table th { white-space: nowrap; }

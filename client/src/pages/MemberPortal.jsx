@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button } from '@fluentui/react-components'
 import {
-  ArrowRight16Regular, BrainCircuit24Regular, ChatSparkle20Regular, CalendarLtr20Regular, CalendarLtr24Regular, Grid20Regular, PeopleTeam20Regular,
+  ArrowRight16Regular, BrainCircuit24Regular, BriefcaseSearch20Regular, ChatSparkle20Regular, CalendarLtr20Regular, CalendarLtr24Regular, Grid20Regular, PeopleTeam20Regular,
   PersonClock24Regular, PersonProhibited24Regular, Settings20Regular, Sparkle20Regular,
   TaskListLtr20Regular, TaskListLtr24Regular, CheckmarkCircle20Filled, Circle20Regular, Clock20Regular, DismissCircle20Regular,
 } from '@fluentui/react-icons'
 import AssistantChat from '../components/AssistantChat.jsx'
+import CaseActionCentre from '../features/cases/CaseActionCentre.jsx'
 import HowItDecides from '../components/HowItDecides.jsx'
 import MicrosoftToDo from '../components/MicrosoftToDo.jsx'
 import MyTeam from '../components/MyTeam.jsx'
@@ -21,6 +22,7 @@ import { greetingKey, greetingName, useNow } from '../lib/time.js'
 const ICONS = {
   overview: <Grid20Regular />,
   assistant: <ChatSparkle20Regular />,
+  cases: <BriefcaseSearch20Regular />,
   tasks: <TaskListLtr20Regular />,
   plan: <CalendarLtr20Regular />,
   team: <PeopleTeam20Regular />,
@@ -51,6 +53,8 @@ export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSi
     >
       {current === 'overview' ? (
         <Overview me={me} name={name} goTo={setSection} />
+      ) : current === 'cases' ? (
+        <CaseActionCentre me={me} getToken={getToken} />
       ) : current === 'tasks' ? (
         <ComingSoon icon={<TaskListLtr24Regular />} title={t('nav.tasks')} heading={t('member.tasks.heading')} text={t('member.tasks.text')} goTo={setSection}>
           <MicrosoftToDo me={me} />

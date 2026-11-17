@@ -151,11 +151,73 @@ Accessed via `/app` by accounts with the `admin` role and `active` status ([`src
 Accessed via `/app` by Property Officers (`member`) and Estate Managers (`manager`) ([`src/pages/MemberPortal.jsx`](src/pages/MemberPortal.jsx)):
 
 - **Overview:** Displays current date and time, personalized greeting, account status (`active`, `pending`, or `disabled`), setup checklist, and current team/manager assignment.
+- **Case Action Centre:** Active members and managers only. See [Case Action Centre](#case-action-centre-category-c) below.
 - **My Team (`src/components/MyTeam.jsx`):** Visible to active managers. Displays team members across managed zones with active statuses and last-active indicators.
 - **My Tasks & My Plan (Placeholders):** Informative placeholders marked *Coming soon*. Transparently explains what the upcoming task board and smart calendar will do once the planning engine is migrated to the backend API. Does not present fake or unpersisted tasks.
 - **Ask SyncAI (Preview):** In-portal assistant answering questions from SyncAI's four-language help guide ([`src/lib/helpGuide.js`](src/lib/helpGuide.js)). Does not call external LLMs in the current phase; model integration is planned for later backend development.
 - **How SyncAI Decides:** Explains the four priority factors (Safety, Mandatory Deadlines, Service Impact & Long-term Consequences, Feasibility).
 - **Settings:** Personal accessibility and appearance preferences.
+
+---
+
+## Case Action Centre (Category C)
+
+Task visibility and operational intelligence for property officers and estate managers, in [`src/features/cases/`](src/features/cases/). It ports the prototype's Case Action Centre (`prototype/js/pages/cases.js`, `state.js`) into React and Fluent UI. It doesn't import any prototype module or its localStorage state.
+
+| File | Role |
+| --- | --- |
+| `caseLogic.js` | Pure domain rules: visibility, Kanban stage, Follow-Up Radar rules, closure readiness, stage-transition checks, deadline countdowns, case brief, summary counts |
+| `caseService.js` | The only data access. One interface, two adapters: `demo` (in memory) and `api` (future endpoints below) |
+| `demoCases.js` | Fictional demo cases only |
+| `CaseActionCentre.jsx` | Page: header, summary cards, filters, list/Kanban, dialogs |
+| `FollowUpRadar.jsx`, `CaseViews.jsx`, `CaseDetails.jsx`, `CaseStageDialog.jsx` | UI pieces |
+| `caseStrings.js`, `cases.css` | Four-language UI text and styles (Fluent tokens) |
+
+### Features
+- **Summary cards:** open cases, outstanding follow-ups, blocked cases and cases ready to close. Each count comes from the same rules as the lists, and selecting a card filters the list.
+- **Follow-Up Radar:** outstanding commitments (resident callback, contractor confirmation, inspection outcome, unconfirmed appointment, missing required evidence, no update in 48 h). Each item shows the case, the reason, the supporting record, the deadline and a recommended next step. It also has *View case*, *Why was this flagged?* and *Take action* buttons. The radar is labelled **rule-based**: it is not an AI model, and every finding asks for human review.
+- **Operational cases:** search by ID or title, and filter by estate, urgency, stage or summary card. Switch between a list (a table that turns into cards on phones) and a five-column Kanban, where each case appears in exactly one column and an active blocker puts a case under *Awaiting External / Blocked*.
+- **Move stage dialog:** every target stage shows whether the move is allowed and why. It enforces blocker resolution, the closure checklist and required reasons. A member's closure becomes a request for a manager, and only a manager can reopen a closed case. There is no drag-and-drop, so the dialog can't be bypassed.
+- **Case details:** timeline and progress notes, follow-ups with explanations, blockers, a closure checklist, evidence with verification status and missing-item indicators, history (before/after, actor, reason) with reassignment, communications (logged only; channels are labelled *simulated*), and a case brief. The brief is assembled by fixed templates from the case's own records and keeps facts, recommendations and missing information apart.
+
+### Data: demo vs real
+The SyncAI server has **no case endpoints yet**.
+- `caseDataMode()` picks the adapter. `VITE_CASE_DATA=demo|api` wins; otherwise the Vite dev server uses `demo` and **production builds use `api`**.
+- **Demo adapter:** fictional cases, with two of them assigned to the signed-in person. Changes live in memory for one page visit and are never saved. The page shows a **Demo data** badge and banner. The demo cases are bundled but unreachable in a production build unless `VITE_CASE_DATA=demo` is set.
+- **API adapter:** calls the endpoints below. Until they exist the page shows *Case service not available yet*. It **never falls back to demo cases**.
+
+Future endpoints (each must enforce the role rules on the server):
+
+| Method & path | Purpose |
+| --- | --- |
+| `GET /api/cases` | `{ cases, officers, managedOfficerIds }` for the caller's scope |
+| `POST /api/cases/:id/notes` | `{ text }` progress note |
+| `POST /api/cases/:id/communications` | `{ channel, direction, party, summary }` |
+| `POST /api/cases/:id/stage` | `{ target, reason }`; re-checks `checkTransition`, creates a closure request for members |
+| `POST /api/cases/:id/request/decision` | `{ approve, note }`; managers only |
+| `POST /api/cases/:id/reassignment` | `{ toOfficerId, reason }`; request (member) or direct reassignment (manager) |
+
+Each write returns the updated case. Every case keeps a stable `id` and `number`, plus `taskRefs` for linking to My Tasks, My Plan, Smart Planning, Ripple Intelligence and Approvals & Audit later. **None of those modules are connected yet.** Nothing here writes to Microsoft Graph.
+
+### Role permissions (client side)
+| Account | Case Action Centre |
+| --- | --- |
+| Active member | Own assigned cases: notes, communications, stage moves within the rules, closure and reassignment *requests* |
+| Active manager | Cases of the teams they manage: everything above, plus approve/reject requests, close ready cases, reopen with a reason, and reassign |
+| Admin | No access (admins manage accounts, not casework) |
+| Pending / disabled | No access (section hidden) |
+
+Hiding things in the browser is **not a security boundary**. The production API must apply the same visibility and transition rules (`visibleCases`, `checkTransition`) to every request.
+
+### Manual test
+1. Run `npm run dev` and sign in as an active member. *Case Action Centre* appears in the sidebar with the **Demo data** badge.
+2. Check that the summary cards match the list, and that selecting a card filters it.
+3. In the radar, open *Why was this flagged?* (it expands inline) and *Take action* (it opens the case on Follow-ups).
+4. Search, use each filter, and switch between List and Kanban. Each case should appear in exactly one column.
+5. Use *Move stage* on DEMO-001 → *In Progress*. It should be refused because of the active blocker. As a member, move DEMO-004 → *Closed & Audited*: a closure request is created, not a closure.
+6. As a manager, approve the request in the case details, add a note, log a communication and reassign a case.
+7. Check desktop, tablet (768px) and phone (375px) widths: the list becomes cards, the Kanban scrolls sideways and the dialogs fill the screen.
+8. Sign in as an admin, pending or disabled account: there is no Case Action Centre.
 
 ---
 
@@ -189,4 +251,7 @@ Verified test coverage (16 tests across 4 test suites):
 - `src/lib/helpGuide.test.js`: Help-guide question matching, fallback behavior, and multi-language answers.
 - `src/lib/time.test.js`: Time formatting, greeting determinations, and relative date calculations.
 - `src/lib/httpStatus.test.js`: HTTP status code catalog mapping and friendly user messaging.
+- `src/features/cases/caseLogic.test.js`: Case visibility and role rules, single-column Kanban, Follow-Up Radar rules, deadline countdowns, closure readiness, stage transitions, case brief.
+- `src/features/cases/caseService.test.js`: Demo/API mode selection, no fallback from the API to demo data, demo adapter isolation, scope checks, closure approval flow.
+- `src/features/cases/CaseActionCentre.test.jsx`: Case details sections render (server-rendered), loading state, demo labelling, no access for admin/inactive accounts.
 - `src/lib/strings.test.js`: Translation key parity and template variable validation across English, Chinese, Malay, and Tamil.

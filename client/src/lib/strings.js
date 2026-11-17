@@ -1,6 +1,7 @@
 // Fixed translations for SyncAI's own screens: no translation service, nothing sent to a third party.
 // The Chinese, Malay and Tamil text should be reviewed by a native speaker before release.
 import { FACTORS, ROLES, USP } from './product.js'
+import { CASE_STRINGS } from '../features/cases/caseStrings.js'
 
 export const LANGUAGES = {
   en: { label: 'English', locale: 'en-SG' },
@@ -1577,4 +1578,4 @@ const ta = {
   'role.member.text': 'தங்கள் பணிகளைப் பார்த்து, தங்கள் நேரத்துக்குப் பொருந்தும் தினசரித் திட்டத்தைப் பெறுகிறார்.',
 }
 
-export const STRINGS = { en, zh, ms, ta }
+export const STRINGS = Object.fromEntries(Object.entries({ en, zh, ms, ta }).map(([lang, text]) => [lang, { ...text, ...CASE_STRINGS[lang] }]))
