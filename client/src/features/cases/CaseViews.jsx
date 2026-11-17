@@ -45,7 +45,7 @@ const openOnClick = (open) => (e) => { if (!e.target.closest('button, a, input, 
 export const fmtDate = (iso, locale) => (iso ? new Date(iso).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) : '')
 
 // List view: a table on wide screens, stacked cards on phones (see .case-table in site.css).
-export function CaseTable({ cases, followUpCount, officerName, now, onOpen, onMove }) {
+export function CaseTable({ cases, followUpCount, officerName, now, onOpen }) {
   const t = useT()
   return (
     <div className="case-table-wrap">
@@ -59,7 +59,6 @@ export function CaseTable({ cases, followUpCount, officerName, now, onOpen, onMo
           <th scope="col">{t('cases.col.stage')}</th>
           <th scope="col">{t('cases.col.deadline')}</th>
           <th scope="col">{t('cases.col.followUps')}</th>
-          <th scope="col"><span className="visually-hidden">{t('cases.col.actions')}</span></th>
         </tr>
       </thead>
       <tbody>
@@ -81,11 +80,6 @@ export function CaseTable({ cases, followUpCount, officerName, now, onOpen, onMo
             <td data-label={t('cases.col.stage')}><StageBadge stage={caseStage(c)} /></td>
             <td data-label={t('cases.col.deadline')}><div className="case-cell-main"><Countdown due={c.deadline} now={now} /><DueDate due={c.deadline} /></div></td>
             <td data-label={t('cases.col.followUps')}><span className={`case-fu-pill${followUpCount(c) ? ' has' : ''}`}>{followUpCount(c)}</span></td>
-            <td className="case-actions">
-              <Tooltip content={t('cases.move')} relationship="description">
-                <Button size="small" appearance="subtle" icon={<ArrowSwap16Regular />} onClick={() => onMove(c.id)} aria-label={t('cases.moveNamed', { case: c.number })} />
-              </Tooltip>
-            </td>
           </tr>
         ))}
       </tbody>
