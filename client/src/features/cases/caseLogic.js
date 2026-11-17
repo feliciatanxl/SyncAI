@@ -198,3 +198,25 @@ export function caseSummary(cases, now = new Date()) {
     ready: open.filter((c) => caseStage(c) === 'ready_for_closure').length,
   }
 }
+
+const URGENCY_RANK = { critical: 0, high: 1, medium: 2, low: 3 }
+
+// Work order for a shift: overdue first, then due within 24 h, then by urgency, then soonest deadline. Closed last.
+export function byPriority(cases, now = new Date()) {
+  const key = (c) => {
+    const { tone } = deadlineCountdown(c.deadline, now)
+    return [caseStage(c) === 'closed' ? 1 : 0, { overdue: 0, soon: 1 }[tone] ?? 2, URGENCY_RANK[c.urgency] ?? 4, c.deadline ? new Date(c.deadline).getTime() : Infinity]
+  }
+  return [...cases].sort((a, b) => {
+    const ka = key(a), kb = key(b)
+    for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i]) return ka[i] - kb[i]
+    return 0
+  })
+}
+
+// Counts for the shift banner: open cases that are overdue, and due within the next 24 hours.
+export function shiftCounts(cases, now = new Date()) {
+  const open = cases.filter((c) => caseStage(c) !== 'closed')
+  const tone = (c) => deadlineCountdown(c.deadline, now).tone
+  return { overdue: open.filter((c) => tone(c) === 'overdue').length, dueSoon: open.filter((c) => tone(c) === 'soon').length }
+}

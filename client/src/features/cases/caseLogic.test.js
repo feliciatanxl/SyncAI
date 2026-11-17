@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { memberSections } from '../../lib/sections.js'
 import {
-  canUseCaseCentre, caseBrief, caseStage, caseSummary, checkTransition, closureReadiness, deadlineCountdown, detectFollowUps, formatDuration, STAGES, visibleCases,
+  byPriority, canUseCaseCentre, caseBrief, shiftCounts, caseStage, caseSummary, checkTransition, closureReadiness, deadlineCountdown, detectFollowUps, formatDuration, STAGES, visibleCases,
 } from './caseLogic.js'
 import { demoCases } from './demoCases.js'
 
@@ -151,5 +151,19 @@ describe('summary and brief', () => {
     expect(b.completed).toEqual(c.checkpoints.filter((cp) => cp.completed).map((cp) => cp.title))
     expect(b.missing).toEqual(['Joint inspection notice copy'])
     for (const s of b.sources) expect(s).toMatch(/^(Checkpoint|Evidence|Timeline): /)
+  })
+})
+
+describe('shift ordering', () => {
+  it('puts overdue, then due-soon, then urgency first and closed cases last', () => {
+    const list = [
+      base({ id: 'closed', stage: 'closed', urgency: 'critical', deadline: hours(-5) }),
+      base({ id: 'later-critical', urgency: 'critical', deadline: hours(48) }),
+      base({ id: 'soon-low', urgency: 'low', deadline: hours(3) }),
+      base({ id: 'overdue-low', urgency: 'low', deadline: hours(-1) }),
+      base({ id: 'later-high', urgency: 'high', deadline: hours(30) }),
+    ]
+    expect(byPriority(list, now).map((c) => c.id)).toEqual(['overdue-low', 'soon-low', 'later-critical', 'later-high', 'closed'])
+    expect(shiftCounts(list, now)).toEqual({ overdue: 1, dueSoon: 1 })
   })
 })

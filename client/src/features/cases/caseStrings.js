@@ -3,6 +3,15 @@
 // The Chinese, Malay and Tamil text should be reviewed by a native speaker before release.
 
 const en = {
+  'cases.next.title': 'Next up',
+  'cases.next.lead': 'Start here: the most urgent open cases, overdue first.',
+  'cases.next.clear': 'All clear. No open cases need you right now.',
+  'cases.next.review': 'Review the case and add a progress note.',
+  'cases.next.start': 'Start',
+  'cases.next.startNamed': 'Start work on {case}',
+  'cases.shift.overdue': 'Overdue',
+  'cases.shift.dueSoon': 'Due in 24 h',
+  'cases.jump': 'Jump to section',
   'cases.dragHint': 'Drag to another column to move, or use Move stage',
   'cases.radar.all': 'Show all {n} follow-ups',
   'cases.radar.less': 'Show fewer',
@@ -152,6 +161,15 @@ const en = {
 }
 
 const zh = {
+  'cases.next.title': '接下来',
+  'cases.next.lead': '从这里开始：最紧急的未结案件，逾期的排在最前。',
+  'cases.next.clear': '一切就绪。目前没有需要你处理的未结案件。',
+  'cases.next.review': '查看案件并添加进度记录。',
+  'cases.next.start': '开始',
+  'cases.next.startNamed': '开始处理 {case}',
+  'cases.shift.overdue': '已逾期',
+  'cases.shift.dueSoon': '24 小时内到期',
+  'cases.jump': '跳转到部分',
   'cases.dragHint': '拖到其他列以移动，或使用“移动阶段”',
   'cases.radar.all': '显示全部 {n} 项跟进',
   'cases.radar.less': '收起',
@@ -301,6 +319,15 @@ const zh = {
 }
 
 const ms = {
+  'cases.next.title': 'Seterusnya',
+  'cases.next.lead': 'Mula di sini: kes terbuka paling mendesak, yang lewat dahulu.',
+  'cases.next.clear': 'Semua beres. Tiada kes terbuka memerlukan anda sekarang.',
+  'cases.next.review': 'Semak kes dan tambah nota kemajuan.',
+  'cases.next.start': 'Mula',
+  'cases.next.startNamed': 'Mula kerja pada {case}',
+  'cases.shift.overdue': 'Lewat',
+  'cases.shift.dueSoon': 'Tamat dalam 24 j',
+  'cases.jump': 'Lompat ke bahagian',
   'cases.dragHint': 'Seret ke lajur lain untuk mengubah, atau guna Ubah peringkat',
   'cases.radar.all': 'Tunjukkan semua {n} susulan',
   'cases.radar.less': 'Tunjukkan kurang',
@@ -450,6 +477,15 @@ const ms = {
 }
 
 const ta = {
+  'cases.next.title': 'அடுத்தது',
+  'cases.next.lead': 'இங்கே தொடங்குங்கள்: மிக அவசரமான திறந்த வழக்குகள், தாமதமானவை முதலில்.',
+  'cases.next.clear': 'எல்லாம் சரி. இப்போது உங்களுக்காகக் காத்திருக்கும் திறந்த வழக்குகள் இல்லை.',
+  'cases.next.review': 'வழக்கைப் பார்த்து முன்னேற்றக் குறிப்பைச் சேர்க்கவும்.',
+  'cases.next.start': 'தொடங்கு',
+  'cases.next.startNamed': '{case} இல் பணியைத் தொடங்கு',
+  'cases.shift.overdue': 'தாமதம்',
+  'cases.shift.dueSoon': '24 மணி நேரத்தில்',
+  'cases.jump': 'பகுதிக்குச் செல்',
   'cases.dragHint': 'நகர்த்த வேறு நெடுவரிசைக்கு இழுக்கவும், அல்லது நிலையை மாற்று என்பதைப் பயன்படுத்தவும்',
   'cases.radar.all': 'அனைத்து {n} பின்தொடர்வுகளையும் காட்டு',
   'cases.radar.less': 'குறைவாகக் காட்டு',

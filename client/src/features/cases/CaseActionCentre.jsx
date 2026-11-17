@@ -3,15 +3,16 @@ import { Button, MessageBar, MessageBarBody, MessageBarTitle, SearchBox, Select,
 import {
   Board20Regular, BriefcaseSearch24Regular, CheckmarkCircle24Regular, Folder24Regular, PauseCircle24Regular, Alert24Regular, TextBulletListLtr20Regular,
 } from '@fluentui/react-icons'
-import PageHeader from '../../components/PageHeader.jsx'
-import { useT } from '../../lib/i18n.js'
+import PageHeader, { HeroStat } from '../../components/PageHeader.jsx'
+import { useLocale, useT } from '../../lib/i18n.js'
 import { useNow } from '../../lib/time.js'
-import { canUseCaseCentre, caseStage, checkTransition, caseSummary, detectFollowUps, STAGES, URGENCIES, visibleCases } from './caseLogic.js'
+import { byPriority, canUseCaseCentre, caseStage, shiftCounts, checkTransition, caseSummary, detectFollowUps, STAGES, URGENCIES, visibleCases } from './caseLogic.js'
 import { caseDataMode, createCaseService } from './caseService.js'
 import CaseDetails from './CaseDetails.jsx'
 import CaseStageDialog from './CaseStageDialog.jsx'
 import { CaseBoard, CaseTable } from './CaseViews.jsx'
 import FollowUpRadar from './FollowUpRadar.jsx'
+import NextUp from './NextUp.jsx'
 import './cases.css'
 
 const CARDS = ['open', 'followUps', 'blocked', 'ready']
@@ -26,6 +27,7 @@ const CARD_FILTER = {
 // Category C — Case Action Centre. `service` can be injected (tests); otherwise it's chosen by caseDataMode().
 export default function CaseActionCentre({ me, getToken, service: injected }) {
   const t = useT()
+  const locale = useLocale()
   const now = useNow()
   const service = useMemo(() => injected ?? createCaseService({ mode: caseDataMode(), me, getToken }), [injected, me, getToken])
   const [data, setData] = useState(null)
@@ -52,13 +54,19 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
     requestReassignment: act(service.requestReassignment), moveStage: act(service.moveStage),
   }
 
+  const cases = data ? visibleCases(data.cases, me, data.managedOfficerIds) : []
+  const shift = shiftCounts(cases, now)
   const header = (
     <PageHeader
       icon={<BriefcaseSearch24Regular />}
       eyebrow={t('cases.eyebrow')}
       title={t('nav.cases')}
       description={`${t('cases.lead')} ${t(`cases.scope.${me.role}`)}`}
-    />
+    >
+      <HeroStat value={now.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })} label={now.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })} />
+      {data && <HeroStat value={shift.overdue} label={t('cases.shift.overdue')} tone={shift.overdue ? 'warn' : undefined} />}
+      {data && <HeroStat value={shift.dueSoon} label={t('cases.shift.dueSoon')} />}
+    </PageHeader>
   )
   if (error) {
     return (
@@ -76,7 +84,6 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
   }
   if (!data) return <>{header}<Spinner label={t('cases.loading')} className="portal-loading" /></>
 
-  const cases = visibleCases(data.cases, me, data.managedOfficerIds)
   const officerName = (id) => data.officers.find((o) => o.id === id)?.name ?? t('cases.unassigned')
   const followUpCount = (c) => detectFollowUps(c, now).length
   const summary = caseSummary(cases, now)
@@ -86,7 +93,7 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
   const estates = [...new Set(cases.map((c) => c.estate))].sort()
 
   const q = filters.q.trim().toLowerCase()
-  const shown = cases.filter((c) =>
+  const shown = byPriority(cases, now).filter((c) =>
     (!q || c.number.toLowerCase().includes(q) || c.title.toLowerCase().includes(q)) &&
     (!filters.estate || c.estate === filters.estate) &&
     (!filters.urgency || c.urgency === filters.urgency) &&
@@ -110,6 +117,14 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
   return (
     <>
       {header}
+      <nav className="case-jump" aria-label={t('cases.jump')}>
+        <a href="#next-up">{t('cases.next.title')}</a>
+        <a href="#radar">{t('cases.radar.title')}</a>
+        <a href="#operational">{t('cases.list.title')}</a>
+      </nav>
+
+      <NextUp cases={byPriority(cases, now)} now={now} officerName={officerName} onStart={openCase} />
+
       <div className="case-summary" role="group" aria-label={t('cases.summary')}>
         {CARDS.map((id) => (
           <button
@@ -130,7 +145,7 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
 
       <FollowUpRadar findings={findings} now={now} onOpen={(id) => openCase(id)} onAct={(f) => openCase(f.caseId, 'followUps')} />
 
-      <section className="panel case-list-panel" aria-labelledby="cases-h">
+      <section id="operational" className="panel case-list-panel" aria-labelledby="cases-h">
         <div className="panel-head">
           <h2 id="cases-h">{t('cases.list.title')}</h2>
           <TabList selectedValue={view} onTabSelect={(_e, d) => setView(d.value)} appearance="subtle" className="case-view-switch" aria-label={t('cases.viewMode')}>

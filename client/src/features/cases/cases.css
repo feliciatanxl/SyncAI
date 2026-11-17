@@ -142,3 +142,51 @@
 .case-card[draggable="true"] { cursor: grab; }
 .case-card.is-dragging { opacity: 0.5; cursor: grabbing; }
 .case-column.is-drop-target { background: var(--colorBrandBackground2); outline: 2px dashed var(--colorBrandStroke1); outline-offset: -2px; }
+
+/* ---- Shift-focused layout ---- */
+/* Sticky jump bar so a worker can hop between sections without scrolling back up. */
+.case-jump {
+  position: sticky; top: 0; z-index: 2; display: flex; gap: 6px; flex-wrap: wrap; margin: -8px 0 16px; padding: 8px 0;
+  background: var(--colorNeutralBackground2, #fafafa);
+}
+.case-jump a {
+  padding: 6px 14px; border-radius: 999px; font-size: 0.875rem; font-weight: 600; text-decoration: none;
+  color: var(--colorBrandForeground1); background: var(--colorNeutralBackground1); border: 1px solid var(--colorNeutralStroke2);
+}
+.case-jump a:hover { background: var(--colorBrandBackground2); }
+.case-jump a:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 2px; }
+#next-up, #radar, #operational { scroll-margin-top: 64px; }
+
+.case-next { margin-bottom: 16px; border-top: 4px solid var(--ms-blue); }
+.case-next h2, .case-radar h2 { display: flex; align-items: center; gap: 8px; }
+.next-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.next-item {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 16px;
+  border-radius: 10px; border: 1px solid var(--colorNeutralStroke2); border-left: 5px solid var(--stripe, var(--colorNeutralStroke1));
+  background: var(--colorNeutralBackground1);
+}
+.next-item:first-child { background: var(--colorBrandBackground2); }
+.next-rank {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-weight: 700;
+  color: #fff; background: var(--ms-blue);
+}
+.next-main { display: grid; gap: 3px; min-width: 0; }
+.next-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.next-step { margin: 2px 0 0; }
+
+/* Urgency colour stripe on Next up, table rows and Kanban cards (always alongside the text badge, never colour alone). */
+.urgency-critical { --stripe: var(--colorPaletteRedBorderActive); }
+.urgency-high { --stripe: var(--colorPaletteDarkOrangeBorderActive); }
+.urgency-medium { --stripe: var(--colorPaletteYellowBorderActive); }
+.urgency-low { --stripe: var(--colorNeutralStroke1); }
+.case-table tbody tr > td:first-child { box-shadow: inset 4px 0 0 var(--stripe, transparent); padding-left: 14px; }
+.case-card { border-left: 4px solid var(--stripe, var(--colorNeutralStroke2)); }
+
+@media (max-width: 860px) {
+  .case-table tbody tr > td:first-child { box-shadow: none; padding-left: 0; }
+  .case-table tr { border-left: 4px solid var(--stripe, var(--colorNeutralStroke2)); }
+}
+@media (max-width: 560px) {
+  .next-item { grid-template-columns: auto minmax(0, 1fr); }
+  .next-item > button { grid-column: 1 / -1; }
+}

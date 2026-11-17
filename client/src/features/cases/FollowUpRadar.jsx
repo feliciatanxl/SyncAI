@@ -11,7 +11,7 @@ export default function FollowUpRadar({ findings, now, onOpen, onAct }) {
   const [all, setAll] = useState(false)
   const shown = all ? findings : findings.slice(0, 3)
   return (
-    <section className="panel case-radar" aria-labelledby="radar-h">
+    <section id="radar" className="panel case-radar" aria-labelledby="radar-h">
       <div className="panel-head">
         <h2 id="radar-h"><Radar20Regular /> {t('cases.radar.title')}</h2>
         <Badge appearance="tint" color="brand">{t('cases.radar.rules')}</Badge>

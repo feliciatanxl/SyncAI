@@ -48,7 +48,7 @@ export function CaseTable({ cases, followUpCount, officerName, now, onOpen, onMo
       </thead>
       <tbody>
         {cases.map((c) => (
-          <tr key={c.id}>
+          <tr key={c.id} className={`urgency-${c.urgency}`}>
             <td data-label={t('cases.col.case')}>
               <div><span className="case-id">{c.number}</span><strong className="case-title">{c.title}</strong></div>
             </td>
@@ -99,7 +99,7 @@ export function CaseBoard({ cases, followUpCount, officerName, now, onOpen, onMo
                 {column.map((c) => (
                   <li
                     key={c.id}
-                    className={`case-card${dragId === c.id ? ' is-dragging' : ''}`}
+                    className={`case-card urgency-${c.urgency}${dragId === c.id ? ' is-dragging' : ''}`}
                     draggable
                     onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.number); setDragId(c.id) }}
                     onDragEnd={end}
