@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Badge, Button } from '@fluentui/react-components'
+import { Avatar, Badge, Button, Tooltip } from '@fluentui/react-components'
 import { ArrowSwap16Regular, Open16Regular } from '@fluentui/react-icons'
 import { useLocale, useT } from '../../lib/i18n.js'
 import { caseStage, deadlineCountdown, formatDuration, STAGES } from './caseLogic.js'
@@ -27,12 +27,18 @@ export function Countdown({ due, now }) {
   return <time className={`case-due case-due-${tone}`} dateTime={due} title={fmtDate(due, locale)}>{text}</time>
 }
 
+function DueDate({ due }) {
+  const locale = useLocale()
+  return due ? <span className="muted small">{new Date(due).toLocaleString(locale, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span> : null
+}
+
 export const fmtDate = (iso, locale) => (iso ? new Date(iso).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) : '')
 
 // List view: a table on wide screens, stacked cards on phones (see .case-table in site.css).
 export function CaseTable({ cases, followUpCount, officerName, now, onOpen, onMove }) {
   const t = useT()
   return (
+    <div className="case-table-wrap">
     <table className="case-table">
       <thead>
         <tr>
@@ -50,27 +56,29 @@ export function CaseTable({ cases, followUpCount, officerName, now, onOpen, onMo
         {cases.map((c) => (
           <tr key={c.id} className={`urgency-${c.urgency}`}>
             <td data-label={t('cases.col.case')}>
-              <div><span className="case-id">{c.number}</span><strong className="case-title">{c.title}</strong></div>
+              <div className="case-cell-main"><span className="case-id">{c.number}</span><strong className="case-title">{c.title}</strong><span className="muted small">{c.category}</span></div>
             </td>
             <td data-label={t('cases.col.location')}><div>{[c.block, c.unit].filter(Boolean).join(' · ')}<br /><span className="muted small">{c.estate}</span></div></td>
-            <td data-label={t('cases.col.officer')}>{officerName(c.ownerId)}</td>
+            <td data-label={t('cases.col.officer')}><span className="case-officer"><Avatar size={24} name={officerName(c.ownerId)} color="colorful" aria-hidden="true" />{officerName(c.ownerId)}</span></td>
             <td data-label={t('cases.col.urgency')}><UrgencyBadge urgency={c.urgency} /></td>
             <td data-label={t('cases.col.stage')}><StageBadge stage={caseStage(c)} /></td>
-            <td data-label={t('cases.col.deadline')}><Countdown due={c.deadline} now={now} /></td>
-            <td data-label={t('cases.col.followUps')}>{followUpCount(c)}</td>
+            <td data-label={t('cases.col.deadline')}><div className="case-cell-main"><Countdown due={c.deadline} now={now} /><DueDate due={c.deadline} /></div></td>
+            <td data-label={t('cases.col.followUps')}><span className={`case-fu-pill${followUpCount(c) ? ' has' : ''}`}>{followUpCount(c)}</span></td>
             <td className="case-actions">
               <Button size="small" icon={<Open16Regular />} onClick={() => onOpen(c.id)} aria-label={t('cases.viewNamed', { case: c.number })}>{t('cases.view')}</Button>
-              <Button size="small" appearance="subtle" icon={<ArrowSwap16Regular />} onClick={() => onMove(c.id)} aria-label={t('cases.moveNamed', { case: c.number })}>{t('cases.move')}</Button>
+              <Tooltip content={t('cases.move')} relationship="description">
+                <Button size="small" appearance="subtle" icon={<ArrowSwap16Regular />} onClick={() => onMove(c.id)} aria-label={t('cases.moveNamed', { case: c.number })} />
+              </Tooltip>
             </td>
           </tr>
         ))}
       </tbody>
     </table>
+    </div>
   )
 }
 
-// Kanban: five columns, each case in exactly one (caseStage). Moving is done with the Move button and the
-// stage dialog, which checks the rules; there is no drag-and-drop to bypass them.
+// Kanban: five columns, each case in exactly one (caseStage).
 // Cards can be dragged onto another column; onDrop(caseId, stage) runs the same checks as the Move button,
 // which stays as the keyboard and touch alternative (HTML5 drag-and-drop has no keyboard or touch support).
 export function CaseBoard({ cases, followUpCount, officerName, now, onOpen, onMove, onDrop }) {

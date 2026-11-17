@@ -117,8 +117,6 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
   return (
     <>
       {header}
-      <NextUp cases={byPriority(cases, now)} now={now} officerName={officerName} onStart={openCase} />
-
       <div className="case-summary" role="group" aria-label={t('cases.summary')}>
         {CARDS.map((id) => (
           <button
@@ -137,17 +135,22 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
         ))}
       </div>
 
+      <NextUp cases={byPriority(cases, now)} now={now} officerName={officerName} onStart={openCase} />
+
       <FollowUpRadar findings={findings} now={now} onOpen={(id) => openCase(id)} onAct={(f) => openCase(f.caseId, 'followUps')} />
 
       <section id="operational" className="panel case-list-panel" aria-labelledby="cases-h">
         <div className="panel-head">
-          <h2 id="cases-h">{t('cases.list.title')}</h2>
+          <div>
+            <h2 id="cases-h">{t('cases.list.title')}</h2>
+            <p className="muted small case-count" aria-live="polite">{t('cases.showing', { n: shown.length, total: cases.length })}</p>
+          </div>
           <TabList selectedValue={view} onTabSelect={(_e, d) => setView(d.value)} appearance="subtle" className="case-view-switch" aria-label={t('cases.viewMode')}>
             <Tab value="list" icon={<TextBulletListLtr20Regular />}>{t('cases.viewList')}</Tab>
             <Tab value="board" icon={<Board20Regular />}>{t('cases.viewBoard')}</Tab>
           </TabList>
         </div>
-        <div className="case-filters">
+        <div className="case-filters case-toolbar">
           <SearchBox value={filters.q} onChange={setFilter('q')} placeholder={t('cases.search')} aria-label={t('cases.search')} />
           <Select value={filters.estate} onChange={setFilter('estate')} aria-label={t('cases.estate')}>
             <option value="">{t('cases.allEstates')}</option>
@@ -163,7 +166,6 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
           </Select>
           {filtered && <Button appearance="subtle" onClick={() => setFilters({ q: '', estate: '', urgency: '', stage: '', card: '' })}>{t('cases.clear')}</Button>}
         </div>
-        <p className="muted small" aria-live="polite">{t('cases.showing', { n: shown.length, total: cases.length })}</p>
         {cases.length === 0 ? <p className="empty">{t('cases.empty')}</p>
           : shown.length === 0 ? <p className="empty">{t('cases.noMatch')}</p>
             : view === 'list' ? <CaseTable {...viewProps} /> : <CaseBoard {...viewProps} />}

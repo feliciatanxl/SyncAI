@@ -191,3 +191,40 @@
 .case-collapsible > summary:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 4px; }
 .case-collapsible > summary h2 { margin-right: auto; }
 @media (prefers-reduced-motion: reduce) { .case-collapsible > summary::after { transition: none; } }
+
+/* ---- Operational Centre: spacious framed table ---- */
+.case-list-panel { padding: 22px 24px; }
+.case-list-panel > .panel-head { align-items: flex-start; margin-bottom: 14px; }
+.case-count { margin: 2px 0 0; }
+.case-toolbar { padding: 12px; margin: 0 0 16px; border-radius: 10px; background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke3); }
+.case-table-wrap { border: 1px solid var(--colorNeutralStroke2); border-radius: 10px; overflow: hidden; }
+.case-table { font-size: 0.9rem; }
+.case-table th {
+  padding: 12px 16px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  background: var(--colorNeutralBackground2); border-bottom: 1px solid var(--colorNeutralStroke2);
+}
+.case-table td { padding: 16px; vertical-align: middle; border-bottom: 1px solid var(--colorNeutralStroke3); }
+.case-table tbody tr:last-child td { border-bottom: 0; }
+.case-table tbody tr > td:first-child { padding-left: 20px; }
+.case-cell-main { display: grid; gap: 3px; }
+.case-cell-main .case-title { font-size: 0.95rem; }
+.case-officer { display: inline-flex; align-items: center; gap: 8px; }
+.case-fu-pill {
+  display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px; font-weight: 600;
+  color: var(--colorNeutralForeground3); background: var(--colorNeutralBackground3);
+}
+.case-fu-pill.has { color: var(--colorPaletteDarkOrangeForeground1); background: var(--colorPaletteDarkOrangeBackground1); }
+.case-table td.case-actions { width: 1%; }
+@media (max-width: 860px) {
+  .case-list-panel { padding: 16px; }
+  .case-table-wrap { border: 0; border-radius: 0; overflow: visible; }
+  .case-table tr { margin-bottom: 10px; }
+  .case-table td { padding: 5px 0; }
+  .case-table tbody tr > td:first-child { padding-left: 0; }
+  .case-table tbody tr:last-child td { border-bottom: 0; }
+  .case-table td.case-actions { width: auto; }
+}
+.case-table th:first-child { min-width: 260px; }
+.case-table td.case-actions { display: table-cell; }
+.case-table td.case-actions > * { vertical-align: middle; }
+@media (max-width: 860px) { .case-table th:first-child { min-width: 0; } .case-table td.case-actions { display: flex; } }
