@@ -1444,3 +1444,25 @@ code { font-size: 0.9em; }
 /* Contain absolutely positioned bits (screen-reader labels, avatar initials) inside the scrolling list, or they
    stretch the page as messages scroll out of view and leave an empty band below the app. */
 .assistant-messages { position: relative; }
+
+/* ---------- Notification bell (header) ---------- */
+.notif-trigger { position: relative; min-width: 40px; height: 40px; border-radius: 50%; }
+.notif-count { position: absolute; top: 2px; right: 2px; }
+.notif-card { width: min(380px, calc(100vw - 24px)); padding: 0; overflow: hidden; }
+.notif-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--colorNeutralStroke2); }
+.notif-empty { display: flex; align-items: center; gap: 8px; margin: 0; padding: 20px 16px; }
+.notif-list { list-style: none; margin: 0; padding: 4px 0; max-height: min(420px, 70vh); overflow-y: auto; }
+.notif-item {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 10px 16px;
+  border: 0; background: transparent; text-align: left; font: inherit; color: var(--colorNeutralForeground1); cursor: pointer;
+}
+.notif-item:hover { background: var(--colorNeutralBackground1Hover); }
+.notif-item:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: -2px; }
+.notif-item.is-unread { background: var(--colorBrandBackground2); }
+.notif-text { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.notif-text strong { font-weight: 600; font-size: 0.875rem; }
+.notif-item:not(.is-unread) .notif-text strong { font-weight: 400; }
+.notif-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--colorBrandForeground1); }
+.notif-item.tone-bad .notif-dot { background: var(--colorPaletteRedForeground1); }
+.notif-item.tone-warn .notif-dot { background: var(--colorPaletteDarkOrangeForeground1); }
+.notif-item:not(.is-unread) .notif-dot { opacity: 0.35; }

@@ -418,6 +418,17 @@ const en = {
   'activity.assistant_helpful': 'Someone rated an Ask SyncAI answer as helpful',
   'activity.type.assistant_not_helpful': 'Ask SyncAI: not helpful',
   'activity.assistant_not_helpful': 'Someone rated an Ask SyncAI answer as not helpful',
+  'notif.label': 'Notifications',
+  'notif.labelUnread': 'Notifications, {n} unread',
+  'notif.title': 'Notifications',
+  'notif.markRead': 'Mark all as read',
+  'notif.empty': 'You’re all caught up.',
+  'notif.pending': '{name} is waiting for approval',
+  'notif.case.overdue': '{case} is overdue by {time}',
+  'notif.case.dueSoon': '{case} is due in {time}',
+  'notif.case.critical': '{case}: {what}',
+  'notif.case.decide': '{case} has a request waiting for your decision',
+  'notif.case.waiting': 'Your request on {case} is waiting for a manager',
 }
 
 for (const f of FACTORS) {
@@ -838,6 +849,17 @@ const zh = {
   'activity.assistant_helpful': '有人认为某个问问 SyncAI 的回答有帮助',
   'activity.type.assistant_not_helpful': '问问 SyncAI：没有帮助',
   'activity.assistant_not_helpful': '有人认为某个问问 SyncAI 的回答没有帮助',
+  'notif.label': '通知',
+  'notif.labelUnread': '通知，{n} 条未读',
+  'notif.title': '通知',
+  'notif.markRead': '全部标为已读',
+  'notif.empty': '没有新通知。',
+  'notif.pending': '{name} 正在等待审批',
+  'notif.case.overdue': '{case} 已逾期 {time}',
+  'notif.case.dueSoon': '{case} 将在 {time} 后到期',
+  'notif.case.critical': '{case}：{what}',
+  'notif.case.decide': '{case} 有一个申请等待您决定',
+  'notif.case.waiting': '您在 {case} 的申请正在等待经理处理',
 }
 
 const ms = {
@@ -1249,6 +1271,17 @@ const ms = {
   'activity.assistant_helpful': 'Seseorang menilai jawapan Tanya SyncAI sebagai membantu',
   'activity.type.assistant_not_helpful': 'Tanya SyncAI: tidak membantu',
   'activity.assistant_not_helpful': 'Seseorang menilai jawapan Tanya SyncAI sebagai tidak membantu',
+  'notif.label': 'Pemberitahuan',
+  'notif.labelUnread': 'Pemberitahuan, {n} belum dibaca',
+  'notif.title': 'Pemberitahuan',
+  'notif.markRead': 'Tandakan semua sudah dibaca',
+  'notif.empty': 'Tiada pemberitahuan baharu.',
+  'notif.pending': '{name} sedang menunggu kelulusan',
+  'notif.case.overdue': '{case} lewat {time}',
+  'notif.case.dueSoon': '{case} perlu disiapkan dalam {time}',
+  'notif.case.critical': '{case}: {what}',
+  'notif.case.decide': '{case} ada permohonan menunggu keputusan anda',
+  'notif.case.waiting': 'Permohonan anda bagi {case} sedang menunggu pengurus',
 }
 
 const ta = {
@@ -1660,6 +1693,17 @@ const ta = {
   'activity.assistant_helpful': 'ஒருவர் SyncAI பதிலை உதவியாக இருந்தது என மதிப்பிட்டார்',
   'activity.type.assistant_not_helpful': 'SyncAI இடம் கேள்: உதவியாக இல்லை',
   'activity.assistant_not_helpful': 'ஒருவர் SyncAI பதிலை உதவியாக இல்லை என மதிப்பிட்டார்',
+  'notif.label': 'அறிவிப்புகள்',
+  'notif.labelUnread': 'அறிவிப்புகள், {n} படிக்காதவை',
+  'notif.title': 'அறிவிப்புகள்',
+  'notif.markRead': 'அனைத்தையும் படித்ததாகக் குறி',
+  'notif.empty': 'புதிய அறிவிப்புகள் இல்லை.',
+  'notif.pending': '{name} ஒப்புதலுக்காகக் காத்திருக்கிறார்',
+  'notif.case.overdue': '{case} {time} தாமதமாகியுள்ளது',
+  'notif.case.dueSoon': '{case} இன்னும் {time} இல் முடிய வேண்டும்',
+  'notif.case.critical': '{case}: {what}',
+  'notif.case.decide': '{case} இல் ஒரு கோரிக்கை உங்கள் முடிவுக்காகக் காத்திருக்கிறது',
+  'notif.case.waiting': '{case} இல் உங்கள் கோரிக்கை மேலாளருக்காகக் காத்திருக்கிறது',
 }
 
 export const STRINGS = Object.fromEntries(Object.entries({ en, zh, ms, ta }).map(([lang, text]) => [lang, { ...text, ...CASE_STRINGS[lang] }]))

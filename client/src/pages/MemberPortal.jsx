@@ -17,6 +17,9 @@ import SettingsPanel from '../components/SettingsPanel.jsx'
 import { clearReturnSection, returnSection } from '../auth/msal.js'
 import { useLocale, useT } from '../lib/i18n.js'
 import { memberSections } from '../lib/sections.js'
+import { canUseCaseCentre, visibleCases } from '../features/cases/caseLogic.js'
+import { caseNotifications } from '../features/cases/caseNotifications.js'
+import { caseDataMode, createCaseService } from '../features/cases/caseService.js'
 import { greetingKey, greetingName, useNow } from '../lib/time.js'
 
 const ICONS = {
@@ -42,9 +45,12 @@ export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSi
   const current = ids.includes(section) ? section : 'overview'
   const active = me.status === 'active'
   const name = me.displayName || me.email || t('app.unnamed')
+  const notifications = useCaseNotifications(me, getToken, current)
 
   return (
     <PortalShell
+      userId={me.id}
+      notifications={notifications}
       tag={active ? t(`role.${me.role}`) : t(`status.${me.status}`)}
       sections={ids.map((id) => ({ id, icon: ICONS[id] }))}
       section={current}
@@ -240,4 +246,21 @@ function ComingSoon({ icon, title, heading, text, goTo, children }) {
       </section>
     </>
   )
+}
+
+// Bell items from the cases this person can see, re-read when they switch sections. People without the Case Action
+// Centre get an empty list; if cases can't be loaded (no case API yet), the bell simply has nothing to show.
+function useCaseNotifications(me, getToken, section) {
+  const t = useT()
+  const [items, setItems] = useState([])
+  useEffect(() => {
+    if (!canUseCaseCentre(me)) return
+    let live = true
+    createCaseService({ mode: caseDataMode(), me, getToken }).list().then(
+      (data) => live && setItems(caseNotifications(visibleCases(data.cases, me, data.managedOfficerIds), me)),
+      () => live && setItems([]),
+    )
+    return () => { live = false }
+  }, [me, getToken, section])
+  return items.map((n) => ({ id: n.id, title: t(n.key, n.vars), detail: n.caseTitle, section: 'cases', tone: n.tone }))
 }

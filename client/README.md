@@ -142,6 +142,7 @@ Accessed via `/app` by accounts with the `admin` role and `active` status ([`src
 - **Activity Log (`src/components/ActivityLog.jsx`):** 12-month read-only audit log of access and governance events (first sign-ins, daily opens, approvals, role adjustments, team updates). Filterable by person and action type.
 - **Data Minimisation & Privacy:** Administrators govern users, team placements, and compliance audit logs, with zero access to private officer calendars or operational resident casework.
 - **How SyncAI Decides:** Overview of the four operational prioritisation factors and human-in-the-loop safeguards.
+- **Notification bell (header):** in-app notifications built from data SyncAI already has, nothing invented. Members and managers see their overdue and due-in-24-h cases, critical follow-ups, and case requests waiting on a decision ([`src/features/cases/caseNotifications.js`](src/features/cases/caseNotifications.js)); admins see people waiting for approval. Clicking one opens that page; *Mark all as read* is remembered in this browser only.
 - **Settings:** Text size, language, and appearance settings.
 
 ---
