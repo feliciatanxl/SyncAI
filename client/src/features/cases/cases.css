@@ -301,3 +301,4 @@
 @media (max-width: 560px) {
   .radar-head { flex-direction: column; gap: 6px; }
 }
+.radar-more { margin-top: 20px; }
