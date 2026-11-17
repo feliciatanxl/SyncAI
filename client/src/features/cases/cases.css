@@ -240,3 +240,4 @@
 .case-clickable { cursor: pointer; }
 .case-card.case-clickable:hover { border-color: var(--colorBrandStroke1); }
 .case-card[draggable="true"].case-clickable { cursor: grab; }
+.case-table tbody tr:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: -2px; }

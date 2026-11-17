@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Avatar, Badge, Button, Tooltip } from '@fluentui/react-components'
-import { ArrowSwap16Regular, Open16Regular } from '@fluentui/react-icons'
+import { ArrowSwap16Regular } from '@fluentui/react-icons'
 import { useLocale, useT } from '../../lib/i18n.js'
 import { caseStage, deadlineCountdown, formatDuration, STAGES } from './caseLogic.js'
 
@@ -64,18 +64,24 @@ export function CaseTable({ cases, followUpCount, officerName, now, onOpen, onMo
       </thead>
       <tbody>
         {cases.map((c) => (
-          <tr key={c.id} className={`case-clickable urgency-${c.urgency}`} onClick={openOnClick(() => onOpen(c.id))}>
+          <tr
+            key={c.id}
+            className={`case-clickable urgency-${c.urgency}`}
+            onClick={openOnClick(() => onOpen(c.id))}
+            // Rows are the way into a case: focusable, and Enter or Space opens it.
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(c.id) } }}
+          >
             <td data-label={t('cases.col.case')}>
               <div className="case-cell-main"><span className="case-id">{c.number}</span><strong className="case-title">{c.title}</strong><span className="muted small">{c.category}</span></div>
             </td>
             <td data-label={t('cases.col.location')}><div>{[c.block, c.unit].filter(Boolean).join(' · ')}<br /><span className="muted small">{c.estate}</span></div></td>
-            <td data-label={t('cases.col.officer')}><Tooltip content={officerName(c.ownerId)} relationship="label"><Avatar size={32} name={officerName(c.ownerId)} color="colorful" role="img" tabIndex={0} /></Tooltip></td>
+            <td data-label={t('cases.col.officer')}><Tooltip content={officerName(c.ownerId)} relationship="label"><Avatar size={24} name={officerName(c.ownerId)} color="colorful" role="img" tabIndex={0} /></Tooltip></td>
             <td data-label={t('cases.col.urgency')}><UrgencyBadge urgency={c.urgency} /></td>
             <td data-label={t('cases.col.stage')}><StageBadge stage={caseStage(c)} /></td>
             <td data-label={t('cases.col.deadline')}><div className="case-cell-main"><Countdown due={c.deadline} now={now} /><DueDate due={c.deadline} /></div></td>
             <td data-label={t('cases.col.followUps')}><span className={`case-fu-pill${followUpCount(c) ? ' has' : ''}`}>{followUpCount(c)}</span></td>
             <td className="case-actions">
-              <Button size="small" icon={<Open16Regular />} onClick={() => onOpen(c.id)} aria-label={t('cases.viewNamed', { case: c.number })}>{t('cases.view')}</Button>
               <Tooltip content={t('cases.move')} relationship="description">
                 <Button size="small" appearance="subtle" icon={<ArrowSwap16Regular />} onClick={() => onMove(c.id)} aria-label={t('cases.moveNamed', { case: c.number })} />
               </Tooltip>
