@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Button, CounterBadge, Popover, PopoverSurface, PopoverTrigger } from '@fluentui/react-components'
-import { Alert20Regular, Alert24Regular, ChevronRight16Regular } from '@fluentui/react-icons'
+import { Button, Popover, PopoverSurface, PopoverTrigger, Tab, TabList } from '@fluentui/react-components'
+import { Alert20Regular, Alert24Filled, ArrowRight16Regular } from '@fluentui/react-icons'
 import { useT } from '../lib/i18n.js'
 
 const SEEN_KEY = 'syncai.notifications.seen'
@@ -13,21 +13,24 @@ function readSeen(userId) {
   }
 }
 
-// In-app notifications in the header. `items`: [{ id, title, detail, section, tone }] built by the portal from data
-// SyncAI already has; ids change when the underlying thing changes, so a new event shows as unread again.
-// "Mark all as read" is remembered per person in this browser only (a convenience, not a record).
+// In-app notifications in the header. `items`: [{ id, title, detail, tag, tone, section, action }] built by the
+// portal from data SyncAI already has; ids change when the underlying thing changes, so a new event shows as unread.
+// Read state is remembered per person in this browser only (a convenience, not a record).
 export default function NotificationBell({ userId, items, onOpen }) {
   const t = useT()
   const [open, setOpen] = useState(false)
+  const [filter, setFilter] = useState('all')
   const [seen, setSeen] = useState(() => readSeen(userId))
-  const unread = items.filter((n) => !seen.has(n.id)).length
+  const unreadItems = items.filter((n) => !seen.has(n.id))
+  const shown = filter === 'unread' ? unreadItems : items
 
-  const markAllRead = () => {
-    const next = new Set(items.map((n) => n.id))
+  const save = (next) => {
     setSeen(next)
     try { localStorage.setItem(`${SEEN_KEY}.${userId}`, JSON.stringify([...next])) } catch { /* storage blocked: keep in memory */ }
   }
+  const markRead = (ids) => save(new Set([...seen, ...ids]))
   const go = (n) => {
+    markRead([n.id])
     setOpen(false)
     onOpen(n.section)
   }
@@ -35,36 +38,50 @@ export default function NotificationBell({ userId, items, onOpen }) {
   return (
     <Popover open={open} onOpenChange={(_e, d) => setOpen(d.open)} positioning="below-end" withArrow={false}>
       <PopoverTrigger disableButtonEnhancement>
-        <Button
-          appearance="subtle"
+        <button
+          type="button"
           className="notif-trigger"
-          icon={<Alert24Regular />}
-          aria-label={unread ? t('notif.labelUnread', { n: unread }) : t('notif.label')}
+          aria-label={unreadItems.length ? t('notif.labelUnread', { n: unreadItems.length }) : t('notif.label')}
         >
-          {unread > 0 && <CounterBadge className="notif-count" count={unread} size="small" color="danger" overflowCount={9} aria-hidden="true" />}
-        </Button>
+          <Alert24Filled aria-hidden="true" />
+          {unreadItems.length > 0 && <span className="notif-count" aria-hidden="true">{unreadItems.length > 9 ? '9+' : unreadItems.length}</span>}
+        </button>
       </PopoverTrigger>
       <PopoverSurface className="notif-card" aria-label={t('notif.title')}>
         <div className="notif-head">
-          <strong>{t('notif.title')}</strong>
-          {unread > 0 && <Button size="small" appearance="transparent" onClick={markAllRead}>{t('notif.markRead')}</Button>}
+          <div>
+            <h2>{t('notif.title')}</h2>
+            <p className="muted small">{t('notif.unreadCount', { n: unreadItems.length })}</p>
+          </div>
+          {unreadItems.length > 0 && (
+            <Button appearance="subtle" onClick={() => markRead(items.map((n) => n.id))}>{t('notif.markRead')}</Button>
+          )}
         </div>
-        {items.length === 0 ? (
-          <p className="notif-empty muted"><Alert20Regular aria-hidden="true" /> {t('notif.empty')}</p>
+        <TabList className="notif-tabs" selectedValue={filter} onTabSelect={(_e, d) => setFilter(d.value)} size="small">
+          <Tab value="all">{t('notif.all', { n: items.length })}</Tab>
+          <Tab value="unread">{t('notif.unread', { n: unreadItems.length })}</Tab>
+        </TabList>
+
+        {shown.length === 0 ? (
+          <p className="notif-empty muted"><Alert20Regular aria-hidden="true" /> {filter === 'unread' && items.length ? t('notif.noneUnread') : t('notif.empty')}</p>
         ) : (
           <ul className="notif-list">
-            {items.map((n) => (
-              <li key={n.id}>
-                <button type="button" className={`notif-item tone-${n.tone ?? 'info'}${seen.has(n.id) ? '' : ' is-unread'}`} onClick={() => go(n)}>
-                  <span className="notif-dot" aria-hidden="true" />
-                  <span className="notif-text">
+            {shown.map((n) => {
+              const unread = !seen.has(n.id)
+              return (
+                <li key={n.id} className={`notif-item${unread ? ' is-unread' : ''}`}>
+                  <div className="notif-item-head">
                     <strong>{n.title}</strong>
-                    {n.detail && <span className="muted small">{n.detail}</span>}
-                  </span>
-                  <ChevronRight16Regular aria-hidden="true" />
-                </button>
-              </li>
-            ))}
+                    {n.tag && <span className={`notif-tag tone-${n.tone ?? 'info'}`}>{n.tag}</span>}
+                  </div>
+                  {n.detail && <p className="notif-detail muted small">{n.detail}</p>}
+                  <div className="notif-item-actions">
+                    <Button size="small" appearance="transparent" icon={<ArrowRight16Regular />} iconPosition="after" onClick={() => go(n)}>{n.action}</Button>
+                    {unread && <Button size="small" appearance="transparent" onClick={() => markRead([n.id])}>{t('notif.markOne')}</Button>}
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
       </PopoverSurface>

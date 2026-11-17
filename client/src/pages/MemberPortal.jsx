@@ -262,5 +262,8 @@ function useCaseNotifications(me, getToken, section) {
     )
     return () => { live = false }
   }, [me, getToken, section])
-  return items.map((n) => ({ id: n.id, title: t(n.key, n.vars), detail: n.caseTitle, section: 'cases', tone: n.tone }))
+  return items.map((n) => ({
+    id: n.id, title: t(n.key, n.vars), detail: n.caseTitle, section: 'cases', tone: n.tone,
+    tag: t(n.key.replace('notif.case.', 'notif.tag.')), action: t('notif.viewCase'),
+  }))
 }

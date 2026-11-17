@@ -132,7 +132,7 @@ export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSig
   return (
     <PortalShell
       userId={me.id}
-      notifications={pending.map((u) => ({ id: `pending:${u.id}`, title: t('notif.pending', { name: nameOf(u) }), detail: u.email, section: 'people', tone: 'warn' }))}
+      notifications={pending.map((u) => ({ id: `pending:${u.id}`, title: t('notif.pending', { name: nameOf(u) }), detail: u.email, section: 'people', tone: 'warn', tag: t('notif.tag.pending'), action: t('notif.review') }))}
       tag={t('tag.admin')}
       sections={SECTIONS}
       section={section}
