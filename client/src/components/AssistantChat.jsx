@@ -8,6 +8,7 @@ import { apiRequest } from '../lib/api.js'
 import { usePreferences, useT } from '../lib/i18n.js'
 import { greetingName } from '../lib/time.js'
 import { TOPICS, matchTopic } from '../lib/helpGuide.js'
+import { Logo } from './Brand.jsx'
 import PageHeader from './PageHeader.jsx'
 
 const TOPIC_ICON = {
@@ -26,7 +27,7 @@ const REPLY_DELAY = window.matchMedia('(prefers-reduced-motion: reduce)').matche
 // the AI (gpt-oss-120b on Groq, through the SyncAI API so the key stays on the server). If the AI isn't connected,
 // typed questions fall back to the help guide. `chat` is [messages, setMessages], owned by the signed-in page so
 // the conversation survives switching tabs and disappears on sign-out.
-export default function AssistantChat({ me, name, chat, goTo, available, getToken }) {
+export default function AssistantChat({ me, name, photo, chat, goTo, available, getToken }) {
   const t = useT()
   const { language } = usePreferences()
   const [messages, setMessages] = chat
@@ -99,7 +100,7 @@ export default function AssistantChat({ me, name, chat, goTo, available, getToke
           {messages.length === 0 && !typing ? (
             // Start screen: a friendly greeting and the suggestions as large cards, easy for anyone to tap.
             <li className="assistant-welcome">
-              <span className="assistant-welcome-icon" aria-hidden="true"><Sparkle24Filled /></span>
+              <span className="assistant-welcome-icon" aria-hidden="true"><Logo size={40} /></span>
               <h2>{t('assistant.hello', { name: greetingName(name) })}</h2>
               <p className="muted">{t('assistant.intro')}</p>
               <div className="suggestion-cards" role="group" aria-label={t('assistant.suggested')}>
@@ -113,15 +114,15 @@ export default function AssistantChat({ me, name, chat, goTo, available, getToke
             </li>
           ) : (
             <li className="msg bot">
-              <span className="msg-avatar" aria-hidden="true"><Sparkle20Filled /></span>
+              <span className="msg-avatar" aria-hidden="true"><Logo size={22} /></span>
               <div className="msg-bubble">{t('assistant.welcome', { name: greetingName(name) })}</div>
             </li>
           )}
           {messages.map((m) => (
             <li key={m.id} className={`msg ${m.from}`}>
               {m.from === 'bot'
-                ? <span className="msg-avatar" aria-hidden="true"><Sparkle20Filled /></span>
-                : <Avatar name={name} size={32} color="colorful" aria-hidden="true" />}
+                ? <span className="msg-avatar" aria-hidden="true"><Logo size={22} /></span>
+                : <Avatar name={name} image={photo ? { src: photo, alt: '' } : undefined} size={32} color="colorful" aria-hidden="true" />}
               <div className={`msg-bubble${m.error ? ' msg-error' : ''}`}>
                 <span className="visually-hidden">{m.from === 'bot' ? 'SyncAI: ' : `${t('assistant.you')}: `}</span>
                 <span className="msg-text">{m.text}</span>
@@ -136,7 +137,7 @@ export default function AssistantChat({ me, name, chat, goTo, available, getToke
           ))}
           {typing && (
             <li className="msg bot">
-              <span className="msg-avatar" aria-hidden="true"><Sparkle20Filled /></span>
+              <span className="msg-avatar" aria-hidden="true"><Logo size={22} /></span>
               <div className="msg-bubble typing" aria-label={t('assistant.typing')}><span /><span /><span /></div>
             </li>
           )}

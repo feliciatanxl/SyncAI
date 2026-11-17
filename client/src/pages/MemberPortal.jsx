@@ -66,7 +66,7 @@ export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSi
       ) : current === 'team' ? (
         <MyTeam getToken={getToken} />
       ) : current === 'assistant' ? (
-        <AssistantChat me={me} name={name} chat={chat} goTo={setSection} available={ids} getToken={getToken} />
+        <AssistantChat me={me} name={name} photo={photo} chat={chat} goTo={setSection} available={ids} getToken={getToken} />
       ) : current === 'decides' ? (
         <HowItDecides />
       ) : (

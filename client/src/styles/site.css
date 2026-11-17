@@ -1385,3 +1385,14 @@ code { font-size: 0.9em; }
 .msg-text { white-space: pre-wrap; }
 .msg-ai { display: block; margin-top: 6px; font-size: 0.75rem; }
 .msg-bubble.msg-error { background: var(--colorPaletteRedBackground1); }
+
+/* Ask SyncAI fills the window under the header (60px) and the main area's 28px top padding. */
+@media (min-width: 561px) {
+  /* Leaves a 20px gap at the bottom: the negative margin cancels most of the main area's 48px bottom padding. */
+  .assistant { display: flex; flex-direction: column; height: calc(100dvh - 60px - 28px - 20px); min-height: 560px; margin-bottom: -28px; }
+  .assistant > .page-hero { flex: none; }
+  .assistant-panel { flex: 1; height: auto; min-height: 420px; }
+}
+/* SyncAI's own logo for the assistant, on white so its colours show. */
+.msg-avatar { background: #fff; box-shadow: inset 0 0 0 1px var(--colorNeutralStroke2); }
+.assistant-welcome-icon { background: #fff; box-shadow: 0 8px 24px rgba(15, 108, 189, 0.18), inset 0 0 0 1px var(--colorNeutralStroke2); }
