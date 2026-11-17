@@ -137,3 +137,8 @@
 /* List / Kanban switch: a clear segmented control next to the Operational Centre heading. */
 .case-view-switch { padding: 2px; border-radius: 8px; background: var(--colorNeutralBackground3); }
 .case-list-panel > .panel-head { flex-wrap: wrap; }
+
+/* Drag-and-drop on the Kanban board. */
+.case-card[draggable="true"] { cursor: grab; }
+.case-card.is-dragging { opacity: 0.5; cursor: grabbing; }
+.case-column.is-drop-target { background: var(--colorBrandBackground2); outline: 2px dashed var(--colorBrandStroke1); outline-offset: -2px; }

@@ -6,7 +6,7 @@ import {
 import PageHeader from '../../components/PageHeader.jsx'
 import { useT } from '../../lib/i18n.js'
 import { useNow } from '../../lib/time.js'
-import { canUseCaseCentre, caseStage, caseSummary, detectFollowUps, STAGES, URGENCIES, visibleCases } from './caseLogic.js'
+import { canUseCaseCentre, caseStage, checkTransition, caseSummary, detectFollowUps, STAGES, URGENCIES, visibleCases } from './caseLogic.js'
 import { caseDataMode, createCaseService } from './caseService.js'
 import CaseDetails from './CaseDetails.jsx'
 import CaseStageDialog from './CaseStageDialog.jsx'
@@ -35,6 +35,7 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
   const [openId, setOpenId] = useState(null)
   const [tab, setTab] = useState('timeline')
   const [moveId, setMoveId] = useState(null)
+  const [moveTarget, setMoveTarget] = useState('')
 
   const load = useCallback(() => {
     setError(null)
@@ -96,7 +97,15 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
   const openCase = (id, startTab = 'timeline') => { setTab(startTab); setOpenId(id) }
   const opened = cases.find((c) => c.id === openId) ?? null
   const moving = cases.find((c) => c.id === moveId) ?? null
-  const viewProps = { cases: shown, followUpCount, officerName, now, onOpen: openCase, onMove: setMoveId }
+  const startMove = (id, target = '') => { setMoveTarget(target); setMoveId(id) }
+  // A drop that needs nothing more moves straight away; anything needing a reason, approval or refusal opens the dialog.
+  const dropCase = (id, target) => {
+    const kase = cases.find((c) => c.id === id)
+    const check = checkTransition(kase, target, me, data.managedOfficerIds)
+    if (check.allowed && !check.needsReason && !check.needsApproval) actions.moveStage(id, target, '').catch(() => startMove(id, target))
+    else startMove(id, target)
+  }
+  const viewProps = { cases: shown, followUpCount, officerName, now, onOpen: openCase, onMove: startMove, onDrop: dropCase }
 
   return (
     <>
@@ -153,10 +162,10 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
 
       <CaseDetails
         kase={opened} tab={tab} onTab={setTab} onClose={() => setOpenId(null)}
-        me={me} now={now} officers={data.officers} officerName={officerName} actions={actions} onMove={setMoveId}
+        me={me} now={now} officers={data.officers} officerName={officerName} actions={actions} onMove={startMove}
       />
       <CaseStageDialog
-        key={moveId ?? 'none'} kase={moving} me={me} managedOfficerIds={data.managedOfficerIds}
+        key={`${moveId}:${moveTarget}`} kase={moving} initialTarget={moveTarget} me={me} managedOfficerIds={data.managedOfficerIds}
         onClose={() => setMoveId(null)} onSubmit={actions.moveStage}
       />
     </>

@@ -3,6 +3,7 @@
 // The Chinese, Malay and Tamil text should be reviewed by a native speaker before release.
 
 const en = {
+  'cases.dragHint': 'Drag to another column to move, or use Move stage',
   'cases.radar.all': 'Show all {n} follow-ups',
   'cases.radar.less': 'Show fewer',
   'nav.cases': 'Case Action Centre',
@@ -151,6 +152,7 @@ const en = {
 }
 
 const zh = {
+  'cases.dragHint': '拖到其他列以移动，或使用“移动阶段”',
   'cases.radar.all': '显示全部 {n} 项跟进',
   'cases.radar.less': '收起',
   'nav.cases': '案件行动中心',
@@ -299,6 +301,7 @@ const zh = {
 }
 
 const ms = {
+  'cases.dragHint': 'Seret ke lajur lain untuk mengubah, atau guna Ubah peringkat',
   'cases.radar.all': 'Tunjukkan semua {n} susulan',
   'cases.radar.less': 'Tunjukkan kurang',
   'nav.cases': 'Pusat Tindakan Kes',
@@ -447,6 +450,7 @@ const ms = {
 }
 
 const ta = {
+  'cases.dragHint': 'நகர்த்த வேறு நெடுவரிசைக்கு இழுக்கவும், அல்லது நிலையை மாற்று என்பதைப் பயன்படுத்தவும்',
   'cases.radar.all': 'அனைத்து {n} பின்தொடர்வுகளையும் காட்டு',
   'cases.radar.less': 'குறைவாகக் காட்டு',
   'nav.cases': 'வழக்கு நடவடிக்கை மையம்',

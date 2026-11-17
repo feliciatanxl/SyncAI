@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Badge, Button } from '@fluentui/react-components'
 import { ArrowSwap16Regular, Open16Regular } from '@fluentui/react-icons'
 import { useLocale, useT } from '../../lib/i18n.js'
@@ -70,19 +71,40 @@ export function CaseTable({ cases, followUpCount, officerName, now, onOpen, onMo
 
 // Kanban: five columns, each case in exactly one (caseStage). Moving is done with the Move button and the
 // stage dialog, which checks the rules; there is no drag-and-drop to bypass them.
-export function CaseBoard({ cases, followUpCount, officerName, now, onOpen, onMove }) {
+// Cards can be dragged onto another column; onDrop(caseId, stage) runs the same checks as the Move button,
+// which stays as the keyboard and touch alternative (HTML5 drag-and-drop has no keyboard or touch support).
+export function CaseBoard({ cases, followUpCount, officerName, now, onOpen, onMove, onDrop }) {
   const t = useT()
+  const [dragId, setDragId] = useState(null)
+  const [over, setOver] = useState(null)
+  const fromStage = dragId ? caseStage(cases.find((c) => c.id === dragId) ?? {}) : null
+  const end = () => { setDragId(null); setOver(null) }
   return (
     <div className="case-board" role="list" aria-label={t('cases.viewBoard')}>
       {STAGES.map((stage) => {
         const column = cases.filter((c) => caseStage(c) === stage)
         return (
-          <section key={stage} className={`case-column case-column-${stage}`} role="listitem" aria-labelledby={`col-${stage}`}>
+          <section
+            key={stage}
+            className={`case-column case-column-${stage}${over === stage && stage !== fromStage ? ' is-drop-target' : ''}`}
+            role="listitem"
+            aria-labelledby={`col-${stage}`}
+            onDragOver={(e) => { if (dragId && stage !== fromStage) { e.preventDefault(); setOver(stage) } }}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOver(null) }}
+            onDrop={(e) => { e.preventDefault(); const id = dragId; end(); if (id && stage !== fromStage) onDrop(id, stage) }}
+          >
             <h3 id={`col-${stage}`}>{t(`cases.stage.${stage}`)} <span className="case-column-count">{column.length}</span></h3>
             {column.length === 0 ? <p className="muted small">{t('cases.columnEmpty')}</p> : (
               <ul>
                 {column.map((c) => (
-                  <li key={c.id} className="case-card">
+                  <li
+                    key={c.id}
+                    className={`case-card${dragId === c.id ? ' is-dragging' : ''}`}
+                    draggable
+                    onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.number); setDragId(c.id) }}
+                    onDragEnd={end}
+                    title={t('cases.dragHint')}
+                  >
                     <div className="case-card-top"><span className="case-id">{c.number}</span><UrgencyBadge urgency={c.urgency} /></div>
                     <strong className="case-title">{c.title}</strong>
                     <span className="muted small">{c.block} · {officerName(c.ownerId)}</span>

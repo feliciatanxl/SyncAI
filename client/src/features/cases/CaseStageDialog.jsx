@@ -7,10 +7,10 @@ import { caseStage, checkTransition, STAGES } from './caseLogic.js'
 
 // Move a case to another stage. Every option shows whether it's allowed and why, before anything is sent;
 // the service checks again, and a team member's closure becomes a request for their manager.
-export default function CaseStageDialog({ kase, me, managedOfficerIds, onClose, onSubmit }) {
+export default function CaseStageDialog({ kase, me, managedOfficerIds, initialTarget = '', onClose, onSubmit }) {
   const t = useT()
   const current = kase ? caseStage(kase) : null
-  const [target, setTarget] = useState('')
+  const [target, setTarget] = useState(initialTarget)
   const [reason, setReason] = useState('')
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
