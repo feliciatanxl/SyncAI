@@ -117,12 +117,6 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
   return (
     <>
       {header}
-      <nav className="case-jump" aria-label={t('cases.jump')}>
-        <a href="#next-up">{t('cases.next.title')}</a>
-        <a href="#radar">{t('cases.radar.title')}</a>
-        <a href="#operational">{t('cases.list.title')}</a>
-      </nav>
-
       <NextUp cases={byPriority(cases, now)} now={now} officerName={officerName} onStart={openCase} />
 
       <div className="case-summary" role="group" aria-label={t('cases.summary')}>

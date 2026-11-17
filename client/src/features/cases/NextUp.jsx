@@ -9,10 +9,10 @@ export default function NextUp({ cases, now, officerName, onStart }) {
   const t = useT()
   const next = cases.filter((c) => caseStage(c) !== 'closed').slice(0, 3)
   return (
-    <section id="next-up" className="panel case-next" aria-labelledby="next-h">
-      <div className="panel-head">
+    <details id="next-up" className="panel case-next case-collapsible" open>
+      <summary className="panel-head">
         <h2 id="next-h"><Flash20Regular /> {t('cases.next.title')}</h2>
-      </div>
+      </summary>
       <p className="muted small">{t('cases.next.lead')}</p>
       {next.length === 0 ? (
         <p className="empty"><CheckmarkCircle24Regular /> {t('cases.next.clear')}</p>
@@ -47,6 +47,6 @@ export default function NextUp({ cases, now, officerName, onStart }) {
           })}
         </ol>
       )}
-    </section>
+    </details>
   )
 }

@@ -174,6 +174,7 @@ Task visibility and operational intelligence for property officers and estate ma
 | `caseStrings.js`, `cases.css` | Four-language UI text and styles (Fluent tokens) |
 
 ### Features
+- **Shift view:** the banner shows the time, overdue cases and cases due in 24 h. *Next up* lists the three most pressing open cases (overdue, then due soon, then urgency) with one Start button each. Next up and the Follow-Up Radar are collapsible and start open on every visit. The table and Kanban use the same priority order, and every row and card has an urgency colour stripe next to its text badge.
 - **Summary cards:** open cases, outstanding follow-ups, blocked cases and cases ready to close. Each count comes from the same rules as the lists, and selecting a card filters the list.
 - **Follow-Up Radar:** outstanding commitments (resident callback, contractor confirmation, inspection outcome, unconfirmed appointment, missing required evidence, no update in 48 h). Each item shows the case, the reason, the supporting record, the deadline and a recommended next step. It also has *View case*, *Why was this flagged?* and *Take action* buttons. The radar is labelled **rule-based**: it is not an AI model, and every finding asks for human review.
 - **Operational cases:** search by ID or title, and filter by estate, urgency, stage or summary card. Switch between a list (a table that turns into cards on phones) and a five-column Kanban, where each case appears in exactly one column and an active blocker puts a case under *Awaiting External / Blocked*.

@@ -144,18 +144,6 @@
 .case-column.is-drop-target { background: var(--colorBrandBackground2); outline: 2px dashed var(--colorBrandStroke1); outline-offset: -2px; }
 
 /* ---- Shift-focused layout ---- */
-/* Sticky jump bar so a worker can hop between sections without scrolling back up. */
-.case-jump {
-  position: sticky; top: 0; z-index: 2; display: flex; gap: 6px; flex-wrap: wrap; margin: -8px 0 16px; padding: 8px 0;
-  background: var(--colorNeutralBackground2, #fafafa);
-}
-.case-jump a {
-  padding: 6px 14px; border-radius: 999px; font-size: 0.875rem; font-weight: 600; text-decoration: none;
-  color: var(--colorBrandForeground1); background: var(--colorNeutralBackground1); border: 1px solid var(--colorNeutralStroke2);
-}
-.case-jump a:hover { background: var(--colorBrandBackground2); }
-.case-jump a:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 2px; }
-#next-up, #radar, #operational { scroll-margin-top: 64px; }
 
 .case-next { margin-bottom: 16px; border-top: 4px solid var(--ms-blue); }
 .case-next h2, .case-radar h2 { display: flex; align-items: center; gap: 8px; }
@@ -190,3 +178,16 @@
   .next-item { grid-template-columns: auto minmax(0, 1fr); }
   .next-item > button { grid-column: 1 / -1; }
 }
+
+/* Next up and Follow-Up Radar collapse; they start open (<details open>). */
+.case-collapsible > summary { list-style: none; cursor: pointer; border-radius: 8px; }
+.case-collapsible > summary::-webkit-details-marker { display: none; }
+.case-collapsible > summary::after {
+  content: ""; flex: none; width: 10px; height: 10px; margin-right: 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg); transition: transform 0.15s; color: var(--colorNeutralForeground3);
+}
+.case-collapsible:not([open]) > summary { margin-bottom: 0; }
+.case-collapsible:not([open]) > summary::after { transform: rotate(-45deg); }
+.case-collapsible > summary:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 4px; }
+.case-collapsible > summary h2 { margin-right: auto; }
+@media (prefers-reduced-motion: reduce) { .case-collapsible > summary::after { transition: none; } }
