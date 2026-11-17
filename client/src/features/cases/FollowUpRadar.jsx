@@ -8,16 +8,18 @@ import { Countdown } from './CaseViews.jsx'
 export default function FollowUpRadar({ findings, now, onOpen, onAct }) {
   const t = useT()
   const [open, setOpen] = useState(null)
+  const [all, setAll] = useState(false)
+  const shown = all ? findings : findings.slice(0, 3)
   return (
     <section className="panel case-radar" aria-labelledby="radar-h">
       <div className="panel-head">
         <h2 id="radar-h"><Radar20Regular /> {t('cases.radar.title')}</h2>
-        <Badge appearance="tint">{t('cases.radar.rules')}</Badge>
+        <Badge appearance="tint" color="brand">{t('cases.radar.rules')}</Badge>
       </div>
       <p className="muted small">{t('cases.radar.lead')}</p>
       {findings.length === 0 ? <p className="empty">{t('cases.radar.empty')}</p> : (
         <ul className="radar-list">
-          {findings.map((f) => (
+          {shown.map((f) => (
             <li key={f.id} className={`radar-item radar-${f.severity}`}>
               <div className="radar-main">
                 <div className="radar-title">
@@ -48,6 +50,11 @@ export default function FollowUpRadar({ findings, now, onOpen, onAct }) {
             </li>
           ))}
         </ul>
+      )}
+      {findings.length > 3 && (
+        <Button appearance="subtle" className="radar-more" onClick={() => setAll(!all)} aria-expanded={all}>
+          {all ? t('cases.radar.less') : t('cases.radar.all', { n: findings.length })}
+        </Button>
       )}
     </section>
   )

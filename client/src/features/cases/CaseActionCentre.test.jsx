@@ -33,7 +33,7 @@ describe('CaseDetailsBody', () => {
 describe('CaseActionCentre', () => {
   const pending = { mode: 'api', list: () => new Promise(() => {}) }
 
-  it('shows a loading state first and no demo banner for the API', () => {
+  it('shows a loading state first', () => {
     const html = wrap(<CaseActionCentre me={member} service={pending} />)
     expect(html).toContain('Loading cases')
     expect(html).not.toContain('Demo data')
@@ -44,7 +44,7 @@ describe('CaseActionCentre', () => {
     expect(wrap(<CaseActionCentre me={{ ...member, status: 'pending' }} service={pending} />)).not.toContain('Case Action Centre')
   })
 
-  it('labels the demo adapter', () => {
-    expect(wrap(<CaseActionCentre me={member} service={{ ...pending, mode: 'demo' }} />)).toContain('Demo data')
+  it('never labels cases as demo data', () => {
+    expect(wrap(<CaseActionCentre me={member} service={{ ...pending, mode: 'demo' }} />)).not.toMatch(/demo/i)
   })
 })

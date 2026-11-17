@@ -3,13 +3,13 @@
 // The Chinese, Malay and Tamil text should be reviewed by a native speaker before release.
 
 const en = {
+  'cases.radar.all': 'Show all {n} follow-ups',
+  'cases.radar.less': 'Show fewer',
   'nav.cases': 'Case Action Centre',
   'cases.eyebrow': 'Task visibility & operational intelligence',
   'cases.lead': 'Track operational cases, outstanding commitments and workflow progress.',
   'cases.scope.member': 'You see the cases assigned to you.',
   'cases.scope.manager': 'You see the cases of the teams you manage.',
-  'cases.demo': 'Demo data',
-  'cases.demoText': 'These cases are fictional. Changes stay in this browser tab and are lost when you leave the page; nothing is saved to SyncAI.',
   'cases.apiMissing': 'Case service not available yet',
   'cases.apiMissingText': 'The SyncAI server does not provide operational cases yet. No cases are shown rather than example data.',
   'cases.loadFailed': 'Couldn’t load cases',
@@ -151,13 +151,13 @@ const en = {
 }
 
 const zh = {
+  'cases.radar.all': '显示全部 {n} 项跟进',
+  'cases.radar.less': '收起',
   'nav.cases': '案件行动中心',
   'cases.eyebrow': '任务可见性与运营洞察',
   'cases.lead': '跟踪运营案件、未完成的承诺和工作流程进度。',
   'cases.scope.member': '你可以看到分配给你的案件。',
   'cases.scope.manager': '你可以看到你所管理团队的案件。',
-  'cases.demo': '演示数据',
-  'cases.demoText': '这些案件是虚构的。更改只保留在此浏览器标签页中，离开页面后即丢失；不会保存到 SyncAI。',
   'cases.apiMissing': '案件服务尚未提供',
   'cases.apiMissingText': 'SyncAI 服务器尚未提供运营案件。此处不显示示例数据。',
   'cases.loadFailed': '无法加载案件',
@@ -299,13 +299,13 @@ const zh = {
 }
 
 const ms = {
+  'cases.radar.all': 'Tunjukkan semua {n} susulan',
+  'cases.radar.less': 'Tunjukkan kurang',
   'nav.cases': 'Pusat Tindakan Kes',
   'cases.eyebrow': 'Keterlihatan tugasan & risikan operasi',
   'cases.lead': 'Jejaki kes operasi, komitmen tertunggak dan kemajuan aliran kerja.',
   'cases.scope.member': 'Anda melihat kes yang ditugaskan kepada anda.',
   'cases.scope.manager': 'Anda melihat kes pasukan yang anda urus.',
-  'cases.demo': 'Data demo',
-  'cases.demoText': 'Kes ini rekaan. Perubahan kekal dalam tab pelayar ini sahaja dan hilang apabila anda meninggalkan halaman; tiada apa disimpan ke SyncAI.',
   'cases.apiMissing': 'Perkhidmatan kes belum tersedia',
   'cases.apiMissingText': 'Pelayan SyncAI belum menyediakan kes operasi. Tiada kes ditunjukkan dan bukan data contoh.',
   'cases.loadFailed': 'Tidak dapat memuatkan kes',
@@ -447,13 +447,13 @@ const ms = {
 }
 
 const ta = {
+  'cases.radar.all': 'அனைத்து {n} பின்தொடர்வுகளையும் காட்டு',
+  'cases.radar.less': 'குறைவாகக் காட்டு',
   'nav.cases': 'வழக்கு நடவடிக்கை மையம்',
   'cases.eyebrow': 'பணித் தெரிவுநிலை & செயல்பாட்டு நுண்ணறிவு',
   'cases.lead': 'செயல்பாட்டு வழக்குகள், நிலுவையிலுள்ள உறுதிமொழிகள் மற்றும் பணிப்பாய்வு முன்னேற்றத்தைக் கண்காணிக்கவும்.',
   'cases.scope.member': 'உங்களுக்கு ஒதுக்கப்பட்ட வழக்குகளைப் பார்க்கிறீர்கள்.',
   'cases.scope.manager': 'நீங்கள் நிர்வகிக்கும் குழுக்களின் வழக்குகளைப் பார்க்கிறீர்கள்.',
-  'cases.demo': 'மாதிரித் தரவு',
-  'cases.demoText': 'இந்த வழக்குகள் கற்பனையானவை. மாற்றங்கள் இந்த உலாவித் தாவலில் மட்டுமே இருக்கும், பக்கத்தை விட்டு வெளியேறும்போது இழக்கப்படும்; SyncAI இல் எதுவும் சேமிக்கப்படாது.',
   'cases.apiMissing': 'வழக்குச் சேவை இன்னும் கிடைக்கவில்லை',
   'cases.apiMissingText': 'SyncAI சேவையகம் இன்னும் செயல்பாட்டு வழக்குகளை வழங்கவில்லை. மாதிரித் தரவுக்குப் பதிலாக வழக்குகள் எதுவும் காட்டப்படவில்லை.',
   'cases.loadFailed': 'வழக்குகளை ஏற்ற முடியவில்லை',

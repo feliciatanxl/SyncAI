@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, MessageBar, MessageBarBody, MessageBarTitle, SearchBox, Select, Spinner, Tab, TabList } from '@fluentui/react-components'
-import { Board20Regular, BriefcaseSearch24Regular, TextBulletListLtr20Regular } from '@fluentui/react-icons'
+import {
+  Board20Regular, BriefcaseSearch24Regular, CheckmarkCircle24Regular, Folder24Regular, PauseCircle24Regular, Alert24Regular, TextBulletListLtr20Regular,
+} from '@fluentui/react-icons'
 import PageHeader from '../../components/PageHeader.jsx'
 import { useT } from '../../lib/i18n.js'
 import { useNow } from '../../lib/time.js'
@@ -13,6 +15,7 @@ import FollowUpRadar from './FollowUpRadar.jsx'
 import './cases.css'
 
 const CARDS = ['open', 'followUps', 'blocked', 'ready']
+const CARD_ICONS = { open: <Folder24Regular />, followUps: <Alert24Regular />, blocked: <PauseCircle24Regular />, ready: <CheckmarkCircle24Regular /> }
 const CARD_FILTER = {
   open: (c) => caseStage(c) !== 'closed',
   followUps: (c, now) => detectFollowUps(c, now).length > 0,
@@ -40,7 +43,6 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
   useEffect(() => { load() }, [load])
 
   if (!canUseCaseCentre(me)) return null
-  const demo = service.mode === 'demo'
 
   // Every write re-reads the list so cards, radar and dialogs stay consistent with the data source.
   const act = (fn) => (...args) => fn(...args).then((r) => load().then(() => r))
@@ -54,7 +56,6 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
       icon={<BriefcaseSearch24Regular />}
       eyebrow={t('cases.eyebrow')}
       title={t('nav.cases')}
-      badge={demo ? <span className="hero-badge hero-badge-demo">{t('cases.demo')}</span> : null}
       description={`${t('cases.lead')} ${t(`cases.scope.${me.role}`)}`}
     />
   )
@@ -100,12 +101,6 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
   return (
     <>
       {header}
-      {demo && (
-        <MessageBar intent="warning" layout="multiline" className="case-demo-bar">
-          <MessageBarBody><MessageBarTitle>{t('cases.demo')}</MessageBarTitle>{t('cases.demoText')}</MessageBarBody>
-        </MessageBar>
-      )}
-
       <div className="case-summary" role="group" aria-label={t('cases.summary')}>
         {CARDS.map((id) => (
           <button
@@ -115,8 +110,11 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
             aria-pressed={filters.card === id}
             onClick={() => setFilters((f) => ({ ...f, card: f.card === id ? '' : id }))}
           >
-            <strong>{summary[id]}</strong>
-            <span>{t(`cases.card.${id}`)}</span>
+            <span className="case-stat-icon" aria-hidden="true">{CARD_ICONS[id]}</span>
+            <span className="case-stat-text">
+              <strong>{summary[id]}</strong>
+              <span>{t(`cases.card.${id}`)}</span>
+            </span>
           </button>
         ))}
       </div>

@@ -63,7 +63,7 @@ describe('demo adapter', () => {
     const closed = await s.moveStage('demo-case-004', 'closed')
     expect(closed.stage).toBe('closed')
     expect(closed.history.length).toBe(before.history.length + 1)
-    // DEMO-001 has an active blocker, so it can't skip to Closure Ready.
+    // CAS-2026-001 has an active blocker, so it can't skip to Closure Ready.
     await expect(s.moveStage('demo-case-001', 'ready_for_closure')).rejects.toThrow(/blocker/)
   })
 

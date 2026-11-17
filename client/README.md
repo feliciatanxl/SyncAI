@@ -183,7 +183,7 @@ Task visibility and operational intelligence for property officers and estate ma
 ### Data: demo vs real
 The SyncAI server has **no case endpoints yet**.
 - `caseDataMode()` picks the adapter. `VITE_CASE_DATA=demo|api` wins; otherwise the Vite dev server uses `demo` and **production builds use `api`**.
-- **Demo adapter:** fictional cases, with two of them assigned to the signed-in person. Changes live in memory for one page visit and are never saved. The page shows a **Demo data** badge and banner. The demo cases are bundled but unreachable in a production build unless `VITE_CASE_DATA=demo` is set.
+- **Demo adapter:** fictional cases, with two of them assigned to the signed-in person. Changes live in memory for one page visit and are never saved. The page does not label them as demo data, since the same UI will show PostgreSQL data once the API exists. The sample cases are bundled but unreachable in a production build unless `VITE_CASE_DATA=demo` is set.
 - **API adapter:** calls the endpoints below. Until they exist the page shows *Case service not available yet*. It **never falls back to demo cases**.
 
 Future endpoints (each must enforce the role rules on the server):
@@ -210,7 +210,7 @@ Each write returns the updated case. Every case keeps a stable `id` and `number`
 Hiding things in the browser is **not a security boundary**. The production API must apply the same visibility and transition rules (`visibleCases`, `checkTransition`) to every request.
 
 ### Manual test
-1. Run `npm run dev` and sign in as an active member. *Case Action Centre* appears in the sidebar with the **Demo data** badge.
+1. Run `npm run dev` and sign in as an active member. *Case Action Centre* appears in the sidebar .
 2. Check that the summary cards match the list, and that selecting a card filters it.
 3. In the radar, open *Why was this flagged?* (it expands inline) and *Take action* (it opens the case on Follow-ups).
 4. Search, use each filter, and switch between List and Kanban. Each case should appear in exactly one column.
