@@ -14,7 +14,6 @@ export default function FollowUpRadar({ findings, now, onOpen, onAct }) {
     <details id="radar" className="panel case-radar case-collapsible" open>
       <summary className="panel-head">
         <h2 id="radar-h"><Radar20Regular /> {t('cases.radar.title')}</h2>
-        <Badge appearance="tint" color="brand">{t('cases.radar.rules')}</Badge>
       </summary>
       <p className="muted small">{t('cases.radar.lead')}</p>
       {findings.length === 0 ? <p className="empty">{t('cases.radar.empty')}</p> : (
