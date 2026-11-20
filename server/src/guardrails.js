@@ -96,12 +96,16 @@ export function describeContext(ctx) {
 export function createStreamRedactor(canary, hold = 48) {
   let pending = ''
   let leaked = false
+  let masked = false
   const check = (s) => { if (canary && s.includes(canary)) leaked = true; return s }
   return {
     get leaked() { return leaked },
+    get masked() { return masked },
     push(piece) {
       // Mask the whole buffer before cutting, so a match that spans the cut is caught while it's still in one piece.
-      pending = redact(check(pending + piece))
+      const raw = check(pending + piece)
+      pending = redact(raw)
+      masked ||= pending !== raw
       if (pending.length <= hold) return ''
       // Cut at the last whitespace before the held tail, so no word is split.
       let cut = pending.lastIndexOf(' ', pending.length - hold)
@@ -111,7 +115,9 @@ export function createStreamRedactor(canary, hold = 48) {
       return out
     },
     flush() {
-      const out = redact(check(pending))
+      const raw = check(pending)
+      const out = redact(raw)
+      masked ||= out !== raw
       pending = ''
       return out
     },

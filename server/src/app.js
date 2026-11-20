@@ -223,7 +223,9 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300, trustPr
     const context = role === 'admin'
       ? adminContext(await users.list(), await users.listTeams())
       : cleanCaseContext(req.body?.context, role)
-    const options = { language, role, context }
+    // Guardrail events are counted like 👍/👎: no person, question or answer is recorded.
+    const onGuard = (action) => Promise.resolve(users.logActivity(null, action, null, {})).catch(() => {})
+    const options = { language, role, context, onGuard }
     if (req.body?.stream !== true) return res.json({ reply: await assistant.ask(req.body?.messages, options) })
 
     // Streamed as plain text while it's written. A failure before the first piece is a normal JSON error;

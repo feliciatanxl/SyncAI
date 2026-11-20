@@ -17,3 +17,10 @@ describe('renderMarkdown', () => {
     expect(html('<img src=x onerror=alert(1)> **<b>hi</b>**')).toBe('<p>&lt;img src=x onerror=alert(1)&gt; <strong>&lt;b&gt;hi&lt;/b&gt;</strong></p>')
   })
 })
+
+describe('plainSpacing', () => {
+  it('turns the model’s narrow no-break spaces and hyphens into plain ones', async () => {
+    const { plainSpacing } = await import('./markdown.jsx')
+    expect(plainSpacing('next\u202F24\u202Fhours, follow\u2011up, 6:53\u00A0pm')).toBe('next 24 hours, follow-up, 6:53 pm')
+  })
+})
