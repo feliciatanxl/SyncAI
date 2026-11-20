@@ -19,7 +19,7 @@ describe('CaseDetailsBody', () => {
 
   it.each(DETAIL_TABS)('renders the %s section without raw data', (tab) => {
     const html = wrap(<CaseDetailsBody {...props} tab={tab} />)
-    expect(html).toContain('Timeline &amp; notes')
+    expect(html).toContain('Timeline &amp; Notes')
     expect(html).not.toMatch(/\{"|\[object Object\]|undefined/)
   })
 
