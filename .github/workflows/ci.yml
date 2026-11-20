@@ -22,13 +22,13 @@ jobs:
         with:
           node-version: 22
 
-      # The prototype's demo clock reads the real date; on a Friday seed deadlines fall
-      # past the planned week and planning-issues.test.mjs fails. Pin a mid-week date.
+      # The prototype's demo clock reads the real date. planning-issues.test.mjs only passes when "today" is a Monday or
+      # Tuesday (later in the week, seed deadlines fall past the planned week), so pin a Monday.
       - name: Install faketime
         run: sudo apt-get update && sudo apt-get install -y faketime
 
       - name: Run rules-engine tests
-        run: faketime '2026-11-18 09:00:00' node --test "prototype/tests/*.test.mjs"
+        run: faketime '2026-11-16 09:00:00' node --test "prototype/tests/*.test.mjs"
 
       - name: Run API tests
         working-directory: server
