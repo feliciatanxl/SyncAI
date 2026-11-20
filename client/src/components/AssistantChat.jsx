@@ -7,7 +7,6 @@ import {
 } from '@fluentui/react-icons'
 import { apiRequest, apiStream } from '../lib/api.js'
 import { usePreferences, useT } from '../lib/i18n.js'
-import { STRINGS } from '../lib/strings.js'
 import { renderMarkdown } from '../lib/markdown.jsx'
 import { greetingName } from '../lib/time.js'
 import { TOPICS, matchTopic } from '../lib/helpGuide.js'
@@ -25,18 +24,11 @@ const TOPIC_ICON = {
 }
 // Questions that suit each kind of account, answered by the AI (they need more than the fixed help guide).
 const ROLE_PROMPTS = { manager: ['approveClosure', 'teamView'], member: ['reassign', 'nextUp'], admin: ['addTeam'], pending: ['approval'] }
-// Sections an AI answer may point to; a "Go to" button appears when the answer names one.
-const LINKABLE = ['settings', 'cases', 'tasks', 'plan', 'team', 'decides', 'people', 'teams', 'activity']
 const MAX_CHARS = 1000
 const REPLY_DELAY = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : 400
 
 let nextId = 1
 
-// Sections named in an answer, in the reader's language or in English, that this person can open.
-export function linkedSections(text, available, t) {
-  const lower = text.toLowerCase()
-  return LINKABLE.filter((id) => available.includes(id) && [t(`nav.${id}`), STRINGS.en[`nav.${id}`]].some((label) => label && lower.includes(label.toLowerCase()))).slice(0, 2)
-}
 
 // Ask SyncAI. Suggested help-guide questions get fixed, checked answers instantly; typed and role questions go to
 // the AI through the SyncAI API (streamed as it writes). Without the AI, typed questions fall back to the help guide.
@@ -181,7 +173,7 @@ export default function AssistantChat({ me, name, photo, chat, goTo, available, 
                 {m.retry && !busy && (
                   <Button size="small" icon={<ArrowClockwise16Regular />} onClick={() => retry(m)}>{t('assistant.retry')}</Button>
                 )}
-                {m.ai && !m.streaming && !m.error && <AnswerTools m={m} available={available} goTo={goTo} onRate={(helpful) => update(m.id, { rated: helpful })} getToken={getToken} />}
+                {m.ai && !m.streaming && !m.error && <AnswerTools m={m} onRate={(helpful) => update(m.id, { rated: helpful })} getToken={getToken} />}
               </div>
             </li>
           ))
@@ -229,11 +221,10 @@ export default function AssistantChat({ me, name, photo, chat, goTo, available, 
   )
 }
 
-// Under each finished AI answer: Copy, 👍/👎 (sent anonymously) and "Go to" buttons for sections it mentions.
-function AnswerTools({ m, available, goTo, onRate, getToken }) {
+// Under each finished AI answer: Copy and 👍/👎 (sent anonymously).
+function AnswerTools({ m, onRate, getToken }) {
   const t = useT()
   const [copied, setCopied] = useState(false)
-  const links = linkedSections(m.text, available, t)
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(m.text)
@@ -249,9 +240,6 @@ function AnswerTools({ m, available, goTo, onRate, getToken }) {
   return (
     <div className="msg-tools">
       <span className="msg-ai small muted">{t('assistant.aiLabel')}</span>
-      {links.map((id) => (
-        <Button key={id} size="small" appearance="primary" icon={<ArrowRight16Regular />} iconPosition="after" onClick={() => goTo(id)}>{t(`nav.${id}`)}</Button>
-      ))}
       <span className="msg-tools-right">
         <Tooltip content={copied ? t('assistant.copied') : t('assistant.copy')} relationship="label">
           <Button size="small" appearance="subtle" icon={copied ? <Checkmark16Regular /> : <Copy16Regular />} onClick={copy} />
