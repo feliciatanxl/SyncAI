@@ -131,6 +131,8 @@ export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSig
 
   return (
     <PortalShell
+      userId={me.id}
+      notifications={pending.map((u) => ({ id: `pending:${u.id}`, title: t('notif.pending', { name: nameOf(u) }), detail: u.email, section: 'people', tone: 'warn', tag: t('notif.tag.pending'), action: t('notif.review') }))}
       tag={t('tag.admin')}
       sections={SECTIONS}
       section={section}
@@ -161,7 +163,7 @@ export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSig
       ) : section === 'people' ? (
         <PeopleSection {...shared} now={now} />
       ) : section === 'assistant' ? (
-        <AssistantChat me={me} name={nameOf(me)} chat={chat} goTo={setSection} available={SECTIONS.map((s) => s.id)} />
+        <AssistantChat me={me} name={nameOf(me)} photo={photo} chat={chat} goTo={setSection} available={SECTIONS.map((s) => s.id)} getToken={getToken} />
       ) : section === 'teams' ? (
         <TeamsAdmin getToken={getToken} people={users} nameOf={nameOf} notify={notify} onPeopleChanged={() => load(undefined, true)} />
       ) : section === 'activity' ? (

@@ -53,7 +53,7 @@ import {
   getCaseEvidence,
   verifyCaseEvidence,
 } from './state.js';
-import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog } from './ui.js';
+import { html, raw, render, icon, toast, openModal, closeModal, confirmDialog, escapeHtml } from './ui.js';
 import { accessibleTask, changeTaskStatus, deleteCapturedTask, taskDateInput, taskDuration } from './taskCapture.js';
 import { accessibleCase, visibleCases, getCaseKanbanColumn } from './cases.js';
 import { deadlineAlert, priorityFactors } from './taskIntelligence.js';
@@ -342,13 +342,13 @@ function updateHeader(s, user) {
       notifList.innerHTML = displayedNotifs.slice(0, 10).map((n) => `
         <div class="notification-item ${n.read ? 'is-read' : 'is-unread'}" style="padding: 10px 14px; border-bottom: 1px solid var(--colorNeutralStroke3); display: flex; flex-direction: column; gap: 4px; background: ${n.read ? 'transparent' : 'var(--colorBrandBackground2)'};">
           <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-            <strong style="font-size: 0.8125rem; color: var(--colorNeutralForeground1);">${n.title}</strong>
-            <span class="tag ${n.priority === 'urgent' ? 'tag-danger' : n.priority === 'warning' ? 'tag-warning' : 'tag-neutral'} small">${n.channelLabel || 'In-App'}</span>
+            <strong style="font-size: 0.8125rem; color: var(--colorNeutralForeground1);">${escapeHtml(n.title)}</strong>
+            <span class="tag ${n.priority === 'urgent' ? 'tag-danger' : n.priority === 'warning' ? 'tag-warning' : 'tag-neutral'} small">${escapeHtml(n.channelLabel || 'In-App')}</span>
           </div>
-          <p class="small muted" style="margin: 0; font-size: 0.75rem; line-height: 1.35;">${n.summary}</p>
+          <p class="small muted" style="margin: 0; font-size: 0.75rem; line-height: 1.35;">${escapeHtml(n.summary)}</p>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-            ${n.caseId ? `<button type="button" class="btn-subtle btn-sm" data-action="nav-to-case" data-case="${n.caseId}" style="font-size: 0.75rem; padding: 2px 8px;">View Case →</button>` : '<span></span>'}
-            ${!n.read ? `<button type="button" class="btn-ghost btn-sm" data-action="notif-mark-read" data-id="${n.id}" style="font-size: 0.75rem; padding: 2px 6px;">Mark read</button>` : '<span class="small muted" style="font-size: 0.75rem;">Read</span>'}
+            ${n.caseId ? `<button type="button" class="btn-subtle btn-sm" data-action="nav-to-case" data-case="${escapeHtml(n.caseId)}" style="font-size: 0.75rem; padding: 2px 8px;">View Case →</button>` : '<span></span>'}
+            ${!n.read ? `<button type="button" class="btn-ghost btn-sm" data-action="notif-mark-read" data-id="${escapeHtml(n.id)}" style="font-size: 0.75rem; padding: 2px 6px;">Mark read</button>` : '<span class="small muted" style="font-size: 0.75rem;">Read</span>'}
           </div>
         </div>
       `).join('');

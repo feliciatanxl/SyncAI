@@ -1,0 +1,304 @@
+/* Case Action Centre. Same Fluent tokens, radius and panel conventions as styles/site.css. */
+.case-id { display: inline-block; margin-right: 6px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--colorNeutralForeground3); font-variant-numeric: tabular-nums; }
+.case-title { display: block; overflow-wrap: anywhere; }
+.case-due { font-size: 0.875rem; font-weight: 600; white-space: nowrap; }
+.case-due-overdue { color: var(--colorPaletteRedForeground1); }
+.case-due-soon { color: var(--colorPaletteDarkOrangeForeground1); }
+.case-due-ok { color: var(--colorNeutralForeground2); font-weight: 400; }
+
+.case-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.case-stat {
+  display: flex; align-items: center; gap: 14px; padding: 16px 18px; text-align: left; font: inherit; cursor: pointer; color: var(--colorNeutralForeground1);
+  border-radius: var(--radius); border: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  --tone: var(--ms-blue); --tone-bg: var(--colorBrandBackground2);
+}
+.case-stat-icon { flex: none; display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; color: var(--tone); background: var(--tone-bg); }
+.case-stat-text { display: grid; gap: 2px; min-width: 0; }
+.case-stat strong { font-size: 1.75rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.case-stat-text span { font-size: 0.875rem; color: var(--colorNeutralForeground2); }
+.case-stat:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); transform: translateY(-1px); }
+.case-stat:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 2px; }
+.case-stat-followUps { --tone: var(--colorPaletteDarkOrangeForeground1); --tone-bg: var(--colorPaletteDarkOrangeBackground1); }
+.case-stat-blocked { --tone: var(--colorPaletteRedForeground1); --tone-bg: var(--colorPaletteRedBackground1); }
+.case-stat-ready { --tone: var(--colorPaletteGreenForeground1); --tone-bg: var(--colorPaletteGreenBackground1); }
+.case-stat[aria-pressed="true"] { border-color: var(--tone); box-shadow: inset 0 0 0 1px var(--tone); }
+@media (prefers-reduced-motion: reduce) { .case-stat { transition: none; } .case-stat:hover { transform: none; } }
+.case-radar .radar-item { background: var(--colorNeutralBackground2); }
+.case-column-open { border-top: 3px solid var(--colorNeutralStroke1); }
+.case-column-in_progress { border-top: 3px solid var(--ms-blue); }
+.case-column-pending_external { border-top: 3px solid var(--colorPaletteDarkOrangeBorderActive); }
+.case-column-ready_for_closure { border-top: 3px solid var(--colorPaletteBlueBorderActive); }
+.case-column-closed { border-top: 3px solid var(--colorPaletteGreenBorderActive); }
+.case-card { transition: box-shadow 0.15s; }
+.case-card:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
+.case-table tbody tr:hover { background: var(--colorNeutralBackground1Hover); }
+
+.case-radar, .case-list-panel { margin-bottom: 16px; }
+.case-radar h2 { display: flex; align-items: center; gap: 8px; }
+.radar-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.radar-item {
+  display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; padding: 12px 14px;
+  border-radius: 10px; border: 1px solid var(--colorNeutralStroke2); border-left: 4px solid var(--colorPaletteDarkOrangeBorderActive); background: var(--colorNeutralBackground1);
+}
+.radar-critical { border-left-color: var(--colorPaletteRedBorderActive); }
+.radar-main { min-width: 0; flex: 1; }
+.radar-main p { margin: 4px 0; }
+.radar-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.radar-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 16px; margin: 8px 0 0; }
+.radar-facts dt { color: var(--colorNeutralForeground3); font-size: 0.75rem; }
+.radar-facts dd { margin: 0; overflow-wrap: anywhere; }
+.radar-why { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--colorNeutralBackground2); }
+.radar-why p { margin: 4px 0; }
+.radar-actions { display: flex; flex-direction: column; gap: 6px; flex: none; align-items: stretch; }
+
+.case-filters { display: grid; grid-template-columns: minmax(200px, 2fr) repeat(3, minmax(140px, 1fr)) auto; gap: 8px; margin: 8px 0; }
+.case-filters > * { min-width: 0; }
+
+.case-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.case-table th { text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--colorNeutralForeground3); padding: 8px; border-bottom: 1px solid var(--colorNeutralStroke2); }
+.case-table td { padding: 10px 8px; border-bottom: 1px solid var(--colorNeutralStroke3); vertical-align: top; }
+.case-table td.case-actions { white-space: nowrap; text-align: right; }
+.case-table td.case-actions button + button { margin-left: 4px; }
+
+.case-board { display: grid; grid-template-columns: repeat(5, minmax(170px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.case-column { padding: 10px; border-radius: 10px; background: var(--colorNeutralBackground2); min-width: 0; }
+.case-column h3 { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 0.8125rem; }
+.case-column-count { min-width: 22px; padding: 0 6px; border-radius: 999px; text-align: center; background: var(--colorNeutralBackground1); font-size: 0.75rem; }
+.case-column ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.case-card { display: grid; gap: 6px; padding: 10px; border-radius: 8px; background: var(--colorNeutralBackground1); border: 1px solid var(--colorNeutralStroke2); font-size: 0.875rem; }
+.case-card-top, .case-card-meta { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
+.case-card-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* Doubled class: beats Fluent's own DialogSurface max-width (600px). */
+.case-details-dialog.case-details-dialog { max-width: min(920px, calc(100vw - 32px)); width: 100%; }
+.case-details-body { max-height: calc(100vh - 48px); }
+.case-details-meta { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; margin-bottom: 10px; }
+.case-details-meta > button { margin-left: auto; }
+.case-request { margin-bottom: 10px; }
+.case-request-decide { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.case-tabs { overflow-x: auto; border-bottom: 1px solid var(--colorNeutralStroke2); margin-bottom: 12px; }
+.case-tab-panel h3 { font-size: 0.9375rem; margin: 14px 0 6px; }
+.case-tab-panel .panel-head h3 { margin: 0; }
+.case-cards { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.case-cards .panel { padding: 12px 14px; }
+.case-cards p { margin: 4px 0; }
+.case-timeline { list-style: none; margin: 12px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--colorNeutralStroke2); display: grid; gap: 12px; }
+.case-timeline li { position: relative; }
+.case-timeline li::before { content: ""; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--ms-blue); }
+.case-timeline p { margin: 2px 0; }
+.case-form { display: grid; gap: 8px; margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--colorNeutralBackground2); }
+.case-form > button { justify-self: start; }
+.case-form h3 { margin: 0; }
+.case-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.case-form-error, .case-stage-check { margin-top: 8px; }
+.case-checklist { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 6px; }
+.case-checklist li { display: flex; gap: 8px; align-items: flex-start; }
+.case-checklist svg { flex: none; margin-top: 2px; }
+.case-tab-panel .ok { color: var(--colorPaletteGreenForeground1); }
+.case-tab-panel .bad { color: var(--colorPaletteRedForeground1); }
+.case-bullets { margin: 4px 0; padding-left: 20px; }
+.change-before { text-decoration: line-through; color: var(--colorNeutralForeground3); }
+.change-after { font-weight: 600; }
+.brief-block p { margin: 4px 0; }
+
+@media (max-width: 1100px) {
+  .case-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .case-filters > :first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 860px) {
+  .case-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .radar-item { flex-direction: column; }
+  .radar-actions { flex-direction: row; flex-wrap: wrap; }
+  .radar-facts { grid-template-columns: minmax(0, 1fr); }
+  /* List rows become cards; each cell shows its column name. */
+  .case-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .case-table, .case-table tbody, .case-table tr, .case-table td { display: block; }
+  .case-table tr { padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--colorNeutralStroke2); border-radius: 10px; }
+  .case-table td { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px; padding: 4px 0; border: 0; }
+  .case-table td > * { justify-self: start; }
+  .case-table td::before { content: attr(data-label); font-size: 0.75rem; color: var(--colorNeutralForeground3); }
+  .case-table td.case-actions { display: flex; flex-wrap: wrap; gap: 4px; text-align: left; padding-top: 8px; }
+  .case-table td.case-actions::before { content: none; }
+  .case-table td.case-actions button + button { margin-left: 0; }
+}
+@media (max-width: 560px) {
+  .case-filters { grid-template-columns: minmax(0, 1fr); }
+  .case-details-dialog.case-details-dialog { max-width: 100vw; max-height: 100vh; border-radius: 0; }
+  .case-details-body { max-height: calc(100vh - 32px); }
+  .case-details-meta > button { margin-left: 0; }
+}
+
+/* Long stage names (e.g. in Tamil) wrap inside the badge instead of spilling out. */
+.case-badge.case-badge { border-radius: 10px; height: auto; min-height: 20px; padding-block: 2px; white-space: normal; text-align: center; line-height: 1.25; }
+.case-table th { white-space: nowrap; }
+
+/* List / Kanban switch: a clear segmented control next to the Operational Centre heading. */
+.case-view-switch { padding: 2px; border-radius: 8px; background: var(--colorNeutralBackground3); }
+.case-list-panel > .panel-head { flex-wrap: wrap; }
+
+/* Drag-and-drop on the Kanban board. */
+.case-card[draggable="true"] { cursor: grab; }
+.case-card.is-dragging { opacity: 0.5; cursor: grabbing; }
+.case-column.is-drop-target { background: var(--colorBrandBackground2); outline: 2px dashed var(--colorBrandStroke1); outline-offset: -2px; }
+
+/* ---- Shift-focused layout ---- */
+
+.case-next { margin-bottom: 16px; border-top: 4px solid var(--ms-blue); }
+.case-next h2, .case-radar h2 { display: flex; align-items: center; gap: 8px; }
+.next-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.next-item {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 16px;
+  border-radius: 10px; border: 1px solid var(--colorNeutralStroke2); border-left: 5px solid var(--stripe, var(--colorNeutralStroke1));
+  background: var(--colorNeutralBackground1);
+}
+.next-item:first-child { background: var(--colorBrandBackground2); }
+.next-rank {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-weight: 700;
+  color: #fff; background: var(--ms-blue);
+}
+.next-main { display: grid; gap: 3px; min-width: 0; }
+.next-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.next-step { margin: 2px 0 0; }
+
+/* Urgency colour stripe on Next up, table rows and Kanban cards (always alongside the text badge, never colour alone). */
+.urgency-critical { --stripe: var(--colorPaletteRedBorderActive); }
+.urgency-high { --stripe: var(--colorPaletteDarkOrangeBorderActive); }
+.urgency-medium { --stripe: var(--colorPaletteYellowBorderActive); }
+.urgency-low { --stripe: var(--colorNeutralStroke1); }
+.case-table tbody tr > td:first-child { box-shadow: inset 4px 0 0 var(--stripe, transparent); padding-left: 14px; }
+.case-card { border-left: 4px solid var(--stripe, var(--colorNeutralStroke2)); }
+
+@media (max-width: 860px) {
+  .case-table tbody tr > td:first-child { box-shadow: none; padding-left: 0; }
+  .case-table tr { border-left: 4px solid var(--stripe, var(--colorNeutralStroke2)); }
+}
+@media (max-width: 560px) {
+  .next-item { grid-template-columns: auto minmax(0, 1fr); }
+  .next-item > button { grid-column: 1 / -1; }
+}
+
+/* Next up and Follow-Up Radar collapse; they start open (<details open>). */
+.case-collapsible > summary { list-style: none; cursor: pointer; border-radius: 8px; }
+.case-collapsible > summary::-webkit-details-marker { display: none; }
+.case-collapsible > summary::after {
+  content: ""; flex: none; width: 10px; height: 10px; margin-right: 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg); transition: transform 0.15s; color: var(--colorNeutralForeground3);
+}
+.case-collapsible:not([open]) > summary { margin-bottom: 0; }
+.case-collapsible:not([open]) > summary::after { transform: rotate(-45deg); }
+.case-collapsible > summary:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 4px; }
+.case-collapsible > summary h2 { margin-right: auto; }
+@media (prefers-reduced-motion: reduce) { .case-collapsible > summary::after { transition: none; } }
+
+/* ---- Operational Centre: spacious framed table ---- */
+.case-list-panel { padding: 22px 24px; }
+.case-list-panel > .panel-head { align-items: flex-start; margin-bottom: 14px; }
+.case-count { margin: 2px 0 0; }
+.case-toolbar { padding: 12px; margin: 0 0 16px; border-radius: 10px; background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke3); }
+.case-table-wrap { border: 1px solid var(--colorNeutralStroke2); border-radius: 10px; overflow: hidden; }
+.case-table { font-size: 0.9rem; }
+.case-table th {
+  padding: 12px 16px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  background: var(--colorNeutralBackground2); border-bottom: 1px solid var(--colorNeutralStroke2);
+}
+.case-table td { padding: 16px; vertical-align: middle; border-bottom: 1px solid var(--colorNeutralStroke3); }
+.case-table tbody tr:last-child td { border-bottom: 0; }
+.case-table tbody tr > td:first-child { padding-left: 20px; }
+.case-cell-main { display: grid; gap: 3px; }
+.case-cell-main .case-title { font-size: 0.95rem; }
+.case-officer { display: inline-flex; align-items: center; gap: 8px; }
+.case-fu-pill {
+  display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px; font-weight: 600;
+  color: var(--colorNeutralForeground3); background: var(--colorNeutralBackground3);
+}
+.case-fu-pill.has { color: var(--colorPaletteDarkOrangeForeground1); background: var(--colorPaletteDarkOrangeBackground1); }
+.case-table td.case-actions { width: 1%; }
+@media (max-width: 860px) {
+  .case-list-panel { padding: 16px; }
+  .case-table-wrap { border: 0; border-radius: 0; overflow: visible; }
+  .case-table tr { margin-bottom: 10px; }
+  .case-table td { padding: 5px 0; }
+  .case-table tbody tr > td:first-child { padding-left: 0; }
+  .case-table tbody tr:last-child td { border-bottom: 0; }
+  .case-table td.case-actions { width: auto; }
+}
+.case-table th:first-child { min-width: 260px; }
+.case-table td.case-actions { display: table-cell; }
+.case-table td.case-actions > * { vertical-align: middle; }
+@media (max-width: 860px) { .case-table th:first-child { min-width: 0; } .case-table td.case-actions { display: flex; } }
+
+/* Count circle on the collapsed Next up / Follow-Up Radar headings. */
+.case-count-badge {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px;
+  font-size: 0.6875rem; font-weight: 700; font-variant-numeric: tabular-nums; color: #fff; background: var(--ms-blue);
+}
+.case-count-badge.is-urgent { background: var(--colorPaletteRedBackground3); }
+
+/* Whole row / card opens the case. */
+.case-clickable { cursor: pointer; }
+.case-card.case-clickable:hover { border-color: var(--colorBrandStroke1); }
+.case-card[draggable="true"].case-clickable { cursor: grab; }
+.case-table tbody tr:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: -2px; }
+.case-card:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 2px; }
+
+.case-stat-text span { white-space: nowrap; }
+@media (max-width: 860px) { .case-stat-text span { white-space: normal; } }
+
+/* Tighter summary cards so the longest label ("Outstanding follow-ups") fits on one line with breathing room. */
+.case-stat { gap: 10px; padding: 14px; min-width: 0; }
+.case-stat-icon { width: 36px; height: 36px; border-radius: 10px; }
+.case-stat-icon svg { width: 20px; height: 20px; }
+.case-stat-text span { font-size: 0.8125rem; overflow: hidden; text-overflow: ellipsis; }
+.case-summary { gap: 10px; }
+
+/* Kanban: all five columns fit the panel on laptops (no cut-off last column); sideways scroll only on tablets and phones. */
+.case-board { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.case-column { padding: 8px; }
+.case-card { min-width: 0; padding: 9px; }
+.case-card .case-title { font-size: 0.875rem; }
+.case-card .case-due { white-space: normal; }
+.case-card .case-title, .case-card .muted { overflow-wrap: anywhere; }
+@media (max-width: 1100px) { .case-board { grid-template-columns: repeat(5, minmax(180px, 1fr)); } }
+
+/* Kanban column titles: same height in every column (long names wrap to 2 lines) so all cards start level, with room around the title. */
+.case-column { padding: 10px; }
+.case-column h3 {
+  min-height: 2.8em; align-items: flex-start; margin: 0 0 12px; padding: 4px 4px 10px;
+  line-height: 1.35; border-bottom: 1px solid var(--colorNeutralStroke2);
+}
+.case-column-count { flex: none; }
+
+/* ---- Follow-Up Radar: roomier cards ---- */
+.radar-list { gap: 14px; margin-top: 14px; }
+.case-radar .radar-item {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 16px 18px;
+  background: var(--colorNeutralBackground1); border-radius: 12px;
+}
+.radar-main { display: grid; gap: 6px; }
+.radar-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.radar-title strong { font-size: 1rem; }
+.radar-head .case-due { flex: none; padding: 2px 10px; border-radius: 999px; background: var(--colorNeutralBackground3); }
+.radar-head .case-due-overdue { background: var(--colorPaletteRedBackground1); }
+.radar-head .case-due-soon { background: var(--colorPaletteDarkOrangeBackground1); }
+.radar-case { margin: 0; color: var(--colorNeutralForeground2); }
+.radar-facts {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 6px 24px; margin: 6px 0 0; padding: 12px 14px;
+  border-radius: 10px; background: var(--colorNeutralBackground2);
+}
+.radar-facts dt { margin-bottom: 2px; }
+.radar-why { margin-top: 4px; padding: 12px 14px; line-height: 1.5; }
+.radar-actions {
+  flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px;
+  padding-top: 12px; border-top: 1px solid var(--colorNeutralStroke3);
+}
+@media (max-width: 860px) {
+  .radar-facts { grid-template-columns: minmax(0, 1fr); }
+  .radar-actions { justify-content: flex-start; }
+}
+@media (max-width: 560px) {
+  .radar-head { flex-direction: column; gap: 6px; }
+}
+/* Spacing lives on a wrapper: Fluent's own button styles reset the button's margin. */
+.radar-more-wrap { margin-top: 20px; }
+.radar-more-wrap .radar-more { width: 100%; }

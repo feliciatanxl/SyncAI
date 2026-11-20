@@ -1,11 +1,13 @@
 import { Info20Regular } from '@fluentui/react-icons'
 import AccountMenu from './AccountMenu.jsx'
+import NotificationBell from './NotificationBell.jsx'
 import { BrandLink } from './Brand.jsx'
 import { useT } from '../lib/i18n.js'
 
 // The frame every signed-in portal shares: header with role tag and account menu, sidebar (a tab strip on
 // small screens) and the main area. `badges` maps a section id to an element shown after its label.
-export default function PortalShell({ tag, sections, section, onSection, badges = {}, account, children }) {
+// `notifications` (optional): items for the header bell; clicking one opens its section.
+export default function PortalShell({ tag, sections, section, onSection, badges = {}, account, notifications, userId, children }) {
   const t = useT()
   return (
     <div className="portal">
@@ -13,6 +15,7 @@ export default function PortalShell({ tag, sections, section, onSection, badges 
         <BrandLink />
         {tag && <span className="portal-tag">{tag}</span>}
         <div className="portal-account">
+          {notifications && <NotificationBell userId={userId} items={notifications} onOpen={onSection} />}
           <AccountMenu {...account} />
         </div>
       </header>

@@ -6,7 +6,7 @@ describe('greetingName', () => {
     expect(greetingName('TAN XIU LI, FELICIA')).toBe('FELICIA')
   })
   it('uses the first word otherwise', () => {
-    expect(greetingName('fel tan')).toBe('fel')
+    expect(greetingName('fel tan')).toBe('Fel')
     expect(greetingName('felthebest@outlook.com')).toBe('felthebest@outlook.com')
   })
 })

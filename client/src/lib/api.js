@@ -33,3 +33,31 @@ export async function apiRequest(path, { method = 'GET', body, getToken, signal 
   if (!res.ok) throw new ApiError(res.status, isJson ? data : null)
   return data
 }
+
+// Like apiRequest, but for a plain-text answer streamed while it's written. Calls onText(textSoFar) as pieces
+// arrive and resolves with the full text. Errors before streaming starts throw ApiError, as apiRequest does.
+export async function apiStream(path, { body, getToken, signal, onText }) {
+  const headers = { Accept: 'text/plain, application/json', 'Content-Type': 'application/json' }
+  if (getToken) headers.Authorization = `Bearer ${await getToken()}`
+  let res
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { method: 'POST', headers, signal, body: JSON.stringify(body) })
+  } catch (err) {
+    if (err.name === 'AbortError') throw err
+    throw new ApiError(0)
+  }
+  if (!res.ok) {
+    const isJson = res.headers.get('content-type')?.includes('application/json')
+    throw new ApiError(res.status, isJson ? await res.json().catch(() => null) : null)
+  }
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let text = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    text += decoder.decode(value, { stream: true })
+    onText?.(text)
+  }
+  return text
+}

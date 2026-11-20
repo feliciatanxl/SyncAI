@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button } from '@fluentui/react-components'
 import {
-  ArrowRight16Regular, BrainCircuit24Regular, ChatSparkle20Regular, CalendarLtr20Regular, CalendarLtr24Regular, Grid20Regular, PeopleTeam20Regular,
+  ArrowRight16Regular, BrainCircuit24Regular, BriefcaseSearch20Regular, ChatSparkle20Regular, CalendarLtr20Regular, CalendarLtr24Regular, Grid20Regular, PeopleTeam20Regular,
   PersonClock24Regular, PersonProhibited24Regular, Settings20Regular, Sparkle20Regular,
   TaskListLtr20Regular, TaskListLtr24Regular, CheckmarkCircle20Filled, Circle20Regular, Clock20Regular, DismissCircle20Regular,
 } from '@fluentui/react-icons'
 import AssistantChat from '../components/AssistantChat.jsx'
+import CaseActionCentre from '../features/cases/CaseActionCentre.jsx'
 import HowItDecides from '../components/HowItDecides.jsx'
 import MicrosoftToDo from '../components/MicrosoftToDo.jsx'
 import MyTeam from '../components/MyTeam.jsx'
@@ -16,11 +17,15 @@ import SettingsPanel from '../components/SettingsPanel.jsx'
 import { clearReturnSection, returnSection } from '../auth/msal.js'
 import { useLocale, useT } from '../lib/i18n.js'
 import { memberSections } from '../lib/sections.js'
+import { canUseCaseCentre, visibleCases } from '../features/cases/caseLogic.js'
+import { caseNotifications } from '../features/cases/caseNotifications.js'
+import { caseDataMode, createCaseService } from '../features/cases/caseService.js'
 import { greetingKey, greetingName, useNow } from '../lib/time.js'
 
 const ICONS = {
   overview: <Grid20Regular />,
   assistant: <ChatSparkle20Regular />,
+  cases: <BriefcaseSearch20Regular />,
   tasks: <TaskListLtr20Regular />,
   plan: <CalendarLtr20Regular />,
   team: <PeopleTeam20Regular />,
@@ -40,9 +45,12 @@ export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSi
   const current = ids.includes(section) ? section : 'overview'
   const active = me.status === 'active'
   const name = me.displayName || me.email || t('app.unnamed')
+  const notifications = useCaseNotifications(me, getToken, current)
 
   return (
     <PortalShell
+      userId={me.id}
+      notifications={notifications}
       tag={active ? t(`role.${me.role}`) : t(`status.${me.status}`)}
       sections={ids.map((id) => ({ id, icon: ICONS[id] }))}
       section={current}
@@ -51,6 +59,8 @@ export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSi
     >
       {current === 'overview' ? (
         <Overview me={me} name={name} goTo={setSection} />
+      ) : current === 'cases' ? (
+        <CaseActionCentre me={me} getToken={getToken} />
       ) : current === 'tasks' ? (
         <ComingSoon icon={<TaskListLtr24Regular />} title={t('nav.tasks')} heading={t('member.tasks.heading')} text={t('member.tasks.text')} goTo={setSection}>
           <MicrosoftToDo me={me} />
@@ -62,7 +72,7 @@ export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSi
       ) : current === 'team' ? (
         <MyTeam getToken={getToken} />
       ) : current === 'assistant' ? (
-        <AssistantChat me={me} name={name} chat={chat} goTo={setSection} available={ids} />
+        <AssistantChat me={me} name={name} photo={photo} chat={chat} goTo={setSection} available={ids} getToken={getToken} />
       ) : current === 'decides' ? (
         <HowItDecides />
       ) : (
@@ -236,4 +246,24 @@ function ComingSoon({ icon, title, heading, text, goTo, children }) {
       </section>
     </>
   )
+}
+
+// Bell items from the cases this person can see, re-read when they switch sections. People without the Case Action
+// Centre get an empty list; if cases can't be loaded (no case API yet), the bell simply has nothing to show.
+function useCaseNotifications(me, getToken, section) {
+  const t = useT()
+  const [items, setItems] = useState([])
+  useEffect(() => {
+    if (!canUseCaseCentre(me)) return
+    let live = true
+    createCaseService({ mode: caseDataMode(), me, getToken }).list().then(
+      (data) => live && setItems(caseNotifications(visibleCases(data.cases, me, data.managedOfficerIds), me)),
+      () => live && setItems([]),
+    )
+    return () => { live = false }
+  }, [me, getToken, section])
+  return items.map((n) => ({
+    id: n.id, title: t(n.key, n.vars), detail: n.caseTitle, section: 'cases', tone: n.tone,
+    tag: t(n.key.replace('notif.case.', 'notif.tag.')), action: t('notif.viewCase'),
+  }))
 }

@@ -18,7 +18,9 @@ export function useNow() {
 // Name for the greeting. Directory names like "TAN XIU LI, FELICIA" put the given name after the comma.
 export function greetingName(name) {
   const [before, after] = name.split(',')
-  return (after?.trim() || before.trim()).split(/\s+/)[0]
+  const first = (after?.trim() || before.trim()).split(/\s+/)[0]
+  // Capitalise names typed in lower case ("fel" -> "Fel"); all-caps directory names are left as they are.
+  return first.includes('@') ? first : first.charAt(0).toUpperCase() + first.slice(1)
 }
 
 // "5 minutes ago", "3 hours ago", "yesterday" in the chosen language. Returns null for under a minute.

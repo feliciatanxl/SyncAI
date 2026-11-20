@@ -12,6 +12,7 @@ export function createTokenVerifier({ clientId, allowedTenants = [] }) {
     const { payload } = await jwtVerify(token, JWKS, {
       issuer: `https://login.microsoftonline.com/${tid}/v2.0`,
       audience: [clientId, `api://${clientId}`],
+      algorithms: ['RS256'],
     })
     return claimsToIdentity(payload)
   }

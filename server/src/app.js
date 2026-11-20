@@ -9,10 +9,34 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const fail = (res, status, message) => res.status(status).json({ message })
 
+// Ends a streamed Ask SyncAI answer that broke off part-way (a character no answer contains).
+export const STREAM_ERROR = '\u0000'
+
+// Every route and its methods; anything else on these paths answers 405.
+const ALLOWED_METHODS = {
+  '/health': ['GET'],
+  '/me': ['GET'],
+  '/signin': ['POST'],
+  '/signout': ['POST'],
+  '/users': ['GET'],
+  '/users/:id': ['PATCH'],
+  '/teams': ['GET', 'POST'],
+  '/teams/:id': ['PATCH', 'DELETE'],
+  '/teams/:id/members': ['POST'],
+  '/teams/:id/members/:userId': ['DELETE'],
+  '/my-teams': ['GET'],
+  '/activity': ['GET'],
+  '/assistant': ['POST'],
+  '/assistant/feedback': ['POST'],
+}
+
 // `requestsPerWindow` is per IP address over 15 minutes; every API call checks a token and may write to the database.
-export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
+// `trustProxy` is how many proxies sit in front (Railway: 1), so the rate limit sees each person's real IP.
+// `assistant` answers Ask SyncAI questions (see assistant.js); without one the route answers 503.
+export function createApp({ verifyToken, users, requestsPerWindow = 300, trustProxy = 0, assistant = null, assistantPerWindow = 30 }) {
   const app = express()
   app.disable('x-powered-by')
+  app.set('trust proxy', trustProxy)
 
   // The API only ever returns JSON about people: never cache it, never sniff it, never frame it, never leak the URL.
   app.use((_req, res, next) => {
@@ -22,7 +46,17 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
       'X-Frame-Options': 'DENY',
       'Referrer-Policy': 'no-referrer',
       'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+      'Cross-Origin-Resource-Policy': 'same-origin',
     })
+    next()
+  })
+  // Writes only accept JSON: anything else is 415, not silently read as an empty body.
+  app.use((req, res, next) => {
+    // req.is() is null without a body and false for a body of another type.
+    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.is('application/json') === false) {
+      return fail(res, 415, 'Send the request body as application/json.')
+    }
     next()
   })
   app.use(express.json({ limit: '100kb' }))
@@ -165,6 +199,61 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300 }) {
     const items = await users.listActivity({ limit: n, before, person, action, date })
     res.json({ items, nextBefore: items.length === n ? items.at(-1).id : null })
   })
+
+  // Ask SyncAI. Any signed-in person who isn't disabled (pending people can ask how SyncAI works).
+  // Its own, tighter limit per person: every question is a paid call to the AI service.
+  const assistantLimit = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    limit: assistantPerWindow,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    keyGenerator: (req) => req.user.id,
+    handler: (_req, res) => fail(res, 429, 'You have asked a lot of questions. Wait a few minutes and try again.'),
+  })
+  api.post('/assistant', authenticate, async (req, res, next) => {
+    if (req.user.status === 'disabled') return fail(res, 403, 'Your access to SyncAI is turned off.')
+    next()
+  }, assistantLimit, async (req, res) => {
+    if (!assistant?.configured) return res.status(503).json({ message: 'Ask SyncAI is not connected to its AI service yet.', code: 'assistant_off' })
+    const language = ['en', 'zh', 'ms', 'ta'].includes(req.body?.language) ? req.body.language : 'en'
+    const options = { language, role: req.user.status === 'active' ? req.user.role : 'pending user' }
+    if (req.body?.stream !== true) return res.json({ reply: await assistant.ask(req.body?.messages, options) })
+
+    // Streamed as plain text while it's written. A failure before the first piece is a normal JSON error;
+    // a failure after it ends the text with STREAM_ERROR so the app can say the answer was cut off.
+    const stop = new AbortController()
+    res.on('close', () => stop.abort())
+    const pieces = assistant.stream(req.body?.messages, options, stop.signal)
+    const first = await pieces.next()
+    res.status(200).set({ 'Content-Type': 'text/plain; charset=utf-8', 'X-Accel-Buffering': 'no' })
+    if (!first.done) res.write(first.value)
+    try {
+      for await (const piece of pieces) res.write(piece)
+    } catch (err) {
+      if (!stop.signal.aborted) {
+        console.error('Ask SyncAI stream failed', err)
+        res.write(STREAM_ERROR)
+      }
+    }
+    res.end()
+  })
+
+  // 👍/👎 on an AI answer. Recorded anonymously and without the question or answer, so admins see how helpful
+  // Ask SyncAI is without anyone's conversation or identity being kept.
+  api.post('/assistant/feedback', authenticate, async (req, res) => {
+    if (req.user.status === 'disabled') return fail(res, 403, 'Your access to SyncAI is turned off.')
+    if (typeof req.body?.helpful !== 'boolean') return fail(res, 400, 'helpful must be true or false.')
+    await users.logActivity(null, req.body.helpful ? 'assistant_helpful' : 'assistant_not_helpful', null, {})
+    res.status(204).end()
+  })
+
+  // A known path with the wrong method is 405 with an Allow header, not 404. Registered after every route.
+  for (const [path, methods] of Object.entries(ALLOWED_METHODS)) {
+    api.all(path, (_req, res) => {
+      res.set('Allow', methods.join(', '))
+      fail(res, 405, 'Method not allowed.')
+    })
+  }
 
   app.use('/api', api)
   app.use((_req, res) => fail(res, 404, 'Not found.'))

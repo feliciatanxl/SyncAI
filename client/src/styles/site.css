@@ -1380,3 +1380,135 @@ code { font-size: 0.9em; }
   .cal-head { flex-wrap: wrap; }
   .cal-head-text { flex-basis: calc(100% - 60px); }
 }
+
+/* Ask SyncAI: label on AI answers, and a softer bubble when the AI couldn't answer. */
+.msg-text { white-space: pre-wrap; }
+.msg-ai { display: block; margin-top: 6px; font-size: 0.75rem; }
+.msg-bubble.msg-error { background: var(--colorPaletteRedBackground1); }
+
+/* Ask SyncAI fills the window under the header (60px) and the main area's 28px top padding. */
+@media (min-width: 561px) {
+  /* Leaves a 20px gap at the bottom: the negative margin cancels most of the main area's 48px bottom padding. */
+  .assistant { display: flex; flex-direction: column; height: calc(100dvh - 60px - 28px - 20px); min-height: 560px; margin-bottom: -28px; }
+  .assistant > .page-hero { flex: none; }
+  .assistant-panel { flex: 1; height: auto; min-height: 420px; }
+}
+/* SyncAI's own logo for the assistant, on white so its colours show. */
+.msg-avatar { background: #fff; box-shadow: inset 0 0 0 1px var(--colorNeutralStroke2); }
+.assistant-welcome-icon { background: #fff; box-shadow: 0 8px 24px rgba(15, 108, 189, 0.18), inset 0 0 0 1px var(--colorNeutralStroke2); }
+
+/* ---------- Ask SyncAI v2: one full-height panel with a slim title bar ---------- */
+.assistant.panel { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+@media (max-width: 560px) { .assistant.panel { height: calc(100dvh - 150px); min-height: 460px; } }
+.assistant-bar { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--colorNeutralStroke2); }
+.assistant-bar-logo { flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #fff; box-shadow: inset 0 0 0 1px var(--colorNeutralStroke2); }
+.assistant-bar-text { flex: 1; min-width: 0; }
+.assistant-bar-text h1 { margin: 0; font-size: 1.25rem; line-height: 1.2; }
+.assistant-bar-text p { margin: 2px 0 0; }
+
+/* Start screen: compact, so all suggestions are visible without scrolling. */
+.assistant-welcome { padding: 12px 0; }
+.assistant-welcome h2 { font-size: 1.5rem; }
+.assistant-welcome > p { margin-bottom: 12px; }
+.assistant .suggestion-cards { grid-auto-rows: auto; gap: 10px; max-width: 900px; }
+.assistant .suggestion-card { min-height: 0; padding: 12px 14px; gap: 12px; font-size: 0.9375rem; }
+.assistant .suggestion-icon { width: 36px; height: 36px; }
+
+/* AI answers: formatted text, a typing caret while streaming, and the tools row. */
+.msg-md { display: grid; gap: 6px; white-space: normal; }
+.msg-md p { margin: 0; }
+.msg-md ul, .msg-md ol { margin: 0; padding-left: 20px; display: grid; gap: 3px; }
+.msg-md code { padding: 1px 5px; border-radius: 4px; background: var(--colorNeutralBackground1); font-size: 0.875em; }
+.msg-caret { display: inline-block; width: 8px; height: 1em; margin-left: 2px; vertical-align: text-bottom; background: var(--colorBrandForeground1); animation: caret-blink 1s steps(2) infinite; }
+@keyframes caret-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .msg-caret { animation: none; } }
+.msg-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; width: 100%; padding-top: 6px; border-top: 1px solid var(--colorNeutralStroke2); }
+.msg-tools .msg-ai { margin: 0 6px 0 0; }
+.msg-tools-right { display: inline-flex; margin-left: auto; }
+
+/* Input: grows with the question up to ~6 lines; hint and character count underneath. */
+.assistant-input textarea { field-sizing: content; }
+.assistant-foot { flex-wrap: wrap; gap: 4px 12px; }
+.assistant-count { font-variant-numeric: tabular-nums; color: var(--colorPaletteDarkOrangeForeground1); }
+.assistant-foot-note { margin-left: auto; }
+@media (max-width: 760px) { .assistant-foot-note { margin-left: 0; } }
+
+/* Footer under the input: keyboard hint on the left, privacy note on the right, one quiet line on laptops. */
+.assistant .assistant-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px 20px; flex-wrap: wrap; padding: 0 20px 14px; font-size: 0.75rem; color: var(--colorNeutralForeground3); }
+.assistant-foot-hint, .assistant .assistant-foot-note { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+.assistant-foot-hint svg, .assistant-foot-note svg { flex: none; width: 14px; height: 14px; color: var(--colorNeutralForeground3); }
+.assistant-foot-note svg { color: var(--colorBrandForeground1); }
+.assistant-count { margin-left: auto; }
+@media (max-width: 760px) { .assistant .assistant-foot { justify-content: flex-start; } }
+
+/* Contain absolutely positioned bits (screen-reader labels, avatar initials) inside the scrolling list, or they
+   stretch the page as messages scroll out of view and leave an empty band below the app. */
+.assistant-messages { position: relative; }
+
+/* ---------- Notification bell (header): same sizes as the prototype's #071 notifications centre ---------- */
+.notif-trigger {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0;
+  border-radius: 50%; border: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground1);
+  color: var(--colorNeutralForeground2); cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.notif-trigger svg { width: 18px; height: 18px; }
+.notif-trigger:hover { background: var(--colorNeutralBackground1Hover); color: var(--colorNeutralForeground1); border-color: var(--colorNeutralStroke1); }
+.notif-trigger:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 2px; }
+.notif-count {
+  position: absolute; top: -2px; right: -2px; display: flex; align-items: center; justify-content: center; min-width: 18px; height: 18px;
+  padding: 0 4px; border-radius: 9px; background: var(--colorPaletteRedBackground3, #d13438); color: #fff;
+  font-size: 0.6875rem; font-weight: 700; line-height: 1; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Doubled class: Fluent's PopoverSurface adds its own padding and radius. */
+.notif-card.notif-card {
+  width: min(92vw, 380px); max-height: 480px; padding: 0; display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid var(--colorNeutralStroke1); border-radius: 10px; box-shadow: var(--shadow28);
+}
+.notif-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px;
+  background: var(--colorNeutralBackground2); border-bottom: 1px solid var(--colorNeutralStroke2);
+}
+.notif-head-text { min-width: 0; }
+.notif-head h2 { margin: 0; font-size: 1rem; font-weight: 700; line-height: 1.4; }
+.notif-head p { margin: 0; font-size: 0.75rem; color: var(--colorNeutralForeground3); }
+
+/* Plain text buttons, the prototype's .btn-ghost / .btn-subtle at small size. */
+.notif-link {
+  display: inline-flex; align-items: center; gap: 4px; flex: none; min-height: 26px; padding: 2px 8px; border: 1px solid transparent;
+  border-radius: 4px; background: transparent; font: 600 0.75rem var(--fontFamilyBase); color: var(--colorNeutralForeground1);
+  cursor: pointer; white-space: nowrap;
+}
+.notif-link svg { width: 14px; height: 14px; }
+.notif-link:hover { background: var(--colorNeutralBackground1Hover); }
+.notif-link:focus-visible, .notif-tab:focus-visible { outline: 2px solid var(--colorStrokeFocus2); outline-offset: 1px; }
+.notif-head .notif-link { min-height: 30px; padding: 3px 10px; }
+
+.notif-tabs { display: flex; gap: 4px; padding: 6px 14px; background: var(--colorNeutralBackground2); border-bottom: 1px solid var(--colorNeutralStroke2); }
+.notif-tab {
+  padding: 2px 10px; min-height: 26px; border: 1px solid transparent; border-radius: 4px; background: transparent; cursor: pointer;
+  font: 500 0.75rem var(--fontFamilyBase); color: var(--colorNeutralForeground1);
+}
+.notif-tab:hover { background: var(--colorNeutralBackground1Hover); }
+.notif-tab[aria-selected="true"] { background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-weight: 600; }
+
+.notif-empty { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; padding: 24px 16px; font-size: 0.8125rem; color: var(--colorNeutralForeground3); }
+.notif-list { list-style: none; margin: 0; padding: 0; flex: 1; max-height: 400px; overflow-y: auto; }
+.notif-item {
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border-bottom: 1px solid var(--colorNeutralStroke3);
+  background: transparent; transition: background 0.15s ease;
+}
+.notif-item:last-child { border-bottom: 0; }
+.notif-item.is-unread { background: var(--colorBrandBackground2); }
+.notif-item:hover { background: var(--colorNeutralBackground1Hover); }
+.notif-item-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.notif-item-head strong { font-size: 0.8125rem; font-weight: 700; line-height: 1.35; color: var(--colorNeutralForeground1); overflow-wrap: anywhere; }
+.notif-tag {
+  flex: none; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; line-height: 1.4; white-space: nowrap;
+  background: var(--colorNeutralBackground4); color: var(--colorNeutralForeground2); border: 1px solid transparent;
+}
+.notif-tag.tone-bad { background: var(--colorPaletteRedBackground1); color: var(--colorPaletteRedForeground1); border-color: var(--colorPaletteRedBorderActive); }
+.notif-tag.tone-warn { background: var(--colorPaletteMarigoldBackground1); color: var(--colorPaletteMarigoldForeground2); border-color: var(--colorPaletteMarigoldBorderActive); }
+.notif-tag.tone-info { background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); border-color: var(--colorBrandStroke2); }
+.notif-detail { margin: 0; font-size: 0.75rem; line-height: 1.35; color: var(--colorNeutralForeground3); overflow-wrap: anywhere; }
+.notif-item-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; margin-left: -8px; margin-right: -8px; }
