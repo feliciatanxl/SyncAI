@@ -25,7 +25,7 @@ describe('CaseDetailsBody', () => {
 
   it('shows the case’s own records', () => {
     expect(wrap(<CaseDetailsBody {...props} tab="evidence" />)).toContain('Joint inspection notice copy')
-    expect(wrap(<CaseDetailsBody {...props} tab="brief" />)).toContain('Recommended next actions')
+    expect(wrap(<CaseDetailsBody {...props} tab="brief" />)).toContain('Recommended Next Actions')
     expect(wrap(<CaseDetailsBody {...props} tab="comms" />)).toContain('simulated')
   })
 })
