@@ -71,13 +71,46 @@
 .case-card-actions { display: flex; gap: 4px; flex-wrap: wrap; }
 
 /* Doubled class: beats Fluent's own DialogSurface max-width (600px). */
-.case-details-dialog.case-details-dialog { max-width: min(920px, calc(100vw - 32px)); width: 100%; }
-.case-details-body { max-height: calc(100vh - 48px); }
-.case-details-meta { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; margin-bottom: 10px; }
-.case-details-meta > button { margin-left: auto; }
+.case-details-dialog.case-details-dialog { max-width: min(1240px, calc(100vw - 32px)); width: 100%; padding: 0; overflow: hidden; }
+/* Workspace layout from the prototype: header, side tab rail, scrolling content, footer actions. */
+.case-ws { display: flex; flex-direction: column; height: min(860px, calc(100vh - 48px)); }
+.case-ws-header { display: flex; justify-content: space-between; gap: 16px; padding: 20px 24px 14px; border-bottom: 1px solid var(--colorNeutralStroke2); }
+.case-ws-heading { min-width: 0; }
+.case-ws-kicker { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.case-ws-kicker .case-id { font-family: ui-monospace, monospace; font-weight: 600; color: var(--colorBrandForeground1); }
+.case-ws-category { text-transform: uppercase; font-weight: 600; }
+.case-ws-due .case-due { padding: 2px 8px; border: 1px solid currentColor; border-radius: 4px; font-size: 0.8125rem; font-weight: 600; }
+.case-ws-location { display: inline-flex; align-items: center; gap: 4px; }
+.case-ws-title.case-ws-title { margin: 8px 0 6px; font-size: 1.5rem; line-height: 1.25; }
+.case-ws-owner { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.case-ws-readiness { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 0.875rem; font-weight: 700; background: var(--colorPaletteYellowBackground1); color: var(--colorNeutralForeground1); }
+.case-ws-readiness.is-ready { background: var(--colorPaletteGreenBackground1); color: var(--colorPaletteGreenForeground1); }
+.case-ws-close { flex-shrink: 0; align-self: flex-start; }
+.case-ws-main { flex: 1; display: grid; grid-template-columns: 300px minmax(0, 1fr); min-height: 0; }
+.case-ws-nav { padding: 16px 12px; gap: 4px; border-right: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground2); overflow-y: auto; }
+.case-ws-nav [role="tab"] { justify-content: flex-start; padding: 12px 14px; border-radius: 8px; }
+.case-ws-nav [role="tab"][aria-selected="true"] { background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); }
+.case-ws-nav [role="tab"] > span:last-child { flex: 1; min-width: 0; }
+.case-ws-tab { display: flex; align-items: center; gap: 8px; width: 100%; }
+.case-ws-tab-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.case-ws-count { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; background: var(--colorNeutralBackground3); }
+.case-ws-count.is-warn { background: var(--colorPaletteYellowBackground1); border: 1px solid var(--colorPaletteYellowBorder2); }
+.case-ws-count.is-alert { background: var(--colorPaletteRedBackground3); color: #fff; font-weight: 800; padding: 0; }
+.case-ws-count.is-ok { background: var(--colorPaletteGreenBackground3); color: #fff; padding: 0; }
+.case-ws-content { overflow-y: auto; padding: 20px 24px; }
+.case-ws-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--colorNeutralStroke2); }
+.case-ws-footer-group { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.case-ws-pending-link { text-decoration: underline; font-weight: 700; }
+@media (max-width: 760px) {
+  .case-ws { height: 100vh; }
+  .case-ws-header { padding: 14px 16px 10px; }
+  .case-ws-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .case-ws-nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--colorNeutralStroke2); padding: 8px; }
+  .case-ws-nav [role="tab"] { flex-shrink: 0; }
+  .case-ws-content, .case-ws-footer { padding-left: 16px; padding-right: 16px; }
+}
 .case-request { margin-bottom: 10px; }
 .case-request-decide { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-.case-tabs { overflow-x: auto; border-bottom: 1px solid var(--colorNeutralStroke2); margin-bottom: 12px; }
 .case-tab-panel h3 { font-size: 0.9375rem; margin: 14px 0 6px; }
 .case-tab-panel .panel-head h3 { margin: 0; }
 .case-cards { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
@@ -125,8 +158,6 @@
 @media (max-width: 560px) {
   .case-filters { grid-template-columns: minmax(0, 1fr); }
   .case-details-dialog.case-details-dialog { max-width: 100vw; max-height: 100vh; border-radius: 0; }
-  .case-details-body { max-height: calc(100vh - 32px); }
-  .case-details-meta > button { margin-left: 0; }
 }
 
 /* Long stage names (e.g. in Tamil) wrap inside the badge instead of spilling out. */
@@ -302,3 +333,89 @@
 /* Spacing lives on a wrapper: Fluent's own button styles reset the button's margin. */
 .radar-more-wrap { margin-top: 20px; }
 .radar-more-wrap .radar-more { width: 100%; }
+
+/* Follow-ups list and the "Why was this flagged?" explanation, as in the prototype. */
+.fu-list { display: flex; flex-direction: column; gap: 14px; }
+.fu-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fu-head h3 { margin: 0; font-size: 0.9375rem; }
+.fu-head p { margin: 2px 0 0; }
+.fu-card { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--colorPaletteMarigoldBorderActive); border-left: 4px solid var(--colorPaletteMarigoldBorderActive); border-radius: 8px; background: var(--colorNeutralBackground2); }
+.fu-card.fu-critical { border-left-color: var(--colorPaletteRedBorderActive); }
+.fu-card p { margin: 0; }
+.fu-card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.fu-card-top h3 { margin: 0; font-size: 1rem; }
+.fu-record, .fu-next { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--colorNeutralStroke3); background: var(--colorNeutralBackground1); }
+.fu-next { color: var(--colorBrandForeground1); }
+.fu-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; padding-top: 8px; border-top: 1px solid var(--colorNeutralStroke3); }
+.fu-actions > div { display: flex; gap: 6px; flex-wrap: wrap; }
+.fu-resolve.fu-resolve { color: var(--colorPaletteGreenForeground1); border-color: var(--colorPaletteGreenBorderActive); font-weight: 600; }
+.fu-disclosure { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--colorBrandStroke2); background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-size: 0.875rem; line-height: 1.45; }
+.fu-disclosure strong { display: flex; align-items: center; gap: 6px; }
+.fu-disclosure p { margin: 4px 0 0; }
+.fu-finding { padding: 14px; border-radius: 8px; border: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground2); }
+.fu-finding p { margin: 6px 0 0; }
+.fu-part { padding: 12px 14px; border-radius: 8px; border: 1px solid; border-left-width: 4px; background: var(--colorNeutralBackground1); font-size: 0.875rem; line-height: 1.45; }
+.fu-part h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 0.9375rem; }
+.fu-part ul { margin: 0; padding-left: 20px; }
+.fu-part p { margin: 0; }
+.fu-facts { border-color: var(--colorPaletteGreenBorderActive); }
+.fu-facts h4 { color: var(--colorPaletteGreenForeground1); }
+.fu-rules { border-color: var(--colorBrandStroke2); border-left-color: var(--colorBrandStroke1); }
+.fu-rules h4, .fu-recs h4 { color: var(--colorBrandForeground1); }
+.fu-missing { border-color: var(--colorPaletteMarigoldBorderActive); }
+.fu-missing h4 { color: var(--colorPaletteMarigoldForeground2); }
+.fu-recs { border-color: var(--colorNeutralStroke1); border-left-color: var(--colorBrandForeground1); }
+.fu-source { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 14px; border-radius: 8px; border: 1px solid var(--colorNeutralStroke2); background: var(--colorNeutralBackground2); }
+.fu-source-label { display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--colorNeutralForeground3); }
+.fu-source-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Header: close button sits first in the DOM for focus, but shows on the right. */
+.case-ws-heading { flex: 1; }
+.case-ws-close { order: 2; }
+.case-ws-title.case-ws-title { font-size: 1.75rem; font-weight: 700; }
+.case-ws-nav [role="tab"] { font-size: 1rem; }
+
+/* Prototype-exact details: header chips, side menu items, severity pills, footer link. */
+.case-ws-header { padding: 24px 28px 16px; }
+.case-ws-kicker .case-id { font-size: 0.9375rem; letter-spacing: 0.02em; }
+.case-ws-kicker .case-badge, .case-ws-category { font-size: 0.875rem; }
+.case-ws-due .case-due { border-radius: 4px; padding: 2px 8px; }
+.case-ws-due .case-due-overdue { color: var(--colorPaletteRedForeground1); background: var(--colorPaletteRedBackground1); }
+.case-ws-title.case-ws-title { margin: 6px 0 10px; font-size: 1.75rem; }
+.case-ws-owner .fui-Button { font-size: 1rem; font-weight: 400; }
+.case-ws-nav { padding: 20px 14px; gap: 6px; }
+.case-ws-nav [role="tab"] { padding: 14px 16px; border: 1px solid transparent; border-radius: 8px; color: var(--colorNeutralForeground1); }
+.case-ws-nav [role="tab"][aria-selected="true"] { border-color: var(--colorBrandStroke2); background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); }
+.case-ws-nav [role="tab"]::after, .case-ws-nav [role="tab"]::before { display: none; }
+.case-ws-count { margin-left: auto; }
+.case-ws-content { padding: 24px 32px; }
+.fu-code { margin-left: 8px; padding: 1px 6px; border-radius: 4px; font-size: 0.75rem; background: var(--colorNeutralBackground3); color: var(--colorNeutralForeground2); }
+.fu-card-title { display: inline-flex; align-items: center; flex-wrap: wrap; }
+.fu-sev { padding: 2px 12px; border-radius: 999px; border: 1px solid; font-size: 0.875rem; }
+.fu-sev-warning { color: var(--colorPaletteMarigoldForeground2); border-color: var(--colorPaletteMarigoldBorderActive); background: var(--colorPaletteYellowBackground1); }
+.fu-sev-critical { color: var(--colorPaletteRedForeground1); border-color: var(--colorPaletteRedBorderActive); background: var(--colorPaletteRedBackground1); }
+.fu-badge { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--colorBrandStroke2); background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-size: 0.875rem; }
+.fu-back.fu-back { font-weight: 600; padding-left: 0; }
+.fu-record { font-size: 0.75rem; color: var(--colorNeutralForeground3); }
+.fu-threshold { font-size: 0.8125rem; color: var(--colorNeutralForeground3); }
+.fu-finding h3 { font-size: 1.125rem; }
+.fu-empty { padding: 16px; border-radius: 8px; border: 1px solid var(--colorPaletteGreenBorderActive); background: var(--colorPaletteGreenBackground1); }
+.fu-empty strong { color: var(--colorPaletteGreenForeground1); }
+.fu-empty p { margin: 4px 0 0; }
+.case-ws-footer { padding: 14px 32px; }
+.case-ws-pending-link.case-ws-pending-link { color: var(--colorNeutralForeground1); }
+
+/* Side menu sized like the prototype: all eight items fit without scrolling, counts pinned right. */
+.case-ws-main { grid-template-columns: 340px minmax(0, 1fr); }
+.case-ws-nav { padding: 16px 12px; gap: 2px; overflow: visible; }
+.case-ws-nav [role="tab"] { padding: 10px 16px; min-height: 0; }
+.case-ws-nav [role="tab"] .fui-Tab__content { flex: 1; min-width: 0; }
+@media (max-width: 760px) { .case-ws-nav { overflow-x: auto; } }
+
+/* Line the menu icons, content and footer up with the case title (28px header inset). */
+.case-ws-nav { padding-left: 9px; padding-right: 9px; }
+.case-ws-nav [role="tab"] { padding-left: 18px; padding-right: 14px; }
+.case-ws-footer { padding-left: 28px; padding-right: 28px; }
+@media (max-width: 760px) { .case-ws-nav { padding-left: 8px; } .case-ws-footer { padding-left: 16px; padding-right: 16px; } }
+/* Drop the subtle button's inner left padding so the Assigned icon lines up with the title. */
+.case-ws-owner > .fui-Button:first-child { padding-left: 0; min-width: 0; }

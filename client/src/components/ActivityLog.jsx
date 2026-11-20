@@ -12,7 +12,7 @@ import { useNow } from '../lib/time.js'
 const ACTIONS = [
   'signed_up', 'signed_in', 'opened', 'signed_out', 'approved', 'declined', 'role_changed', 'access_off', 'access_on', 'status_changed',
   'team_created', 'team_renamed', 'team_deleted', 'team_member_added', 'team_member_removed',
-  'assistant_helpful', 'assistant_not_helpful',
+  'assistant_helpful', 'assistant_not_helpful', 'assistant_blocked', 'assistant_masked',
 ]
 const ICON = {
   signed_up: <PersonAdd20Regular />,
@@ -32,6 +32,8 @@ const ICON = {
   team_member_removed: <PersonDelete20Regular />,
   assistant_helpful: <ThumbLike20Regular />,
   assistant_not_helpful: <ThumbDislike20Regular />,
+  assistant_blocked: <ShieldTask20Regular />,
+  assistant_masked: <LockClosed20Regular />,
 }
 const TONE = { approved: 'tone-good', access_on: 'tone-good', declined: 'tone-bad', access_off: 'tone-bad', role_changed: 'tone-info', status_changed: 'tone-info', team_created: 'tone-info', team_member_added: 'tone-good', team_member_removed: 'tone-bad', team_deleted: 'tone-bad' }
 const PAGE = 50

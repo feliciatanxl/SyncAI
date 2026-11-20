@@ -1512,3 +1512,9 @@ code { font-size: 0.9em; }
 .notif-tag.tone-info { background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); border-color: var(--colorBrandStroke2); }
 .notif-detail { margin: 0; font-size: 0.75rem; line-height: 1.35; color: var(--colorNeutralForeground3); overflow-wrap: anywhere; }
 .notif-item-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; margin-left: -8px; margin-right: -8px; }
+
+/* Follow-up suggestions after a chat starts: one quiet, sideways-scrolling row instead of wrapped pills. */
+.assistant-suggestions { padding: 8px 20px; }
+.assistant-suggestions .chips { flex-wrap: nowrap; overflow-x: auto; gap: 6px; scrollbar-width: thin; padding-bottom: 2px; }
+.assistant-suggestions .chip { flex: none; white-space: nowrap; padding: 4px 10px; font-size: 0.8125rem; background: transparent; border: 1px solid var(--colorNeutralStroke2); border-radius: 6px; color: var(--colorNeutralForeground2); }
+.assistant-suggestions .chip:hover:not(:disabled) { background: var(--colorNeutralBackground1Hover); color: var(--colorBrandForeground1); }
