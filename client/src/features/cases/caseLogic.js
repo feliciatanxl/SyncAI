@@ -220,3 +220,36 @@ export function shiftCounts(cases, now = new Date()) {
   const tone = (c) => deadlineCountdown(c.deadline, now).tone
   return { overdue: open.filter((c) => tone(c) === 'overdue').length, dueSoon: open.filter((c) => tone(c) === 'soon').length }
 }
+
+// Counts for Ask SyncAI's insights: numbers only (no titles, names, residents or notes), from the cases this person
+// can already see. The server rebuilds this from a fixed schema, so anything else added here is dropped there.
+export function caseInsights(cases, me, now = new Date()) {
+  const open = cases.filter((c) => caseStage(c) !== 'closed')
+  const tally = (list, key) => list.reduce((acc, item) => ({ ...acc, [key(item)]: (acc[key(item)] ?? 0) + 1 }), {})
+  const tone = (c) => deadlineCountdown(c.deadline, now).tone
+  const findings = open.flatMap((c) => detectFollowUps(c, now))
+  const ctx = {
+    cases: {
+      open: open.length,
+      overdue: open.filter((c) => tone(c) === 'overdue').length,
+      dueSoon: open.filter((c) => tone(c) === 'soon').length,
+      followUps: findings.length,
+      blocked: open.filter((c) => caseStage(c) === 'pending_external').length,
+      readyForClosure: open.filter((c) => caseStage(c) === 'ready_for_closure').length,
+      closureItemsPending: open.reduce((n, c) => n + closureReadiness(c).items.length, 0),
+      pendingRequests: open.filter((c) => c.pendingRequest).length,
+      closed: cases.length - open.length,
+    },
+    byUrgency: tally(open, (c) => c.urgency),
+    byStage: tally(cases, caseStage),
+    followUpsByRule: tally(findings, (f) => f.ruleId),
+  }
+  if (me.role === 'manager') {
+    const owners = [...new Set(open.map((c) => c.ownerId))]
+    ctx.officers = owners.map((id) => {
+      const mine = open.filter((c) => c.ownerId === id)
+      return { open: mine.length, overdue: mine.filter((c) => tone(c) === 'overdue').length }
+    }).sort((a, b) => b.open - a.open)
+  }
+  return ctx
+}

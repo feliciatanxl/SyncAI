@@ -12,6 +12,8 @@ import { renderMarkdown } from '../lib/markdown.jsx'
 import { greetingName } from '../lib/time.js'
 import { TOPICS, matchTopic } from '../lib/helpGuide.js'
 import { Logo } from './Brand.jsx'
+import { canUseCaseCentre, caseInsights, visibleCases } from '../features/cases/caseLogic.js'
+import { caseDataMode, createCaseService } from '../features/cases/caseService.js'
 
 const TOPIC_ICON = {
   decides: <Sparkle24Regular />,
@@ -50,6 +52,7 @@ export default function AssistantChat({ me, name, photo, chat, goTo, available, 
   const topics = TOPICS.filter((topic) => !topic.adminOnly || isAdmin)
   const rolePrompts = ROLE_PROMPTS[me.status === 'active' ? me.role : 'pending'] ?? []
   const waiting = busy && messages.at(-1)?.from === 'user'
+  const insights = useCaseInsights(me, getToken)
 
   // Keep the newest message in view.
   useEffect(() => {
@@ -72,7 +75,7 @@ export default function AssistantChat({ me, name, photo, chat, goTo, available, 
   // Streams the AI's answer into a new bot message. Falls back to the help guide when the AI isn't connected.
   async function askAI(history, text) {
     const id = nextId++
-    const body = { language, stream: true, messages: history.slice(-12).map((m) => ({ role: m.from === 'user' ? 'user' : 'assistant', content: m.text.slice(0, MAX_CHARS) })) }
+    const body = { language, stream: true, ...(insights && { context: insights }), messages: history.slice(-12).map((m) => ({ role: m.from === 'user' ? 'user' : 'assistant', content: m.text.slice(0, MAX_CHARS) })) }
     let started = false
     try {
       const full = await apiStream('/assistant', {
@@ -264,4 +267,20 @@ function AnswerTools({ m, available, goTo, onRate, getToken }) {
       </span>
     </div>
   )
+}
+
+// Counts of the cases this person can see, for the AI's insights (numbers only; see caseInsights). Admins' figures
+// are counted on the server; people without the Case Action Centre send none. A failed load just means no figures.
+function useCaseInsights(me, getToken) {
+  const [insights, setInsights] = useState(null)
+  useEffect(() => {
+    if (!canUseCaseCentre(me)) return
+    let live = true
+    createCaseService({ mode: caseDataMode(), me, getToken }).list().then(
+      (data) => live && setInsights(caseInsights(visibleCases(data.cases, me, data.managedOfficerIds), me)),
+      () => live && setInsights(null),
+    )
+    return () => { live = false }
+  }, [me, getToken])
+  return insights
 }
