@@ -6,12 +6,13 @@ import {
   ThumbLike16Filled, ThumbLike16Regular, ChatSparkle24Regular, Keyboard16Regular, ShieldKeyhole16Regular,
 } from '@fluentui/react-icons'
 import { apiRequest, apiStream } from '../lib/api.js'
-import { usePreferences, useT } from '../lib/i18n.js'
-import { STRINGS } from '../lib/strings.js'
+import { useLocale, usePreferences, useT } from '../lib/i18n.js'
 import { renderMarkdown } from '../lib/markdown.jsx'
 import { greetingName } from '../lib/time.js'
 import { TOPICS, matchTopic } from '../lib/helpGuide.js'
 import { Logo } from './Brand.jsx'
+import { canUseCaseCentre, caseInsights, visibleCases } from '../features/cases/caseLogic.js'
+import { caseDataMode, createCaseService } from '../features/cases/caseService.js'
 
 const TOPIC_ICON = {
   decides: <Sparkle24Regular />,
@@ -22,19 +23,13 @@ const TOPIC_ICON = {
   tasks: <TaskListLtr24Regular />,
 }
 // Questions that suit each kind of account, answered by the AI (they need more than the fixed help guide).
-const ROLE_PROMPTS = { manager: ['approveClosure', 'teamView'], member: ['reassign', 'nextUp'], admin: ['addTeam'], pending: ['approval'] }
-// Sections an AI answer may point to; a "Go to" button appears when the answer names one.
-const LINKABLE = ['settings', 'cases', 'tasks', 'plan', 'team', 'decides', 'people', 'teams', 'activity']
+// The first ones use the person's live figures (see useCaseInsights; admins' are counted on the server).
+const ROLE_PROMPTS = { manager: ['priorities', 'teamBalance', 'approveClosure'], member: ['priorities', 'atRisk', 'nextUp'], admin: ['teamsAttention', 'addTeam'], pending: ['approval'] }
 const MAX_CHARS = 1000
 const REPLY_DELAY = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : 400
 
 let nextId = 1
 
-// Sections named in an answer, in the reader's language or in English, that this person can open.
-export function linkedSections(text, available, t) {
-  const lower = text.toLowerCase()
-  return LINKABLE.filter((id) => available.includes(id) && [t(`nav.${id}`), STRINGS.en[`nav.${id}`]].some((label) => label && lower.includes(label.toLowerCase()))).slice(0, 2)
-}
 
 // Ask SyncAI. Suggested help-guide questions get fixed, checked answers instantly; typed and role questions go to
 // the AI through the SyncAI API (streamed as it writes). Without the AI, typed questions fall back to the help guide.
@@ -50,6 +45,7 @@ export default function AssistantChat({ me, name, photo, chat, goTo, available, 
   const topics = TOPICS.filter((topic) => !topic.adminOnly || isAdmin)
   const rolePrompts = ROLE_PROMPTS[me.status === 'active' ? me.role : 'pending'] ?? []
   const waiting = busy && messages.at(-1)?.from === 'user'
+  const insights = useCaseInsights(me, getToken)
 
   // Keep the newest message in view.
   useEffect(() => {
@@ -72,7 +68,9 @@ export default function AssistantChat({ me, name, photo, chat, goTo, available, 
   // Streams the AI's answer into a new bot message. Falls back to the help guide when the AI isn't connected.
   async function askAI(history, text) {
     const id = nextId++
-    const body = { language, stream: true, messages: history.slice(-12).map((m) => ({ role: m.from === 'user' ? 'user' : 'assistant', content: m.text.slice(0, MAX_CHARS) })) }
+    const body = { language, stream: true, ...(insights && { context: insights.counts }), messages: history.slice(-12).map((m) => ({ role: m.from === 'user' ? 'user' : 'assistant', content: m.text.slice(0, MAX_CHARS) })) }
+    // When the answer could use live figures: when they were counted (admins' are counted with the question).
+    const asOf = isAdmin ? new Date() : insights?.at
     let started = false
     try {
       const full = await apiStream('/assistant', {
@@ -80,7 +78,7 @@ export default function AssistantChat({ me, name, photo, chat, goTo, available, 
         getToken,
         onText: (soFar) => {
           const shown = soFar.replace('\u0000', '')
-          if (!started) { started = true; setMessages((list) => [...list, { id, from: 'bot', ai: true, streaming: true, text: shown }]) }
+          if (!started) { started = true; setMessages((list) => [...list, { id, from: 'bot', ai: true, streaming: true, text: shown, asOf, asOfOpen: insights?.counts.cases.open }]) }
           else update(id, { text: shown })
         },
       })
@@ -178,7 +176,7 @@ export default function AssistantChat({ me, name, photo, chat, goTo, available, 
                 {m.retry && !busy && (
                   <Button size="small" icon={<ArrowClockwise16Regular />} onClick={() => retry(m)}>{t('assistant.retry')}</Button>
                 )}
-                {m.ai && !m.streaming && !m.error && <AnswerTools m={m} available={available} goTo={goTo} onRate={(helpful) => update(m.id, { rated: helpful })} getToken={getToken} />}
+                {m.ai && !m.streaming && !m.error && <AnswerTools m={m} isAdminAnswer={isAdmin} onRate={(helpful) => update(m.id, { rated: helpful })} getToken={getToken} />}
               </div>
             </li>
           ))
@@ -226,11 +224,11 @@ export default function AssistantChat({ me, name, photo, chat, goTo, available, 
   )
 }
 
-// Under each finished AI answer: Copy, 👍/👎 (sent anonymously) and "Go to" buttons for sections it mentions.
-function AnswerTools({ m, available, goTo, onRate, getToken }) {
+// Under each finished AI answer: Copy and 👍/👎 (sent anonymously).
+function AnswerTools({ m, isAdminAnswer, onRate, getToken }) {
   const t = useT()
+  const locale = useLocale()
   const [copied, setCopied] = useState(false)
-  const links = linkedSections(m.text, available, t)
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(m.text)
@@ -245,10 +243,10 @@ function AnswerTools({ m, available, goTo, onRate, getToken }) {
   }
   return (
     <div className="msg-tools">
-      <span className="msg-ai small muted">{t('assistant.aiLabel')}</span>
-      {links.map((id) => (
-        <Button key={id} size="small" appearance="primary" icon={<ArrowRight16Regular />} iconPosition="after" onClick={() => goTo(id)}>{t(`nav.${id}`)}</Button>
-      ))}
+      <span className="msg-ai small muted">
+        {t('assistant.aiLabel')}
+        {m.asOf && <> · {t(isAdminAnswer ? 'assistant.asOfAdmin' : 'assistant.asOfCases', { n: m.asOfOpen ?? 0, time: m.asOf.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' }) })}</>}
+      </span>
       <span className="msg-tools-right">
         <Tooltip content={copied ? t('assistant.copied') : t('assistant.copy')} relationship="label">
           <Button size="small" appearance="subtle" icon={copied ? <Checkmark16Regular /> : <Copy16Regular />} onClick={copy} />
@@ -264,4 +262,20 @@ function AnswerTools({ m, available, goTo, onRate, getToken }) {
       </span>
     </div>
   )
+}
+
+// Counts of the cases this person can see, for the AI's insights (numbers only; see caseInsights). Admins' figures
+// are counted on the server; people without the Case Action Centre send none. A failed load just means no figures.
+function useCaseInsights(me, getToken) {
+  const [insights, setInsights] = useState(null)
+  useEffect(() => {
+    if (!canUseCaseCentre(me)) return
+    let live = true
+    createCaseService({ mode: caseDataMode(), me, getToken }).list().then(
+      (data) => live && setInsights({ counts: caseInsights(visibleCases(data.cases, me, data.managedOfficerIds), me), at: new Date() }),
+      () => live && setInsights(null),
+    )
+    return () => { live = false }
+  }, [me, getToken])
+  return insights
 }

@@ -1,6 +1,7 @@
 import express from 'express'
 import { rateLimit } from 'express-rate-limit'
 import { ACTIONS } from './activity.js'
+import { adminContext, cleanCaseContext } from './guardrails.js'
 import { KINDS, cleanTeamName } from './teams.js'
 
 const ROLES = ['admin', 'manager', 'member']
@@ -216,7 +217,15 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300, trustPr
   }, assistantLimit, async (req, res) => {
     if (!assistant?.configured) return res.status(503).json({ message: 'Ask SyncAI is not connected to its AI service yet.', code: 'assistant_off' })
     const language = ['en', 'zh', 'ms', 'ta'].includes(req.body?.language) ? req.body.language : 'en'
-    const options = { language, role: req.user.status === 'active' ? req.user.role : 'pending user' }
+    const role = req.user.status === 'active' ? req.user.role : 'pending user'
+    // Insight figures: admins' are counted here from the user store; members' and managers' come from the browser
+    // (counts of cases they can already see) and are rebuilt from a fixed schema of numbers. Pending people get none.
+    const context = role === 'admin'
+      ? adminContext(await users.list(), await users.listTeams())
+      : cleanCaseContext(req.body?.context, role)
+    // Guardrail events are counted like 👍/👎: no person, question or answer is recorded.
+    const onGuard = (action) => Promise.resolve(users.logActivity(null, action, null, {})).catch(() => {})
+    const options = { language, role, context, onGuard }
     if (req.body?.stream !== true) return res.json({ reply: await assistant.ask(req.body?.messages, options) })
 
     // Streamed as plain text while it's written. A failure before the first piece is a normal JSON error;

@@ -19,13 +19,13 @@ describe('CaseDetailsBody', () => {
 
   it.each(DETAIL_TABS)('renders the %s section without raw data', (tab) => {
     const html = wrap(<CaseDetailsBody {...props} tab={tab} />)
-    expect(html).toContain('Timeline &amp; notes')
+    expect(html).toContain('Timeline &amp; Notes')
     expect(html).not.toMatch(/\{"|\[object Object\]|undefined/)
   })
 
   it('shows the case’s own records', () => {
     expect(wrap(<CaseDetailsBody {...props} tab="evidence" />)).toContain('Joint inspection notice copy')
-    expect(wrap(<CaseDetailsBody {...props} tab="brief" />)).toContain('Recommended next actions')
+    expect(wrap(<CaseDetailsBody {...props} tab="brief" />)).toContain('Recommended Next Actions')
     expect(wrap(<CaseDetailsBody {...props} tab="comms" />)).toContain('simulated')
   })
 })

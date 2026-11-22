@@ -167,3 +167,20 @@ describe('shift ordering', () => {
     expect(shiftCounts(list, now)).toEqual({ overdue: 1, dueSoon: 1 })
   })
 })
+
+describe('caseInsights', () => {
+  it('sends counts only, and unnamed per-officer workload to managers', async () => {
+    const { caseInsights } = await import('./caseLogic.js')
+    const { demoCases } = await import('./demoCases.js')
+    const now = new Date('2026-11-20T09:00:00+08:00')
+    const me = { id: 'me', role: 'manager', status: 'active', displayName: 'Me' }
+    const cases = demoCases(me, now)
+    const ctx = caseInsights(cases, me, now)
+    expect(ctx.cases.open + ctx.cases.closed).toBe(cases.length)
+    expect(ctx.officers.length).toBeGreaterThan(0)
+    const json = JSON.stringify(ctx)
+    for (const c of cases) expect(json).not.toContain(c.title)
+    expect(json).not.toMatch(/Mdm|Marcus|demo-officer/)
+    expect(caseInsights(cases, { ...me, role: 'member' }, now).officers).toBeUndefined()
+  })
+})

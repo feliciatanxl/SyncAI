@@ -17,11 +17,15 @@ const BULLET = /^\s*[-*•]\s+/
 const NUMBER = /^\s*\d+[.)]\s+/
 const HEADING = /^\s*#{1,6}\s+/
 
+// The AI model writes narrow/thin no-break spaces and non-breaking hyphens, which some fonts draw almost zero-width
+// ("next24hours"); show them as ordinary spaces and hyphens.
+export const plainSpacing = (text) => text.replace(/[  -   ]/g, ' ').replace(/[‐‑]/g, '-')
+
 export function renderMarkdown(text) {
   const blocks = []
   let list = null
   const flush = () => { if (list) blocks.push(list); list = null }
-  text.replace(/\r/g, '').split('\n').forEach((raw, i) => {
+  plainSpacing(text).replace(/\r/g, '').split('\n').forEach((raw, i) => {
     const line = raw.trimEnd()
     const kind = BULLET.test(line) ? 'ul' : NUMBER.test(line) ? 'ol' : null
     if (kind) {
