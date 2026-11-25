@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Badge, Button } from '@fluentui/react-components'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { Badge, Button, Spinner } from '@fluentui/react-components'
 import {
   ArrowRight16Regular, BrainCircuit24Regular, BriefcaseSearch20Regular, ChatSparkle20Regular, CalendarLtr20Regular, CalendarLtr24Regular, Grid20Regular, PeopleTeam20Regular,
   PersonClock24Regular, PersonProhibited24Regular, Settings20Regular, Sparkle20Regular,
@@ -10,7 +10,6 @@ import CaseActionCentre from '../features/cases/CaseActionCentre.jsx'
 import HowItDecides from '../components/HowItDecides.jsx'
 import MicrosoftToDo from '../components/MicrosoftToDo.jsx'
 import MyTeam from '../components/MyTeam.jsx'
-import OutlookCalendar from '../components/OutlookCalendar.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import PortalShell from '../components/PortalShell.jsx'
 import SettingsPanel from '../components/SettingsPanel.jsx'
@@ -21,6 +20,8 @@ import { canUseCaseCentre, visibleCases } from '../features/cases/caseLogic.js'
 import { caseNotifications } from '../features/cases/caseNotifications.js'
 import { caseDataMode, createCaseService } from '../features/cases/caseService.js'
 import { greetingKey, greetingName, useNow } from '../lib/time.js'
+
+const TeamCalendar = lazy(() => import('../features/planning/TeamCalendar.jsx'))
 
 const ICONS = {
   overview: <Grid20Regular />,
@@ -34,8 +35,7 @@ const ICONS = {
 }
 const FACTOR_NUMBERS = [1, 2, 3, 4]
 
-// Portal for team members and managers. Tasks, plans and team workload arrive with the planning engine,
-// so those pages explain what's coming instead of showing made-up data.
+// Portal for team members and managers.
 export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSignOut, onSwitchAccount }) {
   const t = useT()
   // Back from Microsoft's consent screen: reopen the section that asked (cleared once read).
@@ -66,9 +66,9 @@ export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSi
           <MicrosoftToDo me={me} />
         </ComingSoon>
       ) : current === 'plan' ? (
-        <ComingSoon icon={<CalendarLtr24Regular />} title={t('nav.plan')} heading={t('member.plan.heading')} text={t('member.plan.text')} goTo={setSection}>
-          <OutlookCalendar me={me} />
-        </ComingSoon>
+        <Suspense fallback={<Spinner label={t('app.loading')} />}>
+          <TeamCalendar key={me.id} me={me} getToken={getToken} />
+        </Suspense>
       ) : current === 'team' ? (
         <MyTeam getToken={getToken} />
       ) : current === 'assistant' ? (

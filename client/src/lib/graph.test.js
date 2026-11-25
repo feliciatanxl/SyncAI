@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InteractionRequiredAuthError } from '@azure/msal-browser'
 import { GRAPH_SCOPES, getApiToken, getGraphToken, loginRequest } from '../auth/msal.js'
-import { calendarWindow, errorKind, formatDuration, formatWhen, getProfile, GraphError, graphRequest, listEvents, toEvent } from './graph.js'
+import { errorKind, formatDuration, getProfile, GraphError, graphRequest, listEvents, toEvent } from './graph.js'
 import { memberSections } from './sections.js'
 
 const account = { homeAccountId: 'home-1', username: 'officer@example.com' }
@@ -118,6 +118,7 @@ describe('calendar events', () => {
     start: { dateTime: '2026-11-10T01:00:00.0000000', timeZone: 'UTC' },
     end: { dateTime: '2026-11-10T02:30:00.0000000', timeZone: 'UTC' },
     isAllDay: false,
+    sensitivity: 'normal',
     showAs: 'busy',
     location: { displayName: 'Block A' },
   }
@@ -129,6 +130,7 @@ describe('calendar events', () => {
       start: new Date('2026-11-10T01:00:00Z'),
       end: new Date('2026-11-10T02:30:00Z'),
       allDay: false,
+      restricted: false,
       minutes: 90,
       showAs: 'busy',
       location: 'Block A',
@@ -136,20 +138,21 @@ describe('calendar events', () => {
   })
 
   it('omits what Microsoft did not return, and drops cancelled or broken events', () => {
-    expect(toEvent({ id: 'x', start: raw.start, end: raw.end })).toMatchObject({ subject: null, showAs: null, location: null })
+    expect(toEvent({ id: 'x', start: raw.start, end: raw.end, sensitivity: 'normal' })).toMatchObject({ subject: null, showAs: null, location: null })
     expect(toEvent({ ...raw, isCancelled: true })).toBe(null)
     expect(toEvent({ ...raw, start: null })).toBe(null)
   })
 
-  it('converts UTC times to the viewer’s timezone', () => {
-    const event = toEvent(raw)
-    expect(formatWhen(event, 'en-SG', 'Asia/Singapore').time).toMatch(/^9:00\s?am – 10:30\s?am$/i)
-    expect(formatWhen(event, 'en-SG', 'America/Los_Angeles').date).toMatch(/9 Nov/)
+  it.each(['private', 'personal', 'confidential', undefined])('redacts %s Outlook details before mapping the calendar', (sensitivity) => {
+    expect(toEvent({ ...raw, sensitivity })).toMatchObject({ subject: null, location: null, showAs: 'busy', restricted: true })
   })
 
-  it('keeps all-day events on their own date in every timezone', () => {
-    const allDay = toEvent({ ...raw, isAllDay: true, start: { dateTime: '2026-11-12T00:00:00.0000000' }, end: { dateTime: '2026-11-13T00:00:00.0000000' } })
-    expect(formatWhen(allDay, 'en-SG', 'America/Los_Angeles')).toEqual({ date: expect.stringMatching(/12 Nov/), time: null })
+  it('parses Singapore wall-clock times and keeps multi-day boundaries as dates', () => {
+    const stamp = (dateTime) => ({ dateTime, timeZone: 'Singapore Standard Time' })
+    const event = toEvent({ ...raw, start: stamp('2026-11-10T00:15:00.0000000'), end: stamp('2026-11-10T01:15:00.0000000') })
+    expect(event.start.toISOString()).toBe('2026-11-09T16:15:00.000Z')
+    const allDay = toEvent({ ...raw, isAllDay: true, start: stamp('2026-11-10T00:00:00.0000000'), end: stamp('2026-11-13T00:00:00.0000000') })
+    expect([allDay.start.toISOString(), allDay.end.toISOString()]).toEqual(['2026-11-10T00:00:00.000Z', '2026-11-13T00:00:00.000Z'])
   })
 
   it('formats durations', () => {
@@ -160,7 +163,8 @@ describe('calendar events', () => {
 })
 
 describe('listEvents', () => {
-  const { start, end } = calendarWindow(new Date('2026-11-10T04:00:00Z'))
+  const start = new Date('2026-11-10T04:00:00Z')
+  const end = new Date('2026-11-17T04:00:00Z')
   const event = (id) => ({ id, start: { dateTime: '2026-11-11T01:00:00.0000000' }, end: { dateTime: '2026-11-11T02:00:00.0000000' } })
 
   it('asks calendarView for a valid UTC window and only read-basic fields', async () => {
@@ -173,7 +177,15 @@ describe('listEvents', () => {
     expect(query.get('startDateTime')).toBe('2026-11-10T04:00:00.000Z')
     expect(query.get('endDateTime')).toBe('2026-11-17T04:00:00.000Z')
     expect(query.get('$select')).not.toMatch(/body|attendees|attachments/)
-    expect(init.headers.Prefer).toBe('outlook.timezone="UTC"')
+    expect(query.get('$select')).toContain('sensitivity')
+    expect(init.headers.Prefer).toBe('outlook.timezone="Singapore Standard Time"')
+  })
+
+  it('fails closed on an invalid collection or flags a malformed event as incomplete', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => json({})))
+    await expect(listEvents({ getToken, start, end })).rejects.toMatchObject({ kind: 'unavailable' })
+    vi.stubGlobal('fetch', vi.fn(async () => json({ value: [event('ok'), { id: 'invalid' }, { isCancelled: true }] })))
+    expect(await listEvents({ getToken, start, end })).toMatchObject({ truncated: true, events: [{ id: 'ok' }] })
   })
 
   it('follows @odata.nextLink and stops at the page limit', async () => {

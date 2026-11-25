@@ -61,22 +61,22 @@ SyncAI uses passwordless, single-tenant or multi-tenant authentication via Micro
 
 ## Microsoft Graph & Outlook Calendar (read-only)
 
-Active members and managers see **My Outlook Calendar** inside **My Plan**: their own Outlook events for the next 7 days, read live from Microsoft Graph in the browser. Admins get a **Microsoft Graph connection** test at the bottom of **Settings** (profile only). Pending and disabled accounts get neither.
+Active members and managers see their own Outlook events alongside SyncAI duties in **My Plan → My Calendar**. Outlook data is read live from Microsoft Graph for the displayed Day, Week, or Month range. **Team Calendar** shows authorised SyncAI duties. Admins get a profile-only **Microsoft Graph connection** test in **Settings**. Pending and disabled accounts get neither.
 
 | Delegated scope | Requested when | Used for |
 | :--- | :--- | :--- |
 | `User.Read` | Sign-in (already the case) | `GET /v1.0/me` connection status and profile, profile photo |
-| `Calendars.Read` | The person clicks **Connect calendar** | `GET /v1.0/me/calendarView` (read-only) |
+| `Calendars.Read` | The person clicks **Connect Outlook** | `GET /v1.0/me/calendarView` (read-only) |
 | `Tasks.Read` | The person clicks **Connect Microsoft To Do** | `GET /v1.0/me/todo/lists`, `GET /v1.0/me/todo/lists/{id}/tasks` (read-only) |
 
 - **Incremental consent:** sign-in is unchanged. `getGraphToken()` in `src/auth/msal.js` tries `acquireTokenSilent()` and only sends the person to Microsoft's consent screen from a button click. No other Graph scope registered on the app is requested, and nothing asks for `.default` or any write scope.
 - **Two kinds of token:** `getApiToken()` (scope `api://<client-id>/access_as_user`) is the only token sent to the Express API. `getGraphToken()` tokens go only to `https://graph.microsoft.com` (`src/lib/graph.js`). They are never interchangeable, stored by SyncAI, or logged.
 - **No extra configuration:** the existing `VITE_ENTRA_*` variables are enough. The app registration must list `Calendars.Read` under *API permissions → Microsoft Graph → Delegated*. Tenant-wide admin consent is not needed unless your tenant blocks user consent.
-- **What SyncAI reads:** subject, start, end, all-day flag, show-as (busy, tentative, away, free) and location. `Calendars.Read` would also allow body, attendees and attachments, but SyncAI never requests those fields. It cannot create, change or delete events.
-- **Timezones:** events are requested in UTC and displayed in the browser's timezone. All-day events keep their calendar date.
+- **What SyncAI reads:** event identity, subject, start, end, all-day and cancellation flags, status, location and sensitivity. Restricted events are shown as **Busy** with their subject and location removed.
+- **Timezones:** the request window uses Singapore calendar boundaries expressed as UTC instants. Outlook timestamps are requested in Singapore time. All-day events keep their calendar dates, and recurring occurrences come from `calendarView`.
 - **Account compatibility:** needs a work or school account with an Exchange Online mailbox. Guest accounts, and personal Microsoft accounts without an Outlook.com mailbox, get a clear "no mailbox" message. A tenant that disables user consent shows the permission message until an administrator approves the scope.
 - **Access control limit:** the calendar only renders after the Express API reports the account as `active`, but Graph calls go from the browser straight to Microsoft with the person's own delegated token, so the SyncAI backend does not sit in that path. A signed-in person can always read their own calendar from Microsoft directly; SyncAI never shows anyone else's.
-- **Not the planner:** this is real calendar data shown next to the My Plan placeholder. SyncAI does not yet schedule around it, write to Outlook, or save events in PostgreSQL. Scheduling remains simulated in `/prototype` only.
+- **Availability:** disconnected, failed, and partial Outlook reads are labelled as unknown availability. Outlook entries are read-only browser data. SyncAI does not store them or validate duty bookings against them.
 
 ### Microsoft To Do (read-only)
 
@@ -96,13 +96,13 @@ The error box shows what Microsoft answered: HTTP status, Graph error code, its 
 
 - **Why `Calendars.Read` and not `Calendars.ReadBasic`:** Microsoft documents `ReadBasic` for `calendarView`, but in testing a personal Outlook account got `403 ErrorAccessDenied` with it, while `Calendars.Read` returned 200 in Graph Explorer. `Calendars.Read` is still read-only.
 - If a 403 persists, repeat the call in [Graph Explorer](https://developer.microsoft.com/graph/graph-explorer) with the same account and only `Calendars.Read` consented, and compare the error code.
-- One refused request is sent once per page load. Only **Connect calendar** or **Refresh** sends another.
+- **Refresh Outlook** retries the displayed range. Changing the date or view requests the new range.
 
 ### Manual test
 
 1. Start the server and client (see below) and sign in.
-2. **Member / Manager (active):** open **My Plan** → **Connect calendar** → accept Microsoft's prompt (it should list only reading your calendar). You return to My Plan with the badge *Live from Microsoft Graph* and your events; **Refresh** reloads them. Managers: **Team** still works and shows no calendars.
-3. **Cancel path:** click **Connect calendar** and cancel at Microsoft. You return unconnected, with nothing shown.
+2. **Member / Manager (active):** open **My Plan** → **Connect Outlook** → accept Microsoft's read-only calendar prompt. Verify Outlook events appear within the calendar, switch Day, Week, and Month views, and use **Refresh Outlook**. Switch to **Team Calendar** and verify that only authorised SyncAI duties are shown.
+3. **Cancel path:** click **Connect Outlook** and cancel at Microsoft. Verify the Outlook status explains that availability is unknown and the SyncAI calendar still works.
 4. **Admin:** **Settings** → **Test connection** shows your Microsoft name and email. No My Plan or calendar appears.
 5. **Pending / disabled:** sign in with such an account: there is no My Plan section.
 6. To repeat the consent step, remove SyncAI at <https://myapps.microsoft.com> (work) or <https://account.live.com/consent/Manage> (personal), then sign in again.
@@ -154,7 +154,7 @@ Accessed via `/app` by Property Officers (`member`) and Estate Managers (`manage
 - **Overview:** Displays current date and time, personalized greeting, account status (`active`, `pending`, or `disabled`), setup checklist, and current team/manager assignment.
 - **Case Action Centre:** Active members and managers only. See [Case Action Centre](#case-action-centre-category-c) below.
 - **My Team (`src/components/MyTeam.jsx`):** Visible to active managers. Displays team members across managed zones with active statuses and last-active indicators.
-- **My Tasks & My Plan (Placeholders):** Informative placeholders marked *Coming soon*. Transparently explains what the upcoming task board and smart calendar will do once the planning engine is migrated to the backend API. Does not present fake or unpersisted tasks.
+- **My Tasks & My Plan:** My Tasks includes the read-only Microsoft To Do panel. My Plan combines personal Outlook events and SyncAI duties in a calendar, with authorised team views and an Unscheduled Tasks backlog.
 - **Ask SyncAI:** a full-height chat with a slim title bar and *New chat*. Suggested help-guide questions get fixed answers from [`src/lib/helpGuide.js`](src/lib/helpGuide.js); typed questions and role-specific suggestions (managers, members, admins and pending users each get their own) go to the SyncAI API, which asks Groq's `openai/gpt-oss-120b` and streams the answer as it is written. AI answers are formatted (lists, bold) by [`src/lib/markdown.jsx`](src/lib/markdown.jsx) without any raw HTML, labelled *AI-generated*, and have Copy, 👍/👎 (logged anonymously, no text kept) and *Go to* buttons for sections they mention. Failed or cut-off answers offer *Try again*. Without `GROQ_API_KEY` on the server, typed questions fall back to the help guide.
 - **How SyncAI Decides:** Explains the four priority factors (Safety, Mandatory Deadlines, Service Impact & Long-term Consequences, Feasibility).
 - **Settings:** Personal accessibility and appearance preferences.

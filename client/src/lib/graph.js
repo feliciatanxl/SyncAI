@@ -108,6 +108,7 @@ async function graphPages(url, options, maxPages) {
   const items = []
   for (let page = 0; url && page < maxPages; page++) {
     const data = await graphRequest(url, options)
+    if (options.requireCollection && !Array.isArray(data?.value)) throw new GraphError('unavailable')
     items.push(...(data?.value ?? []))
     url = data?.['@odata.nextLink']
   }
@@ -119,41 +120,51 @@ export const getProfile = (getToken, signal) =>
 
 // Only what the list shows. Calendars.Read would also allow body, attendees and attachments, but SyncAI
 // has no use for them, so they are never requested.
-const EVENT_FIELDS = 'id,subject,start,end,isAllDay,showAs,isCancelled,location'
+const EVENT_FIELDS = 'id,subject,start,end,isAllDay,showAs,isCancelled,location,sensitivity'
 const SHOW_AS = new Set(['free', 'tentative', 'busy', 'oof', 'workingElsewhere'])
+const SINGAPORE_OUTLOOK_ZONE = 'Singapore Standard Time'
+const EXPLICIT_OFFSET = /(Z|[+-]\d\d:\d\d)$/
 
-// Graph sends wall-clock times without an offset; we ask for UTC (Prefer header below), so they parse as UTC.
-function toDate(stamp) {
-  if (!stamp?.dateTime) return null
-  const text = /(Z|[+-]\d\d:\d\d)$/.test(stamp.dateTime) ? stamp.dateTime : `${stamp.dateTime.slice(0, 23)}Z`
-  const date = new Date(text)
+function parseDateTime(dateTime, defaultOffset = 'Z') {
+  if (typeof dateTime !== 'string') return null
+  const date = new Date(EXPLICIT_OFFSET.test(dateTime) ? dateTime : `${dateTime.slice(0, 23)}${defaultOffset}`)
   return Number.isNaN(date.getTime()) ? null : date
+}
+
+function eventDate(stamp, allDay) {
+  if (typeof stamp?.dateTime !== 'string') return null
+  const { dateTime, timeZone } = stamp
+  // All-day boundaries are dates, with an exclusive end. Keep the date returned by Outlook.
+  const isSingapore = timeZone === SINGAPORE_OUTLOOK_ZONE || timeZone === 'Asia/Singapore'
+  if (allDay) return parseDateTime(`${dateTime.slice(0, 10)}T00:00:00Z`)
+  if (!EXPLICIT_OFFSET.test(dateTime) && timeZone && timeZone !== 'UTC' && !isSingapore) return null
+  return parseDateTime(dateTime, isSingapore ? '+08:00' : 'Z')
 }
 
 // One Graph event as the UI needs it, or null if it is cancelled or has no usable times.
 export function toEvent(raw) {
-  const start = toDate(raw.start)
-  const end = toDate(raw.end)
-  if (!start || !end || raw.isCancelled) return null
+  if (!raw?.id || raw.isCancelled) return null
+  const allDay = Boolean(raw.isAllDay)
+  const start = eventDate(raw.start, allDay)
+  const end = eventDate(raw.end, allDay)
+  if (!start || !end || end < start || (allDay && +end === +start)) return null
+  const restricted = raw.sensitivity !== 'normal'
   return {
     id: raw.id,
-    subject: raw.subject?.trim() || null,
+    subject: restricted ? null : raw.subject?.trim() || null,
     start,
     end,
-    allDay: Boolean(raw.isAllDay),
+    allDay,
+    restricted,
     minutes: Math.max(0, Math.round((end - start) / 60_000)),
-    showAs: SHOW_AS.has(raw.showAs) ? raw.showAs : null,
-    location: raw.location?.displayName?.trim() || null,
+    showAs: restricted ? 'busy' : SHOW_AS.has(raw.showAs) ? raw.showAs : null,
+    location: restricted ? null : raw.location?.displayName?.trim() || null,
   }
 }
 
-export function calendarWindow(now, days = 7) {
-  return { start: now, end: new Date(now.getTime() + days * 86_400_000) }
-}
-
 // The signed-in person's own events between two instants, soonest first, following Graph's paging.
-// shortcut: stops after maxPages x 50 events and reports `truncated`, raise maxPages if a week ever needs more.
-export async function listEvents({ getToken, start, end, signal, maxPages = 4 }) {
+// Reports a partial range if pagination reaches its limit or an event cannot be read.
+export async function listEvents({ getToken, start, end, signal, maxPages = 12 }) {
   const query = new URLSearchParams({
     startDateTime: start.toISOString(),
     endDateTime: end.toISOString(),
@@ -161,17 +172,12 @@ export async function listEvents({ getToken, start, end, signal, maxPages = 4 })
     $orderby: 'start/dateTime',
     $top: '50',
   })
-  const { items, truncated } = await graphPages(`/me/calendarView?${query}`, { getToken, signal, headers: { Prefer: 'outlook.timezone="UTC"' } }, maxPages)
-  return { events: items.map(toEvent).filter(Boolean), truncated }
-}
-
-// Date and time range in the viewer's own timezone (or `timeZone`, for tests). All-day events are calendar
-// dates, not instants, so they are read in UTC to stop them sliding to the day before or after.
-export function formatWhen(event, locale, timeZone) {
-  const date = { weekday: 'short', day: 'numeric', month: 'short', timeZone: event.allDay ? 'UTC' : timeZone }
-  if (event.allDay) return { date: event.start.toLocaleDateString(locale, date), time: null }
-  const time = (d) => d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit', timeZone })
-  return { date: event.start.toLocaleDateString(locale, date), time: `${time(event.start)} – ${time(event.end)}` }
+  const { items, truncated } = await graphPages(`/me/calendarView?${query}`, {
+    getToken, signal, headers: { Prefer: `outlook.timezone="${SINGAPORE_OUTLOOK_ZONE}"` }, requireCollection: true,
+  }, maxPages)
+  const active = items.filter((item) => !item?.isCancelled)
+  const events = active.map(toEvent).filter(Boolean)
+  return { events, truncated: truncated || events.length !== active.length }
 }
 
 export function formatDuration(minutes, locale) {
@@ -204,7 +210,7 @@ export function toTask(raw) {
     status,
     done: status === 'completed',
     importance: IMPORTANCE.has(raw.importance) ? raw.importance : 'normal',
-    due: toDate(raw.dueDateTime),
+    due: parseDateTime(raw.dueDateTime?.dateTime),
   }
 }
 

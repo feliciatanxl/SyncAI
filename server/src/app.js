@@ -1,12 +1,12 @@
 import express from 'express'
 import { rateLimit } from 'express-rate-limit'
 import { ACTIONS } from './activity.js'
+import { UUID, calendarRange, dutyChange, dutyInput } from './duties.js'
 import { adminContext, cleanCaseContext } from './guardrails.js'
 import { KINDS, cleanTeamName } from './teams.js'
 
 const ROLES = ['admin', 'manager', 'member']
 const STATUSES = ['pending', 'active', 'disabled']
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const fail = (res, status, message) => res.status(status).json({ message })
 
@@ -26,6 +26,9 @@ const ALLOWED_METHODS = {
   '/teams/:id/members': ['POST'],
   '/teams/:id/members/:userId': ['DELETE'],
   '/my-teams': ['GET'],
+  '/planning/calendar': ['GET'],
+  '/planning/assignments': ['POST'],
+  '/planning/assignments/:id': ['PATCH'],
   '/activity': ['GET'],
   '/assistant': ['POST'],
   '/assistant/feedback': ['POST'],
@@ -34,7 +37,7 @@ const ALLOWED_METHODS = {
 // `requestsPerWindow` is per IP address over 15 minutes; every API call checks a token and may write to the database.
 // `trustProxy` is how many proxies sit in front (Railway: 1), so the rate limit sees each person's real IP.
 // `assistant` answers Ask SyncAI questions (see assistant.js); without one the route answers 503.
-export function createApp({ verifyToken, users, requestsPerWindow = 300, trustProxy = 0, assistant = null, assistantPerWindow = 30 }) {
+export function createApp({ verifyToken, users, duties, requestsPerWindow = 300, trustProxy = 0, assistant = null, assistantPerWindow = 30 }) {
   const app = express()
   app.disable('x-powered-by')
   app.set('trust proxy', trustProxy)
@@ -187,6 +190,19 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300, trustPr
   })
 
   api.get('/my-teams', authenticate, allow('manager'), async (req, res) => res.json(await users.teamsManagedBy(req.user.id)))
+
+  api.get('/planning/calendar', authenticate, allow('member', 'manager'), async (req, res) => {
+    res.json(await duties.list(req.user, calendarRange(req.query)))
+  })
+
+  api.post('/planning/assignments', authenticate, allow('manager'), async (req, res) => {
+    res.status(201).json(await duties.create(req.user, dutyInput(req.body)))
+  })
+
+  api.patch('/planning/assignments/:id', authenticate, allow('manager'), async (req, res) => {
+    if (!UUID.test(req.params.id)) return fail(res, 404, 'Duty assignment not found.')
+    res.json(await duties.update(req.user, req.params.id, dutyChange(req.body)))
+  })
 
   // The audit trail, newest first. Admins only; read-only by design (there is no route to edit or delete it).
   api.get('/activity', authenticate, allow('admin'), async (req, res) => {

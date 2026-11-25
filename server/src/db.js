@@ -1,5 +1,6 @@
 import pg from 'pg'
 import { eventsForChange } from './activity.js'
+import { DUTY_SCHEMA } from './dutySchema.js'
 import { RuleError, checkPlacement, staleKinds } from './teams.js'
 
 const SCHEMA = `
@@ -48,6 +49,8 @@ CREATE TABLE IF NOT EXISTS team_memberships (
   PRIMARY KEY (team_id, user_id)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS one_team_per_member ON team_memberships (user_id) WHERE kind = 'member';
+
+${DUTY_SCHEMA}
 `
 
 const COLUMNS = 'id, email, display_name AS "displayName", role, status, created_at AS "createdAt", last_active_at AS "lastActiveAt"'
