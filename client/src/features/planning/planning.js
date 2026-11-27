@@ -1,5 +1,6 @@
 export const PLANNING_ZONE = 'Asia/Singapore'
 export const DEFAULT_PLANNING_VIEW = 'timeGridWeek'
+export const WORKING_WEEK_VIEW = 'timeGridWorkingWeek'
 
 const localParts = new Intl.DateTimeFormat('sv-SE', {
   timeZone: PLANNING_ZONE, year: 'numeric', month: '2-digit', day: '2-digit',

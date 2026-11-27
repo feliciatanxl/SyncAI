@@ -3,6 +3,17 @@
   container: planning / inline-size;
 }
 
+.planning-page > .page-hero {
+  padding-block: 18px;
+  margin-block-end: 14px;
+}
+
+.planning-assignment-hint {
+  margin: 0 0 .65rem;
+  color: var(--colorNeutralForeground2);
+  font-size: .8125rem;
+}
+
 .planning-toolbar,
 .planning-date,
 .planning-controls,
@@ -198,7 +209,7 @@
   --fc-monarch-popover-foreground: var(--colorNeutralForeground1);
   --fc-monarch-strong-border: var(--colorNeutralStroke1);
   --fc-monarch-highlight: var(--colorBrandBackground2);
-  --fc-monarch-now: var(--colorBrandForeground1);
+  --fc-monarch-now: var(--colorPaletteRedForeground1);
   --fc-monarch-outline: var(--colorBrandStroke1);
   --fc-monarch-ring-color: var(--colorStrokeFocus2);
 }
@@ -251,7 +262,12 @@
 }
 
 .planning-lane-weekend {
-  background: color-mix(in srgb, var(--colorNeutralBackground3) 28%, transparent);
+  background: color-mix(in srgb, var(--colorNeutralBackground3) 55%, transparent);
+}
+
+.planning-day[data-weekend="true"] {
+  background: var(--colorNeutralBackground2);
+  border-radius: var(--borderRadiusMedium);
 }
 
 .planning-calendar-grid .planning-slot-time {
@@ -501,13 +517,13 @@
     padding-inline: .25rem;
   }
 
-  .planning-calendar-grid:is([data-view="timeGridWeek"], [data-view="dayGridMonth"]) .planning-event {
+  .planning-calendar-grid:not([data-view="timeGridDay"]) .planning-event {
     font-size: .6875rem;
     padding-inline: .125rem;
   }
 
-  .planning-calendar-grid:is([data-view="timeGridWeek"], [data-view="dayGridMonth"]) .planning-event > span,
-  .planning-calendar-grid:is([data-view="timeGridWeek"], [data-view="dayGridMonth"]) .planning-event svg {
+  .planning-calendar-grid:not([data-view="timeGridDay"]) .planning-event > span,
+  .planning-calendar-grid:not([data-view="timeGridDay"]) .planning-event svg {
     display: none;
   }
 

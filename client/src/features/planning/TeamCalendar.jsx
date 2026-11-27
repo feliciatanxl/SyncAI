@@ -7,7 +7,7 @@ import monarchPlugin from '@fullcalendar/react/themes/monarch'
 import '@fullcalendar/react/skeleton.css'
 import '@fullcalendar/react/themes/monarch/theme.css'
 import {
-  Button, MessageBar, MessageBarBody, Spinner, Tooltip,
+  Button, MessageBar, MessageBarBody, Spinner,
 } from '@fluentui/react-components'
 import { Add20Regular, CalendarLtr16Regular, CalendarLtr24Regular, LockClosed16Regular, TaskListLtr20Regular } from '@fluentui/react-icons'
 import GraphErrorBar from '../../components/GraphErrorBar.jsx'
@@ -21,12 +21,17 @@ import DutyDetails from './DutyDetails.jsx'
 import OutlookEventDetails from './OutlookEventDetails.jsx'
 import UnscheduledTasks from './UnscheduledTasks.jsx'
 import { calendarEventMap, EVENT_SOURCE } from './calendarEvents.js'
-import { DEFAULT_PLANNING_VIEW, PLANNING_ZONE, toPlanningInput, visibleDuties } from './planning.js'
+import { DEFAULT_PLANNING_VIEW, PLANNING_ZONE, toPlanningInput, visibleDuties, WORKING_WEEK_VIEW } from './planning.js'
 import useOutlookEvents from './useOutlookEvents.js'
 import './planning.css'
 
 const PLUGINS = [monarchPlugin, dayGridPlugin, timeGridPlugin, interactionPlugin]
-const VIEW_OPTIONS = { timeGridWeek: { displayEventEnd: false, navLinks: true, navLinkDayClick: 'timeGridDay' } }
+const VIEW_OPTIONS = {
+  [DEFAULT_PLANNING_VIEW]: { displayEventEnd: false, navLinks: true, navLinkDayClick: 'timeGridDay' },
+  [WORKING_WEEK_VIEW]: { type: DEFAULT_PLANNING_VIEW, weekends: false },
+}
+const isWeekView = (view) => view === DEFAULT_PLANNING_VIEW || view === WORKING_WEEK_VIEW
+const isWeekend = (day) => day === 0 || day === 6
 const EMPTY = { assignments: [], officers: [], categories: [], priorityFactors: [] }
 const SIDEBAR_QUERY = '(min-width: 70rem)'
 const hasSidebarSpace = () => window.matchMedia(SIDEBAR_QUERY).matches
@@ -86,7 +91,7 @@ export default function TeamCalendar({ me, getToken }) {
   const datesSet = useCallback(({ start, end, view: current }) => {
     const range = { start: start.toISOString(), end: end.toISOString() }
     const query = new URLSearchParams(range).toString()
-    const title = current.type === 'timeGridWeek' ? weekFormatter.formatRange(start, new Date(+end - 1)) : current.title
+    const title = isWeekView(current.type) ? weekFormatter.formatRange(start, new Date(+end - 1)) : current.title
     setPeriod((previous) => previous?.query === query && previous.title === title && previous.view === current.type
       ? previous : { ...range, query, title, view: current.type, revision: (previous?.revision ?? 0) + 1 })
   }, [weekFormatter])
@@ -134,7 +139,7 @@ export default function TeamCalendar({ me, getToken }) {
   const fullDay = allHours || needsAllHours
   const outlookStatus = {
     hidden: 'Outlook · My Calendar only', loading: 'Loading Outlook', disconnected: 'Outlook not connected',
-    error: 'Outlook unavailable', ready: outlook.truncated ? 'Outlook incomplete' : 'Outlook loaded',
+    error: 'Outlook availability unknown', ready: outlook.truncated ? 'Outlook incomplete' : 'Outlook loaded',
   }[outlook.phase]
   const showConnect = mine && outlook.phase === 'disconnected' && !outlook.error
   const outlookComplete = !mine || (outlook.phase === 'ready' && !outlook.truncated)
@@ -192,14 +197,14 @@ export default function TeamCalendar({ me, getToken }) {
           <span><span className="planning-task-prefix">Unscheduled </span>Tasks</span>
           <span className="planning-task-count" aria-hidden="true">{taskCount}</span>
         </Button>
-        {manager && (canAssign ? (
-          <Button appearance="secondary" icon={<Add20Regular />} onClick={() => openAssignment()}>Assign duty</Button>
-        ) : (
-          <Tooltip relationship="description" content={assignmentHint}>
-            <Button appearance="secondary" icon={<Add20Regular />} disabledFocusable>Assign duty</Button>
-          </Tooltip>
-        ))}
+        {manager && (
+          <Button appearance="secondary" icon={<Add20Regular />} onClick={() => openAssignment()}
+            disabledFocusable={!canAssign} aria-describedby={canAssign ? undefined : 'planning-assignment-hint'}>
+            Assign duty
+          </Button>
+        )}
       </PageHeader>
+      {manager && !canAssign && <p id="planning-assignment-hint" className="planning-assignment-hint">{assignmentHint}</p>}
 
       <CalendarToolbar calendar={calendar} period={period} mine={mine} onScope={selectScope}
         filters={{ officers, selections, onOfficers: setSelectedOfficers, categories, category, onCategory: setCategory }}
@@ -213,7 +218,7 @@ export default function TeamCalendar({ me, getToken }) {
           {outlook.truncated && <MessageBar intent="warning"><MessageBarBody>Outlook data is incomplete for this period. Availability is unknown.</MessageBarBody></MessageBar>}
           {showConnect && (
             <div className="planning-connect">
-              <span>Connect Outlook to see meetings in your calendar.</span>
+              <span>Connect Outlook to check availability and see meetings in your calendar.</span>
               <Button size="small" appearance="subtle" onClick={() => outlook.refresh(true)}>Connect Outlook</Button>
             </div>
           )}
@@ -242,7 +247,7 @@ export default function TeamCalendar({ me, getToken }) {
               height="auto"
               allDaySlot={events.some((event) => event.allDay)}
               slotDuration="00:30"
-              slotMinHeight={26}
+              slotMinHeight={22}
               slotHeaderInterval="01:00"
               slotHeaderFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
               slotHeaderInnerClass="planning-slot-time"
@@ -252,10 +257,11 @@ export default function TeamCalendar({ me, getToken }) {
               eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
               views={VIEW_OPTIONS}
               nowIndicator
+              nowIndicatorSnap={false}
               dayMaxEvents={3}
-              dayLaneClass={({ isToday, dow }) => isToday ? 'planning-lane-today' : dow === 0 || dow === 6 ? 'planning-lane-weekend' : ''}
-              dayHeaderContent={({ date, isToday, view: calendarView, text }) => calendarView.type === 'dayGridMonth' ? text : (
-                <span className="planning-day" data-today={isToday}>
+              dayLaneClass={({ isToday, dow }) => isToday ? 'planning-lane-today' : isWeekend(dow) ? 'planning-lane-weekend' : ''}
+              dayHeaderContent={({ date, dow, isToday, view: calendarView, text }) => calendarView.type === 'dayGridMonth' ? text : (
+                <span className="planning-day" data-today={isToday} data-weekend={isWeekend(dow)}>
                   <span>{weekdays.format(date)}</span><strong>{days.format(date)}</strong>
                 </span>
               )}
@@ -272,7 +278,7 @@ export default function TeamCalendar({ me, getToken }) {
                 const data = eventMap.get(event.id)?.data
                 const personal = event.extendedProps.source === EVENT_SOURCE.outlook
                 const Icon = personal ? CalendarLtr16Regular : LockClosed16Regular
-                const roomy = view === 'timeGridWeek' && !event.allDay && event.end - event.start >= 45 * 60_000
+                const roomy = isWeekView(view) && !event.allDay && event.end - event.start >= 45 * 60_000
                 return (
                   <span className="planning-event" data-source={event.extendedProps.source} data-roomy={roomy} title={event.title}>
                     <strong><Icon aria-hidden="true" /><span className="visually-hidden">{personal ? 'Outlook: ' : 'Protected duty: '}</span>{event.title}</strong>

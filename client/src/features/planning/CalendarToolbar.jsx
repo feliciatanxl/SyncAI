@@ -6,9 +6,12 @@ import {
   ArrowSync16Regular, CalendarLtr16Regular, ChevronLeft20Regular, ChevronRight20Regular,
   Clock16Regular, Filter16Regular, MoreHorizontal20Regular,
 } from '@fluentui/react-icons'
-import { DEFAULT_PLANNING_VIEW } from './planning.js'
+import { DEFAULT_PLANNING_VIEW, WORKING_WEEK_VIEW } from './planning.js'
 
-const VIEWS = [['timeGridDay', 'Day'], [DEFAULT_PLANNING_VIEW, 'Week'], ['dayGridMonth', 'Month']]
+const VIEWS = [
+  ['timeGridDay', 'Day'], [DEFAULT_PLANNING_VIEW, 'Week'],
+  [WORKING_WEEK_VIEW, 'Working week'], ['dayGridMonth', 'Month'],
+]
 
 export default function CalendarToolbar({ calendar, period, mine, onScope, filters, hours, outlook, outlookStatus }) {
   const view = period?.view ?? DEFAULT_PLANNING_VIEW
@@ -21,11 +24,11 @@ export default function CalendarToolbar({ calendar, period, mine, onScope, filte
     <section className="planning-toolbar" aria-label="Calendar controls">
       <div className="planning-date">
         <div className="planning-date-buttons" role="group" aria-label="Calendar dates">
-          <Button type="button" aria-label="Previous period" title="Previous period"
+          <Button size="small" type="button" aria-label="Previous period" title="Previous period"
             icon={<ChevronLeft20Regular />} onClick={() => calendar.current?.getApi().prev()} />
-          <Button type="button" aria-label="Next period" title="Next period"
+          <Button size="small" type="button" aria-label="Next period" title="Next period"
             icon={<ChevronRight20Regular />} onClick={() => calendar.current?.getApi().next()} />
-          <Button type="button" onClick={() => calendar.current?.getApi().today()}>Today</Button>
+          <Button size="small" type="button" onClick={() => calendar.current?.getApi().today()}>Today</Button>
         </div>
         <h2 id="planning-calendar-period" aria-live="polite">{period?.title ?? 'Calendar'}</h2>
       </div>
