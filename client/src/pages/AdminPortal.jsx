@@ -428,7 +428,7 @@ function PeopleSection({ me, users, busyId, actions, nameOf, now }) {
                     </Select>
                   </td>
                   <td data-label={t('people.status')}>
-                    <Badge appearance="tint" color={STATUS_COLOR[u.status]}>{t(`status.${u.status}`)}</Badge>
+                    <Badge className="status-pill" appearance="tint" color={STATUS_COLOR[u.status]}>{t(`status.${u.status}`)}</Badge>
                   </td>
                   <td data-label={t('people.team')} className="small">
                     {u.teams?.length
@@ -447,7 +447,7 @@ function PeopleSection({ me, users, busyId, actions, nameOf, now }) {
                   </td>
                   <td className="row-actions">
                     {self ? (
-                      <span className="muted small">{t('people.self')}</span>
+                      <span className="muted small" title={t('people.self')} aria-label={t('people.self')}>—</span>
                     ) : u.status === 'pending' ? (
                       <Button appearance="primary" size="small" icon={<Checkmark20Regular />} disabled={busy} onClick={() => actions.approve(u, u.role)} aria-label={t('aria.approve', { name })}>
                         {t('btn.approve')}
