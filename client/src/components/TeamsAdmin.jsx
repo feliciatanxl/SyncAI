@@ -25,6 +25,7 @@ export default function TeamsAdmin({ getToken, people, nameOf, notify, onPeopleC
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [query, setQuery] = useState('')
+  // Team cards start closed and only open when the admin clicks one.
   const [expandedIds, setExpandedIds] = useState(() => new Set())
 
 
@@ -42,7 +43,6 @@ export default function TeamsAdmin({ getToken, people, nameOf, notify, onPeopleC
 
   const load = useCallback((signal) => apiRequest('/teams', { getToken, signal }).then((list) => {
     setTeams(list)
-    if (list?.length === 1) setExpandedIds((prev) => (prev.size === 0 ? new Set([list[0].id]) : prev))
   }, (err) => err.name !== 'AbortError' && setError(err)), [getToken])
   useEffect(() => {
     const controller = new AbortController()
@@ -77,8 +77,7 @@ export default function TeamsAdmin({ getToken, people, nameOf, notify, onPeopleC
     const trimmed = name.trim()
     const ok = mode === 'create'
       ? await run(async () => {
-          const res = await apiRequest('/teams', { method: 'POST', body: { name: trimmed }, getToken })
-          if (res?.id) setExpandedIds((prev) => new Set([...prev, res.id]))
+          await apiRequest('/teams', { method: 'POST', body: { name: trimmed }, getToken })
         }, t('toast.teamCreated', { team: trimmed }))
       : mode === 'rename'
         ? await run(() => apiRequest(`/teams/${team.id}`, { method: 'PATCH', body: { name: trimmed }, getToken }), t('toast.teamRenamed', { team: trimmed }))
@@ -111,15 +110,6 @@ export default function TeamsAdmin({ getToken, people, nameOf, notify, onPeopleC
       else next.add(id)
       return next
     })
-  }
-
-  const allExpanded = shownTeams.length > 0 && shownTeams.every((t) => expandedIds.has(t.id))
-  const toggleAll = () => {
-    if (allExpanded) {
-      setExpandedIds(new Set())
-    } else {
-      setExpandedIds(new Set(shownTeams.map((t) => t.id)))
-    }
   }
 
   return (
@@ -182,13 +172,6 @@ export default function TeamsAdmin({ getToken, people, nameOf, notify, onPeopleC
                 onChange={(_e, d) => setQuery(d.value)}
                 aria-label={t('teams.search')}
               />
-              <Button
-                appearance="subtle"
-                icon={allExpanded ? <ChevronUp20Regular /> : <ChevronDown20Regular />}
-                onClick={toggleAll}
-              >
-                {allExpanded ? t('teams.collapseAll') : t('teams.expandAll')}
-              </Button>
             </div>
             <div className="teams-toolbar-right">
               <Button appearance="primary" icon={<Add20Regular />} onClick={() => openDialog('create')}>
