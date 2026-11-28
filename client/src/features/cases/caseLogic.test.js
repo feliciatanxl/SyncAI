@@ -27,7 +27,7 @@ describe('case access and visibility', () => {
     expect(memberSections(member)).toContain('cases')
     expect(memberSections(manager)).toContain('cases')
     for (const status of ['pending', 'disabled']) expect(memberSections({ status, role: 'member' })).not.toContain('cases')
-    expect(memberSections(member)).toEqual(['overview', 'assistant', 'cases', 'tasks', 'plan', 'decides', 'settings'])
+    expect(memberSections(member)).toEqual(['overview', 'assistant', 'cases', 'tasks', 'plan', 'settings'])
   })
 
   it('shows members their own cases and managers their teams’', () => {

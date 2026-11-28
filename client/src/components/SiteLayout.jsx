@@ -48,7 +48,6 @@ export default function SiteLayout({ children, nav = true }) {
         <div className="wrap footer-inner">
           <div>
             <BrandLink />
-            <p className="muted small">Your Work. Your Time. In Sync.</p>
           </div>
           <p className="muted small footer-note">© 2026 SyncAI. All rights reserved.</p>
         </div>

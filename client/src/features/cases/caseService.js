@@ -1,7 +1,8 @@
 // The one place the Case Action Centre reads and writes cases. Components only use the methods below, so the
 // demo adapter can be swapped for the Express/PostgreSQL one without touching them.
 //
-//   list()                                  -> { cases, officers, managedOfficerIds }
+//   list()                                  -> { cases, officers, managedOfficerIds, teams, categories }
+//   create(fields)                          -> case   (API only; teams/officers as listed in `teams`)
 //   addNote(caseId, text)                   -> case
 //   logCommunication(caseId, { channel, direction, party, summary }) -> case
 //   moveStage(caseId, target, reason)       -> case   (creates an approval request when one is needed)
@@ -13,24 +14,23 @@ import { apiRequest } from '../../lib/api.js'
 import { caseStage, checkTransition } from './caseLogic.js'
 import { demoCases, demoOfficers } from './demoCases.js'
 
-// 'demo' only when explicitly configured, or in the Vite dev server. A production build without
-// VITE_CASE_DATA=demo always uses the API, so fictional cases can't ship by accident.
+// Always the API, in development and production alike. Fictional cases only with an explicit VITE_CASE_DATA=demo.
 export function caseDataMode(env = import.meta.env ?? {}) {
-  if (env.VITE_CASE_DATA === 'demo' || env.VITE_CASE_DATA === 'api') return env.VITE_CASE_DATA
-  return env.DEV ? 'demo' : 'api'
+  return env.VITE_CASE_DATA === 'demo' ? 'demo' : 'api'
 }
 
 export function createCaseService({ mode, me, getToken }) {
   return mode === 'demo' ? createDemoCaseService(me) : createApiCaseService(getToken)
 }
 
-// Future endpoints (not implemented on the server yet; see client/README.md). Until they exist, list()
-// fails with 404 and the page says the case service isn't available.
+// The Express/PostgreSQL case API (server/src/cases.js). The server scopes every call to the signed-in person's
+// teams and re-checks stage rules; approvals and reassignment answer 501 until their backend workflow exists.
 export function createApiCaseService(getToken) {
   const call = (path, method, body) => apiRequest(path, { method, body, getToken })
   return {
     mode: 'api',
     list: () => call('/cases', 'GET'),
+    create: (fields) => call('/cases', 'POST', fields),
     addNote: (id, text) => call(`/cases/${encodeURIComponent(id)}/notes`, 'POST', { text }),
     logCommunication: (id, entry) => call(`/cases/${encodeURIComponent(id)}/communications`, 'POST', entry),
     moveStage: (id, target, reason) => call(`/cases/${encodeURIComponent(id)}/stage`, 'POST', { target, reason }),

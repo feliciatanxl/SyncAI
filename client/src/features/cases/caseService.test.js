@@ -5,12 +5,12 @@ const member = { id: 'u1', status: 'active', role: 'member', displayName: 'Offic
 const manager = { id: 'm1', status: 'active', role: 'manager', displayName: 'Manager' }
 
 describe('caseDataMode', () => {
-  it('never picks demo data in a production build unless configured', () => {
+  it('uses the API unless demo data is explicitly configured, in development too', () => {
     expect(caseDataMode({ DEV: false })).toBe('api')
-    expect(caseDataMode({ DEV: true })).toBe('demo')
+    expect(caseDataMode({ DEV: true })).toBe('api')
     expect(caseDataMode({ DEV: true, VITE_CASE_DATA: 'api' })).toBe('api')
     expect(caseDataMode({ DEV: false, VITE_CASE_DATA: 'demo' })).toBe('demo')
-    expect(caseDataMode({ DEV: false, VITE_CASE_DATA: 'nonsense' })).toBe('api')
+    expect(caseDataMode({ DEV: true, VITE_CASE_DATA: 'nonsense' })).toBe('api')
   })
 })
 

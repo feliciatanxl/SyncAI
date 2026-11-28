@@ -269,6 +269,7 @@ function AnswerTools({ m, isAdminAnswer, onRate, getToken }) {
 function useCaseInsights(me, getToken) {
   const [insights, setInsights] = useState(null)
   useEffect(() => {
+    setInsights(null)
     if (!canUseCaseCentre(me)) return
     let live = true
     createCaseService({ mode: caseDataMode(), me, getToken }).list().then(

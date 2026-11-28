@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, MessageBar, MessageBarBody, MessageBarTitle, SearchBox, Select, Spinner, Tab, TabList } from '@fluentui/react-components'
 import {
-  Board20Regular, BriefcaseSearch24Regular, CheckmarkCircle24Regular, Folder24Regular, PauseCircle24Regular, Alert24Regular, TextBulletListLtr20Regular,
+  Add20Regular, Board20Regular, BriefcaseSearch24Regular, CheckmarkCircle24Regular, Folder24Regular, PauseCircle24Regular, Alert24Regular, TextBulletListLtr20Regular,
 } from '@fluentui/react-icons'
 import PageHeader, { HeroStat } from '../../components/PageHeader.jsx'
 import { useLocale, useT } from '../../lib/i18n.js'
@@ -10,6 +10,8 @@ import { byPriority, canUseCaseCentre, caseStage, shiftCounts, checkTransition, 
 import { caseDataMode, createCaseService } from './caseService.js'
 import CaseDetails from './CaseDetails.jsx'
 import CaseStageDialog from './CaseStageDialog.jsx'
+import CreateCaseDialog from './CreateCaseDialog.jsx'
+import CaseCreatedDialog from './CaseCreatedDialog.jsx'
 import { CaseBoard, CaseTable } from './CaseViews.jsx'
 import FollowUpRadar from './FollowUpRadar.jsx'
 import NextUp from './NextUp.jsx'
@@ -38,12 +40,15 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
   const [tab, setTab] = useState('timeline')
   const [moveId, setMoveId] = useState(null)
   const [moveTarget, setMoveTarget] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [created, setCreated] = useState(null)
 
   const load = useCallback(() => {
     setError(null)
     return service.list().then(setData, (err) => { setData(null); setError(err) })
   }, [service])
-  useEffect(() => { load() }, [load])
+  // A new service means a new person or role: drop their predecessor's cases before loading.
+  useEffect(() => { setData(null); load() }, [load])
 
   if (!canUseCaseCentre(me)) return null
 
@@ -52,6 +57,7 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
   const actions = {
     addNote: act(service.addNote), logCommunication: act(service.logCommunication), decideRequest: act(service.decideRequest),
     requestReassignment: act(service.requestReassignment), moveStage: act(service.moveStage),
+    ...(service.create && { create: act(service.create) }),
   }
 
   const cases = data ? visibleCases(data.cases, me, data.managedOfficerIds) : []
@@ -74,8 +80,8 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
         {header}
         <MessageBar intent="error" layout="multiline" className="portal-error">
           <MessageBarBody>
-            <MessageBarTitle>{error.status === 404 ? t('cases.apiMissing') : t('cases.loadFailed')}</MessageBarTitle>
-            {error.status === 404 ? t('cases.apiMissingText') : error.message}
+            <MessageBarTitle>{error.status === 404 ? t('cases.apiMissing') : error.status === 403 ? t('cases.forbidden') : t('cases.loadFailed')}</MessageBarTitle>
+            {error.status === 404 ? t('cases.apiMissingText') : error.status === 403 ? t('cases.forbiddenText') : error.message}
           </MessageBarBody>
           <Button onClick={load}>{t('app.retry')}</Button>
         </MessageBar>
@@ -112,6 +118,9 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
     if (check.allowed && !check.needsReason && !check.needsApproval) actions.moveStage(id, target, '').catch(() => startMove(id, target))
     else startMove(id, target)
   }
+  // Offered only where the server says this person may create cases (teams they lead, or their own team).
+  const canCreate = Boolean(actions.create && data.teams?.length)
+  const createButton = canCreate && <Button className="case-create-btn" appearance="primary" icon={<Add20Regular />} onClick={() => setCreating(true)}>{t('cases.create.button')}</Button>
   const viewProps = { cases: shown, followUpCount, officerName, now, onOpen: openCase, onMove: startMove, onDrop: dropCase }
 
   return (
@@ -165,8 +174,11 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
             {STAGES.map((s) => <option key={s} value={s}>{t(`cases.stage.${s}`)}</option>)}
           </Select>
           {filtered && <Button appearance="subtle" onClick={() => setFilters({ q: '', estate: '', urgency: '', stage: '', card: '' })}>{t('cases.clear')}</Button>}
+          {createButton}
         </div>
-        {cases.length === 0 ? <p className="empty">{t('cases.empty')}</p>
+        {cases.length === 0 ? (
+          <p className="empty">{t('cases.empty')} {!canCreate && actions.create && t('cases.create.noTeams')}</p>
+        )
           : shown.length === 0 ? <p className="empty">{t('cases.noMatch')}</p>
             : view === 'list' ? <CaseTable {...viewProps} /> : <CaseBoard {...viewProps} />}
       </section>
@@ -174,6 +186,16 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
       <CaseDetails
         kase={opened} tab={tab} onTab={setTab} onClose={() => setOpenId(null)}
         me={me} now={now} officers={data.officers} officerName={officerName} actions={actions} onMove={startMove}
+      />
+      {canCreate && (
+        <CreateCaseDialog
+          open={creating} teams={data.teams} categories={data.categories ?? []} onCreate={actions.create}
+          onClose={(kase) => { setCreating(false); if (kase) setCreated(kase) }}
+        />
+      )}
+      <CaseCreatedDialog
+        kase={created} officerName={officerName}
+        onOpen={() => { openCase(created.id); setCreated(null) }} onClose={() => setCreated(null)}
       />
       <CaseStageDialog
         key={`${moveId}:${moveTarget}`} kase={moving} initialTarget={moveTarget} me={me} managedOfficerIds={data.managedOfficerIds}

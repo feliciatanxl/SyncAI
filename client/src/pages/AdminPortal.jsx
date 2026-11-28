@@ -5,14 +5,13 @@ import {
   Toast, ToastTitle, Toaster, useId, useToastController,
 } from '@fluentui/react-components'
 import {
-  ArrowClockwise20Regular, ArrowRight16Regular, ChatSparkle20Regular, BrainCircuit24Regular, Checkmark20Regular, CheckmarkCircle24Regular, Copy20Regular, Grid20Regular,
+  ArrowClockwise20Regular, ChatSparkle20Regular, BrainCircuit24Regular, Checkmark20Regular, CheckmarkCircle24Regular, Copy20Regular, Grid20Regular,
   Info20Regular, People20Regular, People24Regular, PeopleCheckmark24Regular, PersonClock24Regular, PersonProhibited20Regular,
-  History20Regular, PeopleTeam20Regular, Settings20Regular, ShieldCheckmark24Regular, Sparkle20Regular, ArrowCounterclockwise20Regular,
+  History20Regular, PeopleTeam20Regular, Settings20Regular, ShieldCheckmark24Regular, ArrowCounterclockwise20Regular,
 } from '@fluentui/react-icons'
 import ActivityLog from '../components/ActivityLog.jsx'
 import TeamsAdmin from '../components/TeamsAdmin.jsx'
 import AssistantChat from '../components/AssistantChat.jsx'
-import HowItDecides from '../components/HowItDecides.jsx'
 import PageHeader, { HeroStat } from '../components/PageHeader.jsx'
 import PortalShell from '../components/PortalShell.jsx'
 import SettingsPanel from '../components/SettingsPanel.jsx'
@@ -28,7 +27,6 @@ const SECTIONS = [
   { id: 'people', icon: <People20Regular /> },
   { id: 'teams', icon: <PeopleTeam20Regular /> },
   { id: 'activity', icon: <History20Regular /> },
-  { id: 'decides', icon: <Sparkle20Regular /> },
   { id: 'settings', icon: <Settings20Regular /> },
 ]
 const STATUS_COLOR = { pending: 'warning', active: 'success', disabled: 'subtle' }
@@ -37,7 +35,6 @@ const ROLE_KEYS = ['admin', 'manager', 'member']
 // Team places a role change would drop: managers lead teams, team members belong to one, admins to none.
 const KEEPS = { manager: 'manager', member: 'member' }
 const teamsLostBy = (user, newRole) => (user.teams ?? []).filter((team) => team.kind !== KEEPS[newRole])
-const FACTOR_NUMBERS = [1, 2, 3, 4]
 
 function updatedLabel(t, locale, updatedAt, now) {
   const minutes = Math.floor((now - updatedAt) / 60_000)
@@ -47,7 +44,10 @@ function updatedLabel(t, locale, updatedAt, now) {
 
 export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSignOut, onSwitchAccount }) {
   const t = useT()
-  const [section, setSection] = useState(() => returnSection('overview'))
+  const [section, setSection] = useState(() => {
+    const saved = returnSection('overview')
+    return SECTIONS.some((x) => x.id === saved) ? saved : 'overview'
+  })
   useEffect(clearReturnSection, [])
   const [users, setUsers] = useState(null)
   const [loadError, setLoadError] = useState(null)
@@ -166,10 +166,8 @@ export default function AdminPortal({ me, photo, chat, tenantId, getToken, onSig
         <AssistantChat me={me} name={nameOf(me)} photo={photo} chat={chat} goTo={setSection} available={SECTIONS.map((s) => s.id)} getToken={getToken} />
       ) : section === 'teams' ? (
         <TeamsAdmin getToken={getToken} people={users} nameOf={nameOf} notify={notify} onPeopleChanged={() => load(undefined, true)} />
-      ) : section === 'activity' ? (
-        <ActivityLog getToken={getToken} people={users} nameOf={nameOf} />
       ) : (
-        <HowItDecides />
+        <ActivityLog getToken={getToken} people={users} nameOf={nameOf} />
       )}
 
       <Dialog open={Boolean(confirm)} onOpenChange={(_e, data) => !data.open && setConfirm(null)}>
@@ -338,26 +336,6 @@ function Overview({ me, users, pending, busyId, actions, goTo, notify, nameOf, n
             <Button icon={<Copy20Regular />} onClick={copyInvite}>{t('invite.copy')}</Button>
           </div>
         </section>
-
-        <section className="panel panel-usp" aria-labelledby="usp-h">
-          <div className="usp-intro">
-            <p className="eyebrow">{t('usp.eyebrow')}</p>
-            <h2 id="usp-h">{t('usp.name')}</h2>
-            <p className="muted">{t('usp.lead')}</p>
-            <Button appearance="primary" icon={<ArrowRight16Regular />} iconPosition="after" onClick={() => goTo('decides')}>
-              {t('usp.cta')}
-            </Button>
-          </div>
-          <ol className="usp-factors" aria-label={t('usp.factors')}>
-            {FACTOR_NUMBERS.map((n) => (
-              <li key={n}>
-                <span className="usp-n" aria-hidden="true">{n}</span>
-                <strong>{t(`factor${n}.title`)}</strong>
-                <span>{t(`factor${n}.text`)}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
       </div>
     </>
   )
@@ -450,7 +428,7 @@ function PeopleSection({ me, users, busyId, actions, nameOf, now }) {
                     </Select>
                   </td>
                   <td data-label={t('people.status')}>
-                    <Badge appearance="tint" color={STATUS_COLOR[u.status]}>{t(`status.${u.status}`)}</Badge>
+                    <Badge className="status-pill" appearance="tint" color={STATUS_COLOR[u.status]}>{t(`status.${u.status}`)}</Badge>
                   </td>
                   <td data-label={t('people.team')} className="small">
                     {u.teams?.length
@@ -469,7 +447,7 @@ function PeopleSection({ me, users, busyId, actions, nameOf, now }) {
                   </td>
                   <td className="row-actions">
                     {self ? (
-                      <span className="muted small">{t('people.self')}</span>
+                      <span className="muted small" title={t('people.self')} aria-label={t('people.self')}>—</span>
                     ) : u.status === 'pending' ? (
                       <Button appearance="primary" size="small" icon={<Checkmark20Regular />} disabled={busy} onClick={() => actions.approve(u, u.role)} aria-label={t('aria.approve', { name })}>
                         {t('btn.approve')}

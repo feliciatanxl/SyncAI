@@ -1,6 +1,7 @@
 import pg from 'pg'
 import { eventsForChange } from './activity.js'
 import { RuleError, checkPlacement, staleKinds } from './teams.js'
+import { CASE_SCHEMA } from './cases.js'
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -72,11 +73,47 @@ export function createPool(connectionString) {
   return pool
 }
 
+// Versioned, additive migrations applied after the baseline SCHEMA above. Each runs once, in its own transaction,
+// and is recorded in schema_migrations; an advisory lock stops two server instances applying one twice.
+// Only ever append: never edit or remove an applied entry, and never DROP or TRUNCATE existing data.
+export const MIGRATIONS = [
+  { version: 1, name: 'case_action_centre_v1', sql: CASE_SCHEMA },
+]
+
+async function applyMigrations(pool) {
+  const client = await pool.connect()
+  try {
+    await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
+      version    INT PRIMARY KEY,
+      name       TEXT NOT NULL,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`)
+    await client.query('SELECT pg_advisory_lock(727001)')
+    const done = new Set((await client.query('SELECT version FROM schema_migrations')).rows.map((r) => r.version))
+    for (const m of MIGRATIONS.filter((x) => !done.has(x.version))) {
+      try {
+        await client.query('BEGIN')
+        await client.query(m.sql)
+        await client.query('INSERT INTO schema_migrations (version, name) VALUES ($1, $2)', [m.version, m.name])
+        await client.query('COMMIT')
+        console.log(`Applied migration ${m.version} ${m.name}`)
+      } catch (err) {
+        await client.query('ROLLBACK')
+        throw err
+      }
+    }
+  } finally {
+    await client.query('SELECT pg_advisory_unlock(727001)').catch(() => {})
+    client.release()
+  }
+}
+
 export async function migrate(pool, { maxRetries = 4, retryDelayMs = 1200 } = {}) {
   let attempt = 0
   while (true) {
     try {
       await pool.query(SCHEMA)
+      await applyMigrations(pool)
       return
     } catch (err) {
       attempt++
@@ -84,6 +121,37 @@ export async function migrate(pool, { maxRetries = 4, retryDelayMs = 1200 } = {}
       console.warn(`Database migration attempt ${attempt}/${maxRetries} failed (${err.code || err.message}). Retrying in ${retryDelayMs}ms...`)
       await new Promise((r) => setTimeout(r, retryDelayMs))
     }
+  }
+}
+
+// Tables (and later-added columns) the API needs. Checked read-only when the server won't migrate the database itself.
+const REQUIRED_TABLES = ['users', 'activity', 'teams', 'team_memberships', 'schema_migrations',
+  'cases', 'case_contacts', 'case_blockers', 'case_checkpoints', 'case_evidence', 'case_events', 'case_history']
+const REQUIRED_COLUMNS = [['users', 'last_active_at']]
+
+// Read-only start-up check for a database this server doesn't migrate: only SELECTs, no locks, no writes.
+// Throws a clear error when tables are missing or a versioned migration hasn't been applied yet.
+export async function verifySchema(pool) {
+  const tables = (await pool.query(
+    `SELECT t FROM unnest($1::text[]) AS t WHERE to_regclass('public.' || t) IS NULL`, [REQUIRED_TABLES],
+  )).rows.map((r) => r.t)
+  const columns = (await pool.query(
+    `SELECT r.t || '.' || r.c AS col FROM unnest($1::text[], $2::text[]) AS r(t, c)
+     WHERE NOT EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_schema = 'public' AND table_name = r.t AND column_name = r.c)`,
+    [REQUIRED_COLUMNS.map((x) => x[0]), REQUIRED_COLUMNS.map((x) => x[1])],
+  )).rows.map((r) => r.col)
+  const applied = !tables.includes('schema_migrations')
+    ? new Set((await pool.query('SELECT version FROM schema_migrations')).rows.map((r) => r.version))
+    : new Set()
+  const pending = MIGRATIONS.filter((m) => !applied.has(m.version)).map((m) => `${m.version} ${m.name}`)
+  const missing = [...tables, ...columns]
+  if (missing.length || pending.length) {
+    throw new Error(
+      'The database schema is missing or out of date, and this server does not migrate remote databases. ' +
+      `${missing.length ? `Missing: ${missing.join(', ')}. ` : ''}${pending.length ? `Pending migrations: ${pending.join(', ')}. ` : ''}` +
+      'Back up the database, then run scripts/migrate.js deliberately (see server/README.md).',
+    )
   }
 }
 
@@ -279,7 +347,12 @@ export function createUserStore(pool, { adminEmails = [] } = {}) {
         if (!team) throw new RuleError(404, 'team_not_found', 'Team not found.')
         const people = (await db.query('SELECT count(*)::int AS n FROM team_memberships WHERE team_id = $1', [id])).rows[0].n
         if (people) throw new RuleError(409, 'team_not_empty', 'Remove everyone from the team before deleting it.')
-        await db.query('DELETE FROM teams WHERE id = $1', [id])
+        await db
+          .query('DELETE FROM teams WHERE id = $1', [id])
+          .catch((err) => {
+            if (err.code === '23503') throw new RuleError(409, 'team_has_cases', 'This team still has cases, so it can’t be deleted.')
+            throw err
+          })
         await insertEvent(db, actorId, 'team_deleted', null, { team: team.name })
       })
     },

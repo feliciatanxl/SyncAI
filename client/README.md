@@ -183,16 +183,17 @@ Task visibility and operational intelligence for property officers and estate ma
 - **Case details:** timeline and progress notes, follow-ups with explanations, blockers, a closure checklist, evidence with verification status and missing-item indicators, history (before/after, actor, reason) with reassignment, communications (logged only; channels are labelled *simulated*), and a case brief. The brief is assembled by fixed templates from the case's own records and keeps facts, recommendations and missing information apart.
 
 ### Data: demo vs real
-The SyncAI server has **no case endpoints yet**.
-- `caseDataMode()` picks the adapter. `VITE_CASE_DATA=demo|api` wins; otherwise the Vite dev server uses `demo` and **production builds use `api`**.
+The SyncAI server implements the case endpoints below in `server/src/cases.js` (PostgreSQL, team-scoped, audited). Deciding requests and reassignment answer **501 Not available yet**; a member's closure request and reopening a closed case are refused the same way.
+- `caseDataMode()` picks the adapter: always `api` (dev server and production), unless `VITE_CASE_DATA=demo` is set explicitly.
 - **Demo adapter:** fictional cases, with two of them assigned to the signed-in person. Changes live in memory for one page visit and are never saved. The page does not label them as demo data, since the same UI will show PostgreSQL data once the API exists. The sample cases are bundled but unreachable in a production build unless `VITE_CASE_DATA=demo` is set.
-- **API adapter:** calls the endpoints below. Until they exist the page shows *Case service not available yet*. It **never falls back to demo cases**.
+- **API adapter:** calls the endpoints below. If the API fails the page shows the error; it **never falls back to demo cases**.
 
 Future endpoints (each must enforce the role rules on the server):
 
 | Method & path | Purpose |
 | --- | --- |
 | `GET /api/cases` | `{ cases, officers, managedOfficerIds }` for the caller's scope |
+| `GET /api/cases/:id` | One case in the caller's scope (404 otherwise) |
 | `POST /api/cases/:id/notes` | `{ text }` progress note |
 | `POST /api/cases/:id/communications` | `{ channel, direction, party, summary }` |
 | `POST /api/cases/:id/stage` | `{ target, reason }`; re-checks `checkTransition`, creates a closure request for members |

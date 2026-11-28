@@ -204,6 +204,9 @@ describe('memberSections', () => {
     expect(memberSections({ status: 'active', role: 'member' })).toContain('plan')
     expect(memberSections({ status: 'active', role: 'manager' })).toEqual(expect.arrayContaining(['plan', 'team']))
     expect(memberSections({ status: 'active', role: 'member' })).not.toContain('team')
+    expect(memberSections({ status: 'active', role: 'manager' })).not.toContain('decides')
+    expect(memberSections({ status: 'pending', role: 'member' })).not.toContain('decides')
+    expect(memberSections({ status: 'active', role: 'member' })).not.toContain('decides')
     for (const status of ['pending', 'disabled']) {
       for (const role of ['member', 'manager']) expect(memberSections({ status, role })).not.toContain('plan')
     }

@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react'
 import { Badge, Button } from '@fluentui/react-components'
 import {
   ArrowRight16Regular, BrainCircuit24Regular, BriefcaseSearch20Regular, ChatSparkle20Regular, CalendarLtr20Regular, CalendarLtr24Regular, Grid20Regular, PeopleTeam20Regular,
-  PersonClock24Regular, PersonProhibited24Regular, Settings20Regular, Sparkle20Regular,
+  PersonClock24Regular, PersonProhibited24Regular, Settings20Regular,
   TaskListLtr20Regular, TaskListLtr24Regular, CheckmarkCircle20Filled, Circle20Regular, Clock20Regular, DismissCircle20Regular,
 } from '@fluentui/react-icons'
 import AssistantChat from '../components/AssistantChat.jsx'
 import CaseActionCentre from '../features/cases/CaseActionCentre.jsx'
-import HowItDecides from '../components/HowItDecides.jsx'
 import MicrosoftToDo from '../components/MicrosoftToDo.jsx'
 import MyTeam from '../components/MyTeam.jsx'
 import OutlookCalendar from '../components/OutlookCalendar.jsx'
@@ -29,10 +28,8 @@ const ICONS = {
   tasks: <TaskListLtr20Regular />,
   plan: <CalendarLtr20Regular />,
   team: <PeopleTeam20Regular />,
-  decides: <Sparkle20Regular />,
   settings: <Settings20Regular />,
 }
-const FACTOR_NUMBERS = [1, 2, 3, 4]
 
 // Portal for team members and managers. Tasks, plans and team workload arrive with the planning engine,
 // so those pages explain what's coming instead of showing made-up data.
@@ -62,19 +59,17 @@ export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSi
       ) : current === 'cases' ? (
         <CaseActionCentre me={me} getToken={getToken} />
       ) : current === 'tasks' ? (
-        <ComingSoon icon={<TaskListLtr24Regular />} title={t('nav.tasks')} heading={t('member.tasks.heading')} text={t('member.tasks.text')} goTo={setSection}>
+        <ComingSoon icon={<TaskListLtr24Regular />} title={t('nav.tasks')} heading={t('member.tasks.heading')} text={t('member.tasks.text')}>
           <MicrosoftToDo me={me} />
         </ComingSoon>
       ) : current === 'plan' ? (
-        <ComingSoon icon={<CalendarLtr24Regular />} title={t('nav.plan')} heading={t('member.plan.heading')} text={t('member.plan.text')} goTo={setSection}>
+        <ComingSoon icon={<CalendarLtr24Regular />} title={t('nav.plan')} heading={t('member.plan.heading')} text={t('member.plan.text')}>
           <OutlookCalendar me={me} />
         </ComingSoon>
       ) : current === 'team' ? (
         <MyTeam getToken={getToken} />
       ) : current === 'assistant' ? (
         <AssistantChat me={me} name={name} photo={photo} chat={chat} goTo={setSection} available={ids} getToken={getToken} />
-      ) : current === 'decides' ? (
-        <HowItDecides />
       ) : (
         <SettingsPanel />
       )}
@@ -144,25 +139,6 @@ function Overview({ me, name, goTo }) {
 
           <SetupCard me={me} />
 
-          <section className="panel panel-usp" aria-labelledby="usp-h">
-            <div className="usp-intro">
-              <p className="eyebrow">{t('usp.eyebrow')}</p>
-              <h2 id="usp-h">{t('member.usp.title')}</h2>
-              <p className="muted">{t('usp.lead')}</p>
-              <Button appearance="primary" icon={<ArrowRight16Regular />} iconPosition="after" onClick={() => goTo('decides')}>
-                {t('usp.cta')}
-              </Button>
-            </div>
-            <ol className="usp-factors" aria-label={t('usp.factors')}>
-              {FACTOR_NUMBERS.map((n) => (
-                <li key={n}>
-                  <span className="usp-n" aria-hidden="true">{n}</span>
-                  <strong>{t(`factor${n}.title`)}</strong>
-                  <span>{t(`factor${n}.text`)}</span>
-                </li>
-              ))}
-            </ol>
-          </section>
         </div>
       ) : (
         <div className="member-grid">
@@ -233,7 +209,7 @@ function TeamLines({ me }) {
   )
 }
 
-function ComingSoon({ icon, title, heading, text, goTo, children }) {
+function ComingSoon({ icon, title, heading, text, children }) {
   const t = useT()
   return (
     <>
@@ -242,7 +218,6 @@ function ComingSoon({ icon, title, heading, text, goTo, children }) {
       <section className="panel coming-soon">
         <span className="coming-icon" aria-hidden="true">{icon}</span>
         <p className="muted">{text}</p>
-        <Button appearance="primary" icon={<ArrowRight16Regular />} iconPosition="after" onClick={() => goTo('decides')}>{t('usp.cta')}</Button>
       </section>
     </>
   )
@@ -254,6 +229,7 @@ function useCaseNotifications(me, getToken, section) {
   const t = useT()
   const [items, setItems] = useState([])
   useEffect(() => {
+    setItems([])
     if (!canUseCaseCentre(me)) return
     let live = true
     createCaseService({ mode: caseDataMode(), me, getToken }).list().then(
