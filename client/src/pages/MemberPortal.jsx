@@ -144,7 +144,7 @@ function Overview({ me, name, goTo }) {
 
           <SetupCard me={me} />
 
-          <section className="panel panel-usp" aria-labelledby="usp-h">
+          {me.role !== 'manager' && (<section className="panel panel-usp" aria-labelledby="usp-h">
             <div className="usp-intro">
               <p className="eyebrow">{t('usp.eyebrow')}</p>
               <h2 id="usp-h">{t('member.usp.title')}</h2>
@@ -162,7 +162,7 @@ function Overview({ me, name, goTo }) {
                 </li>
               ))}
             </ol>
-          </section>
+          </section>)}
         </div>
       ) : (
         <div className="member-grid">
