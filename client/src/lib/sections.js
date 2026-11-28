@@ -3,5 +3,5 @@
 // Admins use AdminPortal, which never lists the Case Action Centre.
 export function memberSections(me) {
   if (me.status !== 'active') return ['overview', 'assistant', 'settings']
-  return ['overview', 'assistant', 'cases', 'tasks', 'plan', ...(me.role === 'manager' ? ['team'] : ['decides']), 'settings']
+  return ['overview', 'assistant', 'cases', 'tasks', 'plan', ...(me.role === 'manager' ? ['team'] : []), 'settings']
 }
