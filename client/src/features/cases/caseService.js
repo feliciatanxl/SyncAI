@@ -24,8 +24,8 @@ export function createCaseService({ mode, me, getToken }) {
   return mode === 'demo' ? createDemoCaseService(me) : createApiCaseService(getToken)
 }
 
-// Future endpoints (not implemented on the server yet; see client/README.md). Until they exist, list()
-// fails with 404 and the page says the case service isn't available.
+// The Express/PostgreSQL case API (server/src/cases.js). The server scopes every call to the signed-in person's
+// teams and re-checks stage rules; approvals and reassignment answer 501 until their backend workflow exists.
 export function createApiCaseService(getToken) {
   const call = (path, method, body) => apiRequest(path, { method, body, getToken })
   return {

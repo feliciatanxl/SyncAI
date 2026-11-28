@@ -2,6 +2,7 @@ import { createApp } from './app.js'
 import { createTokenVerifier } from './auth.js'
 import { createAssistant } from './assistant.js'
 import { createPool, createUserStore, migrate } from './db.js'
+import { createCaseStore } from './cases.js'
 
 const env = process.env
 const list = (value) => (value || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
@@ -28,6 +29,7 @@ const users = createUserStore(pool, { adminEmails })
 const app = createApp({
   verifyToken: createTokenVerifier({ clientId: env.ENTRA_CLIENT_ID, allowedTenants }),
   users,
+  cases: createCaseStore(pool),
   trustProxy: Number(env.TRUST_PROXY) || 0,
   assistant: createAssistant({ apiKey: env.GROQ_API_KEY }),
 })

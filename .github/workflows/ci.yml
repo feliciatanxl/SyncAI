@@ -12,6 +12,15 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Throwaway Postgres for the case API tests (server/test/cases.test.js).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: syncai_test
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,4 +41,6 @@ jobs:
 
       - name: Run API tests
         working-directory: server
+        env:
+          TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/syncai_test
         run: npm ci && npm test

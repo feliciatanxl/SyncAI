@@ -1,6 +1,7 @@
 import pg from 'pg'
 import { eventsForChange } from './activity.js'
 import { RuleError, checkPlacement, staleKinds } from './teams.js'
+import { CASE_SCHEMA } from './cases.js'
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -72,11 +73,47 @@ export function createPool(connectionString) {
   return pool
 }
 
+// Versioned, additive migrations applied after the baseline SCHEMA above. Each runs once, in its own transaction,
+// and is recorded in schema_migrations; an advisory lock stops two server instances applying one twice.
+// Only ever append: never edit or remove an applied entry, and never DROP or TRUNCATE existing data.
+export const MIGRATIONS = [
+  { version: 1, name: 'case_action_centre_v1', sql: CASE_SCHEMA },
+]
+
+async function applyMigrations(pool) {
+  const client = await pool.connect()
+  try {
+    await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
+      version    INT PRIMARY KEY,
+      name       TEXT NOT NULL,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`)
+    await client.query('SELECT pg_advisory_lock(727001)')
+    const done = new Set((await client.query('SELECT version FROM schema_migrations')).rows.map((r) => r.version))
+    for (const m of MIGRATIONS.filter((x) => !done.has(x.version))) {
+      try {
+        await client.query('BEGIN')
+        await client.query(m.sql)
+        await client.query('INSERT INTO schema_migrations (version, name) VALUES ($1, $2)', [m.version, m.name])
+        await client.query('COMMIT')
+        console.log(`Applied migration ${m.version} ${m.name}`)
+      } catch (err) {
+        await client.query('ROLLBACK')
+        throw err
+      }
+    }
+  } finally {
+    await client.query('SELECT pg_advisory_unlock(727001)').catch(() => {})
+    client.release()
+  }
+}
+
 export async function migrate(pool, { maxRetries = 4, retryDelayMs = 1200 } = {}) {
   let attempt = 0
   while (true) {
     try {
       await pool.query(SCHEMA)
+      await applyMigrations(pool)
       return
     } catch (err) {
       attempt++
@@ -279,7 +316,12 @@ export function createUserStore(pool, { adminEmails = [] } = {}) {
         if (!team) throw new RuleError(404, 'team_not_found', 'Team not found.')
         const people = (await db.query('SELECT count(*)::int AS n FROM team_memberships WHERE team_id = $1', [id])).rows[0].n
         if (people) throw new RuleError(409, 'team_not_empty', 'Remove everyone from the team before deleting it.')
-        await db.query('DELETE FROM teams WHERE id = $1', [id])
+        await db
+          .query('DELETE FROM teams WHERE id = $1', [id])
+          .catch((err) => {
+            if (err.code === '23503') throw new RuleError(409, 'team_has_cases', 'This team still has cases, so it can’t be deleted.')
+            throw err
+          })
         await insertEvent(db, actorId, 'team_deleted', null, { team: team.name })
       })
     },

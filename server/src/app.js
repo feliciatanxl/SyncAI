@@ -29,12 +29,20 @@ const ALLOWED_METHODS = {
   '/activity': ['GET'],
   '/assistant': ['POST'],
   '/assistant/feedback': ['POST'],
+  '/cases': ['GET'],
+  '/cases/:id': ['GET'],
+  '/cases/:id/notes': ['POST'],
+  '/cases/:id/communications': ['POST'],
+  '/cases/:id/stage': ['POST'],
+  '/cases/:id/request/decision': ['POST'],
+  '/cases/:id/reassignment': ['POST'],
 }
 
 // `requestsPerWindow` is per IP address over 15 minutes; every API call checks a token and may write to the database.
 // `trustProxy` is how many proxies sit in front (Railway: 1), so the rate limit sees each person's real IP.
+// `cases` is the Case Action Centre store (see cases.js); without one the case routes answer 503.
 // `assistant` answers Ask SyncAI questions (see assistant.js); without one the route answers 503.
-export function createApp({ verifyToken, users, requestsPerWindow = 300, trustProxy = 0, assistant = null, assistantPerWindow = 30 }) {
+export function createApp({ verifyToken, users, cases = null, requestsPerWindow = 300, trustProxy = 0, assistant = null, assistantPerWindow = 30 }) {
   const app = express()
   app.disable('x-powered-by')
   app.set('trust proxy', trustProxy)
@@ -255,6 +263,27 @@ export function createApp({ verifyToken, users, requestsPerWindow = 300, trustPr
     await users.logActivity(null, req.body.helpful ? 'assistant_helpful' : 'assistant_not_helpful', null, {})
     res.status(204).end()
   })
+
+  // ---- Case Action Centre ----
+  // Active managers and team members only; admins manage access, not casework. The store scopes every query to
+  // the person's own team places, so ids in the URL can't reach another team's cases (they answer 404).
+  const caseAccess = [authenticate, allow('manager', 'member'), (req, res, next) => {
+    if (!cases) return fail(res, 503, 'The case service is not available.')
+    if (req.params.id !== undefined && !UUID.test(req.params.id)) return fail(res, 404, 'Case not found.')
+    next()
+  }]
+  api.get('/cases', ...caseAccess, async (req, res) => res.json(await cases.list(req.user)))
+  api.get('/cases/:id', ...caseAccess, async (req, res) => {
+    const kase = await cases.get(req.user, req.params.id)
+    return kase ? res.json(kase) : fail(res, 404, 'Case not found.')
+  })
+  api.post('/cases/:id/notes', ...caseAccess, async (req, res) => res.json(await cases.addNote(req.user, req.params.id, req.body)))
+  api.post('/cases/:id/communications', ...caseAccess, async (req, res) => res.json(await cases.logCommunication(req.user, req.params.id, req.body)))
+  api.post('/cases/:id/stage', ...caseAccess, async (req, res) => res.json(await cases.moveStage(req.user, req.params.id, req.body)))
+  // Approvals and reassignment have no backend workflow yet: refused plainly, never simulated.
+  const notYet = (what) => (_req, res) => res.status(501).json({ message: `${what} is not available yet.`, code: 'not_available' })
+  api.post('/cases/:id/request/decision', ...caseAccess, notYet('Deciding case requests'))
+  api.post('/cases/:id/reassignment', ...caseAccess, notYet('Reassigning cases'))
 
   // A known path with the wrong method is 405 with an Allow header, not 404. Registered after every route.
   for (const [path, methods] of Object.entries(ALLOWED_METHODS)) {
