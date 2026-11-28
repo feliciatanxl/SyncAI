@@ -48,7 +48,7 @@ async function render(node) {
 }
 const button = (label, scope = document) => [...scope.querySelectorAll('button')].find((b) => b.textContent.trim() === label)
 const control = (label) => {
-  const l = [...document.querySelectorAll('label')].find((x) => x.textContent.replace('*', '').trim() === label)
+  const l = [...document.querySelectorAll('label')].find((x) => x.textContent.replaceAll('*', '').trim() === label)
   return document.getElementById(l.htmlFor)
 }
 // Sets a value the way typing or choosing would, so React's onChange runs.
