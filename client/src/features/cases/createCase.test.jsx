@@ -89,7 +89,11 @@ describe('Create Case', () => {
     expect(api.sent[0]).toMatchObject({ title: 'Fictional lift fault', teamId: 'team-1', ownerId: 'o1', urgency: 'medium', followUpDue: null })
     expect(api.sent[0].deadline).toMatch(/^2030-01-15T/)
     expect(counts()[0]).toBe('1')
-    expect(el.textContent).toContain('Case CAS-2026-0001 created and saved.')
+    // The confirmation dialog shows the stored case.
+    const dialog = document.querySelector('.case-created-dialog')
+    expect(dialog.textContent).toContain(en['cases.create.doneTitle'])
+    expect(dialog.textContent).toContain('CAS-2026-0001')
+    expect(dialog.textContent).toContain('Officer One')
     expect(el.textContent).toContain('Fictional lift fault')
     expect(el.textContent).not.toContain(en['cases.next.clear'])
   })
@@ -101,7 +105,7 @@ describe('Create Case', () => {
     await fillForm()
     await act(async () => button(en['cases.create.save'], document.querySelector('[role=dialog]')).click())
     expect(document.body.textContent).toContain('You can’t create cases for that team.')
-    expect(el.textContent).not.toContain('created and saved')
+    expect(document.querySelector('.case-created-dialog')).toBeNull()
     expect(counts()[0]).toBe('0')
   })
 

@@ -427,3 +427,17 @@
 .case-create-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-top: 12px; }
 .case-create-grid .span-2 { grid-column: 1 / -1; }
 @media (max-width: 600px) { .case-create-grid { grid-template-columns: 1fr; } }
+
+/* Case created confirmation */
+.case-created-dialog { max-width: 480px; width: calc(100vw - 32px); }
+.case-created-title { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.case-created-icon { color: var(--colorPaletteGreenForeground1); font-size: 48px; }
+.case-created-lead { text-align: center; margin: 0 0 16px; }
+.case-created-card { border: 1px solid var(--colorNeutralStroke2); border-radius: 10px; background: var(--colorNeutralBackground2); padding: 14px 16px; }
+.case-created-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.case-created-number { font-family: var(--fontFamilyMonospace); font-size: 0.85rem; color: var(--colorNeutralForeground3); }
+.case-created-name { display: block; font-size: 1rem; margin-bottom: 10px; }
+.case-created-facts { display: grid; gap: 6px; margin: 0; }
+.case-created-facts div { display: flex; justify-content: space-between; gap: 12px; font-size: 0.875rem; }
+.case-created-facts dt { color: var(--colorNeutralForeground3); }
+.case-created-facts dd { margin: 0; text-align: right; font-weight: 600; }

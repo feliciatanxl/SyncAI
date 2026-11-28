@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Link, MessageBar, MessageBarBody, MessageBarTitle, SearchBox, Select, Spinner, Tab, TabList } from '@fluentui/react-components'
+import { Button, MessageBar, MessageBarBody, MessageBarTitle, SearchBox, Select, Spinner, Tab, TabList } from '@fluentui/react-components'
 import {
   Add20Regular, Board20Regular, BriefcaseSearch24Regular, CheckmarkCircle24Regular, Folder24Regular, PauseCircle24Regular, Alert24Regular, TextBulletListLtr20Regular,
 } from '@fluentui/react-icons'
@@ -11,6 +11,7 @@ import { caseDataMode, createCaseService } from './caseService.js'
 import CaseDetails from './CaseDetails.jsx'
 import CaseStageDialog from './CaseStageDialog.jsx'
 import CreateCaseDialog from './CreateCaseDialog.jsx'
+import CaseCreatedDialog from './CaseCreatedDialog.jsx'
 import { CaseBoard, CaseTable } from './CaseViews.jsx'
 import FollowUpRadar from './FollowUpRadar.jsx'
 import NextUp from './NextUp.jsx'
@@ -125,15 +126,6 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
   return (
     <>
       {header}
-      {created && (
-        <MessageBar intent="success" className="portal-error">
-          <MessageBarBody>
-            {t('cases.create.done', { number: created.number })}{' '}
-            <Link onClick={() => { openCase(created.id); setCreated(null) }}>{t('cases.create.open')}</Link>
-          </MessageBarBody>
-          <Button appearance="transparent" onClick={() => setCreated(null)}>{t('cases.create.dismiss')}</Button>
-        </MessageBar>
-      )}
       <div className="case-summary" role="group" aria-label={t('cases.summary')}>
         {CARDS.map((id) => (
           <button
@@ -201,6 +193,10 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
           onClose={(kase) => { setCreating(false); if (kase) setCreated(kase) }}
         />
       )}
+      <CaseCreatedDialog
+        kase={created} officerName={officerName}
+        onOpen={() => { openCase(created.id); setCreated(null) }} onClose={() => setCreated(null)}
+      />
       <CaseStageDialog
         key={`${moveId}:${moveTarget}`} kase={moving} initialTarget={moveTarget} me={me} managedOfficerIds={data.managedOfficerIds}
         onClose={() => setMoveId(null)} onSubmit={actions.moveStage}
