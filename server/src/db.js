@@ -124,6 +124,37 @@ export async function migrate(pool, { maxRetries = 4, retryDelayMs = 1200 } = {}
   }
 }
 
+// Tables (and later-added columns) the API needs. Checked read-only when the server won't migrate the database itself.
+const REQUIRED_TABLES = ['users', 'activity', 'teams', 'team_memberships', 'schema_migrations',
+  'cases', 'case_contacts', 'case_blockers', 'case_checkpoints', 'case_evidence', 'case_events', 'case_history']
+const REQUIRED_COLUMNS = [['users', 'last_active_at']]
+
+// Read-only start-up check for a database this server doesn't migrate: only SELECTs, no locks, no writes.
+// Throws a clear error when tables are missing or a versioned migration hasn't been applied yet.
+export async function verifySchema(pool) {
+  const tables = (await pool.query(
+    `SELECT t FROM unnest($1::text[]) AS t WHERE to_regclass('public.' || t) IS NULL`, [REQUIRED_TABLES],
+  )).rows.map((r) => r.t)
+  const columns = (await pool.query(
+    `SELECT r.t || '.' || r.c AS col FROM unnest($1::text[], $2::text[]) AS r(t, c)
+     WHERE NOT EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_schema = 'public' AND table_name = r.t AND column_name = r.c)`,
+    [REQUIRED_COLUMNS.map((x) => x[0]), REQUIRED_COLUMNS.map((x) => x[1])],
+  )).rows.map((r) => r.col)
+  const applied = !tables.includes('schema_migrations')
+    ? new Set((await pool.query('SELECT version FROM schema_migrations')).rows.map((r) => r.version))
+    : new Set()
+  const pending = MIGRATIONS.filter((m) => !applied.has(m.version)).map((m) => `${m.version} ${m.name}`)
+  const missing = [...tables, ...columns]
+  if (missing.length || pending.length) {
+    throw new Error(
+      'The database schema is missing or out of date, and this server does not migrate remote databases. ' +
+      `${missing.length ? `Missing: ${missing.join(', ')}. ` : ''}${pending.length ? `Pending migrations: ${pending.join(', ')}. ` : ''}` +
+      'Back up the database, then run scripts/migrate.js deliberately (see server/README.md).',
+    )
+  }
+}
+
 // The teams a person belongs to, as [{ id, name, kind }], for the admin's People list.
 const TEAMS_OF_USER = `COALESCE((
   SELECT json_agg(json_build_object('id', t.id, 'name', t.name, 'kind', m.kind) ORDER BY lower(t.name))

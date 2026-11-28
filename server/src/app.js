@@ -29,7 +29,7 @@ const ALLOWED_METHODS = {
   '/activity': ['GET'],
   '/assistant': ['POST'],
   '/assistant/feedback': ['POST'],
-  '/cases': ['GET'],
+  '/cases': ['GET', 'POST'],
   '/cases/:id': ['GET'],
   '/cases/:id/notes': ['POST'],
   '/cases/:id/communications': ['POST'],
@@ -273,6 +273,7 @@ export function createApp({ verifyToken, users, cases = null, requestsPerWindow 
     next()
   }]
   api.get('/cases', ...caseAccess, async (req, res) => res.json(await cases.list(req.user)))
+  api.post('/cases', ...caseAccess, async (req, res) => res.status(201).json(await cases.create(req.user, req.body)))
   api.get('/cases/:id', ...caseAccess, async (req, res) => {
     const kase = await cases.get(req.user, req.params.id)
     return kase ? res.json(kase) : fail(res, 404, 'Case not found.')

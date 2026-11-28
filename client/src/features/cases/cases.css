@@ -419,3 +419,10 @@
 @media (max-width: 760px) { .case-ws-nav { padding-left: 8px; } .case-ws-footer { padding-left: 16px; padding-right: 16px; } }
 /* Drop the subtle button's inner left padding so the Assigned icon lines up with the title. */
 .case-ws-owner > .fui-Button:first-child { padding-left: 0; min-width: 0; }
+
+/* Create case */
+.case-list-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.case-create-dialog { max-width: 720px; width: calc(100vw - 32px); }
+.case-create-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-top: 12px; }
+.case-create-grid .span-2 { grid-column: 1 / -1; }
+@media (max-width: 600px) { .case-create-grid { grid-template-columns: 1fr; } }

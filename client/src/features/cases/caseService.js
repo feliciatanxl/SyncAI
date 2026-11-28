@@ -1,7 +1,8 @@
 // The one place the Case Action Centre reads and writes cases. Components only use the methods below, so the
 // demo adapter can be swapped for the Express/PostgreSQL one without touching them.
 //
-//   list()                                  -> { cases, officers, managedOfficerIds }
+//   list()                                  -> { cases, officers, managedOfficerIds, teams, categories }
+//   create(fields)                          -> case   (API only; teams/officers as listed in `teams`)
 //   addNote(caseId, text)                   -> case
 //   logCommunication(caseId, { channel, direction, party, summary }) -> case
 //   moveStage(caseId, target, reason)       -> case   (creates an approval request when one is needed)
@@ -29,6 +30,7 @@ export function createApiCaseService(getToken) {
   return {
     mode: 'api',
     list: () => call('/cases', 'GET'),
+    create: (fields) => call('/cases', 'POST', fields),
     addNote: (id, text) => call(`/cases/${encodeURIComponent(id)}/notes`, 'POST', { text }),
     logCommunication: (id, entry) => call(`/cases/${encodeURIComponent(id)}/communications`, 'POST', entry),
     moveStage: (id, target, reason) => call(`/cases/${encodeURIComponent(id)}/stage`, 'POST', { target, reason }),

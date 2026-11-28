@@ -1,13 +1,16 @@
 // Adds FICTIONAL development cases to one existing team. Never runs on its own: you must name the team and pass --yes.
 //
-//   node --env-file=.env scripts/seed-cases.js --team "Zone A Team" --yes      add (skips cases already there)
-//   node --env-file=.env scripts/seed-cases.js --team "Zone A Team" --remove --yes   remove this script's cases
+//   DATABASE_URL=postgres://…@localhost/… node scripts/seed-cases.js --team "Zone A Team" --yes            add (skips existing)
+//   DATABASE_URL=postgres://…@localhost/… node scripts/seed-cases.js --team "Zone A Team" --remove --yes   remove them
+//
+// Local databases only: it refuses any remote DATABASE_URL (such as Railway's), with no override.
 //
 // It reads DATABASE_URL, so check which database that is first. It never creates or changes users, teams, roles or
 // memberships, and never runs migrations (start the server once so the case tables exist). Cases are owned by the
 // team's members in turn, or by its manager if it has no members. Every case is marked fictional = true and numbered
 // DEV-CAS-…, and --remove deletes only those.
 import pg from 'pg'
+import { databaseHost } from '../src/dbTarget.js'
 
 const args = process.argv.slice(2)
 const teamName = args[args.indexOf('--team') + 1]
@@ -17,6 +20,12 @@ if (!args.includes('--team') || !teamName || teamName.startsWith('--') || !args.
 }
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set.')
+  process.exit(1)
+}
+// Fictional data never goes into a remote (shared/production) database. There is deliberately no override.
+const { host, local } = databaseHost(process.env.DATABASE_URL)
+if (!local) {
+  console.error(`Refusing to seed fictional cases into the remote database ${host}. Seeding is for local databases only.`)
   process.exit(1)
 }
 

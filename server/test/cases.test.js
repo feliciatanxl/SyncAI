@@ -6,10 +6,14 @@ import assert from 'node:assert/strict'
 import { after, before, beforeEach, describe, test } from 'node:test'
 import { createApp } from '../src/app.js'
 import { createCaseStore } from '../src/cases.js'
-import { createPool, createUserStore, migrate } from '../src/db.js'
+import { createPool, createUserStore, migrate, verifySchema } from '../src/db.js'
+import { databaseHost } from '../src/dbTarget.js'
 
 const url = process.env.TEST_DATABASE_URL
-const skip = !url ? 'TEST_DATABASE_URL not set' : !/test/i.test(new URL(url).pathname) ? 'TEST_DATABASE_URL database name must contain "test"' : false
+// Only ever a local throwaway database: never the shared Railway one.
+const skip = !url ? 'TEST_DATABASE_URL not set'
+  : !databaseHost(url).local ? 'TEST_DATABASE_URL must be a local database'
+    : !/test/i.test(new URL(url).pathname) ? 'TEST_DATABASE_URL database name must contain "test"' : false
 
 describe('Case API (PostgreSQL)', { skip }, () => {
   let pool, server, base
@@ -82,6 +86,18 @@ describe('Case API (PostgreSQL)', { skip }, () => {
     await migrate(pool)
     assert.deepEqual(await q('SELECT version, name FROM schema_migrations'), [{ version: 1, name: 'case_action_centre_v1' }])
     assert.equal((await q('SELECT count(*)::int AS n FROM users'))[0].n, 9)
+  })
+
+  test('the read-only schema check passes when up to date and names what is missing otherwise, without writing', async () => {
+    await verifySchema(pool)
+    await pool.query('DELETE FROM schema_migrations')
+    await assert.rejects(verifySchema(pool), /Pending migrations: 1 case_action_centre_v1/)
+    await pool.query('ALTER TABLE case_events RENAME TO case_events_x')
+    await assert.rejects(verifySchema(pool), /Missing: case_events/)
+    await pool.query('ALTER TABLE case_events_x RENAME TO case_events')
+    assert.equal((await q('SELECT count(*)::int AS n FROM schema_migrations'))[0].n, 0)
+    await migrate(pool)
+    await verifySchema(pool)
   })
 
   test('only signed-in, active managers and members reach cases', async () => {
@@ -208,6 +224,86 @@ describe('Case API (PostgreSQL)', { skip }, () => {
     }
     assert.equal((await q('SELECT stage FROM cases WHERE id = $1', [ids.A1]))[0].stage, 'open')
     assert.equal((await q('SELECT count(*)::int AS n FROM case_events WHERE case_id = $1', [ids.A1]))[0].n, 0)
+  })
+
+  // ---- Create case ----
+  const draft = (over = {}) => ({
+    title: 'Fictional lift fault at Blk 999', category: 'Maintenance', urgency: 'high', description: 'Fictional: lift stops between floors.',
+    estate: 'Zone A', location: 'Lift B', teamId: ids.teamA, ownerId: ids.offA, deadline: new Date(Date.now() + 86_400_000).toISOString(), ...over,
+  })
+
+  test('list tells each person which teams and officers they may create cases for', async () => {
+    const mgr = (await call('mgrA', 'GET', '/cases')).body
+    assert.deepEqual(mgr.teams.map((t) => t.name), ['Team A'])
+    assert.deepEqual(mgr.teams[0].officers.map((o) => o.name), ['mgrA', 'offA', 'offA2'])
+    assert.ok(mgr.categories.includes('Maintenance'))
+    const member = (await call('offA', 'GET', '/cases')).body
+    assert.deepEqual(member.teams.map((t) => t.officers.map((o) => o.name)), [['offA']])
+    assert.deepEqual((await call('mgrNone', 'GET', '/cases')).body.teams, [])
+  })
+
+  test('a manager creates a case that persists, is numbered and audited, and stays in their team', async () => {
+    const before = (await call('mgrA', 'GET', '/cases')).body.cases.length
+    const followUpDue = new Date(Date.now() + 3 * 86_400_000).toISOString()
+    const res = await call('mgrA', 'POST', '/cases', draft({ followUpDue, teamId: ids.teamA, ownerId: ids.offA2 }))
+    assert.equal(res.status, 201)
+    assert.match(res.body.number, new RegExp(`^CAS-${new Date().getFullYear()}-0001$`))
+    assert.equal(res.body.stage, 'open')
+    assert.equal(res.body.ownerId, ids.offA2)
+    assert.equal(res.body.checkpoints[0].title, 'Follow-up')
+    assert.deepEqual(res.body.history.map((h) => [h.field, h.after, h.actor]), [['Stage', 'Open', 'mgrA']])
+    assert.equal(res.body.timeline[0].title, 'Case created')
+    const after = (await call('mgrA', 'GET', '/cases')).body.cases
+    assert.equal(after.length, before + 1)
+    assert.ok(after.some((c) => c.id === res.body.id))
+    const [row] = await q('SELECT team_id, fictional FROM cases WHERE id = $1', [res.body.id])
+    assert.equal(row.team_id, ids.teamA)
+    assert.equal(row.fictional, false)
+    assert.deepEqual(await q('SELECT actor_id, action FROM case_history WHERE case_id = $1', [res.body.id]), [{ actor_id: ids.mgrA, action: 'case_created' }])
+    // Other teams can't see it; the next case gets the next number.
+    assert.equal((await call('mgrB', 'GET', `/cases/${res.body.id}`)).status, 404)
+    assert.match((await call('mgrA', 'POST', '/cases', draft())).body.number, /-0002$/)
+  })
+
+  test('cases can only be created for authorised teams and eligible officers', async () => {
+    assert.equal((await call('mgrA', 'POST', '/cases', draft({ teamId: ids.teamB, ownerId: ids.offB }))).status, 403)
+    assert.equal((await call('mgrA', 'POST', '/cases', draft({ ownerId: ids.offB }))).status, 400)
+    assert.equal((await call('mgrA', 'POST', '/cases', draft({ ownerId: ids.mgrB }))).status, 400)
+    assert.equal((await call('mgrNone', 'POST', '/cases', draft())).status, 403)
+    for (const who of ['admin', 'pendingMgr', 'offMgr']) assert.equal((await call(who, 'POST', '/cases', draft())).status, 403, who)
+    assert.equal((await q('SELECT count(*)::int AS n FROM cases'))[0].n, 5)
+  })
+
+  test('a team member can only open cases in their own team, assigned to themselves', async () => {
+    assert.equal((await call('offA', 'POST', '/cases', draft({ ownerId: ids.offA }))).status, 201)
+    assert.equal((await call('offA', 'POST', '/cases', draft({ ownerId: ids.offA2 }))).status, 400)
+    assert.equal((await call('offA', 'POST', '/cases', draft({ teamId: ids.teamB, ownerId: ids.offA }))).status, 403)
+  })
+
+  test('invalid case fields are refused before anything is saved', async () => {
+    for (const over of [
+      { title: '' }, { title: 'x'.repeat(201) }, { category: 'Gossip' }, { urgency: 'urgent' }, { description: '  ' },
+      { estate: '' }, { location: undefined }, { deadline: 'tomorrow' }, { deadline: undefined }, { followUpDue: 'soon' },
+      { teamId: 'team-a' }, { ownerId: 42 },
+    ]) {
+      assert.equal((await call('mgrA', 'POST', '/cases', draft(over))).status, 400, JSON.stringify(over).slice(0, 40))
+    }
+    assert.equal((await q('SELECT count(*)::int AS n FROM cases'))[0].n, 5)
+  })
+
+  test('a failed audit write leaves no half-created case', async () => {
+    await pool.query(`CREATE FUNCTION fail_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'audit down'; END $$`)
+    await pool.query('CREATE TRIGGER fail_audit BEFORE INSERT ON case_history FOR EACH ROW EXECUTE FUNCTION fail_audit()')
+    const origError = console.error
+    console.error = () => {}
+    try {
+      assert.equal((await call('mgrA', 'POST', '/cases', draft({ followUpDue: new Date(Date.now() + 86_400_000).toISOString() }))).status, 500)
+    } finally {
+      console.error = origError
+      await pool.query('DROP TRIGGER fail_audit ON case_history; DROP FUNCTION fail_audit()')
+    }
+    assert.equal((await q('SELECT count(*)::int AS n FROM cases'))[0].n, 5)
+    assert.equal((await q(`SELECT count(*)::int AS n FROM case_checkpoints WHERE title = 'Follow-up'`))[0].n, 0)
   })
 
   test('a team with cases cannot be deleted', async () => {

@@ -1,8 +1,9 @@
 import { createApp } from './app.js'
 import { createTokenVerifier } from './auth.js'
 import { createAssistant } from './assistant.js'
-import { createPool, createUserStore, migrate } from './db.js'
+import { createPool, createUserStore, migrate, verifySchema } from './db.js'
 import { createCaseStore } from './cases.js'
+import { databaseHost } from './dbTarget.js'
 
 const env = process.env
 const list = (value) => (value || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
@@ -14,9 +15,30 @@ for (const name of ['DATABASE_URL', 'ENTRA_CLIENT_ID']) {
   }
 }
 
+let target
+try {
+  target = databaseHost(env.DATABASE_URL)
+} catch (err) {
+  console.error(err.message)
+  process.exit(1)
+}
+
 const retentionDays = Number(env.ACTIVITY_RETENTION_DAYS) || 365
 const pool = createPool(env.DATABASE_URL)
-await migrate(pool)
+// Only a local database is migrated automatically. A remote one (the shared Railway database) is checked read-only;
+// if its schema is missing or out of date the server stops, and scripts/migrate.js is run deliberately instead.
+if (target.local) {
+  await migrate(pool)
+  console.log(`Database: local (${target.host}), migrated`)
+} else {
+  try {
+    await verifySchema(pool)
+  } catch (err) {
+    console.error(err.message)
+    process.exit(1)
+  }
+  console.log(`Database: remote (${target.host}), schema verified read-only, not migrated`)
+}
 
 // Email claims aren't verified for accounts from other tenants, so anyone could put an admin's email on their own
 // account. ADMIN_EMAILS therefore only works when sign-in is limited to known tenants.
@@ -34,7 +56,8 @@ const app = createApp({
   assistant: createAssistant({ apiKey: env.GROQ_API_KEY }),
 })
 
-// PDPA: keep activity records only as long as needed. Runs at start-up and then daily.
+// PDPA: keep activity records only as long as needed. Automatic (start-up, then daily) only for a local database;
+// a remote one (the shared Railway database) is cleaned only by running scripts/purge-activity.js deliberately.
 async function purge() {
   try {
     const removed = await users.purgeActivity(retentionDays)
@@ -43,8 +66,12 @@ async function purge() {
     console.error('Activity retention job failed', err)
   }
 }
-await purge()
-setInterval(purge, 24 * 60 * 60 * 1000).unref()
+if (target.local) {
+  await purge()
+  setInterval(purge, 24 * 60 * 60 * 1000).unref()
+} else {
+  console.log(`Activity retention (${retentionDays} days) is not run automatically on a remote database: see scripts/purge-activity.js`)
+}
 
 if (!env.GROQ_API_KEY) console.warn('GROQ_API_KEY is not set: Ask SyncAI will answer from its built-in help guide only.')
 
