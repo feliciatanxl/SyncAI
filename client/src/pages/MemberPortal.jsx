@@ -62,11 +62,11 @@ export default function MemberPortal({ me, photo, chat, tenantId, getToken, onSi
       ) : current === 'cases' ? (
         <CaseActionCentre me={me} getToken={getToken} />
       ) : current === 'tasks' ? (
-        <ComingSoon icon={<TaskListLtr24Regular />} title={t('nav.tasks')} heading={t('member.tasks.heading')} text={t('member.tasks.text')} goTo={setSection}>
+        <ComingSoon icon={<TaskListLtr24Regular />} title={t('nav.tasks')} heading={t('member.tasks.heading')} text={t('member.tasks.text')} goTo={ids.includes('decides') ? setSection : null}>
           <MicrosoftToDo me={me} />
         </ComingSoon>
       ) : current === 'plan' ? (
-        <ComingSoon icon={<CalendarLtr24Regular />} title={t('nav.plan')} heading={t('member.plan.heading')} text={t('member.plan.text')} goTo={setSection}>
+        <ComingSoon icon={<CalendarLtr24Regular />} title={t('nav.plan')} heading={t('member.plan.heading')} text={t('member.plan.text')} goTo={ids.includes('decides') ? setSection : null}>
           <OutlookCalendar me={me} />
         </ComingSoon>
       ) : current === 'team' ? (
@@ -242,7 +242,7 @@ function ComingSoon({ icon, title, heading, text, goTo, children }) {
       <section className="panel coming-soon">
         <span className="coming-icon" aria-hidden="true">{icon}</span>
         <p className="muted">{text}</p>
-        <Button appearance="primary" icon={<ArrowRight16Regular />} iconPosition="after" onClick={() => goTo('decides')}>{t('usp.cta')}</Button>
+        {goTo && <Button appearance="primary" icon={<ArrowRight16Regular />} iconPosition="after" onClick={() => goTo('decides')}>{t('usp.cta')}</Button>}
       </section>
     </>
   )
