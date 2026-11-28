@@ -52,7 +52,7 @@
 .radar-why p { margin: 4px 0; }
 .radar-actions { display: flex; flex-direction: column; gap: 6px; flex: none; align-items: stretch; }
 
-.case-filters { display: grid; grid-template-columns: minmax(200px, 2fr) repeat(3, minmax(140px, 1fr)) auto; gap: 8px; margin: 8px 0; }
+.case-filters { display: grid; grid-template-columns: minmax(200px, 2fr) repeat(3, minmax(140px, 1fr)) auto auto; gap: 8px; margin: 8px 0; }
 .case-filters > * { min-width: 0; }
 
 .case-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
@@ -421,7 +421,8 @@
 .case-ws-owner > .fui-Button:first-child { padding-left: 0; min-width: 0; }
 
 /* Create case */
-.case-list-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* Create case sits at the end of the filter bar, the same height as the filters, whether or not Clear is shown. */
+.case-create-btn { grid-column: -2; white-space: nowrap; }
 .case-create-dialog { max-width: 720px; width: calc(100vw - 32px); }
 .case-create-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-top: 12px; }
 .case-create-grid .span-2 { grid-column: 1 / -1; }

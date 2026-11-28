@@ -119,7 +119,7 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
   }
   // Offered only where the server says this person may create cases (teams they lead, or their own team).
   const canCreate = Boolean(actions.create && data.teams?.length)
-  const createButton = canCreate && <Button appearance="primary" icon={<Add20Regular />} onClick={() => setCreating(true)}>{t('cases.create.button')}</Button>
+  const createButton = canCreate && <Button className="case-create-btn" appearance="primary" icon={<Add20Regular />} onClick={() => setCreating(true)}>{t('cases.create.button')}</Button>
   const viewProps = { cases: shown, followUpCount, officerName, now, onOpen: openCase, onMove: startMove, onDrop: dropCase }
 
   return (
@@ -162,13 +162,10 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
             <h2 id="cases-h">{t('cases.list.title')}</h2>
             <p className="muted small case-count" aria-live="polite">{t('cases.showing', { n: shown.length, total: cases.length })}</p>
           </div>
-          <div className="case-list-actions">
-          {createButton}
           <TabList selectedValue={view} onTabSelect={(_e, d) => setView(d.value)} appearance="subtle" className="case-view-switch" aria-label={t('cases.viewMode')}>
             <Tab value="list" icon={<TextBulletListLtr20Regular />}>{t('cases.viewList')}</Tab>
             <Tab value="board" icon={<Board20Regular />}>{t('cases.viewBoard')}</Tab>
           </TabList>
-          </div>
         </div>
         <div className="case-filters case-toolbar">
           <SearchBox value={filters.q} onChange={setFilter('q')} placeholder={t('cases.search')} aria-label={t('cases.search')} />
@@ -185,8 +182,11 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
             {STAGES.map((s) => <option key={s} value={s}>{t(`cases.stage.${s}`)}</option>)}
           </Select>
           {filtered && <Button appearance="subtle" onClick={() => setFilters({ q: '', estate: '', urgency: '', stage: '', card: '' })}>{t('cases.clear')}</Button>}
+          {createButton}
         </div>
-        {cases.length === 0 ? <p className="empty">{t('cases.empty')} {!canCreate && actions.create && t('cases.create.noTeams')}</p>
+        {cases.length === 0 ? (
+          <p className="empty">{t('cases.empty')} {!canCreate && actions.create && t('cases.create.noTeams')}</p>
+        )
           : shown.length === 0 ? <p className="empty">{t('cases.noMatch')}</p>
             : view === 'list' ? <CaseTable {...viewProps} /> : <CaseBoard {...viewProps} />}
       </section>
