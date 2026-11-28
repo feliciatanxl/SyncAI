@@ -184,7 +184,7 @@ Task visibility and operational intelligence for property officers and estate ma
 
 ### Data: demo vs real
 The SyncAI server implements the case endpoints below in `server/src/cases.js` (PostgreSQL, team-scoped, audited). Deciding requests and reassignment answer **501 Not available yet**; a member's closure request and reopening a closed case are refused the same way.
-- `caseDataMode()` picks the adapter. `VITE_CASE_DATA=demo|api` wins; otherwise the Vite dev server uses `demo` and **production builds use `api`**.
+- `caseDataMode()` picks the adapter: always `api` (dev server and production), unless `VITE_CASE_DATA=demo` is set explicitly.
 - **Demo adapter:** fictional cases, with two of them assigned to the signed-in person. Changes live in memory for one page visit and are never saved. The page does not label them as demo data, since the same UI will show PostgreSQL data once the API exists. The sample cases are bundled but unreachable in a production build unless `VITE_CASE_DATA=demo` is set.
 - **API adapter:** calls the endpoints below. If the API fails the page shows the error; it **never falls back to demo cases**.
 

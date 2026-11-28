@@ -43,7 +43,8 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
     setError(null)
     return service.list().then(setData, (err) => { setData(null); setError(err) })
   }, [service])
-  useEffect(() => { load() }, [load])
+  // A new service means a new person or role: drop their predecessor's cases before loading.
+  useEffect(() => { setData(null); load() }, [load])
 
   if (!canUseCaseCentre(me)) return null
 
@@ -74,8 +75,8 @@ export default function CaseActionCentre({ me, getToken, service: injected }) {
         {header}
         <MessageBar intent="error" layout="multiline" className="portal-error">
           <MessageBarBody>
-            <MessageBarTitle>{error.status === 404 ? t('cases.apiMissing') : t('cases.loadFailed')}</MessageBarTitle>
-            {error.status === 404 ? t('cases.apiMissingText') : error.message}
+            <MessageBarTitle>{error.status === 404 ? t('cases.apiMissing') : error.status === 403 ? t('cases.forbidden') : t('cases.loadFailed')}</MessageBarTitle>
+            {error.status === 404 ? t('cases.apiMissingText') : error.status === 403 ? t('cases.forbiddenText') : error.message}
           </MessageBarBody>
           <Button onClick={load}>{t('app.retry')}</Button>
         </MessageBar>

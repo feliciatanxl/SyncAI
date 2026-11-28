@@ -254,6 +254,7 @@ function useCaseNotifications(me, getToken, section) {
   const t = useT()
   const [items, setItems] = useState([])
   useEffect(() => {
+    setItems([])
     if (!canUseCaseCentre(me)) return
     let live = true
     createCaseService({ mode: caseDataMode(), me, getToken }).list().then(

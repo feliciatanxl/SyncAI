@@ -13,11 +13,9 @@ import { apiRequest } from '../../lib/api.js'
 import { caseStage, checkTransition } from './caseLogic.js'
 import { demoCases, demoOfficers } from './demoCases.js'
 
-// 'demo' only when explicitly configured, or in the Vite dev server. A production build without
-// VITE_CASE_DATA=demo always uses the API, so fictional cases can't ship by accident.
+// Always the API, in development and production alike. Fictional cases only with an explicit VITE_CASE_DATA=demo.
 export function caseDataMode(env = import.meta.env ?? {}) {
-  if (env.VITE_CASE_DATA === 'demo' || env.VITE_CASE_DATA === 'api') return env.VITE_CASE_DATA
-  return env.DEV ? 'demo' : 'api'
+  return env.VITE_CASE_DATA === 'demo' ? 'demo' : 'api'
 }
 
 export function createCaseService({ mode, me, getToken }) {

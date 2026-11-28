@@ -15,7 +15,7 @@ export default function PortalShell({ tag, sections, section, onSection, badges 
         <BrandLink />
         {tag && <span className="portal-tag">{tag}</span>}
         <div className="portal-account">
-          {notifications && <NotificationBell userId={userId} items={notifications} onOpen={onSection} />}
+          {notifications && <NotificationBell key={userId} userId={userId} items={notifications} onOpen={onSection} />}
           <AccountMenu {...account} />
         </div>
       </header>
