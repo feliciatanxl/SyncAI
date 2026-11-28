@@ -52,7 +52,10 @@ export default function Workspace() {
     } catch {
       // Sign out anyway.
     }
-    await instance.logoutRedirect({ account, onRedirectNavigate: () => false })
+    // clearCache removes this account's tokens locally without starting an MSAL interaction. logoutRedirect with a
+    // cancelled navigation left MSAL's "interaction in progress" flag set, so the next sign-in failed until a reload.
+    await instance.clearCache({ account })
+    instance.setActiveAccount(null)
     navigate('/', { replace: true })
   }
 
